@@ -44,7 +44,7 @@ checkpoint:
 
 ## Seed Idea
 
-chcialbym stworzyc aplikacje bazujaca na AI, ktora bedzie symulowac sesje psychoterapeutyczne do wyboru w najwiekszych i najbardziej popularnych nurtow psychoterapii, aplikacja powinna oferwoac wybor avatara ( ktory bedzie reprezentowac sepcjaliste z danego nurtu) z ktorym uzytkownik chce pracowac, do kazdej nowej sesji powininien byc przekazywany kontekst z poprzednich rozmow tak aby zachowac ciaglosc terapii
+Chciałbym stworzyć aplikację opartą na AI, która będzie symulować sesje psychoterapeutyczne, umożliwiając wybór spośród największych i najpopularniejszych nurtów psychoterapii. Aplikacja powinna oferować możliwość wyboru awatara reprezentującego specjalistę z danego nurtu, z którym użytkownik chce pracować. Do każdej nowej sesji powinien być przekazywany kontekst z poprzednich rozmów, aby zachować ciągłość terapii.
 
 ## Vision & Problem Statement
 
