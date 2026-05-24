@@ -10,10 +10,7 @@ SafeSpace is a greenfield Next.js 16 / React 19 web app for AI-assisted psychoth
 
 ## Commands
 
-- `npm run dev` starts the local Next.js dev server.
-- `npm run build` creates the production build and type-checks the app.
-- `npm run lint` runs ESLint with `eslint.config.mjs`.
-- `npm run start` serves a previously built production app.
+- Use scripts from `@package.json`: `dev`, `build`, `lint`, and `start`.
 
 ## Structure
 
@@ -25,7 +22,7 @@ SafeSpace is a greenfield Next.js 16 / React 19 web app for AI-assisted psychoth
 
 ## Style
 
-Use TypeScript with strict mode from `@tsconfig.json`; keep app imports compatible with the `@/*` alias to `src/*`. Follow the existing App Router file pattern in `@src/app/page.tsx` and Tailwind v4 styling through `@src/app/globals.css`. Keep user-facing product copy in Polish until the product docs choose a localization strategy.
+TypeScript settings live in `@tsconfig.json`; keep app imports compatible with the `@/*` alias to `src/*`. Follow the existing App Router file pattern in `@src/app/page.tsx` and Tailwind v4 styling through `@src/app/globals.css`. Keep user-facing product copy in Polish until the product docs choose a localization strategy.
 
 ## Testing
 
@@ -34,3 +31,11 @@ No test runner or CI workflow exists yet. For now, run `npm run lint` and `npm r
 ## Commits and PRs
 
 Recent history uses sentence-case imperative summaries such as `Add ...`, `Update ...`, and `Refine ...`; keep the first line concise and scoped. PRs should call out product-safety effects, changed commands, and any movement in `context/foundation/` because those files drive later agent work. Remote target is `git@github.com:braQweny/safespace.git`.
+
+<!-- BEGIN:nextjs-agent-rules -->
+ 
+# Next.js: ALWAYS read docs before coding
+ 
+Before any Next.js work, find and read the relevant doc in `node_modules/next/dist/docs/`. Your training data is outdated — the docs are the source of truth.
+ 
+<!-- END:nextjs-agent-rules -->
