@@ -1,9 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "10x-astro-starter",
+  "name": "safespace",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-05-08",
   "compatibility_flags": ["nodejs_compat"],
+  "secrets": {
+    "required": ["SUPABASE_URL", "SUPABASE_KEY"],
+  },
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist",

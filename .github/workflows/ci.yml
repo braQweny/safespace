@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   ci:
@@ -13,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npx astro sync
@@ -22,3 +25,39 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx astro sync
+      - run: npm run build
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      - name: Create production secrets file
+        run: |
+          {
+            printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
+            printf 'SUPABASE_KEY=%s\n' "$SUPABASE_KEY"
+          } > .env.production
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.95.0"
+          command: deploy --secrets-file .env.production
+      - name: Remove production secrets file
+        if: always()
+        run: rm -f .env.production
