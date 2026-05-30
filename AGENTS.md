@@ -38,3 +38,6 @@ SafeSpace is a greenfield Next.js web app for simulated psychotherapy sessions. 
 
 - Recent history uses imperative English summaries (`Add...`, `Refine...`, `Remove...`). Keep commits English and scoped to one change.
 - PRs should cite the product/context doc they alter and list the commands run.
+
+## General
+- communicate with the user in Polish, unless you are writing commit descriptions, then use English
