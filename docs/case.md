@@ -4,3 +4,10 @@
 4. aplikacja poczatkowo bedzie dostepna tylko w przegladarce ale pozniej planuje tez wersje mobilna
 5. w kazdej sesji widoczny jest czas jej trwania ( jeszcze sie zastanawiam ale mysle ze limit trwania sesji jest wskazany) 
 tak jestem w stanie to zrobic w 3 tygodnie po godzinach
+przygotuj plan pierwszego wdrożenie w oparciu o @infrastructure.md, zgodnie ze stackiem z @tech-stack.md
+Plan powinien zawierać:
+- liste rzeczy ktora musi byc wykonana reczenie przed wdrozeniem planu
+- kroki automatyczne, które będą wykonane przez agenta
+- listę kont i serwisów, które trzeba skonfigurować ręcznie (konto Cloudflare, ewentualnie zewnętrzna baza),
+- listę sekretów do skonfigurowania (zmienne środowiskowe, klucze API),
+- konkretne komendy wdrożeniowe w formie dokumentacji 
