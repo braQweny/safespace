@@ -15,10 +15,10 @@ hints:
     typed: true
     from_official_starter: true
     conventions: true
-    docs_current: false
+    docs_current: true
     can_judge_agent: true
   has_auth: true
-  has_payments: true
+  has_payments: false
   has_realtime: false
   has_ai: true
   has_background_jobs: false
@@ -26,4 +26,4 @@ hints:
 
 ## Why this stack
 
-SafeSpace is a solo-built, after-hours web MVP with a short 3-week timeline, sensitive auth, AI conversation flows, paid-account upgrade potential, and an AWS-oriented deployment preference. Next.js is the strongest fit because it is a mainstream TypeScript full-stack React framework with mature patterns for auth, API routes, streaming AI responses, payments, and self-hosted deployment. The hand-off records `self-host` so bootstrapper can stay compatible with an AWS path such as CloudFront/S3 for static assets, App Runner or ECS for the runtime, Aurora PostgreSQL for data, Cognito for identity, and KMS-managed secrets. Next.js passes the agent-friendly gates and has verified scaffolding support; the only self-check caveat is that project-specific AWS architecture documentation must be maintained explicitly.
+SafeSpace is a solo-built, sensitive web MVP with a 3-week after-hours timeline, account access, private session history, and AI-assisted chat. Next.js is the best fit because the repository is already scaffolded with Next.js 16, React 19, TypeScript, Tailwind, and npm, while the registry marks the Next.js starter as fully verified for bootstrapper support. DigitalOcean App Platform is the intended MVP hosting surface because the project already has an active DigitalOcean app; the hand-off records the closest supported deployment target as self-host so the downstream deploy plan can use a standard Next.js Node/Docker deployment path instead of adding Vercel-specific assumptions.

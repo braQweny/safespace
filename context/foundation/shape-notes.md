@@ -172,12 +172,6 @@ Granica prywatnosci: admin widzi statystyki i dane kont uzytkownikow, ale nie ma
 
 Accepted: Access Control present; Business Logic present; project artifact present; timeline-cost acknowledged with `mvp_weeks: 3`; Non-Goals present; preserved behavior not applicable for greenfield.
 
-## Forward: tech-stack
-
-User preference: cala aplikacja ma opierac sie na stacku AWS; autoryzacja i logowanie prawdopodobnie przez AWS Cognito. To jest notatka dla downstream stack selection, nie wymaganie PRD.
-
-User preference: backend API na AWS Lambda i AWS API Gateway. To jest notatka dla downstream stack selection, nie wymaganie PRD.
-
 ## Forward: technical-roadmap
 
 Planowana pozniejsza wersja mobilna nie nalezy do pierwszego MVP webowego.

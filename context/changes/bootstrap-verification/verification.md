@@ -1,5 +1,5 @@
 ---
-bootstrapped_at: 2026-05-24T17:10:15Z
+bootstrapped_at: 2026-05-30T15:26:53Z
 starter_id: next
 starter_name: Next.js
 project_name: safe-space
@@ -14,7 +14,6 @@ audit_command: npm audit --json
 ## Hand-off
 
 ```yaml
----
 starter_id: next
 package_manager: npm
 project_name: safe-space
@@ -31,41 +30,40 @@ hints:
     typed: true
     from_official_starter: true
     conventions: true
-    docs_current: false
+    docs_current: true
     can_judge_agent: true
   has_auth: true
-  has_payments: true
+  has_payments: false
   has_realtime: false
   has_ai: true
   has_background_jobs: false
----
 ```
 
-## Why this stack
-
-SafeSpace is a solo-built, after-hours web MVP with a short 3-week timeline, sensitive auth, AI conversation flows, paid-account upgrade potential, and an AWS-oriented deployment preference. Next.js is the strongest fit because it is a mainstream TypeScript full-stack React framework with mature patterns for auth, API routes, streaming AI responses, payments, and self-hosted deployment. The hand-off records `self-host` so bootstrapper can stay compatible with an AWS path such as CloudFront/S3 for static assets, App Runner or ECS for the runtime, Aurora PostgreSQL for data, Cognito for identity, and KMS-managed secrets. Next.js passes the agent-friendly gates and has verified scaffolding support; the only self-check caveat is that project-specific AWS architecture documentation must be maintained explicitly.
+SafeSpace is a solo-built, sensitive web MVP with a 3-week after-hours timeline, account access, private session history, and AI-assisted chat. Next.js is the best fit because the repository is already scaffolded with Next.js 16, React 19, TypeScript, Tailwind, and npm, while the registry marks the Next.js starter as fully verified for bootstrapper support. DigitalOcean App Platform is the intended MVP hosting surface because the project already has an active DigitalOcean app; the hand-off records the closest supported deployment target as self-host so the downstream deploy plan can use a standard Next.js Node/Docker deployment path instead of adding Vercel-specific assumptions.
 
 ## Pre-scaffold verification
 
 | Signal | Value | Severity | Notes |
 | --- | --- | --- | --- |
-| npm package | create-next-app v16.2.6 published 2026-05-23T23:58:49.919Z | fresh | resolved from cmd_template |
-| GitHub repo | not run | n/a | card docs_url is https://nextjs.org/docs, not a GitHub repository URL |
+| npm package | create-next-app v16.2.6 published 2026-05-30T00:25:19.502Z | fresh | resolved from cmd_template |
+| GitHub repo | not run | n/a | card.docs_url is https://nextjs.org/docs, not a GitHub repository URL |
 
 ## Scaffold log
 
-**Resolved invocation**: `npx create-next-app@latest bootstrap-scaffold --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm --yes --disable-git --no-agents-md`  
-**Strategy**: subdir-then-move  
-**Exit code**: 0  
-**Files moved**: 11  
-**Conflicts (.scaffold siblings)**: README.md.scaffold  
-**.gitignore handling**: append-merged  
-**bootstrap-scaffold cleanup**: deleted
+**Resolved invocation**: `npx create-next-app@latest safe-space --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm --yes --disable-git`
+**Strategy**: subdir-then-move
+**Exit code**: 0
+**Files moved**: 15
+**Conflicts (.scaffold siblings)**: none
+**.gitignore handling**: moved silently
+**Temporary directory cleanup**: deleted `safe-space/`
+
+**Registry invocation note**: the registry's hidden temporary directory convention failed against create-next-app 16.2.6 because npm project names cannot start with a period. The first attempted invocation was `npx create-next-app@latest .bootstrap-scaffold --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm`, which exited with status 1 before creating a project. The run continued with `safe-space/` as a non-hidden temporary scaffold directory so the package name stayed aligned with the hand-off.
 
 ## Post-scaffold audit
 
-**Tool**: npm audit --json  
-**Summary**: 0 CRITICAL, 0 HIGH, 2 MODERATE, 0 LOW  
+**Tool**: `npm audit --json`
+**Summary**: 0 CRITICAL, 0 HIGH, 2 MODERATE, 0 LOW
 **Direct vs transitive**: 0/0/1/0 direct of total 0/0/2/0
 
 #### CRITICAL findings
@@ -78,8 +76,8 @@ None.
 
 #### MODERATE findings
 
-- `next` 16.2.6: moderate direct finding via transitive `postcss`; npm reports affected range `9.3.4-canary.0 - 16.3.0-canary.5`. The suggested npm fix is a semver-major downgrade path, so it was not applied automatically.
-- `postcss` 8.4.31: GHSA-qx2v-qp2m-jg93, XSS via unescaped `</style>` in CSS stringify output; affected range `<8.5.10`. This is transitive through `next`.
+- `next` direct dependency, severity MODERATE. Affected range: `9.3.4-canary.0 - 16.3.0-canary.5`. Cause chain: `postcss`. npm reports a semver-major fix candidate of `next@9.3.3`, so no automatic fix was applied.
+- `postcss` transitive dependency under `next`, severity MODERATE. Advisory: GHSA-qx2v-qp2m-jg93, "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output". Affected range: `<8.5.10`. npm reports the fix through `next`, so no automatic fix was applied.
 
 #### LOW / INFO findings
 
@@ -92,24 +90,22 @@ None.
 | bootstrapper_confidence | verified |
 | quality_override | false |
 | path_taken | custom |
-| self_check_answers | typed=true, from_official_starter=true, conventions=true, docs_current=false, can_judge_agent=true |
+| self_check_answers | typed=true, from_official_starter=true, conventions=true, docs_current=true, can_judge_agent=true |
 | team_size | solo |
 | deployment_target | self-host |
 | ci_provider | github-actions |
 | ci_default_flow | auto-deploy-on-merge |
 | has_auth | true |
-| has_payments | true |
+| has_payments | false |
 | has_realtime | false |
 | has_ai | true |
 | has_background_jobs | false |
 
 ## Next steps
 
-Next: a future skill will set up agent context (CLAUDE.md, AGENTS.md). For now, the project is scaffolded and verified.
+Next: a future skill will set up agent context (CLAUDE.md, AGENTS.md). For now, your project is scaffolded and verified.
 
 Useful manual steps in the meantime:
-- Review `README.md.scaffold` and decide whether to merge anything into the existing `README.md`.
-- Address audit findings per the project's risk tolerance; the full breakdown is in this log.
-- Keep AWS-specific architecture documentation explicit, especially Cognito, KMS, Aurora PostgreSQL, and the App Runner/ECS deployment path.
-
-Additional local checks already run: `npm run lint` passed, and `npm run build` passed.
+- Review the `AGENTS.md` and `CLAUDE.md` files generated by current create-next-app defaults.
+- Address audit findings per your project's risk tolerance.
+- Continue from the fresh Next.js scaffold with `npm run dev`, `npm run lint`, and `npm run build`.
