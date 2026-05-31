@@ -508,20 +508,20 @@ No database migration is required. Supabase remains Auth-only for this change. G
 
 #### Automated
 
-- [ ] 5.1 `npx astro sync` completes successfully
-- [ ] 5.2 `npm run lint` completes successfully
-- [ ] 5.3 `npm run build` completes successfully
-- [ ] 5.4 `git diff --check` reports no whitespace errors
-- [ ] 5.5 `rg -n "(SUPABASE_SERVICE_ROLE_KEY|GOOGLE_[A-Z_]*SECRET|CLIENT_SECRET)\s*=" --glob '!context/changes/**' .` finds no committed runtime secret assignment
+- [x] 5.1 `npx astro sync` completes successfully
+- [x] 5.2 `npm run lint` completes successfully
+- [x] 5.3 `npm run build` completes successfully
+- [x] 5.4 `git diff --check` reports no whitespace errors
+- [x] 5.5 `rg -n "(SUPABASE_SERVICE_ROLE_KEY|GOOGLE_[A-Z_]*SECRET|CLIENT_SECRET)\s*=" --glob '!context/changes/**' .` finds no committed runtime secret assignment
 
 #### Manual
 
-- [ ] 5.6 Email/password sign-up is tested for auto-confirmed local mode and confirmation-required mode when available
-- [ ] 5.7 Email/password sign-in lands on `/dashboard`
-- [ ] 5.8 Google OAuth start route redirects to Supabase/provider when configured
-- [ ] 5.9 Google OAuth callback lands on `/dashboard` with a middleware-visible session
-- [ ] 5.10 Cancelled or malformed Google OAuth callback returns a safe error to `/auth/signin`
-- [ ] 5.11 Signed-in users visiting `/auth/signin` or `/auth/signup` are redirected to `/dashboard`
-- [ ] 5.12 Sign-out clears the session for email/password and Google-authenticated users
-- [ ] 5.13 Anonymous `/dashboard` access redirects to `/auth/signin`
-- [ ] 5.14 Production or preview verification confirms Supabase hosted redirect URLs include the deployed Worker callback before considering S-02 done
+- [x] 5.6 Email/password sign-up is tested for auto-confirmed local mode and confirmation-required mode when available
+- [x] 5.7 Email/password sign-in lands on `/dashboard`
+- [x] 5.8 Google OAuth start route redirects to Supabase/provider when configured
+- [x] 5.9 Google OAuth callback lands on `/dashboard` with a middleware-visible session
+- [x] 5.10 Cancelled or malformed Google OAuth callback returns a safe error to `/auth/signin`
+- [x] 5.11 Signed-in users visiting `/auth/signin` or `/auth/signup` are redirected to `/dashboard`
+- [x] 5.12 Sign-out clears the session for email/password and Google-authenticated users
+- [x] 5.13 Anonymous `/dashboard` access redirects to `/auth/signin`
+- [x] 5.14 Production or preview verification confirms Supabase hosted redirect URLs include the deployed Worker callback before considering S-02 done
