@@ -440,27 +440,27 @@ No database migration is required. Supabase remains Auth-only for this change. G
 
 #### Automated
 
-- [x] 1.1 `npx astro sync` completes successfully
-- [x] 1.2 `npm run lint` completes successfully
-- [x] 1.3 `npm run build` completes successfully
-- [x] 1.4 Source search shows no route still redirects successful email/password sign-in to `/`
+- [x] 1.1 `npx astro sync` completes successfully — 626756f
+- [x] 1.2 `npm run lint` completes successfully — 626756f
+- [x] 1.3 `npm run build` completes successfully — 626756f
+- [x] 1.4 Source search shows no route still redirects successful email/password sign-in to `/` — 626756f
 
 #### Manual
 
-- [x] 1.5 Invalid email/password submissions show safe Polish messages without raw Supabase error text in the visible UI
-- [x] 1.6 Successful email/password sign-in reaches `/dashboard`
-- [x] 1.7 Successful email/password sign-up reaches `/dashboard` when auto-confirmed or `/auth/confirm-email` when confirmation is required
-- [x] 1.8 Anonymous access to `/dashboard` still redirects to `/auth/signin`
-- [x] 1.9 A path such as `/dashboard-public` is not protected by the dashboard rule if introduced or checked manually
+- [x] 1.5 Invalid email/password submissions show safe Polish messages without raw Supabase error text in the visible UI — 626756f
+- [x] 1.6 Successful email/password sign-in reaches `/dashboard` — 626756f
+- [x] 1.7 Successful email/password sign-up reaches `/dashboard` when auto-confirmed or `/auth/confirm-email` when confirmation is required — 626756f
+- [x] 1.8 Anonymous access to `/dashboard` still redirects to `/auth/signin` — 626756f
+- [x] 1.9 A path such as `/dashboard-public` is not protected by the dashboard rule if introduced or checked manually — 626756f
 
 ### Phase 2: Google OAuth Callback Flow
 
 #### Automated
 
-- [ ] 2.1 `npx astro sync` completes successfully
-- [ ] 2.2 `npm run lint` completes successfully
-- [ ] 2.3 `npm run build` completes successfully
-- [ ] 2.4 Source search finds exactly one Google OAuth provider contract
+- [x] 2.1 `npx astro sync` completes successfully
+- [x] 2.2 `npm run lint` completes successfully
+- [x] 2.3 `npm run build` completes successfully
+- [x] 2.4 Source search finds exactly one Google OAuth provider contract
 
 #### Manual
 

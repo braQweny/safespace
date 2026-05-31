@@ -9,6 +9,8 @@ const AUTH_ERROR_MESSAGES = {
   rate_limited: "Za duzo prob w krotkim czasie. Odczekaj chwile i sprobuj ponownie.",
   signin_failed: "Nie udalo sie zalogowac. Sprobuj ponownie za chwile.",
   signup_failed: "Nie udalo sie utworzyc konta. Sprawdz dane albo sprobuj ponownie za chwile.",
+  oauth_start_failed: "Nie udalo sie rozpoczac logowania przez Google. Sprobuj ponownie za chwile.",
+  oauth_callback_failed: "Nie udalo sie dokonczyc logowania. Sprobuj ponownie.",
 } as const;
 
 export type AuthErrorCode = keyof typeof AUTH_ERROR_MESSAGES;
