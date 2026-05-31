@@ -2,7 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
 import { createClient } from "@/lib/supabase";
 
-const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH] as const;
+const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account"] as const;
 
 function isProtectedRoute(pathname: string) {
   return PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));

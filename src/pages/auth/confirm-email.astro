@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import { SOCIAL_AUTH_PROVIDERS } from "@/lib/auth-providers";
 
 const isSignedIn = Boolean(Astro.locals.user);
 
@@ -11,8 +12,9 @@ const content = isSignedIn
       linkText: "Przejdź do panelu",
     }
   : {
-      heading: "Sprawdź e-mail",
-      description: "Jeśli projekt wymaga potwierdzenia adresu, użyj linku z wiadomości, a potem zaloguj się ponownie.",
+      heading: "Sprawdź skrzynkę",
+      description:
+        "Jeśli rejestracja wymaga potwierdzenia, wyślemy link e-mail. Jeśli ten adres był wcześniej użyty z Google, wiadomość może nie przyjść - wtedy zaloguj się przez Google i ustaw hasło w koncie.",
       href: "/auth/signin",
       linkText: "Wróć do logowania",
     };
@@ -28,12 +30,38 @@ const content = isSignedIn
       </a>
       <h1 class="mt-3 text-2xl font-semibold text-[#10231f]">{content.heading}</h1>
       <p class="mt-3 text-sm leading-6 text-[#52645f]">{content.description}</p>
-      <a
-        href={content.href}
-        class="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-      >
-        {content.linkText}
-      </a>
+      {
+        isSignedIn ? (
+          <a
+            href={content.href}
+            class="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+          >
+            {content.linkText}
+          </a>
+        ) : (
+          <div class="mt-6 space-y-3">
+            {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
+              <form method="POST" action="/api/auth/google">
+                <button
+                  type="submit"
+                  class="flex h-11 w-full items-center justify-center gap-3 rounded-lg bg-[#1f6f65] px-4 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+                >
+                  <span class="flex size-6 items-center justify-center rounded-full border border-white/40 text-sm font-semibold">
+                    G
+                  </span>
+                  {authProvider.buttonLabel}
+                </button>
+              </form>
+            ))}
+            <a
+              href={content.href}
+              class="inline-flex h-11 w-full items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-5 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+            >
+              {content.linkText}
+            </a>
+          </div>
+        )
+      }
     </section>
   </main>
 </Layout>
