@@ -298,10 +298,10 @@ No database migration is required. Supabase remains Auth-only for this change, a
 
 #### Automated
 
-- [ ] 1.1 `npx astro sync` completes successfully
-- [ ] 1.2 `npm run lint` completes successfully
-- [ ] 1.3 `npm run build` completes successfully
-- [ ] 1.4 `public/safespace-landing.png` exists and is referenced by the landing page
+- [x] 1.1 `npx astro sync` completes successfully
+- [x] 1.2 `npm run lint` completes successfully
+- [x] 1.3 `npm run build` completes successfully
+- [x] 1.4 `public/safespace-landing.png` exists and is referenced by the landing page
 
 #### Manual
 
