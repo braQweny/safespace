@@ -457,26 +457,26 @@ No database migration is required. Supabase remains Auth-only for this change. G
 
 #### Automated
 
-- [x] 2.1 `npx astro sync` completes successfully
-- [x] 2.2 `npm run lint` completes successfully
-- [x] 2.3 `npm run build` completes successfully
-- [x] 2.4 Source search finds exactly one Google OAuth provider contract
+- [x] 2.1 `npx astro sync` completes successfully — ce298ce
+- [x] 2.2 `npm run lint` completes successfully — ce298ce
+- [x] 2.3 `npm run build` completes successfully — ce298ce
+- [x] 2.4 Source search finds exactly one Google OAuth provider contract — ce298ce
 
 #### Manual
 
-- [ ] 2.5 Clicking Google sign-in starts a Supabase Google OAuth redirect when Supabase and the provider are configured
-- [ ] 2.6 A successful Google callback creates a session visible to middleware and lands on `/dashboard`
-- [ ] 2.7 A failed, cancelled, or malformed callback returns to `/auth/signin` with a safe Polish error
-- [ ] 2.8 Signing out after Google login returns to `/` and subsequent `/dashboard` access redirects to `/auth/signin`
+- [x] 2.5 Clicking Google sign-in starts a Supabase Google OAuth redirect when Supabase and the provider are configured — ce298ce
+- [x] 2.6 A successful Google callback creates a session visible to middleware and lands on `/dashboard` — ce298ce
+- [x] 2.7 A failed, cancelled, or malformed callback returns to `/auth/signin` with a safe Polish error — ce298ce
+- [x] 2.8 Signing out after Google login returns to `/` and subsequent `/dashboard` access redirects to `/auth/signin` — ce298ce
 
 ### Phase 3: SafeSpace Auth UI
 
 #### Automated
 
-- [ ] 3.1 `npm run lint` completes successfully
-- [ ] 3.2 `npm run build` completes successfully
-- [ ] 3.3 Searching `src/pages/auth` and `src/components/auth` finds no public-facing English starter auth copy such as `Sign in`, `Sign up`, `Creating account`, or `Password is required`
-- [ ] 3.4 Auth form field names still match the API route contracts
+- [x] 3.1 `npm run lint` completes successfully
+- [x] 3.2 `npm run build` completes successfully
+- [x] 3.3 Searching `src/pages/auth` and `src/components/auth` finds no public-facing English starter auth copy such as `Sign in`, `Sign up`, `Creating account`, or `Password is required`
+- [x] 3.4 Auth form field names still match the API route contracts
 
 #### Manual
 
