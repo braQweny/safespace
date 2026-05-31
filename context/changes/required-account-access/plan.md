@@ -490,19 +490,19 @@ No database migration is required. Supabase remains Auth-only for this change. G
 
 #### Automated
 
-- [x] 4.1 `npx astro sync` completes successfully
-- [x] 4.2 `npm run lint` completes successfully
-- [x] 4.3 `npm run build` completes successfully
-- [x] 4.4 `git diff --check` reports no whitespace errors
-- [x] 4.5 Source/config search finds no committed Google OAuth client secret
+- [x] 4.1 `npx astro sync` completes successfully — da88619
+- [x] 4.2 `npm run lint` completes successfully — da88619
+- [x] 4.3 `npm run build` completes successfully — da88619
+- [x] 4.4 `git diff --check` reports no whitespace errors — da88619
+- [x] 4.5 Source/config search finds no committed Google OAuth client secret — da88619
 
 #### Manual
 
-- [x] 4.6 `/dashboard` is readable as the post-auth private gateway and does not imply avatar/session functionality is already built
-- [x] 4.7 `/dashboard` remains inaccessible to visitors
-- [x] 4.8 Local Supabase redirect settings match the dev origin used during manual testing
-- [x] 4.9 Hosted Supabase checklist contains the production Worker callback URL pattern and owner-owned provider setup steps
-- [x] 4.10 Topbar auth state matches visitor and signed-in states
+- [x] 4.6 `/dashboard` is readable as the post-auth private gateway and does not imply avatar/session functionality is already built — da88619
+- [x] 4.7 `/dashboard` remains inaccessible to visitors — da88619
+- [x] 4.8 Local Supabase redirect settings match the dev origin used during manual testing — da88619
+- [x] 4.9 Hosted Supabase checklist contains the production Worker callback URL pattern and owner-owned provider setup steps — da88619
+- [x] 4.10 Topbar auth state matches visitor and signed-in states — da88619
 
 ### Phase 5: Verification Matrix
 
