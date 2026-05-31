@@ -473,36 +473,36 @@ No database migration is required. Supabase remains Auth-only for this change. G
 
 #### Automated
 
-- [x] 3.1 `npm run lint` completes successfully
-- [x] 3.2 `npm run build` completes successfully
-- [x] 3.3 Searching `src/pages/auth` and `src/components/auth` finds no public-facing English starter auth copy such as `Sign in`, `Sign up`, `Creating account`, or `Password is required`
-- [x] 3.4 Auth form field names still match the API route contracts
+- [x] 3.1 `npm run lint` completes successfully — cee9821
+- [x] 3.2 `npm run build` completes successfully — cee9821
+- [x] 3.3 Searching `src/pages/auth` and `src/components/auth` finds no public-facing English starter auth copy such as `Sign in`, `Sign up`, `Creating account`, or `Password is required` — cee9821
+- [x] 3.4 Auth form field names still match the API route contracts — cee9821
 
 #### Manual
 
-- [ ] 3.5 `/auth/signin` clearly offers Google and email/password as equal account access methods
-- [ ] 3.6 `/auth/signup` clearly offers Google and email/password without pressuring the user into a social identity
-- [ ] 3.7 Auth pages are coherent on desktop and mobile without text overflow or button layout shifts
-- [ ] 3.8 Already signed-in users who visit `/auth/signin` or `/auth/signup` are sent to `/dashboard`
-- [ ] 3.9 Confirmation page copy matches the configured Supabase email-confirmation behavior
+- [x] 3.5 `/auth/signin` clearly offers Google and email/password as equal account access methods — cee9821
+- [x] 3.6 `/auth/signup` clearly offers Google and email/password without pressuring the user into a social identity — cee9821
+- [x] 3.7 Auth pages are coherent on desktop and mobile without text overflow or button layout shifts — cee9821
+- [x] 3.8 Already signed-in users who visit `/auth/signin` or `/auth/signup` are sent to `/dashboard` — cee9821
+- [x] 3.9 Confirmation page copy matches the configured Supabase email-confirmation behavior — cee9821
 
 ### Phase 4: Private Entry And Config Checklist
 
 #### Automated
 
-- [ ] 4.1 `npx astro sync` completes successfully
-- [ ] 4.2 `npm run lint` completes successfully
-- [ ] 4.3 `npm run build` completes successfully
-- [ ] 4.4 `git diff --check` reports no whitespace errors
-- [ ] 4.5 Source/config search finds no committed Google OAuth client secret
+- [x] 4.1 `npx astro sync` completes successfully
+- [x] 4.2 `npm run lint` completes successfully
+- [x] 4.3 `npm run build` completes successfully
+- [x] 4.4 `git diff --check` reports no whitespace errors
+- [x] 4.5 Source/config search finds no committed Google OAuth client secret
 
 #### Manual
 
-- [ ] 4.6 `/dashboard` is readable as the post-auth private gateway and does not imply avatar/session functionality is already built
-- [ ] 4.7 `/dashboard` remains inaccessible to visitors
-- [ ] 4.8 Local Supabase redirect settings match the dev origin used during manual testing
-- [ ] 4.9 Hosted Supabase checklist contains the production Worker callback URL pattern and owner-owned provider setup steps
-- [ ] 4.10 Topbar auth state matches visitor and signed-in states
+- [x] 4.6 `/dashboard` is readable as the post-auth private gateway and does not imply avatar/session functionality is already built
+- [x] 4.7 `/dashboard` remains inaccessible to visitors
+- [x] 4.8 Local Supabase redirect settings match the dev origin used during manual testing
+- [x] 4.9 Hosted Supabase checklist contains the production Worker callback URL pattern and owner-owned provider setup steps
+- [x] 4.10 Topbar auth state matches visitor and signed-in states
 
 ### Phase 5: Verification Matrix
 

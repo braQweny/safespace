@@ -15,6 +15,7 @@
 - Utworzyc Cloudflare API token scoped do tego konta z uprawnieniem do edycji Workers. Nie uzywac global API key.
 - Przygotowac dane istniejacego Supabase projektu: Project URL i anon public key.
 - Po pierwszym deployu dopisac finalny URL Workera w Supabase Auth jako Site URL / redirect URL, jesli email confirmation ma dzialac produkcyjnie.
+- Dla S-02 dopisac w Supabase Auth redirect URL `https://safespace.<workers-dev-subdomain>.workers.dev/auth/callback` i upewnic sie, ze Google Cloud OAuth client ma Supabase `Callback URL (for OAuth)` z dashboardu.
 - Nie konfigurowac teraz custom domain, OpenRouter ani Supabase migrations, bo obecny kod ich jeszcze nie uzywa.
 
 ## Konta, serwisy i sekrety
@@ -25,7 +26,7 @@
   - `CLOUDFLARE_API_TOKEN`
   - `SUPABASE_URL`
   - `SUPABASE_KEY`
-- Supabase: istniejacy hosted project z wlaczonym Email/Password Auth.
+- Supabase: istniejacy hosted project z wlaczonym Email/Password Auth oraz Google providerem skonfigurowanym w Supabase Auth, bez sekretow Google w runtime aplikacji.
 - Nie dodawac teraz `SUPABASE_SERVICE_ROLE_KEY`; aplikacja go nie uzywa i nie powinien trafiac do runtime frontendowego SSR.
 - `OPENROUTER_API_KEY` zostaje zaplanowany na przyszly milestone AI, nie jako sekret pierwszego deployu.
 
@@ -42,7 +43,7 @@
   - Deploy uzywa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.95.0"` i `deploy --secrets-file .env.production`.
   - `.env.production` jest tworzony tymczasowo z GitHub secrets i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.
-- Po pushu sprawdzic workflow, URL Workera oraz redirect `/dashboard -> /auth/signin`.
+- Po pushu sprawdzic workflow, URL Workera, redirect `/dashboard -> /auth/signin` oraz callback `/auth/callback` dodany do Supabase Auth Redirect URLs.
 
 ## Komendy lokalnej weryfikacji
 
