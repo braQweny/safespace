@@ -360,17 +360,17 @@ This change introduces the first application table. Apply the migration only aft
 
 #### Automated
 
-- [ ] 1.1 `npx astro sync` completes successfully
-- [ ] 1.2 `npm run lint` completes successfully
-- [ ] 1.3 `npm run build` completes successfully
-- [ ] 1.4 Source search finds exactly one static MVP modality catalog
-- [ ] 1.5 Migration source enables RLS on `public.user_avatar_choices`
+- [x] 1.1 `npx astro sync` completes successfully
+- [x] 1.2 `npm run lint` completes successfully
+- [x] 1.3 `npm run build` completes successfully
+- [x] 1.4 Source search finds exactly one static MVP modality catalog
+- [x] 1.5 Migration source enables RLS on `public.user_avatar_choices`
 
 #### Manual
 
-- [ ] 1.6 The catalog contains exactly five MVP modalities matching the approved list
-- [ ] 1.7 User-facing modality copy is educational and does not diagnose, prescribe, or claim therapeutic effectiveness for a specific user
-- [ ] 1.8 The migration is reviewed for owner-only RLS before it is applied to any hosted Supabase project
+- [x] 1.6 The catalog contains exactly five MVP modalities matching the approved list
+- [x] 1.7 User-facing modality copy is educational and does not diagnose, prescribe, or claim therapeutic effectiveness for a specific user
+- [x] 1.8 The migration is reviewed for owner-only RLS before it is applied to any hosted Supabase project
 
 ### Phase 2: Protected Avatar Flow
 
