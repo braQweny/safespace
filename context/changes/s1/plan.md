@@ -314,30 +314,30 @@ No database migration is required. Supabase remains Auth-only for this change, a
 
 #### Automated
 
-- [x] 2.1 `npm run lint` completes successfully
-- [x] 2.2 `npm run build` completes successfully
-- [x] 2.3 Searching the source no longer finds public landing copy for `10x Astro Starter`
+- [x] 2.1 `npm run lint` completes successfully — 08cd66e
+- [x] 2.2 `npm run build` completes successfully — 08cd66e
+- [x] 2.3 Searching the source no longer finds public landing copy for `10x Astro Starter` — 08cd66e
 
 #### Manual
 
-- [x] 2.4 A visitor can understand the offer, the free 15-minute session, and the product limits before clicking an auth CTA
-- [x] 2.5 The safety section is visible and understandable on desktop and mobile
-- [x] 2.6 The page does not imply diagnosis, specialist replacement, or guaranteed crisis help
-- [x] 2.7 Crisis copy clearly directs immediate-danger situations to emergency services, a crisis help line, or a specialist instead of the product
+- [x] 2.4 A visitor can understand the offer, the free 15-minute session, and the product limits before clicking an auth CTA — 08cd66e
+- [x] 2.5 The safety section is visible and understandable on desktop and mobile — 08cd66e
+- [x] 2.6 The page does not imply diagnosis, specialist replacement, or guaranteed crisis help — 08cd66e
+- [x] 2.7 Crisis copy clearly directs immediate-danger situations to emergency services, a crisis help line, or a specialist instead of the product — 08cd66e
 
 ### Phase 3: Topbar And Auth-Aware CTA
 
 #### Automated
 
-- [ ] 3.1 `npm run lint` completes successfully
-- [ ] 3.2 `npm run build` completes successfully
-- [ ] 3.3 The implementation does not add routes to `PROTECTED_ROUTES` for non-existent session paths
+- [x] 3.1 `npm run lint` completes successfully
+- [x] 3.2 `npm run build` completes successfully
+- [x] 3.3 The implementation does not add routes to `PROTECTED_ROUTES` for non-existent session paths
 
 #### Manual
 
-- [ ] 3.4 As a visitor, primary CTA opens `/auth/signup` and secondary auth link opens `/auth/signin`
-- [ ] 3.5 As a signed-in user, topbar and main CTA show account-aware actions and do not ask the user to register again
-- [ ] 3.6 Existing `/dashboard` protection still redirects unauthenticated users to `/auth/signin`
+- [x] 3.4 As a visitor, primary CTA opens `/auth/signup` and secondary auth link opens `/auth/signin`
+- [x] 3.5 As a signed-in user, topbar and main CTA show account-aware actions and do not ask the user to register again
+- [x] 3.6 Existing `/dashboard` protection still redirects unauthenticated users to `/auth/signin`
 
 ### Phase 4: Verification Polish
 

@@ -1,4 +1,6 @@
 ---
+import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
+
 const { user } = Astro.locals;
 ---
 
@@ -8,10 +10,13 @@ const { user } = Astro.locals;
   {
     user ? (
       <>
-        <span class="break-all text-[#52645f]">Zalogowano: {user.email}</span>
+        <span class="break-all text-[#52645f]">Zalogowano w SafeSpace: {user.email}</span>
         <div class="flex flex-wrap items-center gap-3">
-          <a href="/dashboard" class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline">
-            Panel
+          <a
+            href={AUTHENTICATED_REDIRECT_PATH}
+            class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline"
+          >
+            Przejdź do panelu
           </a>
           <form method="POST" action="/api/auth/signout">
             <button type="submit" class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline">
@@ -22,7 +27,7 @@ const { user } = Astro.locals;
       </>
     ) : (
       <>
-        <span class="text-[#52645f]">Nie jesteś zalogowany</span>
+        <span class="text-[#52645f]">Gość - konto będzie wymagane przed darmową sesją</span>
         <div class="flex flex-wrap gap-3">
           <a href="/auth/signin" class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline">
             Zaloguj się
