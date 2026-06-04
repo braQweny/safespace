@@ -29,7 +29,14 @@
 - **Detail**: Phase 4 requires text and UI not to overlap or overflow on common mobile and desktop widths. A headless Chrome screenshot at 390x1200 showed the landing hero clipped on the right edge, including safety copy and image caption. The desktop 1440x1200 screenshot looked coherent.
 - **Evidence**: Screenshot generated at `/tmp/safespace-s1-mobile.png`; desktop comparison at `/tmp/safespace-s1-desktop.png`.
 - **Fix**: Add mobile-safe width constraints to the hero grid/items, for example `min-w-0` on grid children and `max-w-full` or wrapping on long inline text so image and copy cannot force horizontal scroll.
-- **Decision**: PENDING
+- **Decision**: FIXED - added mobile-safe width constraints in `src/components/Welcome.astro` and verified no horizontal overflow at 390px width.
+
+## Triage Summary
+
+- **Fixed**: F1
+- **Skipped**: none
+- **Recorded as lesson**: none
+- **Fix verification**: Chrome headless at 390x1200 reported `clientWidth=390`, `scrollWidth=390`, `hasHorizontalOverflow=false`; screenshot saved at `/tmp/safespace-s1-mobile-fixed.png`.
 
 ## Review Evidence
 

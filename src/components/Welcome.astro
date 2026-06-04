@@ -48,9 +48,13 @@ const boundaries = [
   </div>
 
   <main>
-    <section class="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-16">
-      <div class="max-w-2xl self-center">
-        <p class="inline-flex rounded-lg border border-[#9cc8bc] bg-white px-3 py-1 text-sm font-medium text-[#285d55]">
+    <section
+      class="mx-auto grid w-full max-w-7xl gap-10 overflow-x-hidden px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:px-8 lg:py-16"
+    >
+      <div class="max-w-2xl min-w-0 self-center">
+        <p
+          class="inline-flex max-w-full rounded-lg border border-[#9cc8bc] bg-white px-3 py-1 text-sm font-medium text-wrap text-[#285d55]"
+        >
           Edukacyjna symulacja rozmowy wspierana przez AI
         </p>
         <h1 class="mt-5 text-4xl leading-tight font-semibold text-[#10231f] sm:text-5xl lg:text-6xl">SafeSpace</h1>
@@ -64,7 +68,7 @@ const boundaries = [
           SafeSpace nie jest terapią, diagnozą ani pomocą kryzysową. W nagłym zagrożeniu życia lub zdrowia skontaktuj
           się z numerem 112, lokalnymi służbami, telefonem zaufania albo specjalistą.
         </p>
-        <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+        <div class="mt-8 flex min-w-0 flex-col gap-3 sm:flex-row">
           <a
             href={primaryCta.href}
             class="inline-flex h-12 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-base font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
@@ -91,17 +95,17 @@ const boundaries = [
         </p>
       </div>
 
-      <figure class="w-full self-center">
+      <figure class="max-w-full min-w-0 self-center">
         <img
           src="/safespace-landing.png"
           width="800"
           height="533"
           alt="Ekran aplikacji SafeSpace z rozmową, timerem i oznaczeniami prywatności"
-          class="aspect-[800/533] w-full rounded-lg border border-[#c8ddd7] bg-white object-cover shadow-[0_24px_70px_rgba(24,78,70,0.18)]"
+          class="aspect-[800/533] w-full max-w-full rounded-lg border border-[#c8ddd7] bg-white object-cover shadow-[0_24px_70px_rgba(24,78,70,0.18)]"
           decoding="async"
           loading="eager"
         />
-        <figcaption class="mt-3 text-sm leading-6 text-[#52645f]">
+        <figcaption class="mt-3 max-w-full text-sm leading-6 text-wrap text-[#52645f]">
           Wizualizacja pokazuje przyszły kontekst rozmowy, limit czasu i prywatność bez obietnicy diagnozy.
         </figcaption>
       </figure>
