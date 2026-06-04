@@ -305,25 +305,25 @@ No database migration is required. Supabase remains Auth-only for this change, a
 
 #### Manual
 
-- [x] 1.5 Browser title and document language reflect SafeSpace and Polish
-- [x] 1.6 The first viewport no longer presents `10x Astro Starter` branding
-- [x] 1.7 The visual asset renders on desktop and mobile without cropping important content
-- [x] 1.8 The visual asset has meaningful Polish `alt` text, stable dimensions/aspect ratio, and a checked file size under the agreed budget
+- [x] 1.5 Browser title and document language reflect SafeSpace and Polish — a1f4b9f
+- [x] 1.6 The first viewport no longer presents `10x Astro Starter` branding — a1f4b9f
+- [x] 1.7 The visual asset renders on desktop and mobile without cropping important content — a1f4b9f
+- [x] 1.8 The visual asset has meaningful Polish `alt` text, stable dimensions/aspect ratio, and a checked file size under the agreed budget — a1f4b9f
 
 ### Phase 2: Landing Content
 
 #### Automated
 
-- [ ] 2.1 `npm run lint` completes successfully
-- [ ] 2.2 `npm run build` completes successfully
-- [ ] 2.3 Searching the source no longer finds public landing copy for `10x Astro Starter`
+- [x] 2.1 `npm run lint` completes successfully
+- [x] 2.2 `npm run build` completes successfully
+- [x] 2.3 Searching the source no longer finds public landing copy for `10x Astro Starter`
 
 #### Manual
 
-- [ ] 2.4 A visitor can understand the offer, the free 15-minute session, and the product limits before clicking an auth CTA
-- [ ] 2.5 The safety section is visible and understandable on desktop and mobile
-- [ ] 2.6 The page does not imply diagnosis, specialist replacement, or guaranteed crisis help
-- [ ] 2.7 Crisis copy clearly directs immediate-danger situations to emergency services, a crisis help line, or a specialist instead of the product
+- [x] 2.4 A visitor can understand the offer, the free 15-minute session, and the product limits before clicking an auth CTA
+- [x] 2.5 The safety section is visible and understandable on desktop and mobile
+- [x] 2.6 The page does not imply diagnosis, specialist replacement, or guaranteed crisis help
+- [x] 2.7 Crisis copy clearly directs immediate-danger situations to emergency services, a crisis help line, or a specialist instead of the product
 
 ### Phase 3: Topbar And Auth-Aware CTA
 
