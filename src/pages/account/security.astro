@@ -1,8 +1,9 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
+import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 
-const error = Astro.url.searchParams.get("error");
+const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
 const status = Astro.url.searchParams.get("status");
 const successMessage =
   status === "password_updated"

@@ -10,6 +10,7 @@ const AUTH_ERROR_MESSAGES = {
   signin_failed: "Nie udalo sie zalogowac. Sprobuj ponownie za chwile.",
   signup_failed: "Nie udalo sie utworzyc konta. Sprawdz dane albo sprobuj ponownie za chwile.",
   password_update_failed: "Nie udalo sie ustawic hasla. Sprobuj ponownie za chwile.",
+  signout_failed: "Nie udalo sie wylogowac. Sprobuj ponownie za chwile.",
   oauth_start_failed: "Nie udalo sie rozpoczac logowania przez Google. Sprobuj ponownie za chwile.",
   oauth_callback_failed: "Nie udalo sie dokonczyc logowania. Sprobuj ponownie.",
 } as const;
@@ -25,8 +26,16 @@ export function getAuthErrorMessage(code: AuthErrorCode) {
   return AUTH_ERROR_MESSAGES[code];
 }
 
+export function getAuthErrorMessageFromSearchParam(code: string | null) {
+  if (!code || !Object.prototype.hasOwnProperty.call(AUTH_ERROR_MESSAGES, code)) {
+    return null;
+  }
+
+  return getAuthErrorMessage(code as AuthErrorCode);
+}
+
 export function getAuthErrorRedirect(pathname: string, code: AuthErrorCode) {
-  const searchParams = new URLSearchParams({ error: getAuthErrorMessage(code) });
+  const searchParams = new URLSearchParams({ error: code });
   return `${pathname}?${searchParams.toString()}`;
 }
 
