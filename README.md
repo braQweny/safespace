@@ -72,7 +72,7 @@ npm run dev
 
 ## Supabase Configuration
 
-This project uses [Supabase](https://supabase.com/) for authentication. Environment variables are declared via Astro's `astro:env` schema and are treated as **server-only secrets** — they are never exposed to the client.
+This project uses [Supabase](https://supabase.com/) for authentication and application tables. Environment variables are declared via Astro's `astro:env` schema and are treated as **server-only secrets** — they are never exposed to the client.
 
 ### First-time setup (local, no cloud project needed)
 
@@ -111,7 +111,7 @@ npx supabase stop
 
 The local Studio UI is available at `http://localhost:54323`.
 
-No database tables or migrations are required — this project uses Supabase Auth's built-in `auth.users` table only.
+Database migrations live in `supabase/migrations/`. Hosted deployments push pending migrations with `npx supabase db push` before the Cloudflare Worker is deployed.
 
 ### Using a cloud Supabase project instead
 
@@ -168,7 +168,15 @@ Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or
 
 ## CI
 
-GitHub Actions runs lint + build on every push and PR to `master`. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets in GitHub for the build step.
+GitHub Actions runs lint + build on every push and PR to `main`. Pushes to `main` then run `npx supabase db push --db-url "$SUPABASE_DB_URL" --yes` before deploying to Cloudflare Workers.
+
+Configure these repository secrets in GitHub:
+
+- `SUPABASE_URL`
+- `SUPABASE_KEY`
+- `SUPABASE_DB_URL` - Postgres connection string for migrations; prefer the Supabase Session Pooler URL and keep the password URL-encoded
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
 
 ## License
 

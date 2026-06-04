@@ -4,7 +4,7 @@
 
 - Target: Cloudflare Workers na `workers.dev`, bez custom domain w tym etapie.
 - Deploy: GitHub Actions auto-deploy po pushu albo merge do `main`.
-- Baza i auth: istniejacy hosted Supabase project, bez migracji DB na tym etapie.
+- Baza i auth: istniejacy hosted Supabase project; pending migrations z `supabase/migrations/` sa wykonywane przed deployem Workera.
 - Worker: `safespace`.
 - Zrodla komend: Cloudflare Workers GitHub Actions, Wrangler secrets/deploy, `wrangler-action`.
 
@@ -13,10 +13,10 @@
 - Potwierdzic, ze GitHub repo `braQweny/safespace` ma wlaczone Actions i uzywa branch `main`.
 - W Cloudflare utworzyc albo wybrac konto, aktywowac Workers i ustawic `workers.dev` subdomain.
 - Utworzyc Cloudflare API token scoped do tego konta z uprawnieniem do edycji Workers. Nie uzywac global API key.
-- Przygotowac dane istniejacego Supabase projektu: Project URL i anon public key.
+- Przygotowac dane istniejacego Supabase projektu: Project URL, anon public key i connection string do migracji DB.
 - Po pierwszym deployu dopisac finalny URL Workera w Supabase Auth jako Site URL / redirect URL, jesli email confirmation ma dzialac produkcyjnie.
 - Dla S-02 dopisac w Supabase Auth redirect URL `https://safespace.<workers-dev-subdomain>.workers.dev/auth/callback` i upewnic sie, ze Google Cloud OAuth client ma Supabase `Callback URL (for OAuth)` z dashboardu.
-- Nie konfigurowac teraz custom domain, OpenRouter ani Supabase migrations, bo obecny kod ich jeszcze nie uzywa.
+- Nie konfigurowac teraz custom domain ani OpenRouter, bo obecny kod ich jeszcze nie uzywa.
 
 ## Konta, serwisy i sekrety
 
@@ -26,6 +26,7 @@
   - `CLOUDFLARE_API_TOKEN`
   - `SUPABASE_URL`
   - `SUPABASE_KEY`
+  - `SUPABASE_DB_URL` - connection string Postgresa do migracji; preferowac Supabase Session Pooler URL z URL-encoded password
 - Supabase: istniejacy hosted project z wlaczonym Email/Password Auth oraz Google providerem skonfigurowanym w Supabase Auth, bez sekretow Google w runtime aplikacji.
 - Nie dodawac teraz `SUPABASE_SERVICE_ROLE_KEY`; aplikacja go nie uzywa i nie powinien trafiac do runtime frontendowego SSR.
 - `OPENROUTER_API_KEY` zostaje zaplanowany na przyszly milestone AI, nie jako sekret pierwszego deployu.
@@ -39,7 +40,8 @@
 - `.github/workflows/ci.yml`:
   - Trigger ustawiony na `main` dla push i pull request.
   - Job `ci` zachowuje `npm ci`, `npx astro sync`, lint i build.
-  - Job `deploy` dziala tylko dla push do `main`, po przejsciu `ci`.
+  - Job `migrate` dziala tylko dla push do `main`, po przejsciu `ci`, i wykonuje `npx supabase db push --db-url "$SUPABASE_DB_URL" --yes`.
+  - Job `deploy` dziala tylko dla push do `main`, po przejsciu `migrate`.
   - Deploy uzywa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.95.0"` i `deploy --secrets-file .env.production`.
   - `.env.production` jest tworzony tymczasowo z GitHub secrets i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.
@@ -58,6 +60,7 @@ npx wrangler deploy --dry-run
 ## Komendy deployu w GitHub Actions
 
 ```bash
+npx supabase db push --db-url "$SUPABASE_DB_URL" --yes
 printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" > .env.production
 npx wrangler deploy --secrets-file .env.production
 ```
@@ -68,6 +71,7 @@ Tylko jesli GitHub Actions zawiedzie z powodu konfiguracji CI:
 
 ```bash
 npx wrangler login
+npx supabase db push --db-url "$SUPABASE_DB_URL" --yes
 printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" > .env.production
 npx wrangler deploy --secrets-file .env.production
 rm .env.production
@@ -86,5 +90,5 @@ npx wrangler versions list --name safespace
 ## Zalozenia
 
 - Branch produkcyjny to `main`, bo lokalnie i na `origin` nie ma `master`.
-- Brak `supabase/migrations`, wiec pierwszy deploy nie wykonuje migracji.
+- Deploy na `main` wykonuje wszystkie pending migrations z `supabase/migrations/` przed wdrozeniem Workera.
 - `site` w `astro.config.mjs` zostaje poza zakresem do czasu wyboru finalnej domeny; warning sitemap nie blokuje deployu.

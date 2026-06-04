@@ -7,7 +7,7 @@ SafeSpace is an Astro 6 SSR app with React 19 islands, Tailwind 4, Supabase auth
 - Keep SSR enabled through `output: "server"` in `@astro.config.mjs`; Cloudflare runtime is configured in `@wrangler.jsonc`.
 - Do not commit secrets. Use `.env` for Node tools, `.dev.vars` for local Wrangler, and GitHub/Cloudflare secrets for deploys; see `@.env.example`.
 - Protect sensitive session data from logs and admin surfaces. Product privacy guardrails live in `@context/foundation/prd.md`.
-- Current Supabase use is Auth only. If a change introduces tables, add migrations under `supabase/migrations/` and enable RLS with granular policies.
+- Supabase uses Auth plus application tables managed through `supabase/migrations/`. Keep RLS enabled with granular policies for every new table.
 - For 10x roadmap work, load `@.agents/skills/10x-roadmap/SKILL.md`; do not create implementation change folders from roadmap output.
 
 ## Commands
@@ -28,7 +28,7 @@ SafeSpace is an Astro 6 SSR app with React 19 islands, Tailwind 4, Supabase auth
 
 ## Style And Checks
 
-Use the `@/*` alias from `@tsconfig.json`. Prefer Astro components for static layout and React components only for interactive islands. Merge Tailwind classes with `cn()` from `@/lib/utils`. Do not add Next.js directives. No test runner is configured yet; the current CI gate is `npx astro sync`, `npm run lint`, and `npm run build` on push/PR to `main`, with deploy only on push to `main`.
+Use the `@/*` alias from `@tsconfig.json`. Prefer Astro components for static layout and React components only for interactive islands. Merge Tailwind classes with `cn()` from `@/lib/utils`. Do not add Next.js directives. No test runner is configured yet; the current CI gate is `npx astro sync`, `npm run lint`, and `npm run build` on push/PR to `main`. Pushes to `main` then run `npx supabase db push` before Cloudflare deploy.
 
 ## Commits And PRs
 
