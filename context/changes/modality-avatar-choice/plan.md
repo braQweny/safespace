@@ -360,35 +360,35 @@ This change introduces the first application table. Apply the migration only aft
 
 #### Automated
 
-- [x] 1.1 `npx astro sync` completes successfully
-- [x] 1.2 `npm run lint` completes successfully
-- [x] 1.3 `npm run build` completes successfully
-- [x] 1.4 Source search finds exactly one static MVP modality catalog
-- [x] 1.5 Migration source enables RLS on `public.user_avatar_choices`
+- [x] 1.1 `npx astro sync` completes successfully — 6a66dde
+- [x] 1.2 `npm run lint` completes successfully — 6a66dde
+- [x] 1.3 `npm run build` completes successfully — 6a66dde
+- [x] 1.4 Source search finds exactly one static MVP modality catalog — 6a66dde
+- [x] 1.5 Migration source enables RLS on `public.user_avatar_choices` — 6a66dde
 
 #### Manual
 
-- [x] 1.6 The catalog contains exactly five MVP modalities matching the approved list
-- [x] 1.7 User-facing modality copy is educational and does not diagnose, prescribe, or claim therapeutic effectiveness for a specific user
-- [x] 1.8 The migration is reviewed for owner-only RLS before it is applied to any hosted Supabase project
+- [x] 1.6 The catalog contains exactly five MVP modalities matching the approved list — 6a66dde
+- [x] 1.7 User-facing modality copy is educational and does not diagnose, prescribe, or claim therapeutic effectiveness for a specific user — 6a66dde
+- [x] 1.8 The migration is reviewed for owner-only RLS before it is applied to any hosted Supabase project — 6a66dde
 
 ### Phase 2: Protected Avatar Flow
 
 #### Automated
 
-- [ ] 2.1 `npx astro sync` completes successfully
-- [ ] 2.2 `npm run lint` completes successfully
-- [ ] 2.3 `npm run build` completes successfully
-- [ ] 2.4 Source search shows the save endpoint validates choices through the catalog helper before writing to Supabase
-- [ ] 2.5 Source search shows no raw Supabase/database error message is written directly into avatar-choice query strings
+- [x] 2.1 `npx astro sync` completes successfully
+- [x] 2.2 `npm run lint` completes successfully
+- [x] 2.3 `npm run build` completes successfully
+- [x] 2.4 Source search shows the save endpoint validates choices through the catalog helper before writing to Supabase
+- [x] 2.5 Source search shows no raw Supabase/database error message is written directly into avatar-choice query strings
 
 #### Manual
 
-- [ ] 2.6 Anonymous access to `/dashboard/avatar` redirects to `/auth/signin`
-- [ ] 2.7 A signed-in user can open `/dashboard/avatar`
-- [ ] 2.8 Submitting an invalid `modalityId`/`avatarId` pair does not write a row and shows a safe Polish error
-- [ ] 2.9 A valid choice creates or updates exactly the signed-in user's row
-- [ ] 2.10 Reopening `/dashboard/avatar` preselects the saved choice
+- [x] 2.6 Anonymous access to `/dashboard/avatar` redirects to `/auth/signin`
+- [x] 2.7 A signed-in user can open `/dashboard/avatar`
+- [x] 2.8 Submitting an invalid `modalityId`/`avatarId` pair does not write a row and shows a safe Polish error
+- [x] 2.9 A valid choice creates or updates exactly the signed-in user's row
+- [x] 2.10 Reopening `/dashboard/avatar` preselects the saved choice
 
 ### Phase 3: Avatar Choice UI And Assets
 
