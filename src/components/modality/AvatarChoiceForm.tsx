@@ -1,43 +1,83 @@
 import { useState } from "react";
+import { CheckCircle2, Save } from "lucide-react";
 import type { ModalityAvatar, ModalityId, SelectedModalityAvatar } from "@/lib/modalities";
+import { cn } from "@/lib/utils";
 
 interface AvatarChoiceFormProps {
   modalities: readonly ModalityAvatar[];
   currentSelection: SelectedModalityAvatar | null;
 }
 
+const cardAccentClasses: Record<ModalityId, string> = {
+  psychodynamic: "border-[#b9d7cf] bg-[#f7fbfa]",
+  cbt: "border-[#c8d4ee] bg-[#f8faff]",
+  humanistic_experiential: "border-[#edcbd1] bg-[#fff9f8]",
+  systemic: "border-[#c5dfe5] bg-[#f7fcfd]",
+  integrative: "border-[#d8cfea] bg-[#fbf9ff]",
+};
+
 export default function AvatarChoiceForm({ modalities, currentSelection }: AvatarChoiceFormProps) {
   const [selectedModalityId, setSelectedModalityId] = useState<ModalityId | "">(currentSelection?.modalityId ?? "");
   const selectedModality = modalities.find((modality) => modality.modalityId === selectedModalityId) ?? null;
 
   return (
-    <form method="POST" action="/api/profile/avatar" className="mt-8 rounded-lg border border-[#c8ddd7] bg-white p-5">
-      <label htmlFor="modalityId" className="text-sm font-semibold text-[#173f39]">
-        Wybierz nurt i awatara
-      </label>
-      <select
-        id="modalityId"
-        name="modalityId"
-        value={selectedModalityId}
-        onChange={(event) => {
-          const nextModality = modalities.find((modality) => modality.modalityId === event.target.value);
-          setSelectedModalityId(nextModality?.modalityId ?? "");
-        }}
-        className="mt-2 h-11 w-full rounded-lg border border-[#b8d2ca] bg-white px-3 text-sm text-[#10231f] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-      >
-        <option value="">Wybierz jedna z pieciu opcji</option>
-        {modalities.map((modality) => (
-          <option key={modality.modalityId} value={modality.modalityId}>
-            {modality.avatarName} - {modality.modalityName}
-          </option>
-        ))}
-      </select>
+    <form method="POST" action="/api/profile/avatar" className="mt-8">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {modalities.map((modality) => {
+          const isSelected = modality.modalityId === selectedModalityId;
+
+          return (
+            <label
+              key={modality.modalityId}
+              className={cn(
+                "relative flex min-h-[530px] cursor-pointer flex-col rounded-lg border-2 p-4 transition-colors focus-within:ring-2 focus-within:ring-[#2d8a7d] focus-within:outline-none",
+                cardAccentClasses[modality.modalityId],
+                isSelected ? "border-[#1f6f65] shadow-[0_16px_36px_rgba(31,111,101,0.18)]" : "hover:border-[#7fb7ad]",
+              )}
+            >
+              <input
+                type="radio"
+                name="modalityId"
+                value={modality.modalityId}
+                checked={isSelected}
+                onChange={() => {
+                  setSelectedModalityId(modality.modalityId);
+                }}
+                className="sr-only"
+              />
+              <span className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1f6f65] shadow-sm">
+                {isSelected ? <CheckCircle2 aria-hidden="true" className="h-5 w-5" /> : null}
+              </span>
+
+              <img
+                src={modality.assetPath}
+                alt={modality.altText}
+                width="384"
+                height="384"
+                loading="lazy"
+                className="mx-auto aspect-square w-full max-w-40 rounded-lg object-cover"
+              />
+
+              <div className="mt-4 flex flex-1 flex-col">
+                <p className="text-base font-semibold text-[#10231f]">{modality.avatarName}</p>
+                <p className="mt-1 min-h-12 text-sm leading-5 font-medium text-[#1f6f65]">{modality.modalityName}</p>
+                <p className="mt-3 text-sm leading-6 text-[#38524b]">{modality.explanation}</p>
+                <div className="mt-auto pt-4">
+                  <p className="text-xs font-semibold tracking-wide text-[#62756f] uppercase">Na czym skupia uwagę</p>
+                  <p className="mt-2 text-sm leading-6 text-[#52645f]">{modality.focus}</p>
+                </div>
+              </div>
+            </label>
+          );
+        })}
+      </div>
 
       {selectedModality ? (
-        <div className="mt-4 rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4 text-sm leading-6 text-[#38524b]">
-          <p className="font-semibold text-[#10231f]">{selectedModality.avatarName}</p>
-          <p className="mt-1">{selectedModality.explanation}</p>
-          <p className="mt-2 text-[#52645f]">{selectedModality.focus}</p>
+        <div className="mt-5 rounded-lg border border-[#d7e5e0] bg-white p-4 text-sm leading-6 text-[#38524b]">
+          <p className="font-semibold text-[#10231f]">Wybrany awatar: {selectedModality.avatarName}</p>
+          <p className="mt-1">
+            Ten wybór zapisze perspektywę edukacyjną dla kolejnego etapu. Przed pierwszą sesją nadal możesz go zmienić.
+          </p>
         </div>
       ) : null}
 
@@ -46,9 +86,10 @@ export default function AvatarChoiceForm({ modalities, currentSelection }: Avata
       <button
         type="submit"
         disabled={!selectedModality}
-        className="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9abbb4]"
+        className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9abbb4]"
       >
-        Zapisz wybor
+        <Save aria-hidden="true" className="h-4 w-4" />
+        Zapisz wybór
       </button>
     </form>
   );

@@ -376,36 +376,36 @@ This change introduces the first application table. Apply the migration only aft
 
 #### Automated
 
-- [x] 2.1 `npx astro sync` completes successfully
-- [x] 2.2 `npm run lint` completes successfully
-- [x] 2.3 `npm run build` completes successfully
-- [x] 2.4 Source search shows the save endpoint validates choices through the catalog helper before writing to Supabase
-- [x] 2.5 Source search shows no raw Supabase/database error message is written directly into avatar-choice query strings
+- [x] 2.1 `npx astro sync` completes successfully — 3daa329
+- [x] 2.2 `npm run lint` completes successfully — 3daa329
+- [x] 2.3 `npm run build` completes successfully — 3daa329
+- [x] 2.4 Source search shows the save endpoint validates choices through the catalog helper before writing to Supabase — 3daa329
+- [x] 2.5 Source search shows no raw Supabase/database error message is written directly into avatar-choice query strings — 3daa329
 
 #### Manual
 
-- [x] 2.6 Anonymous access to `/dashboard/avatar` redirects to `/auth/signin`
-- [x] 2.7 A signed-in user can open `/dashboard/avatar`
-- [x] 2.8 Submitting an invalid `modalityId`/`avatarId` pair does not write a row and shows a safe Polish error
-- [x] 2.9 A valid choice creates or updates exactly the signed-in user's row
-- [x] 2.10 Reopening `/dashboard/avatar` preselects the saved choice
+- [x] 2.6 Anonymous access to `/dashboard/avatar` redirects to `/auth/signin` — 3daa329
+- [x] 2.7 A signed-in user can open `/dashboard/avatar` — 3daa329
+- [x] 2.8 Submitting an invalid `modalityId`/`avatarId` pair does not write a row and shows a safe Polish error — 3daa329
+- [x] 2.9 A valid choice creates or updates exactly the signed-in user's row — 3daa329
+- [x] 2.10 Reopening `/dashboard/avatar` preselects the saved choice — 3daa329
 
 ### Phase 3: Avatar Choice UI And Assets
 
 #### Automated
 
-- [ ] 3.1 `npm run lint` completes successfully
-- [ ] 3.2 `npm run build` completes successfully
-- [ ] 3.3 All five avatar asset paths referenced by the catalog exist under `public/avatars/`
-- [ ] 3.4 Source search finds no prescriptive copy such as `recommended for you`, `best for`, or `diagnose` in the avatar-choice UI
+- [x] 3.1 `npm run lint` completes successfully
+- [x] 3.2 `npm run build` completes successfully
+- [x] 3.3 All five avatar asset paths referenced by the catalog exist under `public/avatars/`
+- [x] 3.4 Source search finds no prescriptive copy such as `recommended for you`, `best for`, or `diagnose` in the avatar-choice UI
 
 #### Manual
 
-- [ ] 3.5 `/dashboard/avatar` shows five coherent avatar cards on desktop and mobile
-- [ ] 3.6 Selecting a card visibly changes state without resizing or overlapping UI
-- [ ] 3.7 The save button is disabled before selection and enabled after a valid selection
-- [ ] 3.8 Avatar portraits render with meaningful alt text and do not look like real clinicians
-- [ ] 3.9 The page copy explains that the choice is educational and can be changed before the first session
+- [x] 3.5 `/dashboard/avatar` shows five coherent avatar cards on desktop and mobile
+- [x] 3.6 Selecting a card visibly changes state without resizing or overlapping UI
+- [x] 3.7 The save button is disabled before selection and enabled after a valid selection
+- [x] 3.8 Avatar portraits render with meaningful alt text and do not look like real clinicians
+- [x] 3.9 The page copy explains that the choice is educational and can be changed before the first session
 
 ### Phase 4: Dashboard Integration And Verification
 
