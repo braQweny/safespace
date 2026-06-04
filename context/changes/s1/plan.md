@@ -329,28 +329,28 @@ No database migration is required. Supabase remains Auth-only for this change, a
 
 #### Automated
 
-- [x] 3.1 `npm run lint` completes successfully
-- [x] 3.2 `npm run build` completes successfully
-- [x] 3.3 The implementation does not add routes to `PROTECTED_ROUTES` for non-existent session paths
+- [x] 3.1 `npm run lint` completes successfully — c6f03ea
+- [x] 3.2 `npm run build` completes successfully — c6f03ea
+- [x] 3.3 The implementation does not add routes to `PROTECTED_ROUTES` for non-existent session paths — c6f03ea
 
 #### Manual
 
-- [x] 3.4 As a visitor, primary CTA opens `/auth/signup` and secondary auth link opens `/auth/signin`
-- [x] 3.5 As a signed-in user, topbar and main CTA show account-aware actions and do not ask the user to register again
-- [x] 3.6 Existing `/dashboard` protection still redirects unauthenticated users to `/auth/signin`
+- [x] 3.4 As a visitor, primary CTA opens `/auth/signup` and secondary auth link opens `/auth/signin` — c6f03ea
+- [x] 3.5 As a signed-in user, topbar and main CTA show account-aware actions and do not ask the user to register again — c6f03ea
+- [x] 3.6 Existing `/dashboard` protection still redirects unauthenticated users to `/auth/signin` — c6f03ea
 
 ### Phase 4: Verification Polish
 
 #### Automated
 
-- [ ] 4.1 `npx astro sync` completes successfully
-- [ ] 4.2 `npm run lint` completes successfully
-- [ ] 4.3 `npm run build` completes successfully
-- [ ] 4.4 `git diff --check` reports no whitespace errors
+- [x] 4.1 `npx astro sync` completes successfully
+- [x] 4.2 `npm run lint` completes successfully
+- [x] 4.3 `npm run build` completes successfully
+- [x] 4.4 `git diff --check` reports no whitespace errors
 
 #### Manual
 
-- [ ] 4.5 `/` is checked as visitor on desktop and mobile
-- [ ] 4.6 `/` is checked as signed-in user on desktop and mobile
-- [ ] 4.7 CTA links and `/dashboard -> /auth/signin` behavior are checked in browser
-- [ ] 4.8 No public S-01 surface still looks or reads like the starter template
+- [x] 4.5 `/` is checked as visitor on desktop and mobile
+- [x] 4.6 `/` is checked as signed-in user on desktop and mobile
+- [x] 4.7 CTA links and `/dashboard -> /auth/signin` behavior are checked in browser
+- [x] 4.8 No public S-01 surface still looks or reads like the starter template
