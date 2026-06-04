@@ -168,13 +168,15 @@ Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or
 
 ## CI
 
-GitHub Actions runs lint + build on every push and PR to `main`. Pushes to `main` then run `npx supabase db push --db-url "$SUPABASE_DB_URL" --yes` before deploying to Cloudflare Workers.
+GitHub Actions runs lint + build on every push and PR to `main`. Pushes to `main` then run `npx supabase db push` against the Supabase Session Pooler before deploying to Cloudflare Workers.
 
 Configure these repository secrets in GitHub:
 
 - `SUPABASE_URL`
 - `SUPABASE_KEY`
-- `SUPABASE_DB_URL` - Postgres connection string for migrations; prefer the Supabase Session Pooler URL and keep the password URL-encoded
+- `SUPABASE_DB_PASSWORD` - database password used to build the Session Pooler migration URL
+- `SUPABASE_DB_URL` - optional fallback full Postgres connection string; use the Session Pooler URL and keep the password URL-encoded
+- `SUPABASE_DB_POOLER_HOST` - optional override if Supabase shows a different host than `aws-0-eu-west-1.pooler.supabase.com`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 

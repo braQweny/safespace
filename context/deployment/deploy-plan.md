@@ -26,7 +26,9 @@
   - `CLOUDFLARE_API_TOKEN`
   - `SUPABASE_URL`
   - `SUPABASE_KEY`
-  - `SUPABASE_DB_URL` - connection string Postgresa do migracji; preferowac Supabase Session Pooler URL z URL-encoded password
+  - `SUPABASE_DB_PASSWORD` - haslo bazy do zbudowania Session Pooler migration URL
+  - `SUPABASE_DB_URL` - opcjonalny fallback jako pelny connection string; uzywac Session Pooler URL z URL-encoded password
+  - `SUPABASE_DB_POOLER_HOST` - opcjonalny override, jesli Supabase pokazuje inny host niz `aws-0-eu-west-1.pooler.supabase.com`
 - Supabase: istniejacy hosted project z wlaczonym Email/Password Auth oraz Google providerem skonfigurowanym w Supabase Auth, bez sekretow Google w runtime aplikacji.
 - Nie dodawac teraz `SUPABASE_SERVICE_ROLE_KEY`; aplikacja go nie uzywa i nie powinien trafiac do runtime frontendowego SSR.
 - `OPENROUTER_API_KEY` zostaje zaplanowany na przyszly milestone AI, nie jako sekret pierwszego deployu.
@@ -40,7 +42,7 @@
 - `.github/workflows/ci.yml`:
   - Trigger ustawiony na `main` dla push i pull request.
   - Job `ci` zachowuje `npm ci`, `npx astro sync`, lint i build.
-  - Job `migrate` dziala tylko dla push do `main`, po przejsciu `ci`, i wykonuje `npx supabase db push --db-url "$SUPABASE_DB_URL" --yes`.
+  - Job `migrate` dziala tylko dla push do `main`, po przejsciu `ci`, buduje Session Pooler URL z `SUPABASE_DB_PASSWORD` i wykonuje `npx supabase db push`.
   - Job `deploy` dziala tylko dla push do `main`, po przejsciu `migrate`.
   - Deploy uzywa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.95.0"` i `deploy --secrets-file .env.production`.
   - `.env.production` jest tworzony tymczasowo z GitHub secrets i usuwany po deployu.
@@ -60,7 +62,7 @@ npx wrangler deploy --dry-run
 ## Komendy deployu w GitHub Actions
 
 ```bash
-npx supabase db push --db-url "$SUPABASE_DB_URL" --yes
+npx supabase db push --db-url "$SUPABASE_MIGRATION_DB_URL" --yes
 printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" > .env.production
 npx wrangler deploy --secrets-file .env.production
 ```
@@ -71,7 +73,7 @@ Tylko jesli GitHub Actions zawiedzie z powodu konfiguracji CI:
 
 ```bash
 npx wrangler login
-npx supabase db push --db-url "$SUPABASE_DB_URL" --yes
+npx supabase db push --db-url "$SUPABASE_MIGRATION_DB_URL" --yes
 printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" > .env.production
 npx wrangler deploy --secrets-file .env.production
 rm .env.production
