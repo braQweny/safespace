@@ -305,10 +305,10 @@ No database migration is required. Supabase remains Auth-only for this change, a
 
 #### Manual
 
-- [ ] 1.5 Browser title and document language reflect SafeSpace and Polish
-- [ ] 1.6 The first viewport no longer presents `10x Astro Starter` branding
-- [ ] 1.7 The visual asset renders on desktop and mobile without cropping important content
-- [ ] 1.8 The visual asset has meaningful Polish `alt` text, stable dimensions/aspect ratio, and a checked file size under the agreed budget
+- [x] 1.5 Browser title and document language reflect SafeSpace and Polish
+- [x] 1.6 The first viewport no longer presents `10x Astro Starter` branding
+- [x] 1.7 The visual asset renders on desktop and mobile without cropping important content
+- [x] 1.8 The visual asset has meaningful Polish `alt` text, stable dimensions/aspect ratio, and a checked file size under the agreed budget
 
 ### Phase 2: Landing Content
 
