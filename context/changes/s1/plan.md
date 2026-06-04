@@ -343,14 +343,14 @@ No database migration is required. Supabase remains Auth-only for this change, a
 
 #### Automated
 
-- [x] 4.1 `npx astro sync` completes successfully
-- [x] 4.2 `npm run lint` completes successfully
-- [x] 4.3 `npm run build` completes successfully
-- [x] 4.4 `git diff --check` reports no whitespace errors
+- [x] 4.1 `npx astro sync` completes successfully — 1f36b08
+- [x] 4.2 `npm run lint` completes successfully — 1f36b08
+- [x] 4.3 `npm run build` completes successfully — 1f36b08
+- [x] 4.4 `git diff --check` reports no whitespace errors — 1f36b08
 
 #### Manual
 
-- [x] 4.5 `/` is checked as visitor on desktop and mobile
-- [x] 4.6 `/` is checked as signed-in user on desktop and mobile
-- [x] 4.7 CTA links and `/dashboard -> /auth/signin` behavior are checked in browser
-- [x] 4.8 No public S-01 surface still looks or reads like the starter template
+- [x] 4.5 `/` is checked as visitor on desktop and mobile — 1f36b08
+- [x] 4.6 `/` is checked as signed-in user on desktop and mobile — 1f36b08
+- [x] 4.7 CTA links and `/dashboard -> /auth/signin` behavior are checked in browser — 1f36b08
+- [x] 4.8 No public S-01 surface still looks or reads like the starter template — 1f36b08
