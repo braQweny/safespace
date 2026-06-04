@@ -18,6 +18,7 @@ const cardAccentClasses: Record<ModalityId, string> = {
 
 export default function AvatarChoiceForm({ modalities, currentSelection }: AvatarChoiceFormProps) {
   const [selectedModalityId, setSelectedModalityId] = useState<ModalityId | "">(currentSelection?.modalityId ?? "");
+  const isBrowser = typeof window !== "undefined";
   const selectedModality = modalities.find((modality) => modality.modalityId === selectedModalityId) ?? null;
 
   return (
@@ -30,7 +31,7 @@ export default function AvatarChoiceForm({ modalities, currentSelection }: Avata
             <label
               key={modality.modalityId}
               className={cn(
-                "relative flex min-h-[530px] cursor-pointer flex-col rounded-lg border-2 p-4 transition-colors focus-within:ring-2 focus-within:ring-[#2d8a7d] focus-within:outline-none",
+                "relative flex min-h-[530px] cursor-pointer flex-col rounded-lg border-2 p-4 transition-colors focus-within:ring-2 focus-within:ring-[#2d8a7d] focus-within:outline-none has-[:checked]:border-[#1f6f65] has-[:checked]:shadow-[0_16px_36px_rgba(31,111,101,0.18)]",
                 cardAccentClasses[modality.modalityId],
                 isSelected ? "border-[#1f6f65] shadow-[0_16px_36px_rgba(31,111,101,0.18)]" : "hover:border-[#7fb7ad]",
               )}
@@ -40,13 +41,14 @@ export default function AvatarChoiceForm({ modalities, currentSelection }: Avata
                 name="modalityId"
                 value={modality.modalityId}
                 checked={isSelected}
+                required
                 onChange={() => {
                   setSelectedModalityId(modality.modalityId);
                 }}
-                className="sr-only"
+                className="peer sr-only"
               />
-              <span className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1f6f65] shadow-sm">
-                {isSelected ? <CheckCircle2 aria-hidden="true" className="h-5 w-5" /> : null}
+              <span className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1f6f65] opacity-0 shadow-sm transition-opacity peer-checked:opacity-100">
+                <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
               </span>
 
               <img
@@ -81,11 +83,10 @@ export default function AvatarChoiceForm({ modalities, currentSelection }: Avata
         </div>
       ) : null}
 
-      <input type="hidden" name="avatarId" value={selectedModality?.avatarId ?? ""} />
-
       <button
         type="submit"
-        disabled={!selectedModality}
+        disabled={isBrowser && !selectedModality}
+        suppressHydrationWarning
         className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9abbb4]"
       >
         <Save aria-hidden="true" className="h-4 w-4" />

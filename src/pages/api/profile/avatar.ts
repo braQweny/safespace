@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getAvatarChoiceErrorRedirect } from "@/lib/avatar-choice-errors";
-import { getValidAvatarChoice } from "@/lib/modalities";
+import { getModalityById } from "@/lib/modalities";
 import { createClient } from "@/lib/supabase";
 
 function getFormString(form: FormData, field: string) {
@@ -22,7 +22,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   const form = await context.request.formData();
-  const selectedChoice = getValidAvatarChoice(getFormString(form, "modalityId"), getFormString(form, "avatarId"));
+  const selectedChoice = getModalityById(getFormString(form, "modalityId"));
 
   if (!selectedChoice) {
     return context.redirect(getAvatarChoiceErrorRedirect("/dashboard/avatar", "invalid_choice"), 303);
