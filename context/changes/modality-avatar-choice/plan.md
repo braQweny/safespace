@@ -394,35 +394,35 @@ This change introduces the first application table. Apply the migration only aft
 
 #### Automated
 
-- [x] 3.1 `npm run lint` completes successfully
-- [x] 3.2 `npm run build` completes successfully
-- [x] 3.3 All five avatar asset paths referenced by the catalog exist under `public/avatars/`
-- [x] 3.4 Source search finds no prescriptive copy such as `recommended for you`, `best for`, or `diagnose` in the avatar-choice UI
+- [x] 3.1 `npm run lint` completes successfully — 74b37be
+- [x] 3.2 `npm run build` completes successfully — 74b37be
+- [x] 3.3 All five avatar asset paths referenced by the catalog exist under `public/avatars/` — 74b37be
+- [x] 3.4 Source search finds no prescriptive copy such as `recommended for you`, `best for`, or `diagnose` in the avatar-choice UI — 74b37be
 
 #### Manual
 
-- [x] 3.5 `/dashboard/avatar` shows five coherent avatar cards on desktop and mobile
-- [x] 3.6 Selecting a card visibly changes state without resizing or overlapping UI
-- [x] 3.7 The save button is disabled before selection and enabled after a valid selection
-- [x] 3.8 Avatar portraits render with meaningful alt text and do not look like real clinicians
-- [x] 3.9 The page copy explains that the choice is educational and can be changed before the first session
+- [x] 3.5 `/dashboard/avatar` shows five coherent avatar cards on desktop and mobile — 74b37be
+- [x] 3.6 Selecting a card visibly changes state without resizing or overlapping UI — 74b37be
+- [x] 3.7 The save button is disabled before selection and enabled after a valid selection — 74b37be
+- [x] 3.8 Avatar portraits render with meaningful alt text and do not look like real clinicians — 74b37be
+- [x] 3.9 The page copy explains that the choice is educational and can be changed before the first session — 74b37be
 
 ### Phase 4: Dashboard Integration And Verification
 
 #### Automated
 
-- [ ] 4.1 `npx astro sync` completes successfully
-- [ ] 4.2 `npm run lint` completes successfully
-- [ ] 4.3 `npm run build` completes successfully
-- [ ] 4.4 `git diff --check` reports no whitespace errors
-- [ ] 4.5 Source search confirms no S-04 chat/timer/session route was added
-- [ ] 4.6 Migration source contains no service-role key, broad admin policy, or anonymous access policy
+- [x] 4.1 `npx astro sync` completes successfully
+- [x] 4.2 `npm run lint` completes successfully
+- [x] 4.3 `npm run build` completes successfully
+- [x] 4.4 `git diff --check` reports no whitespace errors
+- [x] 4.5 Source search confirms no S-04 chat/timer/session route was added
+- [x] 4.6 Migration source contains no service-role key, broad admin policy, or anonymous access policy
 
 #### Manual
 
-- [ ] 4.7 `/dashboard` as a signed-in user without a choice shows a clear action to choose an avatar
-- [ ] 4.8 `/dashboard` as a signed-in user with a choice shows the selected avatar/modality and a change action
-- [ ] 4.9 Saving a different choice updates the existing row instead of creating duplicates
-- [ ] 4.10 `/dashboard` still does not imply that the first session/chat is implemented
-- [ ] 4.11 Full visitor/signed-in smoke flow is checked: `/`, `/auth/signin`, `/dashboard`, `/dashboard/avatar`, save, return to `/dashboard`
-- [ ] 4.12 Hosted Supabase migration ownership is clear before deploying S-03 to production
+- [x] 4.7 `/dashboard` as a signed-in user without a choice shows a clear action to choose an avatar
+- [x] 4.8 `/dashboard` as a signed-in user with a choice shows the selected avatar/modality and a change action
+- [x] 4.9 Saving a different choice updates the existing row instead of creating duplicates
+- [x] 4.10 `/dashboard` still does not imply that the first session/chat is implemented
+- [x] 4.11 Full visitor/signed-in smoke flow is checked: `/`, `/auth/signin`, `/dashboard`, `/dashboard/avatar`, save, return to `/dashboard`
+- [x] 4.12 Hosted Supabase migration ownership is clear before deploying S-03 to production
