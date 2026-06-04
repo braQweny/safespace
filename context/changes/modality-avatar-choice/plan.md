@@ -411,18 +411,18 @@ This change introduces the first application table. Apply the migration only aft
 
 #### Automated
 
-- [x] 4.1 `npx astro sync` completes successfully
-- [x] 4.2 `npm run lint` completes successfully
-- [x] 4.3 `npm run build` completes successfully
-- [x] 4.4 `git diff --check` reports no whitespace errors
-- [x] 4.5 Source search confirms no S-04 chat/timer/session route was added
-- [x] 4.6 Migration source contains no service-role key, broad admin policy, or anonymous access policy
+- [x] 4.1 `npx astro sync` completes successfully — cd72e17
+- [x] 4.2 `npm run lint` completes successfully — cd72e17
+- [x] 4.3 `npm run build` completes successfully — cd72e17
+- [x] 4.4 `git diff --check` reports no whitespace errors — cd72e17
+- [x] 4.5 Source search confirms no S-04 chat/timer/session route was added — cd72e17
+- [x] 4.6 Migration source contains no service-role key, broad admin policy, or anonymous access policy — cd72e17
 
 #### Manual
 
-- [x] 4.7 `/dashboard` as a signed-in user without a choice shows a clear action to choose an avatar
-- [x] 4.8 `/dashboard` as a signed-in user with a choice shows the selected avatar/modality and a change action
-- [x] 4.9 Saving a different choice updates the existing row instead of creating duplicates
-- [x] 4.10 `/dashboard` still does not imply that the first session/chat is implemented
-- [x] 4.11 Full visitor/signed-in smoke flow is checked: `/`, `/auth/signin`, `/dashboard`, `/dashboard/avatar`, save, return to `/dashboard`
-- [x] 4.12 Hosted Supabase migration ownership is clear before deploying S-03 to production
+- [x] 4.7 `/dashboard` as a signed-in user without a choice shows a clear action to choose an avatar — cd72e17
+- [x] 4.8 `/dashboard` as a signed-in user with a choice shows the selected avatar/modality and a change action — cd72e17
+- [x] 4.9 Saving a different choice updates the existing row instead of creating duplicates — cd72e17
+- [x] 4.10 `/dashboard` still does not imply that the first session/chat is implemented — cd72e17
+- [x] 4.11 Full visitor/signed-in smoke flow is checked: `/`, `/auth/signin`, `/dashboard`, `/dashboard/avatar`, save, return to `/dashboard` — cd72e17
+- [x] 4.12 Hosted Supabase migration ownership is clear before deploying S-03 to production — cd72e17
