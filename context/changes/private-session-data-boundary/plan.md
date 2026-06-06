@@ -518,37 +518,37 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to `.env.example`, `.dev.vars`, Wrangler 
 
 #### Automated
 
-- [x] 2.1 `npx astro sync` completes successfully.
-- [x] 2.2 `npm run lint` completes successfully.
-- [x] 2.3 `npm run build` completes successfully.
-- [x] 2.4 Source search confirms `src/lib/session-data/` is the only new session-data TypeScript module family.
-- [x] 2.5 Source search confirms no public route handler imports the new repository yet.
-- [x] 2.6 Source search confirms no `console.log`, `console.error`, `console.warn`, or `console.info` was added for private message/summary content.
-- [x] 2.7 Source search confirms helper error returns use stable codes, not raw Supabase messages.
+- [x] 2.1 `npx astro sync` completes successfully. — 2adfd3a
+- [x] 2.2 `npm run lint` completes successfully. — 2adfd3a
+- [x] 2.3 `npm run build` completes successfully. — 2adfd3a
+- [x] 2.4 Source search confirms `src/lib/session-data/` is the only new session-data TypeScript module family. — 2adfd3a
+- [x] 2.5 Source search confirms no public route handler imports the new repository yet. — 2adfd3a
+- [x] 2.6 Source search confirms no `console.log`, `console.error`, `console.warn`, or `console.info` was added for private message/summary content. — 2adfd3a
+- [x] 2.7 Source search confirms helper error returns use stable codes, not raw Supabase messages. — 2adfd3a
 
 #### Manual
 
-- [x] 2.8 Review `src/lib/session-data/README.md` and confirm future S-04/S-05/S-06/S-07 usage rules are explicit.
-- [x] 2.9 Confirm the helper contract does not require `user.email`, cookies, provider tokens, or service-role secrets.
-- [x] 2.10 Confirm domain types separate private content from safe tombstone/metadata shapes.
+- [x] 2.8 Review `src/lib/session-data/README.md` and confirm future S-04/S-05/S-06/S-07 usage rules are explicit. — 2adfd3a
+- [x] 2.9 Confirm the helper contract does not require `user.email`, cookies, provider tokens, or service-role secrets. — 2adfd3a
+- [x] 2.10 Confirm domain types separate private content from safe tombstone/metadata shapes. — 2adfd3a
 
 ### Phase 3: Deletion And Trial Enforcement
 
 #### Automated
 
-- [ ] 3.1 `npx astro sync` completes successfully.
-- [ ] 3.2 `npm run lint` completes successfully.
-- [ ] 3.3 `npm run build` completes successfully.
-- [ ] 3.4 Source search confirms deletion helper removes message and summary content rather than only setting UI-visible flags.
-- [ ] 3.5 Source search confirms deleted-session tombstone code does not include message text, summary text, title, preview, prompt, provider payload, or modality/avatar detail.
-- [ ] 3.6 Source search confirms quota claim code handles duplicate/free-trial conflict through a stable code.
-- [ ] 3.7 Source search confirms no public session/chat/history endpoint was added.
+- [x] 3.1 `npx astro sync` completes successfully.
+- [x] 3.2 `npm run lint` completes successfully.
+- [x] 3.3 `npm run build` completes successfully.
+- [x] 3.4 Source search confirms deletion helper removes message and summary content rather than only setting UI-visible flags.
+- [x] 3.5 Source search confirms deleted-session tombstone code does not include message text, summary text, title, preview, prompt, provider payload, or modality/avatar detail.
+- [x] 3.6 Source search confirms quota claim code handles duplicate/free-trial conflict through a stable code.
+- [x] 3.7 Source search confirms no public session/chat/history endpoint was added.
 
 #### Manual
 
-- [ ] 3.8 Review deletion helper intent and confirm it matches "soft-delete session plus hard-delete private content."
-- [ ] 3.9 Review quota helper and confirm the one-free-session limit is enforced by the database contract, not by UI state.
-- [ ] 3.10 Confirm the README explicitly defers break-glass/legal/safety content access to a future audited change.
+- [x] 3.8 Review deletion helper intent and confirm it matches "soft-delete session plus hard-delete private content."
+- [x] 3.9 Review quota helper and confirm the one-free-session limit is enforced by the database contract, not by UI state.
+- [x] 3.10 Confirm the README explicitly defers break-glass/legal/safety content access to a future audited change.
 
 ### Phase 4: Tests, Source Sweeps, And Docs
 

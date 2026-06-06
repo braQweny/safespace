@@ -3,6 +3,7 @@ import type {
   AppendSessionMessageInput,
   CreatePendingSessionInput,
   DeletedSessionTombstone,
+  DeleteOwnedSessionInput,
   ListSessionMetadataOptions,
   ListSessionSummariesOptions,
   SaveVisibleSessionSummaryInput,
@@ -15,10 +16,12 @@ import type {
   SessionMessageRole,
   SessionMetadata,
   SessionSummaryRecord,
+  SessionTrialClaimState,
   SessionSummaryStatus,
   TransitionSessionLifecycleInput,
   TrialAvailability,
   TrialClaimId,
+  UpdateSessionTombstoneInput,
   UserId,
 } from "./types";
 
@@ -155,7 +158,7 @@ function mapSummary(row: SessionSummaryRow): SessionSummaryRecord {
   };
 }
 
-function mapTrialClaim(row: SessionTrialClaimRow) {
+function mapTrialClaim(row: SessionTrialClaimRow): SessionTrialClaimState {
   return {
     id: row.id,
     sessionId: row.session_id,
@@ -171,12 +174,20 @@ function toDeletedTombstone(session: SessionMetadata): DeletedSessionTombstone |
     return null;
   }
 
-  const { modalityId: _modalityId, avatarId: _avatarId, ...tombstone } = session;
   return {
-    ...tombstone,
+    id: session.id,
+    userId: session.userId,
     status: "deleted",
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    expiresAt: session.expiresAt,
     deletedAt: session.deletedAt,
     deletionReasonCode: session.deletionReasonCode,
+    isTrial: session.isTrial,
+    trialClaimId: session.trialClaimId,
+    durationBucketSeconds: session.durationBucketSeconds,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
   };
 }
 
@@ -430,6 +441,73 @@ export async function readSafeSessionTombstone(
   return tombstone ? ok(tombstone) : sessionDataError("invalid_lifecycle_transition");
 }
 
+export async function purgeOwnedSessionMessages(
+  context: SessionDataContext,
+  sessionId: SessionId,
+): Promise<SessionDataResult<null>> {
+  const { error } = await context.supabase
+    .from("session_messages")
+    .delete()
+    .eq("session_id", sessionId)
+    .eq("user_id", context.user.id);
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  return ok(null);
+}
+
+export async function purgeOwnedSessionSummaries(
+  context: SessionDataContext,
+  sessionId: SessionId,
+): Promise<SessionDataResult<null>> {
+  const { error } = await context.supabase
+    .from("session_summaries")
+    .delete()
+    .eq("session_id", sessionId)
+    .eq("user_id", context.user.id);
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  return ok(null);
+}
+
+export async function updateSessionTombstone(
+  context: SessionDataContext,
+  input: UpdateSessionTombstoneInput,
+): Promise<SessionDataResult<DeletedSessionTombstone>> {
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .update({
+      status: "deleted",
+      ended_at: input.endedAt ?? null,
+      deletion_reason_code: input.deletionReasonCode,
+      duration_bucket_seconds: input.durationBucketSeconds ?? null,
+    })
+    .eq("id", input.sessionId)
+    .eq("user_id", context.user.id)
+    .select(SESSION_SELECT)
+    .single();
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  const row = coerceSessionRow(data);
+  const tombstone = row ? toDeletedTombstone(mapSession(row)) : null;
+  return tombstone ? ok(tombstone) : sessionDataError("delete_failed");
+}
+
+export async function markOwnedSessionDeleted(
+  context: SessionDataContext,
+  input: DeleteOwnedSessionInput,
+): Promise<SessionDataResult<DeletedSessionTombstone>> {
+  return updateSessionTombstone(context, input);
+}
+
 export async function getTrialAvailability(context: SessionDataContext): Promise<SessionDataResult<TrialAvailability>> {
   const { data, error } = await context.supabase
     .from("session_trial_claims")
@@ -447,4 +525,25 @@ export async function getTrialAvailability(context: SessionDataContext): Promise
     isAvailable: !row,
     existingClaim: row ? mapTrialClaim(row) : null,
   });
+}
+
+export async function createSessionTrialClaim(
+  context: SessionDataContext,
+  sessionId: SessionId,
+): Promise<SessionDataResult<SessionTrialClaimState>> {
+  const { data, error } = await context.supabase
+    .from("session_trial_claims")
+    .insert({
+      session_id: sessionId,
+      user_id: context.user.id,
+    })
+    .select(TRIAL_CLAIM_SELECT)
+    .single();
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error, { conflictCode: "trial_already_claimed" }));
+  }
+
+  const row = coerceTrialClaimRow(data);
+  return row ? ok(mapTrialClaim(row)) : sessionDataError("write_failed");
 }

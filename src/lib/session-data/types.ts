@@ -52,14 +52,21 @@ export interface SessionMetadata {
   updatedAt: string;
 }
 
-export type DeletedSessionTombstone = Omit<
-  SessionMetadata,
-  "modalityId" | "avatarId" | "status" | "deletedAt" | "deletionReasonCode"
-> & {
+export interface DeletedSessionTombstone {
+  id: SessionId;
+  userId: UserId;
   status: "deleted";
+  startedAt: string | null;
+  endedAt: string | null;
+  expiresAt: string | null;
   deletedAt: string;
   deletionReasonCode: SessionDeletionReasonCode;
-};
+  isTrial: boolean;
+  trialClaimId: TrialClaimId | null;
+  durationBucketSeconds: SessionDurationBucketSeconds | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface SessionMessageRecord {
   id: MessageId;
@@ -106,6 +113,18 @@ export interface CreatePendingSessionInput {
   durationBucketSeconds?: SessionDurationBucketSeconds | null;
 }
 
+export interface ClaimFreeTrialSessionInput {
+  modalityId?: SessionModalityId | null;
+  avatarId?: SessionAvatarId | null;
+  startedAt?: string | null;
+  expiresAt?: string | null;
+}
+
+export interface ClaimFreeTrialSessionResult {
+  session: SessionMetadata;
+  trialClaim: SessionTrialClaimState;
+}
+
 export interface TransitionSessionLifecycleInput {
   sessionId: SessionId;
   nextStatus: Exclude<SessionLifecycleStatus, "created">;
@@ -115,6 +134,15 @@ export interface TransitionSessionLifecycleInput {
   deletionReasonCode?: SessionDeletionReasonCode | null;
   durationBucketSeconds?: SessionDurationBucketSeconds | null;
 }
+
+export interface DeleteOwnedSessionInput {
+  sessionId: SessionId;
+  deletionReasonCode: SessionDeletionReasonCode;
+  endedAt?: string | null;
+  durationBucketSeconds?: SessionDurationBucketSeconds | null;
+}
+
+export type UpdateSessionTombstoneInput = DeleteOwnedSessionInput;
 
 export interface AppendSessionMessageInput {
   sessionId: SessionId;

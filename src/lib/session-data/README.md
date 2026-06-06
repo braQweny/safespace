@@ -42,3 +42,23 @@ Wygenerowane typy maja wzmacniac ten boundary, nie zastepowac go. Publiczne rout
 ## Stabilne bledy
 
 Helpery zwracaja `SessionDataResult<T>` i `SessionDataErrorCode`. Nie przekazuj raw Supabase `message`, `details` ani `hint` do UI, logow lub response body. Dla konfliktu darmowej sesji uzyj stabilnego kodu `trial_already_claimed`.
+
+## Start pierwszej darmowej sesji
+
+Przyszly S-04 ma zachowac taka kolejnosc:
+
+1. Uwierzytelnij request przez `getSessionDataContext(context)`.
+2. Jesli styl rozmowy potrzebuje aktualnego wyboru awatara, wczytaj go osobnym owner-bound helperem S-03.
+3. Wywolaj `claimFreeTrialSession()` z `quota.ts`; helper tworzy sesje probna i zapisuje claim w `session_trial_claims`, gdzie unikalny kontrakt bazy wymusza jeden claim na uzytkownika.
+4. Dopiero po claimie przejdz do granicy F-02: ocen bezpieczenstwo i sytuacje kryzysowa przed zwykla generacja AI.
+5. Jesli F-03 jest dostepne, loguj tylko bezpieczne metadane przeplywu. Nie loguj tresci rozmowy, promptow, podsumowan ani payloadow providera.
+
+Nie sprawdzaj limitu darmowej sesji tylko w UI. Odczyt dostepnosci moze sluzyc do komunikatu, ale claim musi przejsc przez `claimFreeTrialSession()` i DB unique constraint.
+
+## Usuwanie sesji
+
+Przyszly S-05 ma uzywac `deleteOwnedSession()` z `deletion.ts`. Ten helper usuwa rekordy `session_messages` i `session_summaries`, a nastepnie oznacza `therapy_sessions` jako `deleted`. Zwracany tombstone nie zawiera prywatnej tresci ani wyboru nurtu/awatara.
+
+## Legal/safety exceptions
+
+F-01 nie implementuje break-glass content access. Waskie wyjatki prawne lub bezpieczenstwa wymagaja osobnego planu z jawna autoryzacja, audytem, minimalizacja danych i decyzja ownera. Nie dodawaj implicit admin access w helperach F-01.
