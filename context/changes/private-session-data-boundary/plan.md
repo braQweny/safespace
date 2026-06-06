@@ -518,19 +518,19 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to `.env.example`, `.dev.vars`, Wrangler 
 
 #### Automated
 
-- [ ] 2.1 `npx astro sync` completes successfully.
-- [ ] 2.2 `npm run lint` completes successfully.
-- [ ] 2.3 `npm run build` completes successfully.
-- [ ] 2.4 Source search confirms `src/lib/session-data/` is the only new session-data TypeScript module family.
-- [ ] 2.5 Source search confirms no public route handler imports the new repository yet.
-- [ ] 2.6 Source search confirms no `console.log`, `console.error`, `console.warn`, or `console.info` was added for private message/summary content.
-- [ ] 2.7 Source search confirms helper error returns use stable codes, not raw Supabase messages.
+- [x] 2.1 `npx astro sync` completes successfully.
+- [x] 2.2 `npm run lint` completes successfully.
+- [x] 2.3 `npm run build` completes successfully.
+- [x] 2.4 Source search confirms `src/lib/session-data/` is the only new session-data TypeScript module family.
+- [x] 2.5 Source search confirms no public route handler imports the new repository yet.
+- [x] 2.6 Source search confirms no `console.log`, `console.error`, `console.warn`, or `console.info` was added for private message/summary content.
+- [x] 2.7 Source search confirms helper error returns use stable codes, not raw Supabase messages.
 
 #### Manual
 
-- [ ] 2.8 Review `src/lib/session-data/README.md` and confirm future S-04/S-05/S-06/S-07 usage rules are explicit.
-- [ ] 2.9 Confirm the helper contract does not require `user.email`, cookies, provider tokens, or service-role secrets.
-- [ ] 2.10 Confirm domain types separate private content from safe tombstone/metadata shapes.
+- [x] 2.8 Review `src/lib/session-data/README.md` and confirm future S-04/S-05/S-06/S-07 usage rules are explicit.
+- [x] 2.9 Confirm the helper contract does not require `user.email`, cookies, provider tokens, or service-role secrets.
+- [x] 2.10 Confirm domain types separate private content from safe tombstone/metadata shapes.
 
 ### Phase 3: Deletion And Trial Enforcement
 
