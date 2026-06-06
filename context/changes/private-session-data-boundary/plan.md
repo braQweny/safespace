@@ -575,16 +575,16 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to `.env.example`, `.dev.vars`, Wrangler 
 
 #### Automated
 
-- [x] 5.1 `git diff --check` passes.
-- [x] 5.2 `npx astro sync` completes successfully.
-- [x] 5.3 `npm run lint` completes successfully.
-- [x] 5.4 `npm run build` completes successfully.
-- [x] 5.5 Final scope sweep confirms no S-04/S-05/S-06/S-07 UI or route was introduced.
-- [x] 5.6 Final privacy sweep confirms no service-role runtime secret, anonymous private-table policy, broad content admin access, or private content logging was introduced.
-- [x] 5.7 `context/changes/private-session-data-boundary/plan.md` and `plan-brief.md` exist.
+- [x] 5.1 `git diff --check` passes. — cc4d132
+- [x] 5.2 `npx astro sync` completes successfully. — cc4d132
+- [x] 5.3 `npm run lint` completes successfully. — cc4d132
+- [x] 5.4 `npm run build` completes successfully. — cc4d132
+- [x] 5.5 Final scope sweep confirms no S-04/S-05/S-06/S-07 UI or route was introduced. — cc4d132
+- [x] 5.6 Final privacy sweep confirms no service-role runtime secret, anonymous private-table policy, broad content admin access, or private content logging was introduced. — cc4d132
+- [x] 5.7 `context/changes/private-session-data-boundary/plan.md` and `plan-brief.md` exist. — cc4d132
 
 #### Manual
 
-- [x] 5.8 Review `verification.md` if present and confirm manual hosted/environment claims are evidence-backed.
-- [x] 5.9 Confirm any manual hosted migration item without evidence remains pending.
-- [x] 5.10 Confirm the future slice handoff is understandable before starting `/10x-implement private-session-data-boundary phase 1`.
+- [x] 5.8 Review `verification.md` if present and confirm manual hosted/environment claims are evidence-backed. — cc4d132
+- [x] 5.9 Confirm any manual hosted migration item without evidence remains pending. — cc4d132
+- [x] 5.10 Confirm the future slice handoff is understandable before starting `/10x-implement private-session-data-boundary phase 1`. — cc4d132
