@@ -554,37 +554,37 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to `.env.example`, `.dev.vars`, Wrangler 
 
 #### Automated
 
-- [x] 4.1 `npm run test` or the selected session-data test command completes successfully if a test runner exists after implementation.
-- [x] 4.2 `npx astro sync` completes successfully.
-- [x] 4.3 `npm run lint` completes successfully.
-- [x] 4.4 `npm run build` completes successfully.
-- [x] 4.5 Source search confirms tests do not require real Supabase credentials or network calls.
-- [x] 4.6 Source search confirms no service-role runtime secret was added.
-- [x] 4.7 Source search confirms no new public session/chat/history route was added.
-- [x] 4.8 Source search confirms no raw private content logging was added.
-- [x] 4.9 Source search confirms no admin-readable content policy, view, or helper was added.
-- [x] 4.10 Source search confirms migration docs mention hosted evidence when hosted migration is applied.
+- [x] 4.1 `npm run test` or the selected session-data test command completes successfully if a test runner exists after implementation. — 5203c56
+- [x] 4.2 `npx astro sync` completes successfully. — 5203c56
+- [x] 4.3 `npm run lint` completes successfully. — 5203c56
+- [x] 4.4 `npm run build` completes successfully. — 5203c56
+- [x] 4.5 Source search confirms tests do not require real Supabase credentials or network calls. — 5203c56
+- [x] 4.6 Source search confirms no service-role runtime secret was added. — 5203c56
+- [x] 4.7 Source search confirms no new public session/chat/history route was added. — 5203c56
+- [x] 4.8 Source search confirms no raw private content logging was added. — 5203c56
+- [x] 4.9 Source search confirms no admin-readable content policy, view, or helper was added. — 5203c56
+- [x] 4.10 Source search confirms migration docs mention hosted evidence when hosted migration is applied. — 5203c56
 
 #### Manual
 
-- [x] 4.11 Review the test setup and confirm it stays unit-level, not E2E or local-Supabase integration.
-- [x] 4.12 Review README/deploy updates and confirm no new runtime secret is requested.
+- [x] 4.11 Review the test setup and confirm it stays unit-level, not E2E or local-Supabase integration. — 5203c56
+- [x] 4.12 Review README/deploy updates and confirm no new runtime secret is requested. — 5203c56
 - [ ] 4.13 Record hosted migration evidence in the change folder if hosted migration verification happens; otherwise keep the relevant manual evidence item pending.
 
 ### Phase 5: Evidence And Closeout
 
 #### Automated
 
-- [ ] 5.1 `git diff --check` passes.
-- [ ] 5.2 `npx astro sync` completes successfully.
-- [ ] 5.3 `npm run lint` completes successfully.
-- [ ] 5.4 `npm run build` completes successfully.
-- [ ] 5.5 Final scope sweep confirms no S-04/S-05/S-06/S-07 UI or route was introduced.
-- [ ] 5.6 Final privacy sweep confirms no service-role runtime secret, anonymous private-table policy, broad content admin access, or private content logging was introduced.
-- [ ] 5.7 `context/changes/private-session-data-boundary/plan.md` and `plan-brief.md` exist.
+- [x] 5.1 `git diff --check` passes.
+- [x] 5.2 `npx astro sync` completes successfully.
+- [x] 5.3 `npm run lint` completes successfully.
+- [x] 5.4 `npm run build` completes successfully.
+- [x] 5.5 Final scope sweep confirms no S-04/S-05/S-06/S-07 UI or route was introduced.
+- [x] 5.6 Final privacy sweep confirms no service-role runtime secret, anonymous private-table policy, broad content admin access, or private content logging was introduced.
+- [x] 5.7 `context/changes/private-session-data-boundary/plan.md` and `plan-brief.md` exist.
 
 #### Manual
 
-- [ ] 5.8 Review `verification.md` if present and confirm manual hosted/environment claims are evidence-backed.
-- [ ] 5.9 Confirm any manual hosted migration item without evidence remains pending.
-- [ ] 5.10 Confirm the future slice handoff is understandable before starting `/10x-implement private-session-data-boundary phase 1`.
+- [x] 5.8 Review `verification.md` if present and confirm manual hosted/environment claims are evidence-backed.
+- [x] 5.9 Confirm any manual hosted migration item without evidence remains pending.
+- [x] 5.10 Confirm the future slice handoff is understandable before starting `/10x-implement private-session-data-boundary phase 1`.

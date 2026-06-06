@@ -62,3 +62,27 @@ Przyszly S-05 ma uzywac `deleteOwnedSession()` z `deletion.ts`. Ten helper usuwa
 ## Legal/safety exceptions
 
 F-01 nie implementuje break-glass content access. Waskie wyjatki prawne lub bezpieczenstwa wymagaja osobnego planu z jawna autoryzacja, audytem, minimalizacja danych i decyzja ownera. Nie dodawaj implicit admin access w helperach F-01.
+
+## Handoff for S-04 first safe timed session
+
+S-04 ma uzyc `getSessionDataContext()` jako pierwszego kroku kazdego prywatnego handlera i `claimFreeTrialSession()` jako jedynej sciezki startu darmowej sesji. Po claimie moze dopisywac wiadomosci przez `appendSessionMessage()` i czytac je przez owner-bound repository helpers.
+
+S-04 nie moze tworzyc alternatywnego UI-only limitu darmowej sesji, direct insertow do `therapy_sessions`, `session_messages` albo `session_trial_claims`, service-role runtime secretow, ani logow z raw contentem rozmowy. Granica F-02 musi nadal decydowac o zwyklej generacji AI i przerwaniu kryzysowym.
+
+## Handoff for S-05 session history control
+
+S-05 ma czytac historie przez owner-bound metadata/message helpers i usuwac sesje przez `deleteOwnedSession()`. Usuniecie oznacza hard-delete rekordow `session_messages` i `session_summaries` oraz pozostawienie minimalnego tombstone w `therapy_sessions`.
+
+S-05 nie moze implementowac kasowania jako samego flagowania UI, nie moze zachowywac podgladow/tytulow/promptow/provider payloadow po usunieciu i nie moze zwracac tombstone z `modalityId` lub `avatarId`.
+
+## Handoff for S-06 summary-backed next session
+
+S-06 ma tworzyc i pokazywac user-visible summaries przez `saveVisibleSessionSummary()` i `listOwnedSessionSummaries()`. Kolejna sesja moze dostac kontekst z widocznych podsumowan, a nie z nieograniczonej historii raw messages.
+
+S-06 nie moze bypassowac statusow `draft`, `ready`, `stale`, `deleted`, nie moze uzywac usunietych podsumowan jako kontekstu i nie moze ukrywac przed uzytkownikiem podsumowania, ktore zasila nastepna rozmowe.
+
+## Handoff for S-07 private admin operations
+
+S-07 moze budowac tylko agregaty i operacje admina bez prywatnej tresci. Jesli potrzebne sa statystyki, powinny bazowac na bezpiecznych polach metadata/tombstone, takich jak status, duration bucket, trial marker i daty, bez `session_messages.content` oraz bez `session_summaries.summary_text`.
+
+S-07 nie moze dodawac admin-readable content policies, views ani helperow z trescia rozmow. Kazdy legal/safety exception wymaga osobnego audited planu, a nie rozszerzenia F-01.
