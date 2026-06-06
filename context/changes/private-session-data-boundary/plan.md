@@ -499,19 +499,19 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to `.env.example`, `.dev.vars`, Wrangler 
 
 #### Automated
 
-- [x] 1.1 `npx astro sync` completes successfully after the migration is added.
-- [x] 1.2 `npm run lint` completes successfully.
-- [x] 1.3 `npm run build` completes successfully.
-- [x] 1.4 Source search confirms RLS is enabled for every new private table.
-- [x] 1.5 Source search confirms no `anon` policy or grant exists for private session tables.
-- [x] 1.6 Source search confirms no `SUPABASE_SERVICE_ROLE_KEY` or service-role runtime dependency was added.
-- [x] 1.7 Source search confirms private table write grants are column-level where metadata exists.
-- [x] 1.8 Source search confirms no `/api/session`, `/api/chat`, session UI, history UI, or timer UI route was added.
+- [x] 1.1 `npx astro sync` completes successfully after the migration is added. — 46e7dcf
+- [x] 1.2 `npm run lint` completes successfully. — 46e7dcf
+- [x] 1.3 `npm run build` completes successfully. — 46e7dcf
+- [x] 1.4 Source search confirms RLS is enabled for every new private table. — 46e7dcf
+- [x] 1.5 Source search confirms no `anon` policy or grant exists for private session tables. — 46e7dcf
+- [x] 1.6 Source search confirms no `SUPABASE_SERVICE_ROLE_KEY` or service-role runtime dependency was added. — 46e7dcf
+- [x] 1.7 Source search confirms private table write grants are column-level where metadata exists. — 46e7dcf
+- [x] 1.8 Source search confirms no `/api/session`, `/api/chat`, session UI, history UI, or timer UI route was added. — 46e7dcf
 
 #### Manual
 
-- [x] 1.9 Review the migration and confirm every private table is owner-only before applying it to hosted Supabase.
-- [x] 1.10 Confirm deletion tombstone fields do not include message text, summary text, title, preview, prompt, provider payload, or modality/avatar details.
+- [x] 1.9 Review the migration and confirm every private table is owner-only before applying it to hosted Supabase. — 46e7dcf
+- [x] 1.10 Confirm deletion tombstone fields do not include message text, summary text, title, preview, prompt, provider payload, or modality/avatar details. — 46e7dcf
 - [ ] 1.11 If hosted migration is applied during implementation, record the environment, command, and result in the change folder; otherwise leave hosted migration evidence pending.
 
 ### Phase 2: Server-Only Session Data Contract

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Exa MCP Setup"
+  short_description: "Configure Exa MCP for Codex"
+  default_prompt: "Use $exa-mcp-setup to configure Exa MCP for Codex."
