@@ -7,11 +7,26 @@ import {
 } from "./repository";
 import type { DeletedSessionTombstone, DeleteOwnedSessionInput, SessionDataContext } from "./types";
 
+export interface DeletionRepository {
+  getOwnedSessionMetadata: typeof getOwnedSessionMetadata;
+  purgeOwnedSessionMessages: typeof purgeOwnedSessionMessages;
+  purgeOwnedSessionSummaries: typeof purgeOwnedSessionSummaries;
+  updateSessionTombstone: typeof updateSessionTombstone;
+}
+
+const defaultDeletionRepository: DeletionRepository = {
+  getOwnedSessionMetadata,
+  purgeOwnedSessionMessages,
+  purgeOwnedSessionSummaries,
+  updateSessionTombstone,
+};
+
 export async function deleteOwnedSession(
   context: SessionDataContext,
   input: DeleteOwnedSessionInput,
+  repository: DeletionRepository = defaultDeletionRepository,
 ): Promise<SessionDataResult<DeletedSessionTombstone>> {
-  const session = await getOwnedSessionMetadata(context, input.sessionId);
+  const session = await repository.getOwnedSessionMetadata(context, input.sessionId);
 
   if (!session.ok) {
     return session;
@@ -21,19 +36,19 @@ export async function deleteOwnedSession(
     return sessionDataError("invalid_lifecycle_transition");
   }
 
-  const messages = await purgeOwnedSessionMessages(context, input.sessionId);
+  const messages = await repository.purgeOwnedSessionMessages(context, input.sessionId);
 
   if (!messages.ok) {
     return sessionDataError("delete_failed");
   }
 
-  const summaries = await purgeOwnedSessionSummaries(context, input.sessionId);
+  const summaries = await repository.purgeOwnedSessionSummaries(context, input.sessionId);
 
   if (!summaries.ok) {
     return sessionDataError("delete_failed");
   }
 
-  const tombstone = await updateSessionTombstone(context, input);
+  const tombstone = await repository.updateSessionTombstone(context, input);
 
   if (!tombstone.ok) {
     return sessionDataError("delete_failed");

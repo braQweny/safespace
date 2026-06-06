@@ -169,7 +169,7 @@ function mapTrialClaim(row: SessionTrialClaimRow): SessionTrialClaimState {
   };
 }
 
-function toDeletedTombstone(session: SessionMetadata): DeletedSessionTombstone | null {
+export function toDeletedSessionTombstone(session: SessionMetadata): DeletedSessionTombstone | null {
   if (session.status !== "deleted" || !session.deletedAt || !session.deletionReasonCode) {
     return null;
   }
@@ -437,7 +437,7 @@ export async function readSafeSessionTombstone(
     return session;
   }
 
-  const tombstone = toDeletedTombstone(session.data);
+  const tombstone = toDeletedSessionTombstone(session.data);
   return tombstone ? ok(tombstone) : sessionDataError("invalid_lifecycle_transition");
 }
 
@@ -497,7 +497,7 @@ export async function updateSessionTombstone(
   }
 
   const row = coerceSessionRow(data);
-  const tombstone = row ? toDeletedTombstone(mapSession(row)) : null;
+  const tombstone = row ? toDeletedSessionTombstone(mapSession(row)) : null;
   return tombstone ? ok(tombstone) : sessionDataError("delete_failed");
 }
 

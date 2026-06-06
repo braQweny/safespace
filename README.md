@@ -52,6 +52,7 @@ npm run dev
 - `npm run dev` - Start development server (Cloudflare workerd runtime)
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
+- `npm run test` - Run unit tests for server-side helper logic
 - `npm run lint` - Run ESLint with type-checked rules
 - `npm run lint:fix` - Auto-fix ESLint issues
 - `npm run format` - Run Prettier
@@ -111,7 +112,7 @@ npx supabase stop
 
 The local Studio UI is available at `http://localhost:54323`.
 
-Database migrations live in `supabase/migrations/`. Hosted deployments push pending migrations with `npx supabase db push` before the Cloudflare Worker is deployed.
+Database migrations live in `supabase/migrations/`. Hosted deployments push pending migrations with `npx supabase db push` before the Cloudflare Worker is deployed. The F-01 private session data boundary adds pending Supabase migrations for session memory, summaries, deletion, and trial claims; record hosted migration evidence in the relevant `context/changes/<change-id>/verification.md` when those migrations are actually applied.
 
 ### Using a cloud Supabase project instead
 
@@ -168,7 +169,7 @@ Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or
 
 ## CI
 
-GitHub Actions runs lint + build on every push and PR to `main`. Pushes to `main` then run `npx supabase db push` against the Supabase Session Pooler before deploying to Cloudflare Workers.
+GitHub Actions runs unit tests, lint, and build on every push and PR to `main`. Pushes to `main` then run `npx supabase db push` against the Supabase Session Pooler before deploying to Cloudflare Workers. The test job does not require hosted Supabase credentials, Cloudflare secrets, OpenRouter, or Docker.
 
 Configure these repository secrets in GitHub:
 

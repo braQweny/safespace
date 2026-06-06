@@ -536,39 +536,39 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to `.env.example`, `.dev.vars`, Wrangler 
 
 #### Automated
 
-- [x] 3.1 `npx astro sync` completes successfully.
-- [x] 3.2 `npm run lint` completes successfully.
-- [x] 3.3 `npm run build` completes successfully.
-- [x] 3.4 Source search confirms deletion helper removes message and summary content rather than only setting UI-visible flags.
-- [x] 3.5 Source search confirms deleted-session tombstone code does not include message text, summary text, title, preview, prompt, provider payload, or modality/avatar detail.
-- [x] 3.6 Source search confirms quota claim code handles duplicate/free-trial conflict through a stable code.
-- [x] 3.7 Source search confirms no public session/chat/history endpoint was added.
+- [x] 3.1 `npx astro sync` completes successfully. — 695199b
+- [x] 3.2 `npm run lint` completes successfully. — 695199b
+- [x] 3.3 `npm run build` completes successfully. — 695199b
+- [x] 3.4 Source search confirms deletion helper removes message and summary content rather than only setting UI-visible flags. — 695199b
+- [x] 3.5 Source search confirms deleted-session tombstone code does not include message text, summary text, title, preview, prompt, provider payload, or modality/avatar detail. — 695199b
+- [x] 3.6 Source search confirms quota claim code handles duplicate/free-trial conflict through a stable code. — 695199b
+- [x] 3.7 Source search confirms no public session/chat/history endpoint was added. — 695199b
 
 #### Manual
 
-- [x] 3.8 Review deletion helper intent and confirm it matches "soft-delete session plus hard-delete private content."
-- [x] 3.9 Review quota helper and confirm the one-free-session limit is enforced by the database contract, not by UI state.
-- [x] 3.10 Confirm the README explicitly defers break-glass/legal/safety content access to a future audited change.
+- [x] 3.8 Review deletion helper intent and confirm it matches "soft-delete session plus hard-delete private content." — 695199b
+- [x] 3.9 Review quota helper and confirm the one-free-session limit is enforced by the database contract, not by UI state. — 695199b
+- [x] 3.10 Confirm the README explicitly defers break-glass/legal/safety content access to a future audited change. — 695199b
 
 ### Phase 4: Tests, Source Sweeps, And Docs
 
 #### Automated
 
-- [ ] 4.1 `npm run test` or the selected session-data test command completes successfully if a test runner exists after implementation.
-- [ ] 4.2 `npx astro sync` completes successfully.
-- [ ] 4.3 `npm run lint` completes successfully.
-- [ ] 4.4 `npm run build` completes successfully.
-- [ ] 4.5 Source search confirms tests do not require real Supabase credentials or network calls.
-- [ ] 4.6 Source search confirms no service-role runtime secret was added.
-- [ ] 4.7 Source search confirms no new public session/chat/history route was added.
-- [ ] 4.8 Source search confirms no raw private content logging was added.
-- [ ] 4.9 Source search confirms no admin-readable content policy, view, or helper was added.
-- [ ] 4.10 Source search confirms migration docs mention hosted evidence when hosted migration is applied.
+- [x] 4.1 `npm run test` or the selected session-data test command completes successfully if a test runner exists after implementation.
+- [x] 4.2 `npx astro sync` completes successfully.
+- [x] 4.3 `npm run lint` completes successfully.
+- [x] 4.4 `npm run build` completes successfully.
+- [x] 4.5 Source search confirms tests do not require real Supabase credentials or network calls.
+- [x] 4.6 Source search confirms no service-role runtime secret was added.
+- [x] 4.7 Source search confirms no new public session/chat/history route was added.
+- [x] 4.8 Source search confirms no raw private content logging was added.
+- [x] 4.9 Source search confirms no admin-readable content policy, view, or helper was added.
+- [x] 4.10 Source search confirms migration docs mention hosted evidence when hosted migration is applied.
 
 #### Manual
 
-- [ ] 4.11 Review the test setup and confirm it stays unit-level, not E2E or local-Supabase integration.
-- [ ] 4.12 Review README/deploy updates and confirm no new runtime secret is requested.
+- [x] 4.11 Review the test setup and confirm it stays unit-level, not E2E or local-Supabase integration.
+- [x] 4.12 Review README/deploy updates and confirm no new runtime secret is requested.
 - [ ] 4.13 Record hosted migration evidence in the change folder if hosted migration verification happens; otherwise keep the relevant manual evidence item pending.
 
 ### Phase 5: Evidence And Closeout

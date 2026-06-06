@@ -5,6 +5,7 @@
 - Target: Cloudflare Workers na `workers.dev`, bez custom domain w tym etapie.
 - Deploy: GitHub Actions auto-deploy po pushu albo merge do `main`.
 - Baza i auth: istniejacy hosted Supabase project; pending migrations z `supabase/migrations/` sa wykonywane przed deployem Workera.
+- F-01 `private-session-data-boundary` dodaje pending Supabase migrations dla prywatnych sesji, wiadomosci, podsumowan, tombstone deletion i trial claim; zostana wypchniete ta sama sciezka Session Pooler CI.
 - Worker: `safespace`.
 - Zrodla komend: Cloudflare Workers GitHub Actions, Wrangler secrets/deploy, `wrangler-action`.
 
@@ -31,6 +32,7 @@
   - `SUPABASE_DB_POOLER_HOST` - opcjonalny override, jesli Supabase pokazuje inny host niz `aws-0-eu-west-1.pooler.supabase.com`
 - Supabase: istniejacy hosted project z wlaczonym Email/Password Auth oraz Google providerem skonfigurowanym w Supabase Auth, bez sekretow Google w runtime aplikacji.
 - Nie dodawac teraz `SUPABASE_SERVICE_ROLE_KEY`; aplikacja go nie uzywa i nie powinien trafiac do runtime frontendowego SSR.
+- F-01 nie wymaga nowych runtime secretow poza istniejacymi `SUPABASE_URL` i `SUPABASE_KEY`; migracje nadal uzywaja `SUPABASE_DB_PASSWORD` albo `SUPABASE_DB_URL` w GitHub Actions.
 - `OPENROUTER_API_KEY` zostaje zaplanowany na przyszly milestone AI, nie jako sekret pierwszego deployu.
 
 ## Kroki automatyczne
@@ -48,6 +50,7 @@
   - `.env.production` jest tworzony tymczasowo z GitHub secrets i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.
 - Po pushu sprawdzic workflow, URL Workera, redirect `/dashboard -> /auth/signin` oraz callback `/auth/callback` dodany do Supabase Auth Redirect URLs.
+- Gdy hosted Supabase migration F-01 zostanie faktycznie zastosowana, zapisac date, srodowisko, komende i wynik w `context/changes/private-session-data-boundary/verification.md`; bez tego nie oznaczac hosted migration evidence jako potwierdzone.
 
 ## Komendy lokalnej weryfikacji
 

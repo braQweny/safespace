@@ -15,15 +15,35 @@ import type {
 
 const TRIAL_DURATION_BUCKET_SECONDS = 900;
 
-export function readTrialAvailability(context: SessionDataContext): Promise<SessionDataResult<TrialAvailability>> {
-  return getTrialAvailability(context);
+export interface QuotaRepository {
+  createPendingSession: typeof createPendingSession;
+  createSessionTrialClaim: typeof createSessionTrialClaim;
+  getOwnedSessionMetadata: typeof getOwnedSessionMetadata;
+  getTrialAvailability: typeof getTrialAvailability;
+  updateSessionTombstone: typeof updateSessionTombstone;
+}
+
+const defaultQuotaRepository: QuotaRepository = {
+  createPendingSession,
+  createSessionTrialClaim,
+  getOwnedSessionMetadata,
+  getTrialAvailability,
+  updateSessionTombstone,
+};
+
+export function readTrialAvailability(
+  context: SessionDataContext,
+  repository: Pick<QuotaRepository, "getTrialAvailability"> = defaultQuotaRepository,
+): Promise<SessionDataResult<TrialAvailability>> {
+  return repository.getTrialAvailability(context);
 }
 
 export async function claimFreeTrialSession(
   context: SessionDataContext,
   input: ClaimFreeTrialSessionInput = {},
+  repository: QuotaRepository = defaultQuotaRepository,
 ): Promise<SessionDataResult<ClaimFreeTrialSessionResult>> {
-  const session = await createPendingSession(context, {
+  const session = await repository.createPendingSession(context, {
     modalityId: input.modalityId ?? null,
     avatarId: input.avatarId ?? null,
     isTrial: true,
@@ -36,10 +56,10 @@ export async function claimFreeTrialSession(
     return session;
   }
 
-  const trialClaim = await createSessionTrialClaim(context, session.data.id);
+  const trialClaim = await repository.createSessionTrialClaim(context, session.data.id);
 
   if (!trialClaim.ok) {
-    await updateSessionTombstone(context, {
+    await repository.updateSessionTombstone(context, {
       sessionId: session.data.id,
       deletionReasonCode: "system_cleanup",
       durationBucketSeconds: TRIAL_DURATION_BUCKET_SECONDS,
@@ -52,7 +72,7 @@ export async function claimFreeTrialSession(
     return sessionDataError("write_failed");
   }
 
-  const claimedSession = await getOwnedSessionMetadata(context, session.data.id);
+  const claimedSession = await repository.getOwnedSessionMetadata(context, session.data.id);
 
   return {
     ok: true,
