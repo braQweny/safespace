@@ -1,3 +1,4 @@
+import type { Fetcher } from "@openrouter/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { MVP_MODALITIES } from "../../modalities";
 import { SessionAiError } from "../errors";
@@ -35,9 +36,78 @@ function createJsonResponse(body: unknown, status = 200) {
   });
 }
 
+function createChatCompletionResponse(
+  content: string,
+  options: {
+    model?: string;
+    finishReason?: string;
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+  } = {},
+) {
+  return {
+    id: "chatcmpl-test",
+    created: 1_735_000_000,
+    object: "chat.completion",
+    model: options.model ?? "openai/gpt-4o-mini",
+    system_fingerprint: null,
+    choices: [
+      {
+        index: 0,
+        finish_reason: options.finishReason ?? "stop",
+        message: {
+          role: "assistant",
+          content,
+        },
+      },
+    ],
+    ...(options.usage
+      ? {
+          usage: {
+            prompt_tokens: options.usage.promptTokens,
+            completion_tokens: options.usage.completionTokens,
+            total_tokens: options.usage.totalTokens,
+          },
+        }
+      : {}),
+  };
+}
+
+function createOpenRouterErrorResponse(status: number) {
+  return createJsonResponse(
+    {
+      error: {
+        code: status,
+        message: "raw provider error",
+      },
+    },
+    status,
+  );
+}
+
 function expectSessionAiError(error: unknown, category: SessionAiError["category"]) {
   expect(error).toBeInstanceOf(SessionAiError);
   expect((error as SessionAiError).category).toBe(category);
+}
+
+async function readOpenRouterRequest(fetcher: ReturnType<typeof vi.fn>) {
+  expect(fetcher).toHaveBeenCalledOnce();
+
+  const firstCall = fetcher.mock.calls[0] as [Request] | undefined;
+  const request = firstCall?.[0];
+  expect(request).toBeInstanceOf(Request);
+
+  if (!(request instanceof Request)) {
+    throw new Error("Expected SDK fetcher to receive a Request");
+  }
+
+  return {
+    request,
+    body: (await request.clone().json()) as Record<string, unknown>,
+  };
 }
 
 describe("buildOpenRouterSessionRequest", () => {
@@ -47,10 +117,10 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.model).toBe("openai/gpt-4o-mini");
     expect(request.stream).toBe(false);
     expect(request.temperature).toBeLessThanOrEqual(0.4);
-    expect(request.max_tokens).toBeLessThanOrEqual(420);
-    expect(request).not.toHaveProperty("max_completion_tokens");
-    expect(request.provider.require_parameters).toBe(true);
-    expect(request.messages[0]?.role).toBe("system");
+    expect(request.maxTokens).toBe(800);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
+    expect(request.provider.requireParameters).toBe(true);
+    expect(request.messages[0].role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain(input.currentUserMessage);
   });
 
@@ -58,13 +128,12 @@ describe("buildOpenRouterSessionRequest", () => {
     const request = buildOpenRouterSessionRequest(input, "google/gemini-3.1-flash-lite");
 
     expect(request.model).toBe("google/gemini-3.1-flash-lite");
-    expect(request.max_tokens).toBeLessThanOrEqual(420);
-    expect(request).not.toHaveProperty("max_completion_tokens");
+    expect(request.maxTokens).toBe(800);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
     expect(request.reasoning).toEqual({
-      effort: "low",
-      exclude: true,
+      effort: "medium",
     });
-    expect(request.provider.require_parameters).toBe(true);
+    expect(request.provider.requireParameters).toBe(true);
   });
 
   it("includes the selected catalog sessionStyleHint in the final provider message", () => {
@@ -114,10 +183,10 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.model).toBe("openai/gpt-5.4-mini");
     expect(request).not.toHaveProperty("temperature");
     expect(request.stream).toBe(false);
-    expect(request.max_completion_tokens).toBeLessThanOrEqual(420);
-    expect(request).not.toHaveProperty("max_tokens");
+    expect(request.maxCompletionTokens).toBe(800);
+    expect(request).not.toHaveProperty("maxTokens");
     expect(request).not.toHaveProperty("reasoning");
-    expect(request.provider.require_parameters).toBe(true);
+    expect(request.provider.requireParameters).toBe(true);
   });
 });
 
@@ -125,29 +194,24 @@ describe("generateSessionResponseWithOpenRouter", () => {
   it("uses the supplied API key/model and parses only assistant text plus safe metadata", async () => {
     const fetcher = vi.fn(() =>
       Promise.resolve(
-        createJsonResponse({
-          choices: [
-            {
-              finish_reason: "stop",
-              message: {
-                content: "Mozemy zaczac od spokojnego nazwania faktow i interpretacji.",
-              },
+        createJsonResponse(
+          createChatCompletionResponse("Mozemy zaczac od spokojnego nazwania faktow i interpretacji.", {
+            model: "openai/gpt-4o-mini",
+            finishReason: "stop",
+            usage: {
+              promptTokens: 42,
+              completionTokens: 18,
+              totalTokens: 60,
             },
-          ],
-          model: "openai/gpt-4o-mini",
-          usage: {
-            prompt_tokens: 42,
-            completion_tokens: 18,
-            total_tokens: 60,
-          },
-        }),
+          }),
+        ),
       ),
     );
 
     const response = await generateSessionResponseWithOpenRouter(input, {
       apiKey: "test-openrouter-key",
       model: "openai/gpt-4o-mini",
-      fetcher: fetcher as unknown as typeof fetch,
+      fetcher: fetcher as unknown as Fetcher,
     });
 
     expect(response).toEqual({
@@ -164,17 +228,19 @@ describe("generateSessionResponseWithOpenRouter", () => {
       },
     });
 
-    expect(fetcher).toHaveBeenCalledOnce();
-    const [url, init] = fetcher.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
-    expect(init.headers).toEqual({
-      Authorization: "Bearer test-openrouter-key",
-      "Content-Type": "application/json",
-    });
-    expect(JSON.parse(init.body as string)).toMatchObject({
+    const { request, body } = await readOpenRouterRequest(fetcher);
+    expect(request.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(request.method).toBe("POST");
+    expect(request.headers.get("authorization")).toBe("Bearer test-openrouter-key");
+    expect(request.headers.get("content-type")).toBe("application/json");
+    expect(body).toMatchObject({
       model: "openai/gpt-4o-mini",
       stream: false,
+      provider: {
+        require_parameters: true,
+      },
     });
+    expect(body).toHaveProperty("max_tokens");
   });
 
   it("requires server-side OpenRouter configuration", async () => {
@@ -187,17 +253,20 @@ describe("generateSessionResponseWithOpenRouter", () => {
     [408, "provider_timeout"],
     [429, "provider_rate_limited"],
     [503, "provider_unavailable"],
+    [400, "invalid_provider_response"],
     [422, "invalid_provider_response"],
   ] as const)("maps HTTP %s to %s without returning raw provider bodies", async (status, category) => {
-    const fetcher = vi.fn(() => Promise.resolve(createJsonResponse({ error: "raw provider error" }, status)));
+    const fetcher = vi.fn(() => Promise.resolve(createOpenRouterErrorResponse(status)));
 
     try {
       await generateSessionResponseWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: fetcher as unknown as typeof fetch,
+        fetcher: fetcher as unknown as Fetcher,
       });
     } catch (error) {
       expectSessionAiError(error, category);
+      expect(String(error)).not.toContain("raw provider error");
+      expect(fetcher).toHaveBeenCalledOnce();
       return;
     }
 
@@ -207,22 +276,42 @@ describe("generateSessionResponseWithOpenRouter", () => {
   it("rejects invalid provider response shapes", async () => {
     const fetcher = vi.fn(() =>
       Promise.resolve(
-        createJsonResponse({
-          choices: [
-            {
-              message: {
-                content: "",
-              },
-            },
-          ],
-        }),
+        createJsonResponse(
+          createChatCompletionResponse("", {
+            model: "openai/gpt-4o-mini",
+            finishReason: "stop",
+          }),
+        ),
       ),
     );
 
     await expect(
       generateSessionResponseWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: fetcher as unknown as typeof fetch,
+        fetcher: fetcher as unknown as Fetcher,
+      }),
+    ).rejects.toMatchObject({
+      category: "invalid_provider_response",
+    });
+  });
+
+  it("rejects length-finished responses instead of persisting truncated assistant text", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve(
+        createJsonResponse(
+          createChatCompletionResponse("To wyglada jak odpowiedz urwana w polowie zdania", {
+            model: "google/gemini-3.1-flash-lite",
+            finishReason: "length",
+          }),
+        ),
+      ),
+    );
+
+    await expect(
+      generateSessionResponseWithOpenRouter(input, {
+        apiKey: "test-openrouter-key",
+        model: "google/gemini-3.1-flash-lite",
+        fetcher: fetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({
       category: "invalid_provider_response",
@@ -236,7 +325,7 @@ describe("generateSessionResponseWithOpenRouter", () => {
     await expect(
       generateSessionResponseWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: abortedFetcher as unknown as typeof fetch,
+        fetcher: abortedFetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({
       category: "provider_timeout",
@@ -245,7 +334,7 @@ describe("generateSessionResponseWithOpenRouter", () => {
     await expect(
       generateSessionResponseWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: failingFetcher as unknown as typeof fetch,
+        fetcher: failingFetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({
       category: "provider_unavailable",

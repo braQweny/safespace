@@ -1,3 +1,4 @@
+import type { Fetcher } from "@openrouter/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { SessionSummaryError } from "../errors";
 import { buildOpenRouterSummaryRequest, generateSessionSummaryWithOpenRouter } from "../openrouter-summary";
@@ -40,9 +41,78 @@ function createJsonResponse(body: unknown, status = 200) {
   });
 }
 
+function createChatCompletionResponse(
+  content: string,
+  options: {
+    model?: string;
+    finishReason?: string;
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+  } = {},
+) {
+  return {
+    id: "chatcmpl-summary-test",
+    created: 1_735_000_000,
+    object: "chat.completion",
+    model: options.model ?? "openai/gpt-4o-mini",
+    system_fingerprint: null,
+    choices: [
+      {
+        index: 0,
+        finish_reason: options.finishReason ?? "stop",
+        message: {
+          role: "assistant",
+          content,
+        },
+      },
+    ],
+    ...(options.usage
+      ? {
+          usage: {
+            prompt_tokens: options.usage.promptTokens,
+            completion_tokens: options.usage.completionTokens,
+            total_tokens: options.usage.totalTokens,
+          },
+        }
+      : {}),
+  };
+}
+
+function createOpenRouterErrorResponse(status: number) {
+  return createJsonResponse(
+    {
+      error: {
+        code: status,
+        message: "raw provider error",
+      },
+    },
+    status,
+  );
+}
+
 function expectSessionSummaryError(error: unknown, category: SessionSummaryError["category"]) {
   expect(error).toBeInstanceOf(SessionSummaryError);
   expect((error as SessionSummaryError).category).toBe(category);
+}
+
+async function readOpenRouterRequest(fetcher: ReturnType<typeof vi.fn>) {
+  expect(fetcher).toHaveBeenCalledOnce();
+
+  const firstCall = fetcher.mock.calls[0] as [Request] | undefined;
+  const request = firstCall?.[0];
+  expect(request).toBeInstanceOf(Request);
+
+  if (!(request instanceof Request)) {
+    throw new Error("Expected SDK fetcher to receive a Request");
+  }
+
+  return {
+    request,
+    body: (await request.clone().json()) as Record<string, unknown>,
+  };
 }
 
 describe("buildOpenRouterSummaryRequest", () => {
@@ -52,10 +122,10 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.model).toBe("openai/gpt-4o-mini");
     expect(request.stream).toBe(false);
     expect(request.temperature).toBeLessThanOrEqual(0.2);
-    expect(request.max_tokens).toBeLessThanOrEqual(320);
-    expect(request).not.toHaveProperty("max_completion_tokens");
-    expect(request.provider.require_parameters).toBe(true);
-    expect(request.messages[0]?.role).toBe("system");
+    expect(request.maxTokens).toBeLessThanOrEqual(320);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
+    expect(request.provider.requireParameters).toBe(true);
+    expect(request.messages[0].role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain("Czuje napiecie");
   });
 
@@ -63,9 +133,9 @@ describe("buildOpenRouterSummaryRequest", () => {
     const request = buildOpenRouterSummaryRequest(input, "google/gemini-3.1-flash-lite");
 
     expect(request.model).toBe("google/gemini-3.1-flash-lite");
-    expect(request.max_tokens).toBeLessThanOrEqual(320);
-    expect(request).not.toHaveProperty("max_completion_tokens");
-    expect(request.provider.require_parameters).toBe(true);
+    expect(request.maxTokens).toBeLessThanOrEqual(320);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
+    expect(request.provider.requireParameters).toBe(true);
   });
 
   it("omits temperature for OpenAI GPT-5 summary models that reject sampling parameters", () => {
@@ -74,8 +144,8 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.model).toBe("openai/gpt-5.4-mini");
     expect(request).not.toHaveProperty("temperature");
     expect(request.stream).toBe(false);
-    expect(request.max_completion_tokens).toBeLessThanOrEqual(320);
-    expect(request).not.toHaveProperty("max_tokens");
+    expect(request.maxCompletionTokens).toBeLessThanOrEqual(320);
+    expect(request).not.toHaveProperty("maxTokens");
   });
 });
 
@@ -83,29 +153,27 @@ describe("generateSessionSummaryWithOpenRouter", () => {
   it("uses supplied server configuration and parses only summary text plus safe metadata", async () => {
     const fetcher = vi.fn(() =>
       Promise.resolve(
-        createJsonResponse({
-          choices: [
+        createJsonResponse(
+          createChatCompletionResponse(
+            "Uzytkownik wracal do napiecia przed rozmowa w pracy i potrzeby spokojnego uporzadkowania.",
             {
-              finish_reason: "stop",
-              message: {
-                content: "Uzytkownik wracal do napiecia przed rozmowa w pracy i potrzeby spokojnego uporzadkowania.",
+              model: "openai/gpt-4o-mini",
+              finishReason: "stop",
+              usage: {
+                promptTokens: 50,
+                completionTokens: 20,
+                totalTokens: 70,
               },
             },
-          ],
-          model: "openai/gpt-4o-mini",
-          usage: {
-            prompt_tokens: 50,
-            completion_tokens: 20,
-            total_tokens: 70,
-          },
-        }),
+          ),
+        ),
       ),
     );
 
     const response = await generateSessionSummaryWithOpenRouter(input, {
       apiKey: "test-openrouter-key",
       model: "openai/gpt-4o-mini",
-      fetcher: fetcher as unknown as typeof fetch,
+      fetcher: fetcher as unknown as Fetcher,
     });
 
     expect(response).toEqual({
@@ -122,16 +190,19 @@ describe("generateSessionSummaryWithOpenRouter", () => {
       },
     });
 
-    const [url, init] = fetcher.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
-    expect(init.headers).toEqual({
-      Authorization: "Bearer test-openrouter-key",
-      "Content-Type": "application/json",
-    });
-    expect(JSON.parse(init.body as string)).toMatchObject({
+    const { request, body } = await readOpenRouterRequest(fetcher);
+    expect(request.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(request.method).toBe("POST");
+    expect(request.headers.get("authorization")).toBe("Bearer test-openrouter-key");
+    expect(request.headers.get("content-type")).toBe("application/json");
+    expect(body).toMatchObject({
       model: "openai/gpt-4o-mini",
       stream: false,
+      provider: {
+        require_parameters: true,
+      },
     });
+    expect(body).toHaveProperty("max_tokens");
   });
 
   it("requires server-side OpenRouter configuration", async () => {
@@ -144,18 +215,20 @@ describe("generateSessionSummaryWithOpenRouter", () => {
     [408, "provider_timeout"],
     [429, "provider_rate_limited"],
     [503, "provider_unavailable"],
+    [400, "invalid_provider_response"],
     [422, "invalid_provider_response"],
   ] as const)("maps HTTP %s to %s without returning raw provider bodies", async (status, category) => {
-    const fetcher = vi.fn(() => Promise.resolve(createJsonResponse({ error: "raw provider error" }, status)));
+    const fetcher = vi.fn(() => Promise.resolve(createOpenRouterErrorResponse(status)));
 
     try {
       await generateSessionSummaryWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: fetcher as unknown as typeof fetch,
+        fetcher: fetcher as unknown as Fetcher,
       });
     } catch (error) {
       expectSessionSummaryError(error, category);
       expect(String(error)).not.toContain("raw provider error");
+      expect(fetcher).toHaveBeenCalledOnce();
       return;
     }
 
@@ -165,22 +238,19 @@ describe("generateSessionSummaryWithOpenRouter", () => {
   it("rejects invalid provider response shapes", async () => {
     const fetcher = vi.fn(() =>
       Promise.resolve(
-        createJsonResponse({
-          choices: [
-            {
-              message: {
-                content: "",
-              },
-            },
-          ],
-        }),
+        createJsonResponse(
+          createChatCompletionResponse("", {
+            model: "openai/gpt-4o-mini",
+            finishReason: "stop",
+          }),
+        ),
       ),
     );
 
     await expect(
       generateSessionSummaryWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: fetcher as unknown as typeof fetch,
+        fetcher: fetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({
       category: "invalid_provider_response",
@@ -194,7 +264,7 @@ describe("generateSessionSummaryWithOpenRouter", () => {
     await expect(
       generateSessionSummaryWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: abortedFetcher as unknown as typeof fetch,
+        fetcher: abortedFetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({
       category: "provider_timeout",
@@ -203,7 +273,7 @@ describe("generateSessionSummaryWithOpenRouter", () => {
     await expect(
       generateSessionSummaryWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
-        fetcher: failingFetcher as unknown as typeof fetch,
+        fetcher: failingFetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({
       category: "provider_unavailable",

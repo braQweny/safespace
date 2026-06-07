@@ -1,3 +1,6 @@
+import type { Fetcher } from "@openrouter/sdk";
+import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
+import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { OPENROUTER_API_KEY, OPENROUTER_SAFETY_MODEL } from "astro:env/server";
 
 import { buildSessionSafetyClassifierUserContent, SESSION_SAFETY_CLASSIFIER_SYSTEM_PROMPT } from "./classifier-prompt";
@@ -5,7 +8,6 @@ import { parseProviderSafetyDecision } from "./parse-provider-decision";
 import { ProviderSafetyError, type ProviderSafetyDecision, type SessionSafetyProvider } from "./provider";
 import type { SessionSafetyInput } from "./types";
 
-const OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SAFETY_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_SAFETY_TIMEOUT_MS = 8_000;
 const OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS = 64;
@@ -46,70 +48,55 @@ const OPENROUTER_SAFETY_RESPONSE_SCHEMA = {
 interface OpenRouterSafetyClassifierOptions {
   apiKey?: string;
   model?: string;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
   timeoutMs?: number;
 }
 
-interface OpenRouterChatMessage {
+interface OpenRouterSafetyChatMessage {
   role: "system" | "user";
   content: string;
 }
 
-interface OpenRouterSafetyRequestBody {
+type OpenRouterSafetyRequestBody = OpenRouterNonStreamingChatRequest & {
   model: string;
-  messages: readonly OpenRouterChatMessage[];
+  messages: OpenRouterSafetyChatMessage[];
   temperature: number;
-  max_completion_tokens: number;
+  maxCompletionTokens: number;
   stream: false;
   provider: {
-    require_parameters: true;
+    requireParameters: true;
   };
-  response_format: {
+  responseFormat: {
     type: "json_schema";
-    json_schema: typeof OPENROUTER_SAFETY_RESPONSE_SCHEMA;
+    jsonSchema: typeof OPENROUTER_SAFETY_RESPONSE_SCHEMA;
   };
-}
+};
 
 export async function classifySessionSafetyWithOpenRouter(
   input: SessionSafetyInput,
   options: OpenRouterSafetyClassifierOptions = {},
 ): Promise<ProviderSafetyDecision> {
   const apiKey = options.apiKey ?? OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new ProviderSafetyError("missing_configuration");
-  }
-
-  const fetcher = options.fetcher ?? fetch;
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => {
-    abortController.abort();
-  }, options.timeoutMs ?? OPENROUTER_SAFETY_TIMEOUT_MS);
 
   try {
-    const response = await fetcher(OPENROUTER_CHAT_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(buildOpenRouterSafetyRequest(input, options.model)),
-      signal: abortController.signal,
+    const response = await sendOpenRouterChat({
+      apiKey,
+      chatRequest: buildOpenRouterSafetyRequest(input, options.model),
+      fetcher: options.fetcher,
+      timeoutMs: resolveTimeoutMs(options.timeoutMs),
     });
 
-    if (!response.ok) {
-      throw new ProviderSafetyError("provider_unavailable");
-    }
-
-    const responseBody: unknown = await response.json();
-    return parseProviderSafetyDecision(responseBody);
+    return parseProviderSafetyDecision(response);
   } catch (error) {
     if (error instanceof ProviderSafetyError) {
       throw error;
     }
 
+    if (error instanceof OpenRouterChatError) {
+      throw new ProviderSafetyError(mapOpenRouterSafetyErrorCategory(error.category));
+    }
+
     throw new ProviderSafetyError("provider_unavailable");
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
@@ -117,7 +104,10 @@ export const openRouterSafetyProvider = {
   classify: classifySessionSafetyWithOpenRouter,
 } satisfies SessionSafetyProvider;
 
-function buildOpenRouterSafetyRequest(input: SessionSafetyInput, modelOverride?: string): OpenRouterSafetyRequestBody {
+export function buildOpenRouterSafetyRequest(
+  input: SessionSafetyInput,
+  modelOverride?: string,
+): OpenRouterSafetyRequestBody {
   const model = resolveSafetyModel(modelOverride);
 
   return {
@@ -133,14 +123,14 @@ function buildOpenRouterSafetyRequest(input: SessionSafetyInput, modelOverride?:
       },
     ],
     temperature: 0,
-    max_completion_tokens: OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS,
+    maxCompletionTokens: OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS,
     stream: false,
     provider: {
-      require_parameters: true,
+      requireParameters: true,
     },
-    response_format: {
+    responseFormat: {
       type: "json_schema",
-      json_schema: OPENROUTER_SAFETY_RESPONSE_SCHEMA,
+      jsonSchema: OPENROUTER_SAFETY_RESPONSE_SCHEMA,
     },
   };
 }
@@ -150,4 +140,20 @@ function resolveSafetyModel(modelOverride?: string) {
   const trimmedModel = configuredModel?.trim();
 
   return trimmedModel && trimmedModel.length > 0 ? trimmedModel : OPENROUTER_SAFETY_DEFAULT_MODEL;
+}
+
+function resolveTimeoutMs(timeoutMs: number | undefined) {
+  if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return OPENROUTER_SAFETY_TIMEOUT_MS;
+  }
+
+  return Math.round(timeoutMs);
+}
+
+function mapOpenRouterSafetyErrorCategory(category: OpenRouterChatError["category"]) {
+  if (category === "missing_configuration" || category === "invalid_provider_response") {
+    return category;
+  }
+
+  return "provider_unavailable";
 }

@@ -1,9 +1,13 @@
+import type { Fetcher } from "@openrouter/sdk";
+import type { ChatResult } from "@openrouter/sdk/models";
 import { getOpenRouterSessionConfig, resolveSessionModel } from "@/lib/session-ai/env";
 import {
   buildOpenRouterTokenLimitParameter,
   supportsOpenRouterTemperature,
 } from "@/lib/session-ai/openrouter-request-params";
-import { SessionSummaryError, type SessionSummaryErrorCategory } from "./errors";
+import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
+import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
+import { SessionSummaryError } from "./errors";
 import { buildSessionSummaryMessages } from "./summary-prompt";
 import type {
   GenerateSessionSummaryInput,
@@ -14,7 +18,6 @@ import type {
   SessionSummaryTokenUsage,
 } from "./types";
 
-const OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SUMMARY_TIMEOUT_MS = 12_000;
 const OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS = 320;
 const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
@@ -22,21 +25,21 @@ const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
 interface OpenRouterSummaryOptions {
   apiKey?: string;
   model?: string;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
   timeoutMs?: number;
 }
 
-interface OpenRouterSummaryRequestBody {
+type OpenRouterSummaryRequestBody = OpenRouterNonStreamingChatRequest & {
   model: string;
-  messages: readonly SessionSummaryPromptMessage[];
+  messages: SessionSummaryPromptMessage[];
   temperature?: number;
-  max_completion_tokens?: number;
-  max_tokens?: number;
+  maxCompletionTokens?: number;
+  maxTokens?: number;
   stream: false;
   provider: {
-    require_parameters: true;
+    requireParameters: true;
   };
-}
+};
 
 export function resolveSummaryModel(modelOverride?: string | null) {
   return resolveSessionModel(modelOverride);
@@ -48,52 +51,30 @@ export async function generateSessionSummaryWithOpenRouter(
 ): Promise<SessionSummaryResponse> {
   const config = getOpenRouterSessionConfig();
   const apiKey = options.apiKey ?? config.apiKey;
-
-  if (!apiKey?.trim()) {
-    throw new SessionSummaryError("missing_configuration");
-  }
-
   const model = resolveSummaryModel(options.model ?? config.model);
-  const fetcher = options.fetcher ?? fetch;
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => {
-    abortController.abort();
-  }, resolveTimeoutMs(options.timeoutMs));
 
   try {
-    const response = await fetcher(OPENROUTER_CHAT_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(buildOpenRouterSummaryRequest(input, model)),
-      signal: abortController.signal,
+    const response = await sendOpenRouterChat({
+      apiKey,
+      chatRequest: buildOpenRouterSummaryRequest(input, model),
+      fetcher: options.fetcher,
+      timeoutMs: resolveTimeoutMs(options.timeoutMs),
     });
 
-    if (!response.ok) {
-      throw new SessionSummaryError(mapOpenRouterStatus(response.status));
-    }
-
-    const responseBody: unknown = await response.json();
-    const summaryText = extractSummaryText(responseBody);
-
     return {
-      summaryText,
-      providerMetadata: buildProviderMetadata(responseBody, model),
+      summaryText: extractSummaryText(response),
+      providerMetadata: buildProviderMetadata(response, model),
     };
   } catch (error) {
     if (error instanceof SessionSummaryError) {
       throw error;
     }
 
-    if (isAbortError(error)) {
-      throw new SessionSummaryError("provider_timeout");
+    if (error instanceof OpenRouterChatError) {
+      throw new SessionSummaryError(error.category);
     }
 
     throw new SessionSummaryError("provider_unavailable");
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
@@ -103,12 +84,12 @@ export function buildOpenRouterSummaryRequest(
 ): OpenRouterSummaryRequestBody {
   return {
     model,
-    messages: buildSessionSummaryMessages(input),
+    messages: [...buildSessionSummaryMessages(input)],
     ...buildOptionalSamplingParameters(model),
     ...buildOpenRouterTokenLimitParameter(model, OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS),
     stream: false,
     provider: {
-      require_parameters: true,
+      requireParameters: true,
     },
   };
 }
@@ -131,26 +112,9 @@ function resolveTimeoutMs(timeoutMs: number | undefined) {
   return Math.round(timeoutMs);
 }
 
-function mapOpenRouterStatus(status: number): SessionSummaryErrorCategory {
-  if (status === 408) {
-    return "provider_timeout";
-  }
-
-  if (status === 429) {
-    return "provider_rate_limited";
-  }
-
-  if (status === 400 || status === 422) {
-    return "invalid_provider_response";
-  }
-
-  return "provider_unavailable";
-}
-
-function extractSummaryText(responseBody: unknown) {
+function extractSummaryText(responseBody: ChatResult) {
   const choice = extractFirstChoice(responseBody);
-  const message = isRecord(choice.message) ? choice.message : null;
-  const content = message?.content;
+  const content: unknown = choice.message.content;
 
   if (typeof content !== "string") {
     throw new SessionSummaryError("invalid_provider_response");
@@ -165,7 +129,7 @@ function extractSummaryText(responseBody: unknown) {
   return summaryText;
 }
 
-function buildProviderMetadata(responseBody: unknown, fallbackModel: string): SessionSummaryProviderMetadata {
+function buildProviderMetadata(responseBody: ChatResult, fallbackModel: string): SessionSummaryProviderMetadata {
   const finishReason = parseFinishReason(responseBody);
   const usage = parseUsage(responseBody);
 
@@ -177,35 +141,25 @@ function buildProviderMetadata(responseBody: unknown, fallbackModel: string): Se
   };
 }
 
-function extractFirstChoice(responseBody: unknown): Record<string, unknown> {
-  const choices = isRecord(responseBody) ? responseBody.choices : null;
+function extractFirstChoice(responseBody: ChatResult) {
+  const { choices } = responseBody;
 
-  if (!Array.isArray(choices) || choices.length === 0) {
+  if (choices.length === 0) {
     throw new SessionSummaryError("invalid_provider_response");
   }
 
-  const choice: unknown = choices[0];
-
-  if (!isRecord(choice)) {
-    throw new SessionSummaryError("invalid_provider_response");
-  }
-
-  return choice;
+  return choices[0];
 }
 
-function parseResponseModel(responseBody: unknown) {
-  if (!isRecord(responseBody) || typeof responseBody.model !== "string") {
-    return undefined;
-  }
-
+function parseResponseModel(responseBody: ChatResult) {
   const model = responseBody.model.trim();
 
   return model.length > 0 ? model : undefined;
 }
 
-function parseFinishReason(responseBody: unknown): SessionSummaryFinishReason | undefined {
+function parseFinishReason(responseBody: ChatResult): SessionSummaryFinishReason | undefined {
   const choice = extractFirstChoice(responseBody);
-  const finishReason = choice.finish_reason;
+  const finishReason = choice.finishReason;
 
   if (finishReason === "stop" || finishReason === "length" || finishReason === "content_filter") {
     return finishReason;
@@ -218,15 +172,15 @@ function parseFinishReason(responseBody: unknown): SessionSummaryFinishReason | 
   return typeof finishReason === "string" && finishReason.trim().length > 0 ? "unknown" : undefined;
 }
 
-function parseUsage(responseBody: unknown): SessionSummaryTokenUsage | undefined {
-  if (!isRecord(responseBody) || !isRecord(responseBody.usage)) {
+function parseUsage(responseBody: ChatResult): SessionSummaryTokenUsage | undefined {
+  if (!responseBody.usage) {
     return undefined;
   }
 
   const usage = {
-    ...parseTokenCount(responseBody.usage.prompt_tokens, "promptTokens"),
-    ...parseTokenCount(responseBody.usage.completion_tokens, "completionTokens"),
-    ...parseTokenCount(responseBody.usage.total_tokens, "totalTokens"),
+    ...parseTokenCount(responseBody.usage.promptTokens, "promptTokens"),
+    ...parseTokenCount(responseBody.usage.completionTokens, "completionTokens"),
+    ...parseTokenCount(responseBody.usage.totalTokens, "totalTokens"),
   };
 
   return Object.keys(usage).length > 0 ? usage : undefined;
@@ -243,12 +197,4 @@ function parseTokenCount<K extends keyof SessionSummaryTokenUsage>(
   return {
     [key]: Math.round(value),
   } as Pick<SessionSummaryTokenUsage, K>;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isAbortError(error: unknown) {
-  return isRecord(error) && error.name === "AbortError";
 }

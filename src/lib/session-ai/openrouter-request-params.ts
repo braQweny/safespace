@@ -3,12 +3,12 @@ const OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|
 export function buildOpenRouterTokenLimitParameter(model: string, maxTokens: number) {
   if (usesMaxCompletionTokens(model)) {
     return {
-      max_completion_tokens: maxTokens,
+      maxCompletionTokens: maxTokens,
     };
   }
 
   return {
-    max_tokens: maxTokens,
+    maxTokens,
   };
 }
 

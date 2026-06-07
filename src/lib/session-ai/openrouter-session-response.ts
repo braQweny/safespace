@@ -1,5 +1,9 @@
+import type { Fetcher } from "@openrouter/sdk";
+import type { ChatResult } from "@openrouter/sdk/models";
+import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
+import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterSessionConfig, resolveSessionModel } from "./env";
-import { SessionAiError, type SessionAiErrorCategory } from "./errors";
+import { SessionAiError } from "./errors";
 import { buildOpenRouterTokenLimitParameter, supportsOpenRouterTemperature } from "./openrouter-request-params";
 import { buildSessionResponseMessages } from "./session-response-prompt";
 import type {
@@ -11,35 +15,33 @@ import type {
   SessionResponsePromptMessage,
 } from "./types";
 
-const OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SESSION_TIMEOUT_MS = 12_000;
-const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 420;
+const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 800;
 const OPENROUTER_SESSION_TEMPERATURE = 0.4;
 const OPENROUTER_SESSION_REASONING_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$|[-:])/i;
-const OPENROUTER_SESSION_REASONING_EFFORT = "low";
+const OPENROUTER_SESSION_REASONING_EFFORT = "medium";
 
 interface OpenRouterSessionResponseOptions {
   apiKey?: string;
   model?: string;
-  fetcher?: typeof fetch;
+  fetcher?: Fetcher;
   timeoutMs?: number;
 }
 
-interface OpenRouterSessionRequestBody {
+type OpenRouterSessionRequestBody = OpenRouterNonStreamingChatRequest & {
   model: string;
-  messages: readonly SessionResponsePromptMessage[];
+  messages: SessionResponsePromptMessage[];
   temperature?: number;
-  max_completion_tokens?: number;
-  max_tokens?: number;
+  maxCompletionTokens?: number;
+  maxTokens?: number;
   reasoning?: {
     effort: typeof OPENROUTER_SESSION_REASONING_EFFORT;
-    exclude: true;
   };
   stream: false;
   provider: {
-    require_parameters: true;
+    requireParameters: true;
   };
-}
+};
 
 export async function generateSessionResponseWithOpenRouter(
   input: GenerateSessionResponseInput,
@@ -47,52 +49,30 @@ export async function generateSessionResponseWithOpenRouter(
 ): Promise<SessionAiResponse> {
   const config = getOpenRouterSessionConfig();
   const apiKey = options.apiKey ?? config.apiKey;
-
-  if (!apiKey?.trim()) {
-    throw new SessionAiError("missing_configuration");
-  }
-
   const model = resolveSessionModel(options.model ?? config.model);
-  const fetcher = options.fetcher ?? fetch;
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => {
-    abortController.abort();
-  }, resolveTimeoutMs(options.timeoutMs));
 
   try {
-    const response = await fetcher(OPENROUTER_CHAT_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(buildOpenRouterSessionRequest(input, model)),
-      signal: abortController.signal,
+    const response = await sendOpenRouterChat({
+      apiKey,
+      chatRequest: buildOpenRouterSessionRequest(input, model),
+      fetcher: options.fetcher,
+      timeoutMs: resolveTimeoutMs(options.timeoutMs),
     });
 
-    if (!response.ok) {
-      throw new SessionAiError(mapOpenRouterStatus(response.status));
-    }
-
-    const responseBody: unknown = await response.json();
-    const assistantText = extractAssistantText(responseBody);
-
     return {
-      assistantText,
-      providerMetadata: buildProviderMetadata(responseBody, model),
+      assistantText: extractAssistantText(response),
+      providerMetadata: buildProviderMetadata(response, model),
     };
   } catch (error) {
     if (error instanceof SessionAiError) {
       throw error;
     }
 
-    if (isAbortError(error)) {
-      throw new SessionAiError("provider_timeout");
+    if (error instanceof OpenRouterChatError) {
+      throw new SessionAiError(error.category);
     }
 
     throw new SessionAiError("provider_unavailable");
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
@@ -102,13 +82,13 @@ export function buildOpenRouterSessionRequest(
 ): OpenRouterSessionRequestBody {
   return {
     model,
-    messages: buildSessionResponseMessages(input),
+    messages: [...buildSessionResponseMessages(input)],
     ...buildOptionalSamplingParameters(model),
     ...buildOptionalReasoningParameters(model),
     ...buildOpenRouterTokenLimitParameter(model, OPENROUTER_SESSION_MAX_COMPLETION_TOKENS),
     stream: false,
     provider: {
-      require_parameters: true,
+      requireParameters: true,
     },
   };
 }
@@ -121,7 +101,6 @@ function buildOptionalReasoningParameters(model: string): Pick<OpenRouterSession
   return {
     reasoning: {
       effort: OPENROUTER_SESSION_REASONING_EFFORT,
-      exclude: true,
     },
   };
 }
@@ -148,26 +127,11 @@ function resolveTimeoutMs(timeoutMs: number | undefined) {
   return Math.round(timeoutMs);
 }
 
-function mapOpenRouterStatus(status: number): SessionAiErrorCategory {
-  if (status === 408) {
-    return "provider_timeout";
-  }
-
-  if (status === 429) {
-    return "provider_rate_limited";
-  }
-
-  if (status === 400 || status === 422) {
-    return "invalid_provider_response";
-  }
-
-  return "provider_unavailable";
-}
-
-function extractAssistantText(responseBody: unknown) {
+function extractAssistantText(responseBody: ChatResult) {
   const choice = extractFirstChoice(responseBody);
-  const message = isRecord(choice.message) ? choice.message : null;
-  const content = message?.content;
+  rejectTruncatedAssistantResponse(choice.finishReason);
+
+  const content: unknown = choice.message.content;
 
   if (typeof content !== "string") {
     throw new SessionAiError("invalid_provider_response");
@@ -182,7 +146,13 @@ function extractAssistantText(responseBody: unknown) {
   return assistantText;
 }
 
-function buildProviderMetadata(responseBody: unknown, fallbackModel: string): SessionAiProviderMetadata {
+function rejectTruncatedAssistantResponse(finishReason: string | null) {
+  if (finishReason === "length") {
+    throw new SessionAiError("invalid_provider_response");
+  }
+}
+
+function buildProviderMetadata(responseBody: ChatResult, fallbackModel: string): SessionAiProviderMetadata {
   const finishReason = parseFinishReason(responseBody);
   const usage = parseUsage(responseBody);
 
@@ -194,35 +164,25 @@ function buildProviderMetadata(responseBody: unknown, fallbackModel: string): Se
   };
 }
 
-function extractFirstChoice(responseBody: unknown): Record<string, unknown> {
-  const choices = isRecord(responseBody) ? responseBody.choices : null;
+function extractFirstChoice(responseBody: ChatResult) {
+  const { choices } = responseBody;
 
-  if (!Array.isArray(choices) || choices.length === 0) {
+  if (choices.length === 0) {
     throw new SessionAiError("invalid_provider_response");
   }
 
-  const choice: unknown = choices[0];
-
-  if (!isRecord(choice)) {
-    throw new SessionAiError("invalid_provider_response");
-  }
-
-  return choice;
+  return choices[0];
 }
 
-function parseResponseModel(responseBody: unknown) {
-  if (!isRecord(responseBody) || typeof responseBody.model !== "string") {
-    return undefined;
-  }
-
+function parseResponseModel(responseBody: ChatResult) {
   const model = responseBody.model.trim();
 
   return model.length > 0 ? model : undefined;
 }
 
-function parseFinishReason(responseBody: unknown): SessionAiFinishReason | undefined {
+function parseFinishReason(responseBody: ChatResult): SessionAiFinishReason | undefined {
   const choice = extractFirstChoice(responseBody);
-  const finishReason = choice.finish_reason;
+  const finishReason = choice.finishReason;
 
   if (finishReason === "stop" || finishReason === "length" || finishReason === "content_filter") {
     return finishReason;
@@ -235,15 +195,15 @@ function parseFinishReason(responseBody: unknown): SessionAiFinishReason | undef
   return typeof finishReason === "string" && finishReason.trim().length > 0 ? "unknown" : undefined;
 }
 
-function parseUsage(responseBody: unknown): SessionAiTokenUsage | undefined {
-  if (!isRecord(responseBody) || !isRecord(responseBody.usage)) {
+function parseUsage(responseBody: ChatResult): SessionAiTokenUsage | undefined {
+  if (!responseBody.usage) {
     return undefined;
   }
 
   const usage = {
-    ...parseTokenCount(responseBody.usage.prompt_tokens, "promptTokens"),
-    ...parseTokenCount(responseBody.usage.completion_tokens, "completionTokens"),
-    ...parseTokenCount(responseBody.usage.total_tokens, "totalTokens"),
+    ...parseTokenCount(responseBody.usage.promptTokens, "promptTokens"),
+    ...parseTokenCount(responseBody.usage.completionTokens, "completionTokens"),
+    ...parseTokenCount(responseBody.usage.totalTokens, "totalTokens"),
   };
 
   return Object.keys(usage).length > 0 ? usage : undefined;
@@ -260,12 +220,4 @@ function parseTokenCount<K extends keyof SessionAiTokenUsage>(
   return {
     [key]: Math.round(value),
   } as Pick<SessionAiTokenUsage, K>;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isAbortError(error: unknown) {
-  return isRecord(error) && error.name === "AbortError";
 }
