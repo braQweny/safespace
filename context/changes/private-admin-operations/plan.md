@@ -415,44 +415,44 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to runtime configuration. The safe path f
 
 #### Automated
 
-- [x] 1.1 Admin migration source enables RLS on every new admin table.
-- [x] 1.2 Admin migration source contains no policy, view, grant, or function exposing `session_messages.content` or `session_summaries.summary_text`.
-- [x] 1.3 Source search confirms no `SUPABASE_SERVICE_ROLE_KEY` runtime dependency was added.
-- [x] 1.4 Source search confirms `/admin` is protected and blocked users are denied private pages.
-- [x] 1.5 Source search confirms all private session API routes call the account-block guard or shared equivalent.
-- [x] 1.6 Unit tests cover admin membership checks, blocked-account checks, non-admin rejection, blocked admin rejection, and safe error-code mapping.
-- [x] 1.7 `npm run test` passes for Phase 1 tests.
-- [x] 1.8 `npx astro sync` passes.
-- [x] 1.9 `npm run lint` passes.
-- [x] 1.10 `npm run build` passes.
+- [x] 1.1 Admin migration source enables RLS on every new admin table. — 589ee7b
+- [x] 1.2 Admin migration source contains no policy, view, grant, or function exposing `session_messages.content` or `session_summaries.summary_text`. — 589ee7b
+- [x] 1.3 Source search confirms no `SUPABASE_SERVICE_ROLE_KEY` runtime dependency was added. — 589ee7b
+- [x] 1.4 Source search confirms `/admin` is protected and blocked users are denied private pages. — 589ee7b
+- [x] 1.5 Source search confirms all private session API routes call the account-block guard or shared equivalent. — 589ee7b
+- [x] 1.6 Unit tests cover admin membership checks, blocked-account checks, non-admin rejection, blocked admin rejection, and safe error-code mapping. — 589ee7b
+- [x] 1.7 `npm run test` passes for Phase 1 tests. — 589ee7b
+- [x] 1.8 `npx astro sync` passes. — 589ee7b
+- [x] 1.9 `npm run lint` passes. — 589ee7b
+- [x] 1.10 `npm run build` passes. — 589ee7b
 
 #### Manual
 
-- [x] 1.11 Review migration and confirm the first-admin bootstrap path is owner-controlled and not hard-coded to an email secret.
-- [x] 1.12 Confirm a blocked user loses product/session access without deleting or exposing private data.
-- [x] 1.13 Confirm the blocked-account copy is neutral and does not expose admin audit details.
+- [x] 1.11 Review migration and confirm the first-admin bootstrap path is owner-controlled and not hard-coded to an email secret. — 589ee7b
+- [x] 1.12 Confirm a blocked user loses product/session access without deleting or exposing private data. — 589ee7b
+- [x] 1.13 Confirm the blocked-account copy is neutral and does not expose admin audit details. — 589ee7b
 
 ### Phase 2: Admin Dashboard And User Management
 
 #### Automated
 
-- [ ] 2.1 Unit tests cover overview aggregate shaping, threshold suppression, user list filtering/sorting, block/unblock state transitions, and audit insert intent.
-- [ ] 2.2 API route tests cover non-admin rejection, blocked admin rejection, overview success, users list success, invalid filters, block success, unblock success, target not found, and write failure.
-- [ ] 2.3 Component tests cover overview cards, suppressed small counts, users search/filter UI, blocked/active states, explicit block/unblock controls, and absence of export controls.
-- [ ] 2.4 `npm run test` passes.
-- [ ] 2.5 `npx astro sync` passes.
-- [ ] 2.6 `npm run lint` passes.
-- [ ] 2.7 `npm run build` passes.
-- [ ] 2.8 Source search confirms admin aggregates do not select `session_messages.content` or `session_summaries.summary_text`.
-- [ ] 2.9 Source search confirms no CSV/JSON export route or download UI was added.
-- [ ] 2.10 Source search confirms admin routes call `getAdminContext(context)`.
+- [x] 2.1 Unit tests cover overview aggregate shaping, threshold suppression, user list filtering/sorting, block/unblock state transitions, and audit insert intent.
+- [x] 2.2 API route tests cover non-admin rejection, blocked admin rejection, overview success, users list success, invalid filters, block success, unblock success, target not found, and write failure.
+- [x] 2.3 Component tests cover overview cards, suppressed small counts, users search/filter UI, blocked/active states, explicit block/unblock controls, and absence of export controls.
+- [x] 2.4 `npm run test` passes.
+- [x] 2.5 `npx astro sync` passes.
+- [x] 2.6 `npm run lint` passes.
+- [x] 2.7 `npm run build` passes.
+- [x] 2.8 Source search confirms admin aggregates do not select `session_messages.content` or `session_summaries.summary_text`.
+- [x] 2.9 Source search confirms no CSV/JSON export route or download UI was added.
+- [x] 2.10 Source search confirms admin routes call `getAdminContext(context)`.
 
 #### Manual
 
-- [ ] 2.11 `/admin` shows product-level stats without exposing private text or small segment counts.
-- [ ] 2.12 `/admin/users` supports email search, active/blocked filter, sorting, and block/unblock.
-- [ ] 2.13 Blocking a user prevents private route/session access, and unblocking restores access without changing private data.
-- [ ] 2.14 Admin UI does not expose exports, raw operational logs, raw auth metadata, or conversation details.
+- [x] 2.11 `/admin` shows product-level stats without exposing private text or small segment counts.
+- [x] 2.12 `/admin/users` supports email search, active/blocked filter, sorting, and block/unblock.
+- [x] 2.13 Blocking a user prevents private route/session access, and unblocking restores access without changing private data.
+- [x] 2.14 Admin UI does not expose exports, raw operational logs, raw auth metadata, or conversation details.
 
 ### Phase 3: Verification, Sweeps And Handoff
 

@@ -41,6 +41,16 @@
 - `OPENROUTER_SAFETY_MODEL` jest opcjonalna konfiguracja bez sekretu. Domyslnie kod uzywa `openai/gpt-4o-mini`; override mozna wpisac lokalnie w `.env` / `.dev.vars`, ale nie jest wymagany w GitHub secrets.
 - `OPENROUTER_SESSION_MODEL` jest opcjonalna konfiguracja bez sekretu dla zwyklych odpowiedzi S-04. Domyslnie kod uzywa `openai/gpt-4o-mini`; override mozna wpisac lokalnie w `.env` / `.dev.vars`, ale nie jest wymagany w GitHub secrets.
 - F-03 opcjonalnie uzywa `OPERATIONAL_LOG_HASH_SECRET`. Brak sekretu nie blokuje zadnego requestu i nie moze powodowac logowania raw Supabase `user.id`; `userHash` jest wtedy pomijany.
+- S-07 admin nie dodaje nowych runtime secretow ani `SUPABASE_SERVICE_ROLE_KEY`. Pierwszego admina owner provisionuje recznym SQL po utworzeniu konta:
+
+```sql
+insert into public.admin_users (user_id, is_active)
+values ('<auth.users.id>', true)
+on conflict (user_id) do update
+set is_active = true, deactivated_at = null;
+```
+
+- S-07 nie dodaje eksportow CSV/JSON, user deletion, password reset, trial reset, raw operational log browser ani legal/safety break-glass content access.
 
 ## Kroki automatyczne
 

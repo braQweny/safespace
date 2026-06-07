@@ -1,0 +1,48 @@
+---
+interface Props {
+  title: string;
+  active: "overview" | "users";
+  adminEmail?: string | null;
+}
+
+const { title, active, adminEmail = null } = Astro.props;
+const navItems = [
+  { href: "/admin", label: "Statystyki", id: "overview" },
+  { href: "/admin/users", label: "Użytkownicy", id: "users" },
+] as const;
+---
+
+<main class="min-h-screen bg-[#f5f7f7] text-[#17211f]">
+  <header class="border-b border-[#d8e1df] bg-white">
+    <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-sm font-medium text-[#37685f]">SafeSpace Admin</p>
+          <h1 class="mt-1 text-2xl font-semibold text-[#10231f]">{title}</h1>
+        </div>
+        {adminEmail ? <p class="text-sm break-all text-[#5a6d68]">{adminEmail}</p> : null}
+      </div>
+      <nav class="flex flex-wrap gap-2" aria-label="Nawigacja admina">
+        {
+          navItems.map((item) => (
+            <a
+              href={item.href}
+              aria-current={active === item.id ? "page" : undefined}
+              class:list={[
+                "inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium transition-colors",
+                active === item.id
+                  ? "border-[#235d54] bg-[#235d54] text-white"
+                  : "border-[#b8c9c5] bg-white text-[#2f6259] hover:bg-[#eef4f2]",
+              ]}
+            >
+              {item.label}
+            </a>
+          ))
+        }
+      </nav>
+    </div>
+  </header>
+  <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <slot />
+  </div>
+</main>

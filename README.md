@@ -151,6 +151,21 @@ Users can then sign in immediately after sign-up without clicking a confirmation
 
 Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication.
 
+### Admin setup
+
+S-07 adds `/admin` and `/admin/users` for product statistics and user blocking. Admin identity is stored in the application table `admin_users`; the app does not use a runtime `SUPABASE_SERVICE_ROLE_KEY` and does not expose an endpoint for creating the first admin.
+
+Provision the first admin with owner-controlled SQL in Supabase after the target user exists:
+
+```sql
+insert into public.admin_users (user_id, is_active)
+values ('<auth.users.id>', true)
+on conflict (user_id) do update
+set is_active = true, deactivated_at = null;
+```
+
+The admin MVP has no CSV/JSON exports, no user deletion, no password reset, no trial reset, no legal/safety break-glass content access, and no admin-readable private conversation content.
+
 ## AI Runtime Configuration
 
 F-02 adds a server-only safety boundary for AI sessions. `evaluateSessionSafety()` calls OpenRouter before any ordinary AI generation and fails closed when the key is missing or the provider response is invalid.

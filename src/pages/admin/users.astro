@@ -1,0 +1,45 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import AdminShell from "@/components/admin/AdminShell.astro";
+import AdminUsersTable from "@/components/admin/AdminUsersTable";
+import { getAdminContext } from "@/lib/admin/auth";
+import { adminApiFailure, type AdminUsersResponse } from "@/lib/admin/contracts";
+import { listAdminUsers, parseAdminUserListFilters } from "@/lib/admin/users";
+
+const adminContext = await getAdminContext(Astro);
+let usersResponse: AdminUsersResponse = adminApiFailure(
+  adminContext.ok ? "admin_data_unavailable" : adminContext.error.code,
+);
+
+if (adminContext.ok) {
+  const filters = parseAdminUserListFilters(Astro.url.searchParams);
+
+  if (filters.ok) {
+    const users = await listAdminUsers(adminContext.data, filters.data);
+    usersResponse = users.ok
+      ? { ok: true, type: "admin_users", result: users.data }
+      : adminApiFailure(users.error.code);
+  } else {
+    usersResponse = adminApiFailure(filters.error.code);
+  }
+}
+---
+
+<Layout title="Użytkownicy admin - SafeSpace" lang="pl">
+  {
+    adminContext.ok ? (
+      <AdminShell title="Użytkownicy" active="users" adminEmail={adminContext.data.user.email}>
+        <AdminUsersTable initialResponse={usersResponse} currentAdminUserId={adminContext.data.user.id} client:load />
+      </AdminShell>
+    ) : (
+      <main class="min-h-screen bg-[#f5f7f7] px-4 py-10 text-[#17211f]">
+        <section class="mx-auto max-w-2xl rounded-lg border border-[#d7e2df] bg-white p-6">
+          <h1 class="text-2xl font-semibold text-[#10231f]">Brak dostępu</h1>
+          <p class="mt-3 text-sm leading-6 text-[#52645f]">
+            Ta część produktu jest dostępna tylko dla aktywnych adminów.
+          </p>
+        </section>
+      </main>
+    )
+  }
+</Layout>

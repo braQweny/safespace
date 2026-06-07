@@ -1,6 +1,7 @@
 import type { AstroCookies } from "astro";
 import type { User } from "@supabase/supabase-js";
 import type { createClient } from "@/lib/supabase";
+import type { SessionLifecycleStatus } from "@/lib/session-data/types";
 
 export type AdminSupabaseClient = NonNullable<ReturnType<typeof createClient>>;
 
@@ -65,6 +66,7 @@ export interface PrivacySafeCount {
 export interface AdminOverviewMetrics {
   totalUsers: number;
   blockedUsers: number;
+  sessionsByLifecycle: Partial<Record<SessionLifecycleStatus, PrivacySafeCount>>;
   activeSessions: PrivacySafeCount;
   completedSessions: PrivacySafeCount;
   trialSessions: PrivacySafeCount;
@@ -81,4 +83,44 @@ export interface AdminUserListFilters {
   sort: AdminUserSort;
   page: number;
   pageSize: number;
+}
+
+export interface AdminUserSessionCounters {
+  totalSessions: number;
+  activeSessions: number;
+  completedSessions: number;
+  approvedSummaries: number;
+}
+
+export interface AdminUserListItem {
+  profile: SafeAdminUserProfile;
+  accountStatus: AccountStatus;
+  counters: AdminUserSessionCounters;
+}
+
+export interface AdminUserListPagination {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface AdminUserListResult {
+  filters: AdminUserListFilters;
+  users: AdminUserListItem[];
+  pagination: AdminUserListPagination;
+}
+
+export type AdminUserBlockAction = "block" | "unblock";
+
+export interface AdminUserBlockInput {
+  targetUserId: AdminUserId;
+  action: AdminUserBlockAction;
+  reasonCode: AdminBlockReasonCode;
+}
+
+export interface AdminUserBlockResult {
+  user: AdminUserListItem;
+  auditEvent: AdminAuditEvent;
 }
