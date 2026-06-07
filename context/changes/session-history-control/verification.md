@@ -6,11 +6,11 @@ Date: 2026-06-07
 
 | Check | Result | Notes |
 | --- | --- | --- |
-| `npm run test` | Passed | Vitest: 23 files, 110 tests. Includes session history helper, route, and component tests. |
-| `npx astro sync` | Passed | Known warning: default inspector port `9229` unavailable, using `9230`. |
-| `npm run lint` | Passed | Existing `astro-eslint-parser` projectService warnings only. |
-| `npm run build` | Passed | Known warnings: inspector port fallback, CSS `[file:line]` generated class, sitemap skipped because `site` is unset. |
-| `git diff --check` | Passed | No whitespace errors. |
+| `npm run test` | Passed | Final Phase 5 run: Vitest 23 files, 110 tests. Includes session history helper, route, and component tests. |
+| `npx astro sync` | Passed | Final Phase 5 run. Known warning: default inspector port `9229` unavailable, using `9230`. |
+| `npm run lint` | Passed | Final Phase 5 run. Existing `astro-eslint-parser` projectService warnings only. |
+| `npm run build` | Passed | Final Phase 5 run. Known warnings: inspector port fallback, CSS `[file:line]` generated class, sitemap skipped because `site` is unset. |
+| `git diff --check` | Passed | Final Phase 5 run. No whitespace errors. |
 
 ## Source sweeps
 
@@ -22,7 +22,7 @@ Date: 2026-06-07
 
 ## Local browser smoke
 
-Status: partial local smoke performed by the assistant; full manual matrix remains in Phase 5.
+Status: partial local smoke performed by the assistant; destructive delete success was not performed by the assistant.
 
 Evidence gathered during Phase 3:
 
@@ -38,6 +38,19 @@ Not performed in Phase 4:
 
 - Confirmed deletion was not executed by the assistant to avoid removing the local real/seeded conversation during this phase.
 - Full browser matrix for delete success, refresh after deletion, and S-04 session regression remains Phase 5/manual closeout work.
+
+Evidence gathered during Phase 5:
+
+- Reopened `http://127.0.0.1:4321/dashboard/avatar?avatar=cbt-guide&page=1`.
+- Confirmed the CBT avatar history rendered one visible conversation on the local data set, with list metadata only and no message content in the list row.
+- Opened the history detail and confirmed full messages render only in the read-only detail pane, with no composer, send action, timer restart, or retry control.
+- Opened delete confirmation and cancelled it; the conversation stayed visible and unchanged.
+- Reopened `/dashboard/session` and confirmed the existing first-session state still renders for a non-deleted session. The local session is expired, so the composer and send action are disabled as expected.
+- Console check after local smoke contained only standard Vite/React DevTools messages.
+
+Not performed:
+
+- Confirmed deletion was not executed by the assistant to avoid removing the existing local conversation. Delete success and post-refresh disappearance remain a human/manual confirmation item unless a disposable seeded session is prepared.
 
 ## Hosted checks
 

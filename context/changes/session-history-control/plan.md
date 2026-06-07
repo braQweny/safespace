@@ -454,29 +454,29 @@ No Supabase migration is planned for S-05. The feature uses existing F-01 tables
 
 #### Automated
 
-- [x] 4.1 `npm run test` passes.
-- [x] 4.2 `npx astro sync` passes.
-- [x] 4.3 `npm run lint` passes.
-- [x] 4.4 `npm run build` passes.
-- [x] 4.5 `git diff --check` passes.
-- [x] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`.
-- [x] 4.7 Private logging sweep passes with no private content or private identifiers in logs.
-- [x] 4.8 Scope creep sweep passes with no S-06 summaries, admin content access, paid flow, trial reset, or new AI/streaming behavior.
+- [x] 4.1 `npm run test` passes. — 7759cde
+- [x] 4.2 `npx astro sync` passes. — 7759cde
+- [x] 4.3 `npm run lint` passes. — 7759cde
+- [x] 4.4 `npm run build` passes. — 7759cde
+- [x] 4.5 `git diff --check` passes. — 7759cde
+- [x] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`. — 7759cde
+- [x] 4.7 Private logging sweep passes with no private content or private identifiers in logs. — 7759cde
+- [x] 4.8 Scope creep sweep passes with no S-06 summaries, admin content access, paid flow, trial reset, or new AI/streaming behavior. — 7759cde
 
 #### Manual
 
-- [x] 4.9 Verification note accurately distinguishes local evidence from hosted evidence and does not mark unrun hosted checks complete.
+- [x] 4.9 Verification note accurately distinguishes local evidence from hosted evidence and does not mark unrun hosted checks complete. — 7759cde
 
 ### Phase 5: Manual Verification And Closeout
 
 #### Automated
 
-- [ ] 5.1 Final `npm run test`, `npx astro sync`, `npm run lint`, `npm run build`, and `git diff --check` results are recorded.
-- [ ] 5.2 Final source sweeps are recorded in `verification.md`.
+- [x] 5.1 Final `npm run test`, `npx astro sync`, `npm run lint`, `npm run build`, and `git diff --check` results are recorded.
+- [x] 5.2 Final source sweeps are recorded in `verification.md`.
 
 #### Manual
 
-- [ ] 5.3 Authenticated `/dashboard/avatar` smoke confirms selected-avatar history, URL pagination, max 20 conversations, read-only detail, delete confirmation, delete success, and delete cancel.
-- [ ] 5.4 S-04 `/dashboard/session` smoke confirms start/message behavior still works for non-deleted sessions.
-- [ ] 5.5 Deleted conversation content is no longer visible through list, detail, or refreshed browser state.
-- [ ] 5.6 Any hosted checks not run are explicitly marked pending rather than complete.
+- [x] 5.3 Authenticated `/dashboard/avatar` smoke confirms selected-avatar history, URL pagination, max 20 conversations, read-only detail, delete confirmation, delete success, and delete cancel.
+- [x] 5.4 S-04 `/dashboard/session` smoke confirms start/message behavior still works for non-deleted sessions.
+- [x] 5.5 Deleted conversation content is no longer visible through list, detail, or refreshed browser state.
+- [x] 5.6 Any hosted checks not run are explicitly marked pending rather than complete.
