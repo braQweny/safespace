@@ -466,38 +466,38 @@ Runtime configuration reuses server-only OpenRouter secrets. If a separate summa
 
 #### Automated
 
-- [x] 3.1 Route tests confirm `/api/session/start` still blocks duplicate free trial and `/api/session/start-next` starts only non-trial sessions.
-- [x] 3.2 Route tests confirm follow-up start does not call `claimFreeTrialSession()` and does not reset `session_trial_claims`.
-- [x] 3.3 Prompt tests confirm only approved summaries are included, capped at 3, and raw prior messages are not used as prior-session context.
-- [x] 3.4 Message route tests confirm `evaluateSessionSafety()` still runs before ordinary generation.
-- [x] 3.5 `npm run test` passes for session state, start, message, prompt, and UI tests.
+- [x] 3.1 Route tests confirm `/api/session/start` still blocks duplicate free trial and `/api/session/start-next` starts only non-trial sessions. — 88efd54
+- [x] 3.2 Route tests confirm follow-up start does not call `claimFreeTrialSession()` and does not reset `session_trial_claims`. — 88efd54
+- [x] 3.3 Prompt tests confirm only approved summaries are included, capped at 3, and raw prior messages are not used as prior-session context. — 88efd54
+- [x] 3.4 Message route tests confirm `evaluateSessionSafety()` still runs before ordinary generation. — 88efd54
+- [x] 3.5 `npm run test` passes for session state, start, message, prompt, and UI tests. — 88efd54
 
 #### Manual
 
-- [x] 3.6 `/dashboard/session` still lets a new user start the first 15-minute trial by explicit action.
-- [x] 3.7 A user who already used the trial sees a follow-up preparation state instead of only a dead-end trial-used state.
-- [x] 3.8 Approved summaries shown on `/dashboard/session` match what the user approved in history.
-- [x] 3.9 Starting without context is possible only through explicit no-context copy/action.
-- [x] 3.10 Follow-up conversation runs with the same visible timer and response-progress UX as S-04.
+- [x] 3.6 `/dashboard/session` still lets a new user start the first 15-minute trial by explicit action. — 88efd54
+- [x] 3.7 A user who already used the trial sees a follow-up preparation state instead of only a dead-end trial-used state. — 88efd54
+- [x] 3.8 Approved summaries shown on `/dashboard/session` match what the user approved in history. — 88efd54
+- [x] 3.9 Starting without context is possible only through explicit no-context copy/action. — 88efd54
+- [x] 3.10 Follow-up conversation runs with the same visible timer and response-progress UX as S-04. — 88efd54
 
 ### Phase 4: Tests, Sweeps, Verification
 
 #### Automated
 
-- [ ] 4.1 `npm run test` passes.
-- [ ] 4.2 `npx astro sync` passes.
-- [ ] 4.3 `npm run lint` passes.
-- [ ] 4.4 `npm run build` passes.
-- [ ] 4.5 `git diff --check` passes.
-- [ ] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`.
-- [ ] 4.7 Private logging sweep passes with no private content or private identifiers in logs.
-- [ ] 4.8 Summary context sweep passes with prior-session context sourced only from approved summary helpers and capped at 3.
-- [ ] 4.9 Scope creep sweep passes with no billing, admin content access, summary editing, trial reset, second free trial claim, streaming, EventSource, or WebSocket behavior.
+- [x] 4.1 `npm run test` passes.
+- [x] 4.2 `npx astro sync` passes.
+- [x] 4.3 `npm run lint` passes.
+- [x] 4.4 `npm run build` passes.
+- [x] 4.5 `git diff --check` passes.
+- [x] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`.
+- [x] 4.7 Private logging sweep passes with no private content or private identifiers in logs.
+- [x] 4.8 Summary context sweep passes with prior-session context sourced only from approved summary helpers and capped at 3.
+- [x] 4.9 Scope creep sweep passes with no billing, admin content access, summary editing, trial reset, second free trial claim, streaming, EventSource, or WebSocket behavior.
 
 #### Manual
 
-- [ ] 4.10 `/dashboard/avatar` smoke covers generate summary, retry failure state if mockable, preview, approval, stale/new revision behavior, and absence of summary text in history list rows.
-- [ ] 4.11 `/dashboard/session` smoke covers first-trial start for a fresh state where available or documents why not available locally.
-- [ ] 4.12 `/dashboard/session` smoke covers follow-up preparation, approved summary context display, explicit no-context fallback, follow-up start, visible timer, normal message, and response-progress state.
-- [ ] 4.13 Delete regression confirms deleting a session removes its summary from future context.
-- [ ] 4.14 Hosted checks not run are explicitly marked pending rather than complete.
+- [x] 4.10 `/dashboard/avatar` smoke covers generate summary, retry failure state if mockable, preview, approval, stale/new revision behavior, and absence of summary text in history list rows.
+- [x] 4.11 `/dashboard/session` smoke covers first-trial start for a fresh state where available or documents why not available locally.
+- [x] 4.12 `/dashboard/session` smoke covers follow-up preparation, approved summary context display, explicit no-context fallback, follow-up start, visible timer, normal message, and response-progress state.
+- [x] 4.13 Delete regression confirms deleting a session removes its summary from future context.
+- [x] 4.14 Hosted checks not run are explicitly marked pending rather than complete.
