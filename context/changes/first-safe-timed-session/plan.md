@@ -657,22 +657,22 @@ Runtime configuration reuses `OPENROUTER_API_KEY` and adds optional `OPENROUTER_
 
 #### Automated
 
-- [x] 5.1 `npm run test` completes successfully.
-- [x] 5.2 `npx astro sync` completes successfully.
-- [x] 5.3 `npm run lint` completes successfully.
-- [x] 5.4 `npm run build` completes successfully.
-- [x] 5.5 `git diff --check` reports no whitespace errors.
-- [x] 5.6 Source search confirms `vitest.config.ts` includes route-level session endpoint tests.
-- [x] 5.7 Source search confirms no committed OpenRouter key, Supabase secret, service-role key, token, cookie, or password value exists.
-- [x] 5.8 Source search confirms no `console.log` or operational event includes `message`, `prompt`, `content`, generated answer text, summary, raw provider payload, raw Supabase error, `modalityId`, or `avatarId`.
-- [x] 5.9 Source search confirms no direct `.from("therapy_sessions")`, `.from("session_messages")`, or `.from("session_trial_claims")` writes exist outside `src/lib/session-data/`.
-- [x] 5.10 Source search confirms no S-05 history list, S-06 summary generation/UI, S-07 admin content access, payment flow, streaming endpoint, EventSource, or WebSocket was added.
-- [x] 5.11 `context/changes/first-safe-timed-session/plan.md`, `plan-brief.md`, and `e2e-handoff.md` exist.
+- [x] 5.1 `npm run test` completes successfully. — c547b5b
+- [x] 5.2 `npx astro sync` completes successfully. — c547b5b
+- [x] 5.3 `npm run lint` completes successfully. — c547b5b
+- [x] 5.4 `npm run build` completes successfully. — c547b5b
+- [x] 5.5 `git diff --check` reports no whitespace errors. — c547b5b
+- [x] 5.6 Source search confirms `vitest.config.ts` includes route-level session endpoint tests. — c547b5b
+- [x] 5.7 Source search confirms no committed OpenRouter key, Supabase secret, service-role key, token, cookie, or password value exists. — c547b5b
+- [x] 5.8 Source search confirms no `console.log` or operational event includes `message`, `prompt`, `content`, generated answer text, summary, raw provider payload, raw Supabase error, `modalityId`, or `avatarId`. — c547b5b
+- [x] 5.9 Source search confirms no direct `.from("therapy_sessions")`, `.from("session_messages")`, or `.from("session_trial_claims")` writes exist outside `src/lib/session-data/`. — c547b5b
+- [x] 5.10 Source search confirms no S-05 history list, S-06 summary generation/UI, S-07 admin content access, payment flow, streaming endpoint, EventSource, or WebSocket was added. — c547b5b
+- [x] 5.11 `context/changes/first-safe-timed-session/plan.md`, `plan-brief.md`, and `e2e-handoff.md` exist. — c547b5b
 
 #### Manual
 
-- [x] 5.12 Local browser smoke covers conscious start, visible timer, normal message, response-progress state, non-streaming answer, and expiry behavior.
-- [x] 5.13 Local browser smoke covers or documents mocked/forced caution and hard-stop/fail-closed states.
-- [x] 5.14 `verification.md` records local commands, browser smoke result, limitations, and dev-server shutdown evidence.
-- [x] 5.15 Hosted Supabase/OpenRouter/Cloudflare checks are recorded if performed; if not performed, the limitation remains explicit and no hosted-only evidence item is marked complete.
-- [x] 5.16 The plan handoff makes clear that future Playwright E2E is wanted but out of S-04 implementation scope.
+- [x] 5.12 Local browser smoke covers conscious start, visible timer, normal message, response-progress state, non-streaming answer, and expiry behavior. — c547b5b
+- [x] 5.13 Local browser smoke covers or documents mocked/forced caution and hard-stop/fail-closed states. — c547b5b
+- [x] 5.14 `verification.md` records local commands, browser smoke result, limitations, and dev-server shutdown evidence. — c547b5b
+- [x] 5.15 Hosted Supabase/OpenRouter/Cloudflare checks are recorded if performed; if not performed, the limitation remains explicit and no hosted-only evidence item is marked complete. — c547b5b
+- [x] 5.16 The plan handoff makes clear that future Playwright E2E is wanted but out of S-04 implementation scope. — c547b5b
