@@ -549,18 +549,18 @@ No Supabase migration is required. F-02 intentionally avoids a safety-events tab
 
 #### Automated
 
-- [x] 5.1 `npm run test` or `npm run test:safety` completes successfully.
-- [x] 5.2 `npx astro sync` completes successfully.
-- [x] 5.3 `npm run lint` completes successfully.
-- [x] 5.4 `npm run build` completes successfully.
-- [x] 5.5 `git diff --check` reports no whitespace errors.
-- [x] 5.6 Source search finds no committed OpenRouter API key value.
-- [x] 5.7 Source search confirms no S-04 chat/timer/session route was added.
-- [x] 5.8 Source search confirms no code logs `prompt`, `message`, `content`, classifier input, or provider output from the safety boundary.
+- [x] 5.1 `npm run test` or `npm run test:safety` completes successfully. — c9e7532
+- [x] 5.2 `npx astro sync` completes successfully. — c9e7532
+- [x] 5.3 `npm run lint` completes successfully. — c9e7532
+- [x] 5.4 `npm run build` completes successfully. — c9e7532
+- [x] 5.5 `git diff --check` reports no whitespace errors. — c9e7532
+- [x] 5.6 Source search finds no committed OpenRouter API key value. — c9e7532
+- [x] 5.7 Source search confirms no S-04 chat/timer/session route was added. — c9e7532
+- [x] 5.8 Source search confirms no code logs `prompt`, `message`, `content`, classifier input, or provider output from the safety boundary. — c9e7532
 
 #### Manual
 
-- [x] 5.9 `.env.example`, README, Wrangler config, GitHub Actions, and deploy plan agree on the OpenRouter secret contract.
-- [x] 5.10 The deploy plan clearly states owner-owned OpenRouter key setup and no OpenRouter management key requirement.
-- [x] 5.11 The F-02 handoff tells S-04 implementers to call `evaluateSessionSafety()` before ordinary AI generation.
-- [x] 5.12 F-02 is still a foundation boundary and not a visible chat/session feature.
+- [x] 5.9 `.env.example`, README, Wrangler config, GitHub Actions, and deploy plan agree on the OpenRouter secret contract. — c9e7532
+- [x] 5.10 The deploy plan clearly states owner-owned OpenRouter key setup and no OpenRouter management key requirement. — c9e7532
+- [x] 5.11 The F-02 handoff tells S-04 implementers to call `evaluateSessionSafety()` before ordinary AI generation. — c9e7532
+- [x] 5.12 F-02 is still a foundation boundary and not a visible chat/session feature. — c9e7532
