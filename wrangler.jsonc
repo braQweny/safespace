@@ -5,7 +5,7 @@
   "compatibility_date": "2026-05-08",
   "compatibility_flags": ["nodejs_compat"],
   "secrets": {
-    "required": ["SUPABASE_URL", "SUPABASE_KEY"],
+    "required": ["SUPABASE_URL", "SUPABASE_KEY", "OPENROUTER_API_KEY"],
   },
   "assets": {
     "binding": "ASSETS",

@@ -532,35 +532,35 @@ No Supabase migration is required. F-02 intentionally avoids a safety-events tab
 
 #### Automated
 
-- [x] 4.1 `npm run test` or `npm run test:safety` completes successfully.
-- [x] 4.2 `npx astro sync` completes successfully.
-- [x] 4.3 `npm run lint` completes successfully.
-- [x] 4.4 `npm run build` completes successfully.
-- [x] 4.5 Source search confirms tests do not require or read a real `OPENROUTER_API_KEY`.
-- [x] 4.6 Source search confirms tests do not make real network calls.
+- [x] 4.1 `npm run test` or `npm run test:safety` completes successfully. — 0e2ea6f
+- [x] 4.2 `npx astro sync` completes successfully. — 0e2ea6f
+- [x] 4.3 `npm run lint` completes successfully. — 0e2ea6f
+- [x] 4.4 `npm run build` completes successfully. — 0e2ea6f
+- [x] 4.5 Source search confirms tests do not require or read a real `OPENROUTER_API_KEY`. — 0e2ea6f
+- [x] 4.6 Source search confirms tests do not make real network calls. — 0e2ea6f
 
 #### Manual
 
-- [x] 4.7 Test names cover the three selected risk states and fail-closed provider behavior.
-- [x] 4.8 The added test setup is minimal and does not introduce E2E/browser infrastructure.
-- [x] 4.9 The new CI command, if added to CI in Phase 5, is acceptable for normal PR runtime.
+- [x] 4.7 Test names cover the three selected risk states and fail-closed provider behavior. — 0e2ea6f
+- [x] 4.8 The added test setup is minimal and does not introduce E2E/browser infrastructure. — 0e2ea6f
+- [x] 4.9 The new CI command, if added to CI in Phase 5, is acceptable for normal PR runtime. — 0e2ea6f
 
 ### Phase 5: Config, Deployment Notes, And Handoff
 
 #### Automated
 
-- [ ] 5.1 `npm run test` or `npm run test:safety` completes successfully.
-- [ ] 5.2 `npx astro sync` completes successfully.
-- [ ] 5.3 `npm run lint` completes successfully.
-- [ ] 5.4 `npm run build` completes successfully.
-- [ ] 5.5 `git diff --check` reports no whitespace errors.
-- [ ] 5.6 Source search finds no committed OpenRouter API key value.
-- [ ] 5.7 Source search confirms no S-04 chat/timer/session route was added.
-- [ ] 5.8 Source search confirms no code logs `prompt`, `message`, `content`, classifier input, or provider output from the safety boundary.
+- [x] 5.1 `npm run test` or `npm run test:safety` completes successfully.
+- [x] 5.2 `npx astro sync` completes successfully.
+- [x] 5.3 `npm run lint` completes successfully.
+- [x] 5.4 `npm run build` completes successfully.
+- [x] 5.5 `git diff --check` reports no whitespace errors.
+- [x] 5.6 Source search finds no committed OpenRouter API key value.
+- [x] 5.7 Source search confirms no S-04 chat/timer/session route was added.
+- [x] 5.8 Source search confirms no code logs `prompt`, `message`, `content`, classifier input, or provider output from the safety boundary.
 
 #### Manual
 
-- [ ] 5.9 `.env.example`, README, Wrangler config, GitHub Actions, and deploy plan agree on the OpenRouter secret contract.
-- [ ] 5.10 The deploy plan clearly states owner-owned OpenRouter key setup and no OpenRouter management key requirement.
-- [ ] 5.11 The F-02 handoff tells S-04 implementers to call `evaluateSessionSafety()` before ordinary AI generation.
-- [ ] 5.12 F-02 is still a foundation boundary and not a visible chat/session feature.
+- [x] 5.9 `.env.example`, README, Wrangler config, GitHub Actions, and deploy plan agree on the OpenRouter secret contract.
+- [x] 5.10 The deploy plan clearly states owner-owned OpenRouter key setup and no OpenRouter management key requirement.
+- [x] 5.11 The F-02 handoff tells S-04 implementers to call `evaluateSessionSafety()` before ordinary AI generation.
+- [x] 5.12 F-02 is still a foundation boundary and not a visible chat/session feature.

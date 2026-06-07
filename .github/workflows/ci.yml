@@ -89,13 +89,20 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       - name: Create production secrets file
         run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "OPENROUTER_API_KEY GitHub secret is required for the F-02 safety boundary." >&2
+            exit 1
+          fi
+
           {
             printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
             printf 'SUPABASE_KEY=%s\n' "$SUPABASE_KEY"
+            printf 'OPENROUTER_API_KEY=%s\n' "$OPENROUTER_API_KEY"
           } > .env.production
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:

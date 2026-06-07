@@ -15,9 +15,10 @@
 - W Cloudflare utworzyc albo wybrac konto, aktywowac Workers i ustawic `workers.dev` subdomain.
 - Utworzyc Cloudflare API token scoped do tego konta z uprawnieniem do edycji Workers. Nie uzywac global API key.
 - Przygotowac dane istniejacego Supabase projektu: Project URL, anon public key i connection string do migracji DB.
+- Przygotowac owner-owned `OPENROUTER_API_KEY` dla F-02 safety boundary. Nie uzywac OpenRouter management key.
 - Po pierwszym deployu dopisac finalny URL Workera w Supabase Auth jako Site URL / redirect URL, jesli email confirmation ma dzialac produkcyjnie.
 - Dla S-02 dopisac w Supabase Auth redirect URL `https://safespace.<workers-dev-subdomain>.workers.dev/auth/callback` i upewnic sie, ze Google Cloud OAuth client ma Supabase `Callback URL (for OAuth)` z dashboardu.
-- Nie konfigurowac teraz custom domain ani OpenRouter, bo obecny kod ich jeszcze nie uzywa.
+- Nie konfigurowac teraz custom domain. OpenRouter jest wymagany dla runtime granicy bezpieczenstwa F-02.
 
 ## Konta, serwisy i sekrety
 
@@ -30,24 +31,26 @@
   - `SUPABASE_DB_PASSWORD` - haslo bazy do zbudowania Session Pooler migration URL
   - `SUPABASE_DB_URL` - opcjonalny fallback jako pelny connection string; uzywac Session Pooler URL z URL-encoded password
   - `SUPABASE_DB_POOLER_HOST` - opcjonalny override, jesli Supabase pokazuje inny host niz `aws-0-eu-west-1.pooler.supabase.com`
+  - `OPENROUTER_API_KEY` - server-only sekret klasyfikatora bezpieczenstwa F-02 przekazywany do Wranglera podczas deployu
 - Supabase: istniejacy hosted project z wlaczonym Email/Password Auth oraz Google providerem skonfigurowanym w Supabase Auth, bez sekretow Google w runtime aplikacji.
 - Nie dodawac teraz `SUPABASE_SERVICE_ROLE_KEY`; aplikacja go nie uzywa i nie powinien trafiac do runtime frontendowego SSR.
 - F-01 nie wymaga nowych runtime secretow poza istniejacymi `SUPABASE_URL` i `SUPABASE_KEY`; migracje nadal uzywaja `SUPABASE_DB_PASSWORD` albo `SUPABASE_DB_URL` w GitHub Actions.
-- `OPENROUTER_API_KEY` zostaje zaplanowany na przyszly milestone AI, nie jako sekret pierwszego deployu.
+- F-02 wymaga `OPENROUTER_API_KEY` w runtime Workera. Brak klucza powoduje fail-closed w `evaluateSessionSafety()` i blokuje zwykla przyszla symulacje AI zamiast przepuszczac rozmowe bez klasyfikacji.
+- `OPENROUTER_SAFETY_MODEL` jest opcjonalna konfiguracja bez sekretu. Domyslnie kod uzywa `openai/gpt-4o-mini`; override mozna wpisac lokalnie w `.env` / `.dev.vars`, ale nie jest wymagany w GitHub secrets.
 
 ## Kroki automatyczne
 
 - `wrangler.jsonc`:
   - `name` ustawione na `safespace`.
   - Worker target zostaje przez `main: "@astrojs/cloudflare/entrypoints/server"`.
-  - Wymagane sekrety zadeklarowane jako `SUPABASE_URL` i `SUPABASE_KEY`.
+  - Wymagane sekrety zadeklarowane jako `SUPABASE_URL`, `SUPABASE_KEY` i `OPENROUTER_API_KEY`.
 - `.github/workflows/ci.yml`:
   - Trigger ustawiony na `main` dla push i pull request.
-  - Job `ci` zachowuje `npm ci`, `npx astro sync`, lint i build.
+  - Job `ci` zachowuje `npm ci`, `npm run test`, `npx astro sync`, lint i build.
   - Job `migrate` dziala tylko dla push do `main`, po przejsciu `ci`, buduje Session Pooler URL z `SUPABASE_DB_PASSWORD` i wykonuje `npx supabase db push`.
   - Job `deploy` dziala tylko dla push do `main`, po przejsciu `migrate`.
   - Deploy uzywa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.95.0"` i `deploy --secrets-file .env.production`.
-  - `.env.production` jest tworzony tymczasowo z GitHub secrets i usuwany po deployu.
+  - `.env.production` jest tworzony tymczasowo z GitHub secrets (`SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY`) i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.
 - Po pushu sprawdzic workflow, URL Workera, redirect `/dashboard -> /auth/signin` oraz callback `/auth/callback` dodany do Supabase Auth Redirect URLs.
 - Gdy hosted Supabase migration F-01 zostanie faktycznie zastosowana, zapisac date, srodowisko, komende i wynik w `context/changes/private-session-data-boundary/verification.md`; bez tego nie oznaczac hosted migration evidence jako potwierdzone.
@@ -58,6 +61,7 @@
 nvm use 22.14.0
 npm ci
 npm run lint
+npm run test
 npm run build
 npx wrangler deploy --dry-run
 ```
@@ -66,7 +70,7 @@ npx wrangler deploy --dry-run
 
 ```bash
 npx supabase db push --db-url "$SUPABASE_MIGRATION_DB_URL" --yes
-printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" > .env.production
+printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nOPENROUTER_API_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" "$OPENROUTER_API_KEY" > .env.production
 npx wrangler deploy --secrets-file .env.production
 ```
 
@@ -77,7 +81,7 @@ Tylko jesli GitHub Actions zawiedzie z powodu konfiguracji CI:
 ```bash
 npx wrangler login
 npx supabase db push --db-url "$SUPABASE_MIGRATION_DB_URL" --yes
-printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" > .env.production
+printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nOPENROUTER_API_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" "$OPENROUTER_API_KEY" > .env.production
 npx wrangler deploy --secrets-file .env.production
 rm .env.production
 ```

@@ -41,7 +41,9 @@ npm install
 cp .env.example .dev.vars
 ```
 
-5. Run the development server:
+5. Add the OpenRouter safety key to `.env` and `.dev.vars` when working on future AI session flows — see [AI Safety Configuration](#ai-safety-configuration).
+
+6. Run the development server:
 
 ```bash
 npm run dev
@@ -149,6 +151,24 @@ Users can then sign in immediately after sign-up without clicking a confirmation
 
 Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication.
 
+## AI Safety Configuration
+
+F-02 adds a server-only safety boundary for future AI sessions. `evaluateSessionSafety()` calls OpenRouter before any ordinary future AI generation and fails closed when the key is missing or the provider response is invalid.
+
+Add these variables to local `.env` and `.dev.vars` files:
+
+| Variable                  | Description                                                          |
+| ------------------------- | -------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`      | Server-only OpenRouter API key used by the safety classifier         |
+| `OPENROUTER_SAFETY_MODEL` | Optional model override; defaults to `openai/gpt-4o-mini` when empty |
+
+```
+OPENROUTER_API_KEY=replace-with-openrouter-api-key
+OPENROUTER_SAFETY_MODEL=openai/gpt-4o-mini
+```
+
+OpenRouter secrets must stay server-only. Do not import them from client components, do not commit real values, and do not use an OpenRouter management key for this app runtime.
+
 ## Deployment
 
 This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/).
@@ -166,6 +186,11 @@ npx wrangler deploy
 ```
 
 Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or via `npx wrangler secret put`.
+Set `OPENROUTER_API_KEY` the same way before enabling future AI session runtime behavior:
+
+```bash
+npx wrangler secret put OPENROUTER_API_KEY
+```
 
 ## CI
 
@@ -178,6 +203,7 @@ Configure these repository secrets in GitHub:
 - `SUPABASE_DB_PASSWORD` - database password used to build the Session Pooler migration URL
 - `SUPABASE_DB_URL` - optional fallback full Postgres connection string; use the Session Pooler URL and keep the password URL-encoded
 - `SUPABASE_DB_POOLER_HOST` - optional override if Supabase shows a different host than `aws-0-eu-west-1.pooler.supabase.com`
+- `OPENROUTER_API_KEY` - server-only safety classifier key used by F-02 and passed to Wrangler during deploy
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 

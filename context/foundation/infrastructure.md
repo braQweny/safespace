@@ -76,12 +76,12 @@ Sześć miesięcy po starcie decyzja o Cloudflare okazała się problematyczna, 
 - Workers preview URLs i `wrangler` environments wymagają jawnej dyscypliny bindingów i sekretów. Preview nie jest automatycznie bezpiecznym stagingiem.
 - AI streaming pasuje do request/response, ale trzeba przetestować czas odpowiedzi OpenRouter, CPU time, subrequest limits i zachowanie przerwania sesji.
 - Logi i observability muszą być ustawione przed prawdziwymi użytkownikami, ale bez logowania treści rozmów.
-- `wrangler.jsonc` nadal ma nazwę `10x-astro-starter`; przed produkcyjnym deployem trzeba nazwać Worker zgodnie z projektem, np. `safespace`.
+- `wrangler.jsonc` powinien zachować nazwę Workera zgodną z projektem, np. `safespace`; przed deployem sprawdzić, że nie wróciła nazwa starterowa.
 
 ## Operational Story
 
 - **Preview deploys**: dla PR/branchy używać Workers preview URLs albo `npx wrangler versions upload --preview-alias pr-<number>` po pierwszym deployu. Preview z prawdziwymi sekretami powinny być chronione Cloudflare Access albo ograniczone do zaufanych branchy; fork PR nie powinien dostawać produkcyjnych sekretów.
-- **Secrets**: sekrety produkcyjne trzymać w Cloudflare Workers Secrets przez `npx wrangler secret put SUPABASE_URL`, `npx wrangler secret put SUPABASE_KEY` i później `npx wrangler secret put OPENROUTER_API_KEY`. Lokalnie używać `.dev.vars` albo `.env`; wartości nie trafiają do repo. Rotacja to nadpisanie sekretu przez `wrangler secret put` i redeploy.
+- **Secrets**: sekrety produkcyjne trzymać w Cloudflare Workers Secrets przez `npx wrangler secret put SUPABASE_URL`, `npx wrangler secret put SUPABASE_KEY` i `npx wrangler secret put OPENROUTER_API_KEY`. Lokalnie używać `.dev.vars` albo `.env`; wartości nie trafiają do repo. Rotacja to nadpisanie sekretu przez `wrangler secret put` i redeploy.
 - **Rollback**: lista wersji przez `npx wrangler versions list`, rollback przez `npx wrangler rollback <VERSION_ID> --message "rollback <reason>"`. Cofnie Worker, ale nie cofnie migracji Supabase ani zmian danych.
 - **Approval**: agent może czytać logi, uruchamiać build i tworzyć preview. Człowiek zatwierdza produkcyjny deploy, rotację głównych sekretów, migracje bazy i operacje kasujące dane.
 - **Logs**: runtime logs czytać read-only przez `npx wrangler tail`; historię deployów przez `npx wrangler deployments list` i `npx wrangler versions list`. Logi aplikacyjne muszą maskować treść rozmów i tokeny.
@@ -97,13 +97,13 @@ Sześć miesięcy po starcie decyzja o Cloudflare okazała się problematyczna, 
 | Latencja edge-to-Supabase pogarsza UX                            | Devil's advocate                    |                  L |     M | Wybrać region Supabase blisko głównych użytkowników; mierzyć p95 dla logowania, historii i AI session start.                                                  |
 | Stare poradniki Astro/Cloudflare wprowadzają błędną konfigurację | Unknown unknowns                    |                  M |     M | Opierać się na aktualnych docs dla Astro 6 i `@astrojs/cloudflare` v13; nie kopiować starych `platformProxy`/Pages-era instrukcji.                            |
 | AI streaming przekracza limity runtime albo subrequestów         | Unknown unknowns                    |                  M |     M | Zrobić test integracyjny z OpenRouter na realnym Workerze przed publicznym launch; ustawić timeout i graceful fallback UI.                                    |
-| Nazwa Workera pozostaje starterowa                               | Research finding                    |                  H |     L | Zmienić `name` w `wrangler.jsonc` z `10x-astro-starter` na `safespace` przed pierwszym produkcyjnym deployem.                                                 |
+| Nazwa Workera wraca do starterowej                               | Research finding                    |                  L |     L | Przed deployem sprawdzić, że `name` w `wrangler.jsonc` pozostaje `safespace`.                                                                                 |
 
 ## Getting Started
 
-1. Zmienić `name` w `wrangler.jsonc` z `10x-astro-starter` na docelową nazwę Workera, np. `safespace`.
+1. Sprawdzić, że `name` w `wrangler.jsonc` pozostaje ustawione na `safespace`.
 2. Zalogować CLI: `npx wrangler login`.
-3. Dodać sekrety produkcyjne: `npx wrangler secret put SUPABASE_URL`, `npx wrangler secret put SUPABASE_KEY`, a po dodaniu AI także `npx wrangler secret put OPENROUTER_API_KEY`.
+3. Dodać sekrety produkcyjne: `npx wrangler secret put SUPABASE_URL`, `npx wrangler secret put SUPABASE_KEY` oraz `npx wrangler secret put OPENROUTER_API_KEY`.
 4. Sprawdzić lokalny build zgodny z Astro/Cloudflare: `npm run build`.
 5. Wdrożyć: `npx wrangler deploy`; po wdrożeniu sprawdzić logi przez `npx wrangler tail`.
 
