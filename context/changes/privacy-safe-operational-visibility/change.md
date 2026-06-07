@@ -1,7 +1,7 @@
 ---
 change_id: privacy-safe-operational-visibility
 title: Privacy-safe operational visibility
-status: implementing
+status: implemented
 created: 2026-06-06
 updated: 2026-06-07
 archived_at: null
