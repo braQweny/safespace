@@ -617,41 +617,41 @@ Runtime configuration reuses `OPENROUTER_API_KEY` and adds optional `OPENROUTER_
 
 #### Automated
 
-- [x] 3.1 Route-level tests cover `allow`, `allow_with_constraints`, `hard_stop`, fail-closed safety, ordinary AI failure, expired session, invalid message, missing auth, missing session, and duplicate sequence behavior with mocked providers/repositories.
-- [x] 3.2 `npm run test` completes successfully.
-- [x] 3.3 `npx astro sync` completes successfully.
-- [x] 3.4 `npm run lint` completes successfully.
-- [x] 3.5 `npm run build` completes successfully.
-- [x] 3.6 Source search confirms `evaluateSessionSafety()` is called before ordinary session AI generation.
-- [x] 3.7 Source search confirms hard-stop/fail-closed branches do not call `appendSessionMessage()` with raw user text.
-- [x] 3.8 Source search confirms no route logs `message`, `prompt`, `content`, AI output, raw provider payload, raw Supabase error, `modalityId`, or `avatarId`.
+- [x] 3.1 Route-level tests cover `allow`, `allow_with_constraints`, `hard_stop`, fail-closed safety, ordinary AI failure, expired session, invalid message, missing auth, missing session, and duplicate sequence behavior with mocked providers/repositories. — cee6b2a
+- [x] 3.2 `npm run test` completes successfully. — cee6b2a
+- [x] 3.3 `npx astro sync` completes successfully. — cee6b2a
+- [x] 3.4 `npm run lint` completes successfully. — cee6b2a
+- [x] 3.5 `npm run build` completes successfully. — cee6b2a
+- [x] 3.6 Source search confirms `evaluateSessionSafety()` is called before ordinary session AI generation. — cee6b2a
+- [x] 3.7 Source search confirms hard-stop/fail-closed branches do not call `appendSessionMessage()` with raw user text. — cee6b2a
+- [x] 3.8 Source search confirms no route logs `message`, `prompt`, `content`, AI output, raw provider payload, raw Supabase error, `modalityId`, or `avatarId`. — cee6b2a
 
 #### Manual
 
-- [x] 3.9 A normal message returns a visible assistant response and persists the user/assistant turn.
-- [x] 3.10 A caution decision shows a short visible boundary message and still returns an assistant response.
-- [x] 3.11 A hard-stop or fail-closed safety decision shows safe copy/resources and does not save the raw triggering text.
-- [x] 3.12 An ordinary AI provider failure shows retry/unavailable UI and does not save a fake assistant response.
-- [x] 3.13 A message submitted after the timer expires is rejected and marks the session expired.
+- [x] 3.9 A normal message returns a visible assistant response and persists the user/assistant turn. — cee6b2a
+- [x] 3.10 A caution decision shows a short visible boundary message and still returns an assistant response. — cee6b2a
+- [x] 3.11 A hard-stop or fail-closed safety decision shows safe copy/resources and does not save the raw triggering text. — cee6b2a
+- [x] 3.12 An ordinary AI provider failure shows retry/unavailable UI and does not save a fake assistant response. — cee6b2a
+- [x] 3.13 A message submitted after the timer expires is rejected and marks the session expired. — cee6b2a
 
 ### Phase 4: Timed Chat UI And End States
 
 #### Automated
 
-- [ ] 4.1 `npm run test` completes successfully for pure timer/message-state tests where applicable.
-- [ ] 4.2 `npx astro sync` completes successfully.
-- [ ] 4.3 `npm run lint` completes successfully.
-- [ ] 4.4 `npm run build` completes successfully.
-- [ ] 4.5 Source search confirms no streaming API, EventSource, WebSocket, or pseudo-streaming timer reveal was added.
-- [ ] 4.6 Source search confirms no S-05 history list, S-06 summary UI, or paid upgrade UI was added.
+- [x] 4.1 `npm run test` completes successfully for pure timer/message-state tests where applicable.
+- [x] 4.2 `npx astro sync` completes successfully.
+- [x] 4.3 `npm run lint` completes successfully.
+- [x] 4.4 `npm run build` completes successfully.
+- [x] 4.5 Source search confirms no streaming API, EventSource, WebSocket, or pseudo-streaming timer reveal was added.
+- [x] 4.6 Source search confirms no S-05 history list, S-06 summary UI, or paid upgrade UI was added.
 
 #### Manual
 
-- [ ] 4.7 Local browser smoke verifies: sign in, choose/avatar already selected, open `/dashboard/session`, start session, see timer, send a normal message, see response-progress state, receive non-streaming answer, and see messages stay visible.
-- [ ] 4.8 Local browser smoke verifies a mocked or forced caution state shows visible safe-boundary copy and allows continuation.
-- [ ] 4.9 Local browser smoke verifies a mocked or forced hard-stop/fail-closed state disables ordinary continuation and shows safe resources/copy.
-- [ ] 4.10 Local browser smoke verifies the composer is blocked after the timer reaches zero and a direct message POST after expiry is rejected.
-- [ ] 4.11 The temporary dev server used for browser smoke is stopped, and the port/process check confirms it is no longer listening.
+- [x] 4.7 Local browser smoke verifies: sign in, choose/avatar already selected, open `/dashboard/session`, start session, see timer, send a normal message, see response-progress state, receive non-streaming answer, and see messages stay visible.
+- [x] 4.8 Local browser smoke verifies a mocked or forced caution state shows visible safe-boundary copy and allows continuation.
+- [x] 4.9 Local browser smoke verifies a mocked or forced hard-stop/fail-closed state disables ordinary continuation and shows safe resources/copy.
+- [x] 4.10 Local browser smoke verifies the composer is blocked after the timer reaches zero and a direct message POST after expiry is rejected.
+- [x] 4.11 The temporary dev server used for browser smoke is stopped, and the port/process check confirms it is no longer listening.
 
 ### Phase 5: Tests, Sweeps, Docs, And Handoff
 

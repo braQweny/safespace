@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import TimedSession from "@/components/session/TimedSession";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { readSessionStartPageState } from "@/lib/session-flow/session-state";
@@ -39,37 +40,6 @@ if (!sessionContext.ok) {
     pageError = state.ok ? null : "Nie udało się odczytać stanu pierwszej sesji. Spróbuj ponownie za chwilę.";
   }
 }
-
-const statusCopy: Record<SessionStartPageState["kind"], { title: string; body: string }> = {
-  ready: {
-    title: "Przygotowanie do pierwszej sesji",
-    body: "Wejście na tę stronę nie zużywa darmowej próby. Sesja startuje dopiero po użyciu przycisku rozpoczęcia.",
-  },
-  active: {
-    title: "Sesja jest aktywna",
-    body: "Możesz kontynuować rozpoczętą sesję. Interaktywny widok rozmowy zostanie rozszerzony w kolejnym kroku tej implementacji.",
-  },
-  expired: {
-    title: "Limit czasu został osiągnięty",
-    body: "Pierwsza 15-minutowa sesja jest już po czasie. Nowe wiadomości będą blokowane po stronie serwera.",
-  },
-  completed: {
-    title: "Sesja została zakończona",
-    body: "Pierwsza sesja jest zapisana w prywatnej granicy danych. Pełna historia pozostaje poza zakresem tego widoku.",
-  },
-  interrupted: {
-    title: "Sesja została przerwana",
-    body: "Rozmowa została zatrzymana w bezpiecznym stanie. Dalsze wznowienia będą obsługiwane w kolejnych etapach.",
-  },
-  trial_already_claimed: {
-    title: "Darmowa próba została już wykorzystana",
-    body: "Nie można rozpocząć drugiej darmowej sesji przez odświeżenie, ponowne kliknięcie ani bezpośredni POST.",
-  },
-  unavailable: {
-    title: "Stan sesji jest chwilowo niedostępny",
-    body: "Nie udało się potwierdzić dostępności darmowej próby. Spróbuj ponownie za chwilę.",
-  },
-};
 ---
 
 <Layout title="Pierwsza sesja - SafeSpace" lang="pl">
@@ -118,81 +88,7 @@ const statusCopy: Record<SessionStartPageState["kind"], { title: string; body: s
         ) : null
       }
 
-      {
-        pageState ? (
-          <div class="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <section class="rounded-lg border border-[#c8ddd7] bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)]">
-              <p class="text-sm font-medium text-[#1f6f65]">{statusCopy[pageState.kind].title}</p>
-              <h2 class="mt-2 text-2xl font-semibold text-[#10231f]">{pageState.avatar.selected.avatarName}</h2>
-              <p class="mt-1 text-base font-medium text-[#1f6f65]">{pageState.avatar.selected.modalityName}</p>
-              <p class="mt-4 text-sm leading-6 text-[#52645f]">{statusCopy[pageState.kind].body}</p>
-
-              {pageState.kind === "ready" ? (
-                <form method="POST" action="/api/session/start" class="mt-6">
-                  <button
-                    type="submit"
-                    class="inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-                  >
-                    Rozpocznij 15-minutową sesję
-                  </button>
-                </form>
-              ) : null}
-
-              {pageState.session ? (
-                <div class="mt-6 rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4 text-sm leading-6 text-[#38524b]">
-                  <p class="font-semibold text-[#173f39]">Stan sesji</p>
-                  <p class="mt-2">
-                    Status: <span class="font-medium text-[#10231f]">{pageState.session.status}</span>
-                  </p>
-                  {pageState.session.remainingSeconds !== null ? (
-                    <p>
-                      Pozostały czas:{" "}
-                      <span class="font-medium text-[#10231f]">{pageState.session.remainingSeconds} s</span>
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {pageState.messageFetchFailed ? (
-                <div class="mt-4 rounded-lg border border-[#f0c7c7] bg-[#fff8f8] p-4 text-sm leading-6 text-[#7d2d2d]">
-                  Nie udało się odczytać wiadomości aktywnej sesji.
-                </div>
-              ) : null}
-
-              {pageState.messages.length > 0 ? (
-                <ol class="mt-5 space-y-3">
-                  {pageState.messages.map((message) => (
-                    <li class="rounded-lg border border-[#d7e5e0] bg-white p-4 text-sm leading-6 text-[#38524b]">
-                      <p class="text-xs font-semibold text-[#1f6f65] uppercase">{message.role}</p>
-                      <p class="mt-2">{message.content}</p>
-                    </li>
-                  ))}
-                </ol>
-              ) : null}
-            </section>
-
-            <aside class="rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-5">
-              <img
-                src={pageState.avatar.selected.assetPath}
-                alt={pageState.avatar.selected.altText}
-                width="384"
-                height="384"
-                class="aspect-square w-full rounded-lg object-cover"
-                loading="lazy"
-              />
-              <p class="mt-4 text-sm leading-6 text-[#52645f]">
-                Wybrana perspektywa będzie zapisana w metadanych sesji po kliknięciu startu.
-              </p>
-              <a
-                href="/dashboard/avatar"
-                class="mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-4 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-              >
-                Zmień awatara
-              </a>
-            </aside>
-          </div>
-        ) : null
-      }
+      {pageState ? <TimedSession client:load initialState={pageState} /> : null}
     </section>
   </main>
 </Layout>
