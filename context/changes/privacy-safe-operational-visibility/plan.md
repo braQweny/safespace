@@ -481,36 +481,36 @@ No Supabase migration is required. This plan intentionally avoids a database eve
 
 #### Automated
 
-- [x] 1.1 `npx astro sync` completes successfully.
-- [x] 1.2 `npm run lint` completes successfully.
-- [x] 1.3 `npm run build` completes successfully.
-- [x] 1.4 Source search finds exactly one `OperationalEventName` definition.
-- [x] 1.5 Source search confirms the operational event allowlist does not include `message`, `prompt`, `content`, `email`, `token`, `cookie`, `authorization`, `password`, `secret`, or raw `error`.
-- [x] 1.6 Source search confirms user hashing never returns raw Supabase user IDs.
+- [x] 1.1 `npx astro sync` completes successfully. — 67e320c
+- [x] 1.2 `npm run lint` completes successfully. — 67e320c
+- [x] 1.3 `npm run build` completes successfully. — 67e320c
+- [x] 1.4 Source search finds exactly one `OperationalEventName` definition. — 67e320c
+- [x] 1.5 Source search confirms the operational event allowlist does not include `message`, `prompt`, `content`, `email`, `token`, `cookie`, `authorization`, `password`, `secret`, or raw `error`. — 67e320c
+- [x] 1.6 Source search confirms user hashing never returns raw Supabase user IDs. — 67e320c
 
 #### Manual
 
-- [x] 1.7 Event names cover auth, avatar, protected-route, and future session lifecycle without implementing session features.
-- [x] 1.8 The allowlist is strict enough that a caller cannot accidentally log form data, cookies, provider payloads, or private conversation text.
-- [x] 1.9 Missing `OPERATIONAL_LOG_HASH_SECRET` omits user correlation rather than blocking the request or logging raw user IDs.
+- [x] 1.7 Event names cover auth, avatar, protected-route, and future session lifecycle without implementing session features. — 67e320c
+- [x] 1.8 The allowlist is strict enough that a caller cannot accidentally log form data, cookies, provider payloads, or private conversation text. — 67e320c
+- [x] 1.9 Missing `OPERATIONAL_LOG_HASH_SECRET` omits user correlation rather than blocking the request or logging raw user IDs. — 67e320c
 
 ### Phase 2: Request Context And Logger Runtime
 
 #### Automated
 
-- [ ] 2.1 `npx astro sync` completes successfully.
-- [ ] 2.2 `npm run lint` completes successfully.
-- [ ] 2.3 `npm run build` completes successfully.
-- [ ] 2.4 Source search finds `requestId` typed in `src/env.d.ts` and assigned in `src/middleware.ts`.
-- [ ] 2.5 Source search finds exactly one application logger wrapper that calls `console.log`.
-- [ ] 2.6 Source search confirms no new logger code reads request body text, cookies, authorization headers, or query string payloads.
+- [x] 2.1 `npx astro sync` completes successfully.
+- [x] 2.2 `npm run lint` completes successfully.
+- [x] 2.3 `npm run build` completes successfully.
+- [x] 2.4 Source search finds `requestId` typed in `src/env.d.ts` and assigned in `src/middleware.ts`.
+- [x] 2.5 Source search finds exactly one application logger wrapper that calls `console.log`.
+- [x] 2.6 Source search confirms no new logger code reads request body text, cookies, authorization headers, or query string payloads.
 
 #### Manual
 
-- [ ] 2.7 Requests receive a safe request ID that can be used for support/debug correlation.
-- [ ] 2.8 Middleware redirects and normal responses both preserve request ID context.
-- [ ] 2.9 Logger failures cannot block sign-in, sign-up, sign-out, avatar choice, or future session flow.
-- [ ] 2.10 Worker observability remains Cloudflare-first and does not add an external log destination.
+- [x] 2.7 Requests receive a safe request ID that can be used for support/debug correlation.
+- [x] 2.8 Middleware redirects and normal responses both preserve request ID context.
+- [x] 2.9 Logger failures cannot block sign-in, sign-up, sign-out, avatar choice, or future session flow.
+- [x] 2.10 Worker observability remains Cloudflare-first and does not add an external log destination.
 
 ### Phase 3: Instrument Existing Critical Flows
 

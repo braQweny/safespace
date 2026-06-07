@@ -1,5 +1,9 @@
 import { defineMiddleware } from "astro:middleware";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
+import {
+  createOperationalRequestId,
+  withOperationalRequestIdHeader,
+} from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
 const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account"] as const;
@@ -9,6 +13,9 @@ function isProtectedRoute(pathname: string) {
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  const requestId = createOperationalRequestId();
+  context.locals.requestId = requestId;
+
   const supabase = createClient(context.request.headers, context.cookies);
 
   if (supabase) {
@@ -22,9 +29,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (isProtectedRoute(context.url.pathname)) {
     if (!context.locals.user) {
-      return context.redirect("/auth/signin");
+      return withOperationalRequestIdHeader(context.redirect("/auth/signin"), requestId);
     }
   }
 
-  return next();
+  const response = await next();
+  return withOperationalRequestIdHeader(response, requestId);
 });
