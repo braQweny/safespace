@@ -1,9 +1,9 @@
 ---
 change_id: safe-ai-session-boundary
 title: Safe AI session boundary
-status: planned
+status: implementing
 created: 2026-06-06
-updated: 2026-06-06
+updated: 2026-06-07
 archived_at: null
 ---
 

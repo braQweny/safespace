@@ -481,17 +481,17 @@ No Supabase migration is required. F-02 intentionally avoids a safety-events tab
 
 #### Automated
 
-- [ ] 1.1 `npx astro sync` completes successfully.
-- [ ] 1.2 `npm run lint` completes successfully.
-- [ ] 1.3 `npm run build` completes successfully.
-- [ ] 1.4 Source search finds exactly one definition of `SessionSafetyRisk`.
-- [ ] 1.5 Source search finds no crisis resource catalog entry that claims SafeSpace provides emergency help.
+- [x] 1.1 `npx astro sync` completes successfully.
+- [x] 1.2 `npm run lint` completes successfully.
+- [x] 1.3 `npm run build` completes successfully.
+- [x] 1.4 Source search finds exactly one definition of `SessionSafetyRisk`.
+- [x] 1.5 Source search finds no crisis resource catalog entry that claims SafeSpace provides emergency help.
 
 #### Manual
 
-- [ ] 1.6 The safety contract exposes exactly three risk states: `normal`, `caution`, and `crisis`.
-- [ ] 1.7 Crisis resources include Poland, United States, and a local fallback.
-- [ ] 1.8 Polish crisis copy uses a hard-stop framing and does not sound like diagnosis, treatment, or therapy.
+- [x] 1.6 The safety contract exposes exactly three risk states: `normal`, `caution`, and `crisis`.
+- [x] 1.7 Crisis resources include Poland, United States, and a local fallback.
+- [x] 1.8 Polish crisis copy uses a hard-stop framing and does not sound like diagnosis, treatment, or therapy.
 
 ### Phase 2: OpenRouter Safety Classifier Boundary
 
