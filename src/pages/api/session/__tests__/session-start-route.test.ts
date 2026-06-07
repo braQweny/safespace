@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
-import type { CurrentAvatarChoice } from "../avatar-choice";
+import type { CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import type { SessionDataContext, SessionMetadata, SessionTrialClaimState } from "@/lib/session-data/types";
 
 const getSessionDataContext = vi.fn();
@@ -15,7 +15,7 @@ vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
 }));
 
-vi.mock("../avatar-choice", () => ({
+vi.mock("@/lib/session-flow/avatar-choice", () => ({
   readCurrentAvatarChoice,
 }));
 

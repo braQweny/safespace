@@ -24,9 +24,9 @@ npx wrangler tail --name safespace
 
 W logach szukaj `event`, `requestId`, `outcome` i `reasonCode`. Nie traktuj raw logow jako admin-facing panelu.
 
-## Handoff dla S-04
+## S-04 session flow
 
-Przyszly S-04 musi wykonac granice F-02 przed zwykla generacja AI:
+S-04 `first-safe-timed-session` wykonuje granice F-02 przed zwykla generacja AI:
 
 1. Utworz albo odczytaj prywatny kontekst sesji przez F-01.
 2. Wywolaj `evaluateSessionSafety()` z F-02 dla aktualnej wypowiedzi uzytkownika.
@@ -35,7 +35,7 @@ Przyszly S-04 musi wykonac granice F-02 przed zwykla generacja AI:
 5. Dla `allow_with_constraints` zastosuj ograniczenia z F-02 przed generacja.
 6. Dla `hard_stop` albo `fail_closed` przerwij zwykla symulacje.
 
-S-04 nie moze tworzyc alternatywnych nazw zdarzen sesyjnych ani recznie skladac payloadow logow dla sesji.
+S-04 nie moze tworzyc alternatywnych nazw zdarzen sesyjnych ani recznie skladac payloadow logow dla sesji. S-05 historia, S-06 podsumowania i S-07 admin aggregates pozostaja osobnymi slice'ami bez dostepu do prywatnej tresci w logach.
 
 ## Dozwolone zdarzenia sesyjne
 

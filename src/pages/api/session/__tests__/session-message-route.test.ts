@@ -3,7 +3,7 @@ import { SessionAiError } from "@/lib/session-ai/errors";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { SessionSafetyDecision } from "@/lib/session-safety/types";
 import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
-import type { PersistedMessageTurn } from "../message-persistence";
+import type { PersistedMessageTurn } from "@/lib/session-flow/message-persistence";
 
 const getSessionDataContext = vi.fn();
 const getOwnedSessionMetadata = vi.fn();

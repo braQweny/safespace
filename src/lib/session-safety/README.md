@@ -14,7 +14,7 @@ F-02 tworzy server-only granice bezpieczenstwa dla przyszlych rozmow AI. Publicz
 
 ## Zakres F-02
 
-Ten katalog nie dodaje chat UI, timera, tras `/api/session` ani `/api/chat`, streamingu, historii sesji ani persystencji decyzji bezpieczenstwa. S-04 ma uzyc tej granicy razem z prywatna granica danych z F-01, ale nie moze jej omijac przed zwykla generacja AI.
+Ten katalog nie dodaje chat UI, timera, tras `/api/session` ani `/api/chat`, streamingu, historii sesji ani persystencji decyzji bezpieczenstwa. S-04 uzywa tej granicy razem z prywatna granica danych z F-01, ale nie moze jej omijac przed zwykla generacja AI.
 
 ## Kontrakt decyzji
 
@@ -25,6 +25,8 @@ Ten katalog nie dodaje chat UI, timera, tras `/api/session` ani `/api/chat`, str
 
 ## Handoff dla F-03
 
-F-03 udostepnia sesyjne zdarzenia operacyjne w `../operational-visibility/session-events.ts`. Przyszly S-04 powinien logowac wynik `evaluateSessionSafety()` przez te helpery, uzywajac tylko `riskState`, `action`, `reasonCode`, `durationMs`, `requestId` i opcjonalnego `userHash`.
+F-03 udostepnia sesyjne zdarzenia operacyjne w `../operational-visibility/session-events.ts`. S-04 loguje wynik `evaluateSessionSafety()` przez te helpery, uzywajac tylko `riskState`, `action`, `reasonCode`, `durationMs`, `requestId` i opcjonalnego `userHash`.
 
 Nie przekazuj do logow operacyjnych tekstu uzytkownika, promptow, payloadow providera, tresci decyzji klasyfikatora, kopii kryzysowej ani danych wyboru nurtu lub avatara.
+
+Historia sesji, podsumowania i admin-facing operacje prywatnych danych pozostaja poza S-04 i wymagaja osobnych planow S-05, S-06 i S-07.

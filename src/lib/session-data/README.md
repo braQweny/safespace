@@ -45,7 +45,7 @@ Helpery zwracaja `SessionDataResult<T>` i `SessionDataErrorCode`. Nie przekazuj 
 
 ## Start pierwszej darmowej sesji
 
-Przyszly S-04 ma zachowac taka kolejnosc:
+S-04 `first-safe-timed-session` implementuje pierwszy realny start sesji przez `/dashboard/session` i `/api/session/start`. Ten przeplyw ma zachowac taka kolejnosc:
 
 1. Uwierzytelnij request przez `getSessionDataContext(context)`.
 2. Jesli styl rozmowy potrzebuje aktualnego wyboru awatara, wczytaj go osobnym owner-bound helperem S-03.
@@ -63,11 +63,13 @@ Przyszly S-05 ma uzywac `deleteOwnedSession()` z `deletion.ts`. Ten helper usuwa
 
 F-01 nie implementuje break-glass content access. Waskie wyjatki prawne lub bezpieczenstwa wymagaja osobnego planu z jawna autoryzacja, audytem, minimalizacja danych i decyzja ownera. Nie dodawaj implicit admin access w helperach F-01.
 
-## Handoff for S-04 first safe timed session
+## Implemented S-04 first safe timed session
 
-S-04 ma uzyc `getSessionDataContext()` jako pierwszego kroku kazdego prywatnego handlera i `claimFreeTrialSession()` jako jedynej sciezki startu darmowej sesji. Po claimie moze dopisywac wiadomosci przez `appendSessionMessage()` i czytac je przez owner-bound repository helpers.
+S-04 uzywa `getSessionDataContext()` jako pierwszego kroku kazdego prywatnego handlera i `claimFreeTrialSession()` jako jedynej sciezki startu darmowej sesji. Po claimie dopisuje wiadomosci przez repository helpery i czyta je przez owner-bound repository helpers.
 
 S-04 nie moze tworzyc alternatywnego UI-only limitu darmowej sesji, direct insertow do `therapy_sessions`, `session_messages` albo `session_trial_claims`, service-role runtime secretow, ani logow z raw contentem rozmowy. Granica F-02 musi nadal decydowac o zwyklej generacji AI i przerwaniu kryzysowym.
+
+S-04 nie dodaje listy historii, podsumowan ani admin access do prywatnej tresci. Te kierunki zostaja osobnymi slice'ami S-05, S-06 i S-07.
 
 ## Handoff for S-05 session history control
 
