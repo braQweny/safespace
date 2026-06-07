@@ -1,15 +1,20 @@
 import { mapSupabaseReadError, mapSupabaseWriteError, ok, sessionDataError, type SessionDataResult } from "./errors";
 import type {
+  ApprovedSessionSummaryContext,
+  ApproveSessionSummaryRevisionInput,
   AppendSessionMessageInput,
   AppendSessionMessagesInput,
   CreatePendingSessionInput,
   DeletedSessionTombstone,
   DeleteOwnedSessionInput,
+  LatestSessionSummaryState,
+  ListApprovedSessionSummaryContextOptions,
   ListOwnedSessionHistoryInput,
   ListSessionMetadataOptions,
   ListSessionSummariesOptions,
   OwnedSessionHistoryDetail,
   OwnedSessionHistoryPage,
+  SaveGeneratedSessionSummaryInput,
   SaveVisibleSessionSummaryInput,
   SessionDataContext,
   SessionDeletionReasonCode,
@@ -19,6 +24,7 @@ import type {
   SessionMessageRecord,
   SessionMessageRole,
   SessionMetadata,
+  SessionSummaryPreview,
   SessionSummaryRecord,
   SessionTrialClaimState,
   SessionSummaryStatus,
@@ -28,12 +34,14 @@ import type {
   UpdateSessionTombstoneInput,
   UserId,
 } from "./types";
+import { APPROVED_SESSION_SUMMARY_CONTEXT_LIMIT as DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT } from "./types";
 
 const SESSION_SELECT =
   "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,created_at,updated_at";
 const HISTORY_SESSION_SELECT = `${SESSION_SELECT},session_messages!inner(id)`;
 const MESSAGE_SELECT = "id,session_id,user_id,role,sequence_index,content,created_at";
 const SUMMARY_SELECT = "id,session_id,user_id,summary_text,status,is_visible,revision,created_at,updated_at";
+const SUMMARY_WITH_SESSION_SELECT = `${SUMMARY_SELECT},therapy_sessions!inner(id,status,deleted_at)`;
 const TRIAL_CLAIM_SELECT = "id,session_id,user_id,trial_duration_seconds,claimed_at,created_at";
 
 interface TherapySessionRow {
@@ -194,6 +202,122 @@ export function toDeletedSessionTombstone(session: SessionMetadata): DeletedSess
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };
+}
+
+function parseSummaryTimestampMs(timestamp: string | null | undefined) {
+  if (!timestamp) {
+    return 0;
+  }
+
+  const parsed = Date.parse(timestamp);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function compareSummaryRecordsNewestFirst(left: SessionSummaryRecord, right: SessionSummaryRecord) {
+  const updatedDiff = parseSummaryTimestampMs(right.updatedAt) - parseSummaryTimestampMs(left.updatedAt);
+
+  if (updatedDiff !== 0) {
+    return updatedDiff;
+  }
+
+  const createdDiff = parseSummaryTimestampMs(right.createdAt) - parseSummaryTimestampMs(left.createdAt);
+
+  if (createdDiff !== 0) {
+    return createdDiff;
+  }
+
+  return right.revision - left.revision;
+}
+
+function normalizeApprovedSummaryContextLimit(limit: number | undefined) {
+  if (!Number.isSafeInteger(limit) || limit <= 0) {
+    return DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT;
+  }
+
+  return Math.min(limit, DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT);
+}
+
+export function getNextSessionSummaryRevision(summaries: readonly SessionSummaryRecord[]) {
+  return summaries.reduce((maxRevision, summary) => Math.max(maxRevision, summary.revision), 0) + 1;
+}
+
+export function toSessionSummaryPreview(summary: SessionSummaryRecord): SessionSummaryPreview | null {
+  if (summary.status === "deleted" || !summary.isVisible) {
+    return null;
+  }
+
+  return {
+    id: summary.id,
+    sessionId: summary.sessionId,
+    summaryText: summary.summaryText,
+    status: summary.status,
+    isVisible: true,
+    revision: summary.revision,
+    createdAt: summary.createdAt,
+    updatedAt: summary.updatedAt,
+  };
+}
+
+export function toLatestSessionSummaryState(summaries: readonly SessionSummaryRecord[]): LatestSessionSummaryState {
+  const latest = [...summaries]
+    .map(toSessionSummaryPreview)
+    .filter((summary) => summary !== null)
+    .sort((left, right) => right.revision - left.revision)
+    .at(0);
+
+  if (!latest) {
+    return {
+      kind: "none",
+    };
+  }
+
+  if (latest.status === "draft") {
+    return {
+      kind: "preview",
+      summary: latest,
+    };
+  }
+
+  if (latest.status === "ready") {
+    return {
+      kind: "approved",
+      summary: latest,
+    };
+  }
+
+  return {
+    kind: "stale",
+    summary: latest,
+  };
+}
+
+export function toApprovedSessionSummaryContexts(
+  summaries: readonly SessionSummaryRecord[],
+  limit = DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT,
+): ApprovedSessionSummaryContext[] {
+  const normalizedLimit = normalizeApprovedSummaryContextLimit(limit);
+  const seenSessionIds = new Set<SessionId>();
+
+  return [...summaries]
+    .filter((summary) => summary.status === "ready" && summary.isVisible)
+    .sort(compareSummaryRecordsNewestFirst)
+    .filter((summary) => {
+      if (seenSessionIds.has(summary.sessionId)) {
+        return false;
+      }
+
+      seenSessionIds.add(summary.sessionId);
+      return true;
+    })
+    .slice(0, normalizedLimit)
+    .map((summary) => ({
+      id: summary.id,
+      sessionId: summary.sessionId,
+      summaryText: summary.summaryText,
+      revision: summary.revision,
+      createdAt: summary.createdAt,
+      updatedAt: summary.updatedAt,
+    }));
 }
 
 const ALLOWED_TRANSITIONS: Readonly<Record<SessionLifecycleStatus, readonly SessionLifecycleStatus[]>> = {
@@ -517,6 +641,156 @@ export async function listOwnedSessionSummaries(
   }
 
   return ok(coerceSummaryRows(data).map(mapSummary));
+}
+
+async function ensureOwnedNonDeletedSession(
+  context: SessionDataContext,
+  sessionId: SessionId,
+): Promise<SessionDataResult<SessionMetadata>> {
+  const session = await getOwnedSessionMetadata(context, sessionId);
+
+  if (!session.ok) {
+    return session;
+  }
+
+  return session.data.status === "deleted" ? sessionDataError("session_not_found") : session;
+}
+
+export async function getLatestOwnedSessionSummaryState(
+  context: SessionDataContext,
+  sessionId: SessionId,
+): Promise<SessionDataResult<LatestSessionSummaryState>> {
+  const session = await ensureOwnedNonDeletedSession(context, sessionId);
+
+  if (!session.ok) {
+    return session;
+  }
+
+  const summaries = await listOwnedSessionSummaries(context, sessionId);
+
+  if (!summaries.ok) {
+    return summaries;
+  }
+
+  return ok(toLatestSessionSummaryState(summaries.data));
+}
+
+export async function saveGeneratedVisibleSessionSummary(
+  context: SessionDataContext,
+  input: SaveGeneratedSessionSummaryInput,
+): Promise<SessionDataResult<SessionSummaryRecord>> {
+  const session = await ensureOwnedNonDeletedSession(context, input.sessionId);
+
+  if (!session.ok) {
+    return session;
+  }
+
+  const existingSummaries = await listOwnedSessionSummaries(context, input.sessionId);
+
+  if (!existingSummaries.ok) {
+    return existingSummaries;
+  }
+
+  const summaryText = input.summaryText.trim();
+
+  if (!summaryText) {
+    return sessionDataError("write_failed");
+  }
+
+  return saveVisibleSessionSummary(context, {
+    sessionId: input.sessionId,
+    summaryText,
+    status: input.status ?? "draft",
+    revision: getNextSessionSummaryRevision(existingSummaries.data),
+    isVisible: input.isVisible ?? true,
+  });
+}
+
+export async function markOlderSessionSummaryRevisionsStale(
+  context: SessionDataContext,
+  input: ApproveSessionSummaryRevisionInput,
+): Promise<SessionDataResult<null>> {
+  const { error } = await context.supabase
+    .from("session_summaries")
+    .update({
+      status: "stale",
+    })
+    .eq("session_id", input.sessionId)
+    .eq("user_id", context.user.id)
+    .lt("revision", input.revision)
+    .eq("is_visible", true)
+    .neq("status", "deleted");
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  return ok(null);
+}
+
+export async function approveOwnedSessionSummaryRevision(
+  context: SessionDataContext,
+  input: ApproveSessionSummaryRevisionInput,
+): Promise<SessionDataResult<SessionSummaryRecord>> {
+  const session = await ensureOwnedNonDeletedSession(context, input.sessionId);
+
+  if (!session.ok) {
+    return session;
+  }
+
+  const { data, error } = await context.supabase
+    .from("session_summaries")
+    .update({
+      status: "ready",
+      is_visible: true,
+    })
+    .eq("session_id", input.sessionId)
+    .eq("user_id", context.user.id)
+    .eq("revision", input.revision)
+    .neq("status", "deleted")
+    .select(SUMMARY_SELECT)
+    .maybeSingle();
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  const row = coerceSummaryRow(data);
+
+  if (!row) {
+    return sessionDataError("session_not_found");
+  }
+
+  const stale = await markOlderSessionSummaryRevisionsStale(context, input);
+
+  if (!stale.ok) {
+    return stale;
+  }
+
+  return ok(mapSummary(row));
+}
+
+export async function listNewestApprovedSessionSummaryContexts(
+  context: SessionDataContext,
+  options: ListApprovedSessionSummaryContextOptions = {},
+): Promise<SessionDataResult<ApprovedSessionSummaryContext[]>> {
+  const limit = normalizeApprovedSummaryContextLimit(options.limit);
+  const queryLimit = limit * 4;
+  const { data, error } = await context.supabase
+    .from("session_summaries")
+    .select(SUMMARY_WITH_SESSION_SELECT)
+    .eq("user_id", context.user.id)
+    .eq("status", "ready")
+    .eq("is_visible", true)
+    .neq("therapy_sessions.status", "deleted")
+    .order("updated_at", { ascending: false })
+    .limit(queryLimit);
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  return ok(toApprovedSessionSummaryContexts(coerceSummaryRows(data).map(mapSummary), limit));
 }
 
 export async function readSafeSessionTombstone(

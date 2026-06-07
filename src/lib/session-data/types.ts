@@ -19,6 +19,7 @@ export type SessionDeletionReasonCode = "user_request" | "retention_expired" | "
 export type SessionDurationBucketSeconds = 0 | 300 | 900 | 1800 | 3600;
 
 export const SESSION_HISTORY_PAGE_SIZE = 20 as const;
+export const APPROVED_SESSION_SUMMARY_CONTEXT_LIMIT = 3 as const;
 
 export type SessionModalityId = "psychodynamic" | "cbt" | "humanistic_experiential" | "systemic" | "integrative";
 
@@ -92,6 +93,35 @@ export interface SessionSummaryRecord {
   updatedAt: string;
 }
 
+export interface SessionSummaryPreview {
+  id: SummaryId;
+  sessionId: SessionId;
+  summaryText: string;
+  status: Exclude<SessionSummaryStatus, "deleted">;
+  isVisible: true;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApprovedSessionSummaryContext {
+  id: SummaryId;
+  sessionId: SessionId;
+  summaryText: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LatestSessionSummaryState =
+  | {
+      kind: "none";
+    }
+  | {
+      kind: "preview" | "approved" | "stale";
+      summary: SessionSummaryPreview;
+    };
+
 export interface SessionTrialClaimState {
   id: TrialClaimId;
   sessionId: SessionId;
@@ -161,6 +191,22 @@ export interface SaveVisibleSessionSummaryInput {
   status: Exclude<SessionSummaryStatus, "deleted">;
   revision: number;
   isVisible: boolean;
+}
+
+export interface SaveGeneratedSessionSummaryInput {
+  sessionId: SessionId;
+  summaryText: string;
+  status?: "draft" | "ready";
+  isVisible?: boolean;
+}
+
+export interface ApproveSessionSummaryRevisionInput {
+  sessionId: SessionId;
+  revision: number;
+}
+
+export interface ListApprovedSessionSummaryContextOptions {
+  limit?: number;
 }
 
 export interface ListSessionMetadataOptions {
