@@ -120,11 +120,7 @@ const cautionDecision = {
   risk: "caution",
   action: "allow_with_constraints",
   reasonCode: "ambiguous_distress",
-  copy: {
-    title: "Mozemy kontynuowac tylko w bezpiecznych ramach",
-    body: "Rozmowa moze isc dalej jako spokojne uporzadkowanie mysli.",
-    nextSteps: ["Zachowajmy bezpieczna granice rozmowy."],
-  },
+  copy: null,
   constraints: [
     {
       id: "avoid_diagnosis",
@@ -277,7 +273,7 @@ describe("POST /api/session/message", () => {
     });
   });
 
-  it("continues caution decisions with visible copy and constrained ordinary generation", async () => {
+  it("continues caution decisions without visible copy and with constrained ordinary generation", async () => {
     evaluateSessionSafety.mockResolvedValue(cautionDecision);
 
     const response = await POST(createContext() as never);
@@ -286,9 +282,7 @@ describe("POST /api/session/message", () => {
     await expect(readJson(response)).resolves.toMatchObject({
       ok: true,
       type: "caution",
-      caution: {
-        title: "Mozemy kontynuowac tylko w bezpiecznych ramach",
-      },
+      caution: null,
     });
     expect(generateSessionResponse).toHaveBeenCalledWith(
       expect.objectContaining({

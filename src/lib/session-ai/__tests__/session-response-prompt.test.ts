@@ -54,6 +54,8 @@ describe("buildSessionResponseMessages", () => {
     expect(messages[0]?.content).toContain("not a therapist, doctor, clinician, real human, or real person");
     expect(messages[0]?.content).toContain("Prefer one meaningful question over several shallow questions");
     expect(messages[0]?.content).toContain("Do not diagnose");
+    expect(messages[0]?.content).toContain("Do not add generic product disclaimers");
+    expect(messages[0]?.content).not.toContain("weave the boundary");
     expect(messages[0]?.content).toContain("approved prior-session summaries");
     expect(messages[0]?.content).toContain("not as diagnosis, verified fact, risk assessment");
 

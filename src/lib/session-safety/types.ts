@@ -33,8 +33,7 @@ export interface SessionSafetyConstraint {
     | "avoid_diagnosis"
     | "avoid_risk_increasing_instructions"
     | "avoid_prescriptive_treatment_claims"
-    | "supportive_non_clinical_language"
-    | "include_escalation_boundary";
+    | "supportive_non_clinical_language";
   instruction: string;
 }
 
@@ -83,7 +82,7 @@ export interface ConstrainedSessionSafetyDecision extends BaseSessionSafetyDecis
     | "invalid_provider_response"
     | "missing_configuration"
   >;
-  copy: SessionSafetyCopy;
+  copy: null;
   constraints: readonly SessionSafetyConstraint[];
   crisisResources: readonly [];
 }

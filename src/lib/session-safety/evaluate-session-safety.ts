@@ -7,7 +7,7 @@ import {
   type ProviderSafetyReasonCode,
   type SessionSafetyProvider,
 } from "./provider";
-import { getCautionSafetyCopy, getCrisisSafetyCopy, getSafetyUnavailableCopy } from "./safety-copy";
+import { getCrisisSafetyCopy, getSafetyUnavailableCopy } from "./safety-copy";
 import type {
   ConstrainedSessionSafetyDecision,
   HardStopSessionSafetyDecision,
@@ -36,11 +36,6 @@ const CAUTION_SESSION_SAFETY_CONSTRAINTS = [
   {
     id: "supportive_non_clinical_language",
     instruction: "Use supportive, non-clinical language focused on reflection and organization of thoughts.",
-  },
-  {
-    id: "include_escalation_boundary",
-    instruction:
-      "Briefly remind the user that immediate danger or escalation means the ordinary simulation cannot continue.",
   },
 ] as const satisfies readonly SessionSafetyConstraint[];
 
@@ -79,7 +74,7 @@ function buildCautionDecision(): ConstrainedSessionSafetyDecision {
     risk: "caution",
     action: "allow_with_constraints",
     reasonCode: "ambiguous_distress",
-    copy: getCautionSafetyCopy(),
+    copy: null,
     constraints: CAUTION_SESSION_SAFETY_CONSTRAINTS,
     crisisResources: [],
   };

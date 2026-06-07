@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { FileText, PlayCircle } from "lucide-react";
+import { FileText, PlayCircle, ShieldCheck } from "lucide-react";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
 import type { SendSessionMessageResponse } from "@/lib/session-flow/message-contract";
@@ -28,7 +28,7 @@ interface StartSessionFailureResponse {
 type StartSessionResponse = StartSessionSuccessResponse | StartSessionFailureResponse;
 
 interface SafetyNoticeState {
-  variant: "caution" | "hard_stop" | "retry" | "info";
+  variant: "hard_stop" | "retry" | "info";
   copy: SessionSafetyCopy | SessionAiFailureCopy;
   crisisResources?: readonly CrisisResourceRegion[];
 }
@@ -204,7 +204,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         setSession(body.session);
         setKind(body.session.status === "active" ? "active" : body.session.status);
         setDraft("");
-        setNotice(body.caution ? { variant: "caution", copy: body.caution } : null);
+        setNotice(null);
         return;
       }
 
@@ -359,6 +359,18 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           Wybrana perspektywa zostaje zapisana w metadanych aktywnej sesji. Kolejna sesja korzysta wyłącznie z
           zatwierdzonych podsumowań pokazanych przed startem albo z jawnego startu bez kontekstu.
         </p>
+        <div className="mt-5 border-t border-[#d7e5e0] pt-4 text-sm leading-6 text-[#52645f]">
+          <div className="flex items-start gap-3">
+            <ShieldCheck aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[#1f6f65]" />
+            <div>
+              <p className="font-semibold text-[#10231f]">Granice rozmowy</p>
+              <p className="mt-1">
+                SafeSpace jest symulacją rozmowy edukacyjnej. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim
+                zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.
+              </p>
+            </div>
+          </div>
+        </div>
         <a
           href="/dashboard/avatar"
           className="mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-4 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"

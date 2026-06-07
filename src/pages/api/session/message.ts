@@ -309,7 +309,7 @@ export const POST: APIRoute = async (context) => {
       ok: true,
       type: decision.action === "allow_with_constraints" ? "caution" : "success",
       messages: persistedTurn.data,
-      caution: decision.copy,
+      caution: null,
       session: toSessionView(session, new Date()),
     },
     200,

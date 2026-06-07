@@ -7,7 +7,7 @@ F-02 tworzy server-only granice bezpieczenstwa dla przyszlych rozmow AI. Publicz
 - Kazdy przyszly handler wiadomosci sesji musi wywolac `evaluateSessionSafety()` przed zwykla generacja modelu AI.
 - Handler musi rozgalezic przeplyw po `decision.action`, a nie po wlasnych slowach kluczowych albo po odpowiedzi zwyklego modelu.
 - `allow` jest jedyna sciezka zwyklej symulacji.
-- `allow_with_constraints` moze kontynuowac tylko z ograniczeniami z `decision.constraints`.
+- `allow_with_constraints` moze kontynuowac tylko z ograniczeniami z `decision.constraints`; nie zwraca widocznej kopii ostrzegawczej do UI.
 - `hard_stop` blokuje zwykla symulacje. UI ma pokazac `decision.copy` i, gdy sa obecne, `decision.crisisResources`.
 - Brak konfiguracji OpenRouter, blad sieci, timeout albo niepoprawna odpowiedz providera sa traktowane jak `hard_stop`.
 - Nie loguj prywatnego tekstu uzytkownika, promptow, payloadow providera ani tresci odpowiedzi klasyfikatora.
@@ -19,7 +19,7 @@ Ten katalog nie dodaje chat UI, timera, tras `/api/session` ani `/api/chat`, str
 ## Kontrakt decyzji
 
 - `normal` zwraca `allow`, bez copy alarmowego i bez zasobow kryzysowych.
-- `caution` zwraca `allow_with_constraints`, z ograniczeniami przeciw diagnozie, ryzykownym instrukcjom i preskrypcyjnym twierdzeniom terapeutycznym.
+- `caution` zwraca `allow_with_constraints`, z ograniczeniami przeciw diagnozie, ryzykownym instrukcjom i preskrypcyjnym twierdzeniom terapeutycznym, ale bez komunikatu kryzysowego dla uzytkownika.
 - `crisis` zwraca `hard_stop`, zatrzymuje zwykla symulacje i udostepnia zasoby dla Polski, Stanow Zjednoczonych oraz lokalny fallback.
 - Fail-closed rowniez zwraca `hard_stop`, ale z kopia o niedostepnej granicy bezpieczenstwa zamiast komunikatu sugerujacego rozpoznanie ryzyka.
 

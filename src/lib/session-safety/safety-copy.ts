@@ -12,17 +12,6 @@ export function getCrisisSafetyCopy(): SessionSafetyCopy {
   };
 }
 
-export function getCautionSafetyCopy(): SessionSafetyCopy {
-  return {
-    title: "Mozemy kontynuowac tylko w bezpiecznych ramach",
-    body: "Rozmowa moze isc dalej jako spokojne uporzadkowanie mysli, bez diagnozy, instrukcji ryzykownych dzialan ani obietnicy leczenia.",
-    nextSteps: [
-      "Jesli temat zacznie dotyczyc bezposredniego zagrozenia, zwykla symulacja zostanie przerwana.",
-      "W razie nasilajacego sie kryzysu skorzystaj z lokalnego wsparcia kryzysowego lub pomocy specjalisty.",
-    ],
-  };
-}
-
 export function getSafetyUnavailableCopy(): SessionSafetyCopy {
   return {
     title: "Nie mozemy teraz bezpiecznie rozpoczac symulacji",

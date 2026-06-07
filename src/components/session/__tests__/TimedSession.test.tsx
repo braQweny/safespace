@@ -44,6 +44,8 @@ describe("TimedSession", () => {
 
     expect(html).toContain("Przygotowanie do pierwszej sesji");
     expect(html).toContain("Rozpocznij pierwszą darmową sesję");
+    expect(html).toContain("Granice rozmowy");
+    expect(html).toContain("SafeSpace jest symulacją rozmowy edukacyjnej");
     expect(html).not.toContain("Kontekst pokazany przed startem");
   });
 

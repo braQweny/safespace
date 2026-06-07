@@ -66,14 +66,15 @@ describe("evaluateSessionSafety", () => {
 
     expect(decision.risk).toBe("caution");
     expect(decision.action).toBe("allow_with_constraints");
+    expect(decision.copy).toBeNull();
     expect(decision.crisisResources).toEqual([]);
     expect(decision.constraints.map((constraint) => constraint.id)).toEqual([
       "avoid_diagnosis",
       "avoid_risk_increasing_instructions",
       "avoid_prescriptive_treatment_claims",
       "supportive_non_clinical_language",
-      "include_escalation_boundary",
     ]);
+    expect(decision.constraints.map((constraint) => constraint.id)).not.toContain("include_escalation_boundary");
   });
 
   it("maps crisis risk to hard-stop resources instead of ordinary simulation", async () => {
