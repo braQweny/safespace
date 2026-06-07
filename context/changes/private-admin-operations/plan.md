@@ -436,23 +436,23 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to runtime configuration. The safe path f
 
 #### Automated
 
-- [x] 2.1 Unit tests cover overview aggregate shaping, threshold suppression, user list filtering/sorting, block/unblock state transitions, and audit insert intent.
-- [x] 2.2 API route tests cover non-admin rejection, blocked admin rejection, overview success, users list success, invalid filters, block success, unblock success, target not found, and write failure.
-- [x] 2.3 Component tests cover overview cards, suppressed small counts, users search/filter UI, blocked/active states, explicit block/unblock controls, and absence of export controls.
-- [x] 2.4 `npm run test` passes.
-- [x] 2.5 `npx astro sync` passes.
-- [x] 2.6 `npm run lint` passes.
-- [x] 2.7 `npm run build` passes.
-- [x] 2.8 Source search confirms admin aggregates do not select `session_messages.content` or `session_summaries.summary_text`.
-- [x] 2.9 Source search confirms no CSV/JSON export route or download UI was added.
-- [x] 2.10 Source search confirms admin routes call `getAdminContext(context)`.
+- [x] 2.1 Unit tests cover overview aggregate shaping, threshold suppression, user list filtering/sorting, block/unblock state transitions, and audit insert intent. — 52a478b
+- [x] 2.2 API route tests cover non-admin rejection, blocked admin rejection, overview success, users list success, invalid filters, block success, unblock success, target not found, and write failure. — 52a478b
+- [x] 2.3 Component tests cover overview cards, suppressed small counts, users search/filter UI, blocked/active states, explicit block/unblock controls, and absence of export controls. — 52a478b
+- [x] 2.4 `npm run test` passes. — 52a478b
+- [x] 2.5 `npx astro sync` passes. — 52a478b
+- [x] 2.6 `npm run lint` passes. — 52a478b
+- [x] 2.7 `npm run build` passes. — 52a478b
+- [x] 2.8 Source search confirms admin aggregates do not select `session_messages.content` or `session_summaries.summary_text`. — 52a478b
+- [x] 2.9 Source search confirms no CSV/JSON export route or download UI was added. — 52a478b
+- [x] 2.10 Source search confirms admin routes call `getAdminContext(context)`. — 52a478b
 
 #### Manual
 
-- [x] 2.11 `/admin` shows product-level stats without exposing private text or small segment counts.
-- [x] 2.12 `/admin/users` supports email search, active/blocked filter, sorting, and block/unblock.
-- [x] 2.13 Blocking a user prevents private route/session access, and unblocking restores access without changing private data.
-- [x] 2.14 Admin UI does not expose exports, raw operational logs, raw auth metadata, or conversation details.
+- [x] 2.11 `/admin` shows product-level stats without exposing private text or small segment counts. — 52a478b
+- [x] 2.12 `/admin/users` supports email search, active/blocked filter, sorting, and block/unblock. — 52a478b
+- [x] 2.13 Blocking a user prevents private route/session access, and unblocking restores access without changing private data. — 52a478b
+- [x] 2.14 Admin UI does not expose exports, raw operational logs, raw auth metadata, or conversation details. — 52a478b
 
 ### Phase 3: Verification, Sweeps And Handoff
 

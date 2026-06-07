@@ -15,6 +15,8 @@ const OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/compl
 const OPENROUTER_SESSION_TIMEOUT_MS = 12_000;
 const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 420;
 const OPENROUTER_SESSION_TEMPERATURE = 0.4;
+const OPENROUTER_SESSION_REASONING_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$|[-:])/i;
+const OPENROUTER_SESSION_REASONING_EFFORT = "low";
 
 interface OpenRouterSessionResponseOptions {
   apiKey?: string;
@@ -29,6 +31,10 @@ interface OpenRouterSessionRequestBody {
   temperature?: number;
   max_completion_tokens?: number;
   max_tokens?: number;
+  reasoning?: {
+    effort: typeof OPENROUTER_SESSION_REASONING_EFFORT;
+    exclude: true;
+  };
   stream: false;
   provider: {
     require_parameters: true;
@@ -98,10 +104,24 @@ export function buildOpenRouterSessionRequest(
     model,
     messages: buildSessionResponseMessages(input),
     ...buildOptionalSamplingParameters(model),
+    ...buildOptionalReasoningParameters(model),
     ...buildOpenRouterTokenLimitParameter(model, OPENROUTER_SESSION_MAX_COMPLETION_TOKENS),
     stream: false,
     provider: {
       require_parameters: true,
+    },
+  };
+}
+
+function buildOptionalReasoningParameters(model: string): Pick<OpenRouterSessionRequestBody, "reasoning"> {
+  if (!supportsOpenRouterSessionReasoning(model)) {
+    return {};
+  }
+
+  return {
+    reasoning: {
+      effort: OPENROUTER_SESSION_REASONING_EFFORT,
+      exclude: true,
     },
   };
 }
@@ -114,6 +134,10 @@ function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSessionR
   return {
     temperature: OPENROUTER_SESSION_TEMPERATURE,
   };
+}
+
+function supportsOpenRouterSessionReasoning(model: string) {
+  return OPENROUTER_SESSION_REASONING_MODEL_PATTERN.test(model.trim());
 }
 
 function resolveTimeoutMs(timeoutMs: number | undefined) {

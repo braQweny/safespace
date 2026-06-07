@@ -60,6 +60,10 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.model).toBe("google/gemini-3.1-flash-lite");
     expect(request.max_tokens).toBeLessThanOrEqual(420);
     expect(request).not.toHaveProperty("max_completion_tokens");
+    expect(request.reasoning).toEqual({
+      effort: "low",
+      exclude: true,
+    });
     expect(request.provider.require_parameters).toBe(true);
   });
 
@@ -112,6 +116,7 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.stream).toBe(false);
     expect(request.max_completion_tokens).toBeLessThanOrEqual(420);
     expect(request).not.toHaveProperty("max_tokens");
+    expect(request).not.toHaveProperty("reasoning");
     expect(request.provider.require_parameters).toBe(true);
   });
 });
