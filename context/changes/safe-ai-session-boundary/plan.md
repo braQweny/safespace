@@ -497,36 +497,36 @@ No Supabase migration is required. F-02 intentionally avoids a safety-events tab
 
 #### Automated
 
-- [x] 2.1 `npx astro sync` completes successfully.
-- [x] 2.2 `npm run lint` completes successfully.
-- [x] 2.3 `npm run build` completes successfully.
-- [x] 2.4 Source search shows OpenRouter is called only from `src/lib/session-safety/openrouter-classifier.ts`.
-- [x] 2.5 Source search shows no OpenRouter API key is referenced from client components or Astro pages.
-- [x] 2.6 Source search shows the classifier uses `response_format` with `json_schema`.
+- [x] 2.1 `npx astro sync` completes successfully. — 8c2d5ff
+- [x] 2.2 `npm run lint` completes successfully. — 8c2d5ff
+- [x] 2.3 `npm run build` completes successfully. — 8c2d5ff
+- [x] 2.4 Source search shows OpenRouter is called only from `src/lib/session-safety/openrouter-classifier.ts`. — 8c2d5ff
+- [x] 2.5 Source search shows no OpenRouter API key is referenced from client components or Astro pages. — 8c2d5ff
+- [x] 2.6 Source search shows the classifier uses `response_format` with `json_schema`. — 8c2d5ff
 
 #### Manual
 
-- [x] 2.7 The classifier prompt asks for classification only, not therapy advice.
-- [x] 2.8 The classifier sends only the current classification input needed for F-02 and does not include full session history.
-- [x] 2.9 A missing or malformed provider response is represented as a safe internal error category, not raw model text.
+- [x] 2.7 The classifier prompt asks for classification only, not therapy advice. — 8c2d5ff
+- [x] 2.8 The classifier sends only the current classification input needed for F-02 and does not include full session history. — 8c2d5ff
+- [x] 2.9 A missing or malformed provider response is represented as a safe internal error category, not raw model text. — 8c2d5ff
 
 ### Phase 3: Fail-Closed Evaluation And S-04 Contract
 
 #### Automated
 
-- [ ] 3.1 `npx astro sync` completes successfully.
-- [ ] 3.2 `npm run lint` completes successfully.
-- [ ] 3.3 `npm run build` completes successfully.
-- [ ] 3.4 Source search finds exactly one exported `evaluateSessionSafety` entry point.
-- [ ] 3.5 Source search finds no new `/api/session`, `/api/chat`, timer, or session UI route.
-- [ ] 3.6 Source search finds no `console.log` or `console.error` call that includes `message`, `prompt`, `content`, or provider response text in the session-safety module.
+- [x] 3.1 `npx astro sync` completes successfully.
+- [x] 3.2 `npm run lint` completes successfully.
+- [x] 3.3 `npm run build` completes successfully.
+- [x] 3.4 Source search finds exactly one exported `evaluateSessionSafety` entry point.
+- [x] 3.5 Source search finds no new `/api/session`, `/api/chat`, timer, or session UI route.
+- [x] 3.6 Source search finds no `console.log` or `console.error` call that includes `message`, `prompt`, `content`, or provider response text in the session-safety module.
 
 #### Manual
 
-- [ ] 3.7 `normal` is the only state that permits ordinary future simulation.
-- [ ] 3.8 `caution` returns explicit response constraints and does not hard-stop.
-- [ ] 3.9 `crisis` returns a hard-stop payload with crisis resources and no ordinary simulation prompt.
-- [ ] 3.10 Missing OpenRouter configuration produces safe unavailability behavior, not ordinary simulation.
+- [x] 3.7 `normal` is the only state that permits ordinary future simulation.
+- [x] 3.8 `caution` returns explicit response constraints and does not hard-stop.
+- [x] 3.9 `crisis` returns a hard-stop payload with crisis resources and no ordinary simulation prompt.
+- [x] 3.10 Missing OpenRouter configuration produces safe unavailability behavior, not ordinary simulation.
 
 ### Phase 4: Minimal Tests And Verification Setup
 
