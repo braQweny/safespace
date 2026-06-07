@@ -151,6 +151,8 @@ export interface AppendSessionMessageInput {
   content: string;
 }
 
+export type AppendSessionMessagesInput = readonly AppendSessionMessageInput[];
+
 export interface SaveVisibleSessionSummaryInput {
   sessionId: SessionId;
   summaryText: string;

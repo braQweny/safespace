@@ -1,6 +1,7 @@
 import { mapSupabaseReadError, mapSupabaseWriteError, ok, sessionDataError, type SessionDataResult } from "./errors";
 import type {
   AppendSessionMessageInput,
+  AppendSessionMessagesInput,
   CreatePendingSessionInput,
   DeletedSessionTombstone,
   DeleteOwnedSessionInput,
@@ -340,6 +341,35 @@ export async function appendSessionMessage(
 
   const row = coerceMessageRow(data);
   return row ? ok(mapMessage(row)) : sessionDataError("write_failed");
+}
+
+export async function appendSessionMessages(
+  context: SessionDataContext,
+  input: AppendSessionMessagesInput,
+): Promise<SessionDataResult<SessionMessageRecord[]>> {
+  if (input.length === 0) {
+    return ok([]);
+  }
+
+  const { data, error } = await context.supabase
+    .from("session_messages")
+    .insert(
+      input.map((message) => ({
+        session_id: message.sessionId,
+        user_id: context.user.id,
+        role: message.role,
+        sequence_index: message.sequenceIndex,
+        content: message.content,
+      })),
+    )
+    .select(MESSAGE_SELECT);
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  const messages = coerceMessageRows(data).map(mapMessage);
+  return messages.length === input.length ? ok(messages) : sessionDataError("write_failed");
 }
 
 export async function listOwnedSessionMessages(

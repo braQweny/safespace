@@ -597,42 +597,42 @@ Runtime configuration reuses `OPENROUTER_API_KEY` and adds optional `OPENROUTER_
 
 #### Automated
 
-- [x] 2.1 Route/helper tests cover missing auth, missing avatar, no trial yet, active trial, expired trial, and duplicate-trial states with mocks.
-- [x] 2.2 `npm run test` completes successfully.
-- [x] 2.3 `npx astro sync` completes successfully.
-- [x] 2.4 `npm run lint` completes successfully.
-- [x] 2.5 `npm run build` completes successfully.
-- [x] 2.6 Source search confirms `/dashboard/session` page GET does not call `claimFreeTrialSession()`.
-- [x] 2.7 Source search confirms only `src/pages/api/session/start.ts` starts the free trial through `claimFreeTrialSession()`.
-- [x] 2.8 Source search confirms missing-avatar start does not create or claim a session.
+- [x] 2.1 Route/helper tests cover missing auth, missing avatar, no trial yet, active trial, expired trial, and duplicate-trial states with mocks. — 43e3012
+- [x] 2.2 `npm run test` completes successfully. — 43e3012
+- [x] 2.3 `npx astro sync` completes successfully. — 43e3012
+- [x] 2.4 `npm run lint` completes successfully. — 43e3012
+- [x] 2.5 `npm run build` completes successfully. — 43e3012
+- [x] 2.6 Source search confirms `/dashboard/session` page GET does not call `claimFreeTrialSession()`. — 43e3012
+- [x] 2.7 Source search confirms only `src/pages/api/session/start.ts` starts the free trial through `claimFreeTrialSession()`. — 43e3012
+- [x] 2.8 Source search confirms missing-avatar start does not create or claim a session. — 43e3012
 
 #### Manual
 
-- [x] 2.9 Visiting `/dashboard/session` without a saved avatar redirects to `/dashboard/avatar` or shows the avatar prerequisite before any trial is consumed.
-- [x] 2.10 Visiting `/dashboard/session` with a saved avatar shows a preparation screen and does not consume the trial.
-- [x] 2.11 Clicking start creates one active trial session with a 15-minute expiry and snapshots the current modality/avatar.
-- [x] 2.12 A user who already claimed the free trial cannot start a second trial through refresh, repeat click, or direct POST.
+- [x] 2.9 Visiting `/dashboard/session` without a saved avatar redirects to `/dashboard/avatar` or shows the avatar prerequisite before any trial is consumed. — 43e3012
+- [x] 2.10 Visiting `/dashboard/session` with a saved avatar shows a preparation screen and does not consume the trial. — 43e3012
+- [x] 2.11 Clicking start creates one active trial session with a 15-minute expiry and snapshots the current modality/avatar. — 43e3012
+- [x] 2.12 A user who already claimed the free trial cannot start a second trial through refresh, repeat click, or direct POST. — 43e3012
 
 ### Phase 3: Message Flow With Safety And Persistence
 
 #### Automated
 
-- [ ] 3.1 Route-level tests cover `allow`, `allow_with_constraints`, `hard_stop`, fail-closed safety, ordinary AI failure, expired session, invalid message, missing auth, missing session, and duplicate sequence behavior with mocked providers/repositories.
-- [ ] 3.2 `npm run test` completes successfully.
-- [ ] 3.3 `npx astro sync` completes successfully.
-- [ ] 3.4 `npm run lint` completes successfully.
-- [ ] 3.5 `npm run build` completes successfully.
-- [ ] 3.6 Source search confirms `evaluateSessionSafety()` is called before ordinary session AI generation.
-- [ ] 3.7 Source search confirms hard-stop/fail-closed branches do not call `appendSessionMessage()` with raw user text.
-- [ ] 3.8 Source search confirms no route logs `message`, `prompt`, `content`, AI output, raw provider payload, raw Supabase error, `modalityId`, or `avatarId`.
+- [x] 3.1 Route-level tests cover `allow`, `allow_with_constraints`, `hard_stop`, fail-closed safety, ordinary AI failure, expired session, invalid message, missing auth, missing session, and duplicate sequence behavior with mocked providers/repositories.
+- [x] 3.2 `npm run test` completes successfully.
+- [x] 3.3 `npx astro sync` completes successfully.
+- [x] 3.4 `npm run lint` completes successfully.
+- [x] 3.5 `npm run build` completes successfully.
+- [x] 3.6 Source search confirms `evaluateSessionSafety()` is called before ordinary session AI generation.
+- [x] 3.7 Source search confirms hard-stop/fail-closed branches do not call `appendSessionMessage()` with raw user text.
+- [x] 3.8 Source search confirms no route logs `message`, `prompt`, `content`, AI output, raw provider payload, raw Supabase error, `modalityId`, or `avatarId`.
 
 #### Manual
 
-- [ ] 3.9 A normal message returns a visible assistant response and persists the user/assistant turn.
-- [ ] 3.10 A caution decision shows a short visible boundary message and still returns an assistant response.
-- [ ] 3.11 A hard-stop or fail-closed safety decision shows safe copy/resources and does not save the raw triggering text.
-- [ ] 3.12 An ordinary AI provider failure shows retry/unavailable UI and does not save a fake assistant response.
-- [ ] 3.13 A message submitted after the timer expires is rejected and marks the session expired.
+- [x] 3.9 A normal message returns a visible assistant response and persists the user/assistant turn.
+- [x] 3.10 A caution decision shows a short visible boundary message and still returns an assistant response.
+- [x] 3.11 A hard-stop or fail-closed safety decision shows safe copy/resources and does not save the raw triggering text.
+- [x] 3.12 An ordinary AI provider failure shows retry/unavailable UI and does not save a fake assistant response.
+- [x] 3.13 A message submitted after the timer expires is rejected and marks the session expired.
 
 ### Phase 4: Timed Chat UI And End States
 
