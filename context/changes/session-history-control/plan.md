@@ -412,25 +412,25 @@ No Supabase migration is planned for S-05. The feature uses existing F-01 tables
 
 #### Automated
 
-- [x] 1.1 Unit tests cover invalid avatar, invalid page normalization/rejection, fixed page size 20, newest-first ordering contract, and safe list item shape.
-- [x] 1.2 Unit tests cover detail payload ordering and confirm list payloads do not include message content or previews.
-- [x] 1.3 `npm run test` passes for the new and existing test suite.
+- [x] 1.1 Unit tests cover invalid avatar, invalid page normalization/rejection, fixed page size 20, newest-first ordering contract, and safe list item shape. — f934397
+- [x] 1.2 Unit tests cover detail payload ordering and confirm list payloads do not include message content or previews. — f934397
+- [x] 1.3 `npm run test` passes for the new and existing test suite. — f934397
 
 #### Manual
 
-- [x] 1.4 Developer review confirms the list contract contains enough metadata for users to recognize a conversation without exposing message snippets.
+- [x] 1.4 Developer review confirms the list contract contains enough metadata for users to recognize a conversation without exposing message snippets. — f934397
 
 ### Phase 2: History API And Delete Contract
 
 #### Automated
 
-- [ ] 2.1 Route tests pass for list, detail, delete, missing auth, invalid input, not-found, and delete failure paths.
-- [ ] 2.2 API responses never include raw Supabase `message`, `details`, `hint`, private message content on list responses, or deleted tombstone avatar/modality fields.
-- [ ] 2.3 `npm run test` passes for all route and helper tests.
+- [x] 2.1 Route tests pass for list, detail, delete, missing auth, invalid input, not-found, and delete failure paths.
+- [x] 2.2 API responses never include raw Supabase `message`, `details`, `hint`, private message content on list responses, or deleted tombstone avatar/modality fields.
+- [x] 2.3 `npm run test` passes for all route and helper tests.
 
 #### Manual
 
-- [ ] 2.4 Developer review confirms deletion cannot bypass `deleteOwnedSession()` and cannot be implemented as UI-only hiding.
+- [x] 2.4 Developer review confirms deletion cannot bypass `deleteOwnedSession()` and cannot be implemented as UI-only hiding.
 
 ### Phase 3: Avatar Page History UI
 
