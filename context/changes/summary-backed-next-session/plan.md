@@ -484,20 +484,20 @@ Runtime configuration reuses server-only OpenRouter secrets. If a separate summa
 
 #### Automated
 
-- [x] 4.1 `npm run test` passes.
-- [x] 4.2 `npx astro sync` passes.
-- [x] 4.3 `npm run lint` passes.
-- [x] 4.4 `npm run build` passes.
-- [x] 4.5 `git diff --check` passes.
-- [x] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`.
-- [x] 4.7 Private logging sweep passes with no private content or private identifiers in logs.
-- [x] 4.8 Summary context sweep passes with prior-session context sourced only from approved summary helpers and capped at 3.
-- [x] 4.9 Scope creep sweep passes with no billing, admin content access, summary editing, trial reset, second free trial claim, streaming, EventSource, or WebSocket behavior.
+- [x] 4.1 `npm run test` passes. — 02f682b
+- [x] 4.2 `npx astro sync` passes. — 02f682b
+- [x] 4.3 `npm run lint` passes. — 02f682b
+- [x] 4.4 `npm run build` passes. — 02f682b
+- [x] 4.5 `git diff --check` passes. — 02f682b
+- [x] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`. — 02f682b
+- [x] 4.7 Private logging sweep passes with no private content or private identifiers in logs. — 02f682b
+- [x] 4.8 Summary context sweep passes with prior-session context sourced only from approved summary helpers and capped at 3. — 02f682b
+- [x] 4.9 Scope creep sweep passes with no billing, admin content access, summary editing, trial reset, second free trial claim, streaming, EventSource, or WebSocket behavior. — 02f682b
 
 #### Manual
 
-- [x] 4.10 `/dashboard/avatar` smoke covers generate summary, retry failure state if mockable, preview, approval, stale/new revision behavior, and absence of summary text in history list rows.
-- [x] 4.11 `/dashboard/session` smoke covers first-trial start for a fresh state where available or documents why not available locally.
-- [x] 4.12 `/dashboard/session` smoke covers follow-up preparation, approved summary context display, explicit no-context fallback, follow-up start, visible timer, normal message, and response-progress state.
-- [x] 4.13 Delete regression confirms deleting a session removes its summary from future context.
-- [x] 4.14 Hosted checks not run are explicitly marked pending rather than complete.
+- [x] 4.10 `/dashboard/avatar` smoke covers generate summary, retry failure state if mockable, preview, approval, stale/new revision behavior, and absence of summary text in history list rows. — 02f682b
+- [x] 4.11 `/dashboard/session` smoke covers first-trial start for a fresh state where available or documents why not available locally. — 02f682b
+- [x] 4.12 `/dashboard/session` smoke covers follow-up preparation, approved summary context display, explicit no-context fallback, follow-up start, visible timer, normal message, and response-progress state. — 02f682b
+- [x] 4.13 Delete regression confirms deleting a session removes its summary from future context. — 02f682b
+- [x] 4.14 Hosted checks not run are explicitly marked pending rather than complete. — 02f682b
