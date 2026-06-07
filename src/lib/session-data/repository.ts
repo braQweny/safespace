@@ -5,8 +5,11 @@ import type {
   CreatePendingSessionInput,
   DeletedSessionTombstone,
   DeleteOwnedSessionInput,
+  ListOwnedSessionHistoryInput,
   ListSessionMetadataOptions,
   ListSessionSummariesOptions,
+  OwnedSessionHistoryDetail,
+  OwnedSessionHistoryPage,
   SaveVisibleSessionSummaryInput,
   SessionDataContext,
   SessionDeletionReasonCode,
@@ -28,6 +31,7 @@ import type {
 
 const SESSION_SELECT =
   "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,created_at,updated_at";
+const HISTORY_SESSION_SELECT = `${SESSION_SELECT},session_messages!inner(id)`;
 const MESSAGE_SELECT = "id,session_id,user_id,role,sequence_index,content,created_at";
 const SUMMARY_SELECT = "id,session_id,user_id,summary_text,status,is_visible,revision,created_at,updated_at";
 const TRIAL_CLAIM_SELECT = "id,session_id,user_id,trial_duration_seconds,claimed_at,created_at";
@@ -259,6 +263,38 @@ export async function listOwnedSessionMetadata(
   return ok(coerceSessionRows(data).map(mapSession));
 }
 
+export async function listOwnedSessionHistoryPage(
+  context: SessionDataContext,
+  input: ListOwnedSessionHistoryInput,
+): Promise<SessionDataResult<OwnedSessionHistoryPage>> {
+  const offset = (input.page - 1) * input.pageSize;
+  const rangeEnd = offset + input.pageSize;
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .select(HISTORY_SESSION_SELECT)
+    .eq("user_id", context.user.id)
+    .eq("avatar_id", input.avatarId)
+    .neq("status", "deleted")
+    .order("created_at", { ascending: false })
+    .range(offset, rangeEnd);
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  const sessions = coerceSessionRows(data).map(mapSession);
+
+  return ok({
+    sessions: sessions.slice(0, input.pageSize),
+    pagination: {
+      page: input.page,
+      pageSize: input.pageSize,
+      hasNextPage: sessions.length > input.pageSize,
+      hasPreviousPage: input.page > 1,
+    },
+  });
+}
+
 export async function getOwnedSessionMetadata(
   context: SessionDataContext,
   sessionId: SessionId,
@@ -276,6 +312,32 @@ export async function getOwnedSessionMetadata(
 
   const row = coerceSessionRow(data);
   return row ? ok(mapSession(row)) : sessionDataError("session_not_found");
+}
+
+export async function getOwnedSessionHistoryDetail(
+  context: SessionDataContext,
+  sessionId: SessionId,
+): Promise<SessionDataResult<OwnedSessionHistoryDetail>> {
+  const session = await getOwnedSessionMetadata(context, sessionId);
+
+  if (!session.ok) {
+    return session;
+  }
+
+  if (session.data.status === "deleted") {
+    return sessionDataError("session_not_found");
+  }
+
+  const messages = await listOwnedSessionMessages(context, sessionId);
+
+  if (!messages.ok) {
+    return messages;
+  }
+
+  return ok({
+    session: session.data,
+    messages: messages.data,
+  });
 }
 
 export async function transitionSessionLifecycle(

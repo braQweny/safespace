@@ -18,6 +18,8 @@ export type SessionDeletionReasonCode = "user_request" | "retention_expired" | "
 
 export type SessionDurationBucketSeconds = 0 | 300 | 900 | 1800 | 3600;
 
+export const SESSION_HISTORY_PAGE_SIZE = 20 as const;
+
 export type SessionModalityId = "psychodynamic" | "cbt" | "humanistic_experiential" | "systemic" | "integrative";
 
 export type SessionAvatarId =
@@ -168,4 +170,52 @@ export interface ListSessionMetadataOptions {
 
 export interface ListSessionSummariesOptions {
   visibleOnly?: boolean;
+}
+
+export interface ListOwnedSessionHistoryInput {
+  avatarId: SessionAvatarId;
+  page: number;
+  pageSize: typeof SESSION_HISTORY_PAGE_SIZE;
+}
+
+export interface SessionHistoryPagination {
+  page: number;
+  pageSize: typeof SESSION_HISTORY_PAGE_SIZE;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface OwnedSessionHistoryPage {
+  sessions: SessionMetadata[];
+  pagination: SessionHistoryPagination;
+}
+
+export interface OwnedSessionHistoryDetail {
+  session: SessionMetadata;
+  messages: SessionMessageRecord[];
+}
+
+export interface SessionHistoryListItem {
+  id: SessionId;
+  status: Exclude<SessionLifecycleStatus, "deleted">;
+  startedAt: string | null;
+  endedAt: string | null;
+  expiresAt: string | null;
+  durationBucketSeconds: SessionDurationBucketSeconds | null;
+  isTrial: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SessionHistoryMessage {
+  id: MessageId;
+  role: SessionMessageRole;
+  sequenceIndex: number;
+  content: string;
+  createdAt: string;
+}
+
+export interface SessionHistoryDetail {
+  session: SessionHistoryListItem;
+  messages: SessionHistoryMessage[];
 }
