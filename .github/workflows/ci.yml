@@ -98,11 +98,15 @@ jobs:
             printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
             printf 'SUPABASE_KEY=%s\n' "$SUPABASE_KEY"
             printf 'OPENROUTER_API_KEY=%s\n' "$OPENROUTER_API_KEY"
+            if [ -n "$OPERATIONAL_LOG_HASH_SECRET" ]; then
+              printf 'OPERATIONAL_LOG_HASH_SECRET=%s\n' "$OPERATIONAL_LOG_HASH_SECRET"
+            fi
           } > .env.production
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPERATIONAL_LOG_HASH_SECRET: ${{ secrets.OPERATIONAL_LOG_HASH_SECRET }}
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:

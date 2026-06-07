@@ -10,6 +10,20 @@ F-03 tworzy server-only kontrakt logow operacyjnych dla SafeSpace. Kod aplikacji
 - Logger jest diagnostyczny i best-effort. Nie moze blokowac logowania, wyboru avatara ani przyszlej sesji.
 - S-07 moze budowac tylko agregaty i widoki admina bez prywatnej tresci. Raw logi operacyjne nie sa powierzchnia admin UI.
 
+## Konfiguracja i weryfikacja
+
+`OPERATIONAL_LOG_HASH_SECRET` jest opcjonalnym server-only sekretem. Ustaw go lokalnie w `.env` / `.dev.vars` albo jako sekret GitHub/Cloudflare tylko wtedy, gdy potrzebna jest stabilna korelacja uzytkownika przez `userHash`.
+
+Brak sekretu nie blokuje requestow i nie powoduje fallbacku do raw Supabase `user.id`.
+
+Hostowane logi czytaj przez Cloudflare Workers Logs albo read-only tail:
+
+```bash
+npx wrangler tail --name safespace
+```
+
+W logach szukaj `event`, `requestId`, `outcome` i `reasonCode`. Nie traktuj raw logow jako admin-facing panelu.
+
 ## Handoff dla S-04
 
 Przyszly S-04 musi wykonac granice F-02 przed zwykla generacja AI:

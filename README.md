@@ -169,6 +169,22 @@ OPENROUTER_SAFETY_MODEL=openai/gpt-4o-mini
 
 OpenRouter secrets must stay server-only. Do not import them from client components, do not commit real values, and do not use an OpenRouter management key for this app runtime.
 
+## Operational Visibility
+
+F-03 emits privacy-safe structured JSON events to Cloudflare Workers Logs through `src/lib/operational-visibility/`. Application code should use `logOperationalEvent()` and the helper builders there instead of direct `console.log()` calls.
+
+Events may include request ID, route bucket, method, status, outcome, safe reason code, duration, provider, risk state, action, deployment target, and optional pseudonymous `userHash`. They must never include private conversation content, prompts, summaries, emails, tokens, cookies, authorization headers, raw provider payloads, raw database errors, selected modality/avatar IDs, or raw Supabase user IDs.
+
+`OPERATIONAL_LOG_HASH_SECRET` is an optional server-only secret. Set it locally in `.env` / `.dev.vars` and in GitHub or Cloudflare secrets only when stable user-level log correlation is needed. If it is missing, the logger omits `userHash` and product flows continue.
+
+Read hosted logs through the Cloudflare dashboard or read-only CLI tailing:
+
+```bash
+npx wrangler tail --name safespace
+```
+
+Use event names and `requestId` for debugging. S-07 admin surfaces must use aggregate views defined in their own plan, not raw operational logs.
+
 ## Deployment
 
 This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/).
@@ -192,6 +208,12 @@ Set `OPENROUTER_API_KEY` the same way before enabling future AI session runtime 
 npx wrangler secret put OPENROUTER_API_KEY
 ```
 
+Optionally set `OPERATIONAL_LOG_HASH_SECRET` to enable pseudonymous `userHash` fields in operational logs:
+
+```bash
+npx wrangler secret put OPERATIONAL_LOG_HASH_SECRET
+```
+
 ## CI
 
 GitHub Actions runs unit tests, lint, and build on every push and PR to `main`. Pushes to `main` then run `npx supabase db push` against the Supabase Session Pooler before deploying to Cloudflare Workers. The test job does not require hosted Supabase credentials, Cloudflare secrets, OpenRouter, or Docker.
@@ -204,6 +226,7 @@ Configure these repository secrets in GitHub:
 - `SUPABASE_DB_URL` - optional fallback full Postgres connection string; use the Session Pooler URL and keep the password URL-encoded
 - `SUPABASE_DB_POOLER_HOST` - optional override if Supabase shows a different host than `aws-0-eu-west-1.pooler.supabase.com`
 - `OPENROUTER_API_KEY` - server-only safety classifier key used by F-02 and passed to Wrangler during deploy
+- `OPERATIONAL_LOG_HASH_SECRET` - optional server-only salt for pseudonymous operational log correlation
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 

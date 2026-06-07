@@ -534,38 +534,38 @@ No Supabase migration is required. This plan intentionally avoids a database eve
 
 #### Automated
 
-- [x] 4.1 `npx astro sync` completes successfully.
-- [x] 4.2 `npm run lint` completes successfully.
-- [x] 4.3 `npm run build` completes successfully.
-- [x] 4.4 Source search confirms no new `/api/session`, `/api/chat`, timer, history, summary, or AI response route was added.
-- [x] 4.5 Source search confirms session event helpers reject or omit `message`, `prompt`, `content`, `summary`, `email`, `token`, `cookie`, `authorization`, raw provider payloads, and raw errors.
-- [x] 4.6 Source search confirms no helper accepts `modalityId` or `avatarId` as log metadata.
+- [x] 4.1 `npx astro sync` completes successfully. — 871025f
+- [x] 4.2 `npm run lint` completes successfully. — 871025f
+- [x] 4.3 `npm run build` completes successfully. — 871025f
+- [x] 4.4 Source search confirms no new `/api/session`, `/api/chat`, timer, history, summary, or AI response route was added. — 871025f
+- [x] 4.5 Source search confirms session event helpers reject or omit `message`, `prompt`, `content`, `summary`, `email`, `token`, `cookie`, `authorization`, raw provider payloads, and raw errors. — 871025f
+- [x] 4.6 Source search confirms no helper accepts `modalityId` or `avatarId` as log metadata. — 871025f
 
 #### Manual
 
-- [x] 4.7 Future S-04 implementers have clear event names for start, safety, provider failure, time-limit, and completion states.
-- [x] 4.8 `safety_evaluated` exposes only coarse safe state/action/reason metadata, not private text.
-- [x] 4.9 F-03 still does not implement a visible chat/session feature.
-- [x] 4.10 S-07 remains responsible for any admin-facing aggregate view; raw operational logs are not exposed through the app.
+- [x] 4.7 Future S-04 implementers have clear event names for start, safety, provider failure, time-limit, and completion states. — 871025f
+- [x] 4.8 `safety_evaluated` exposes only coarse safe state/action/reason metadata, not private text. — 871025f
+- [x] 4.9 F-03 still does not implement a visible chat/session feature. — 871025f
+- [x] 4.10 S-07 remains responsible for any admin-facing aggregate view; raw operational logs are not exposed through the app. — 871025f
 
 ### Phase 5: Tests, Sweeps, And Docs
 
 #### Automated
 
-- [ ] 5.1 `npm run test` or the selected operational visibility test command completes successfully.
-- [ ] 5.2 `npx astro sync` completes successfully.
-- [ ] 5.3 `npm run lint` completes successfully.
-- [ ] 5.4 `npm run build` completes successfully.
-- [ ] 5.5 `git diff --check` reports no whitespace errors.
-- [ ] 5.6 Source search confirms no committed `OPERATIONAL_LOG_HASH_SECRET` value or other secret value exists.
-- [ ] 5.7 Source search confirms no new S-04 chat/timer/session/history/summary route was added.
-- [ ] 5.8 Source search confirms no `console.log` calls exist outside the operational visibility logger and approved tests.
-- [ ] 5.9 Source search confirms operational visibility calls do not include private field names or raw error/provider/form payloads.
+- [x] 5.1 `npm run test` or the selected operational visibility test command completes successfully.
+- [x] 5.2 `npx astro sync` completes successfully.
+- [x] 5.3 `npm run lint` completes successfully.
+- [x] 5.4 `npm run build` completes successfully.
+- [x] 5.5 `git diff --check` reports no whitespace errors.
+- [x] 5.6 Source search confirms no committed `OPERATIONAL_LOG_HASH_SECRET` value or other secret value exists.
+- [x] 5.7 Source search confirms no new S-04 chat/timer/session/history/summary route was added.
+- [x] 5.8 Source search confirms no `console.log` calls exist outside the operational visibility logger and approved tests.
+- [x] 5.9 Source search confirms operational visibility calls do not include private field names or raw error/provider/form payloads.
 
 #### Manual
 
-- [ ] 5.10 Running locally with missing `OPERATIONAL_LOG_HASH_SECRET` still allows auth/avatar flows and omits `userHash`.
-- [ ] 5.11 Running locally with a test hash secret emits stable pseudonymous user hashes without raw user IDs or emails.
-- [ ] 5.12 `npx wrangler tail` or Cloudflare Workers Logs can show structured JSON events with `requestId`, event name, outcome, and safe reason code.
-- [ ] 5.13 README, `.env.example`, deploy plan, and operational visibility README agree on the privacy-safe logging contract.
-- [ ] 5.14 The final diff is reviewed for private data leakage before implementation is considered complete.
+- [x] 5.10 Running locally with missing `OPERATIONAL_LOG_HASH_SECRET` still allows auth/avatar flows and omits `userHash`.
+- [x] 5.11 Running locally with a test hash secret emits stable pseudonymous user hashes without raw user IDs or emails.
+- [x] 5.12 `npx wrangler tail` or Cloudflare Workers Logs can show structured JSON events with `requestId`, event name, outcome, and safe reason code.
+- [x] 5.13 README, `.env.example`, deploy plan, and operational visibility README agree on the privacy-safe logging contract.
+- [x] 5.14 The final diff is reviewed for private data leakage before implementation is considered complete.
