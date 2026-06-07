@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { MVP_MODALITIES } from "../../modalities";
 import { SessionAiError } from "../errors";
 import { buildOpenRouterSessionRequest, generateSessionResponseWithOpenRouter } from "../openrouter-session-response";
 import type { GenerateSessionResponseInput } from "../types";
@@ -50,6 +51,47 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.provider.require_parameters).toBe(true);
     expect(request.messages[0]?.role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain(input.currentUserMessage);
+  });
+
+  it("includes the selected catalog sessionStyleHint in the final provider message", () => {
+    const modality = MVP_MODALITIES.find((item) => item.avatarId === "integrative-guide");
+
+    expect(modality).toBeDefined();
+
+    if (!modality) {
+      return;
+    }
+
+    const request = buildOpenRouterSessionRequest(
+      {
+        currentUserMessage: "Mam wrażenie, że wszystko się we mnie miesza.",
+        modality: {
+          modalityName: modality.modalityName,
+          avatarName: modality.avatarName,
+          sessionStyleHint: modality.sessionStyleHint,
+        },
+        recentMessages: [
+          {
+            role: "user",
+            content: "Wcześniejsza wiadomość.",
+            sequenceIndex: 0,
+          },
+        ],
+        locale: "pl",
+      },
+      "openai/gpt-4o-mini",
+    );
+
+    expect(request.messages[0]).toMatchObject({
+      role: "system",
+    });
+    expect(request.messages.at(-1)).toMatchObject({
+      role: "user",
+    });
+    expect(request.messages.at(-1)?.content).toContain("Avatar: Iga");
+    expect(request.messages.at(-1)?.content).toContain("przewodniczka łącząca wątki");
+    expect(request.messages.at(-1)?.content).toContain("Typical reply shape");
+    expect(request.messages.at(-1)?.content).toContain("Mam wrażenie, że wszystko się we mnie miesza.");
   });
 
   it("omits temperature for OpenAI GPT-5 session models that reject sampling parameters", () => {

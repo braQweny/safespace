@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionAiError } from "@/lib/session-ai/errors";
+import type { GenerateSessionResponseInput } from "@/lib/session-ai/types";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { SessionSafetyDecision } from "@/lib/session-safety/types";
 import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
@@ -232,6 +233,21 @@ describe("POST /api/session/message", () => {
       },
     });
     expect(evaluateSessionSafety).toHaveBeenCalledBefore(generateSessionResponse);
+    const [generationInput, providerArg, optionsArg] = generateSessionResponse.mock.calls[0] as unknown as [
+      GenerateSessionResponseInput,
+      undefined,
+      { timeoutMs: number },
+    ];
+
+    expect(generationInput.modality).toMatchObject({
+      modalityName: "Podejscie poznawczo-behawioralne",
+      avatarName: "Marek, praktyczny przewodnik",
+    });
+    expect(generationInput.modality.sessionStyleHint).toContain("Avatar: Marek");
+    expect(providerArg).toBeUndefined();
+    expect(optionsArg).toMatchObject({
+      timeoutMs: 12000,
+    });
     expect(persistSuccessfulMessageTurn).toHaveBeenCalledWith(contextData, {
       sessionId: "session-1",
       userMessage: "Chce uporzadkowac mysli.",
