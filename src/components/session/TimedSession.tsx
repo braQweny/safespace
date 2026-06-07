@@ -273,7 +273,11 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
 
         {session ? (
           <div className="mt-6">
-            <SessionMessages messages={messages} isPending={isMessagePending} />
+            <SessionMessages
+              messages={messages}
+              isPending={isMessagePending}
+              assistantAvatar={initialState.avatar.selected}
+            />
             <SessionComposer
               value={draft}
               isDisabled={!composerAvailable}

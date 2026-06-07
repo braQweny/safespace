@@ -51,6 +51,16 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.messages[0]?.role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain(input.currentUserMessage);
   });
+
+  it("omits temperature for OpenAI GPT-5 session models that reject sampling parameters", () => {
+    const request = buildOpenRouterSessionRequest(input, "openai/gpt-5.4-mini");
+
+    expect(request.model).toBe("openai/gpt-5.4-mini");
+    expect(request).not.toHaveProperty("temperature");
+    expect(request.stream).toBe(false);
+    expect(request.max_completion_tokens).toBeLessThanOrEqual(420);
+    expect(request.provider.require_parameters).toBe(true);
+  });
 });
 
 describe("generateSessionResponseWithOpenRouter", () => {
