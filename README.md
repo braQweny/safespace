@@ -41,7 +41,7 @@ npm install
 cp .env.example .dev.vars
 ```
 
-5. Add the OpenRouter safety key to `.env` and `.dev.vars` when working on future AI session flows — see [AI Safety Configuration](#ai-safety-configuration).
+5. Add the OpenRouter runtime key to `.env` and `.dev.vars` when working on AI session flows — see [AI Runtime Configuration](#ai-runtime-configuration).
 
 6. Run the development server:
 
@@ -151,23 +151,27 @@ Users can then sign in immediately after sign-up without clicking a confirmation
 
 Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication.
 
-## AI Safety Configuration
+## AI Runtime Configuration
 
-F-02 adds a server-only safety boundary for future AI sessions. `evaluateSessionSafety()` calls OpenRouter before any ordinary future AI generation and fails closed when the key is missing or the provider response is invalid.
+F-02 adds a server-only safety boundary for AI sessions. `evaluateSessionSafety()` calls OpenRouter before any ordinary AI generation and fails closed when the key is missing or the provider response is invalid.
+
+S-04 adds a separate server-only ordinary response helper under `src/lib/session-ai/`. It reuses the same OpenRouter runtime key, keeps ordinary replies separate from the safety classifier, and returns safe retry/unavailable states instead of fake assistant messages when the provider fails.
 
 Add these variables to local `.env` and `.dev.vars` files:
 
-| Variable                  | Description                                                          |
-| ------------------------- | -------------------------------------------------------------------- |
-| `OPENROUTER_API_KEY`      | Server-only OpenRouter API key used by the safety classifier         |
-| `OPENROUTER_SAFETY_MODEL` | Optional model override; defaults to `openai/gpt-4o-mini` when empty |
+| Variable                   | Description                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`       | Server-only OpenRouter API key used by the safety classifier and ordinary session responses |
+| `OPENROUTER_SAFETY_MODEL`  | Optional safety model override; defaults to `openai/gpt-4o-mini` when empty                 |
+| `OPENROUTER_SESSION_MODEL` | Optional ordinary session response model override; defaults to `openai/gpt-4o-mini`         |
 
 ```
 OPENROUTER_API_KEY=replace-with-openrouter-api-key
 OPENROUTER_SAFETY_MODEL=openai/gpt-4o-mini
+OPENROUTER_SESSION_MODEL=openai/gpt-4o-mini
 ```
 
-OpenRouter secrets must stay server-only. Do not import them from client components, do not commit real values, and do not use an OpenRouter management key for this app runtime.
+`OPENROUTER_API_KEY` is the only required OpenRouter secret. Model variables are optional configuration only. OpenRouter secrets must stay server-only. Do not import them from client components, do not commit real values, and do not use an OpenRouter management key for this app runtime.
 
 ## Operational Visibility
 
@@ -202,7 +206,7 @@ npx wrangler deploy
 ```
 
 Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or via `npx wrangler secret put`.
-Set `OPENROUTER_API_KEY` the same way before enabling future AI session runtime behavior:
+Set `OPENROUTER_API_KEY` the same way before enabling AI session runtime behavior:
 
 ```bash
 npx wrangler secret put OPENROUTER_API_KEY
@@ -225,7 +229,8 @@ Configure these repository secrets in GitHub:
 - `SUPABASE_DB_PASSWORD` - database password used to build the Session Pooler migration URL
 - `SUPABASE_DB_URL` - optional fallback full Postgres connection string; use the Session Pooler URL and keep the password URL-encoded
 - `SUPABASE_DB_POOLER_HOST` - optional override if Supabase shows a different host than `aws-0-eu-west-1.pooler.supabase.com`
-- `OPENROUTER_API_KEY` - server-only safety classifier key used by F-02 and passed to Wrangler during deploy
+- `OPENROUTER_API_KEY` - server-only key used by F-02 safety classification and S-04 ordinary session responses, passed to Wrangler during deploy
+- `OPENROUTER_SESSION_MODEL` - optional ordinary response model override; not required as a secret because code defaults to `openai/gpt-4o-mini`
 - `OPERATIONAL_LOG_HASH_SECRET` - optional server-only salt for pseudonymous operational log correlation
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`

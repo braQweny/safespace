@@ -21,6 +21,7 @@ export default defineConfig({
       OPERATIONAL_LOG_HASH_SECRET: envField.string({ context: "server", access: "secret", optional: true }),
       OPENROUTER_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
       OPENROUTER_SAFETY_MODEL: envField.string({ context: "server", access: "public", optional: true }),
+      OPENROUTER_SESSION_MODEL: envField.string({ context: "server", access: "public", optional: true }),
     },
   },
 });

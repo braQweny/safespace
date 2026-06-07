@@ -15,7 +15,7 @@
 - W Cloudflare utworzyc albo wybrac konto, aktywowac Workers i ustawic `workers.dev` subdomain.
 - Utworzyc Cloudflare API token scoped do tego konta z uprawnieniem do edycji Workers. Nie uzywac global API key.
 - Przygotowac dane istniejacego Supabase projektu: Project URL, anon public key i connection string do migracji DB.
-- Przygotowac owner-owned `OPENROUTER_API_KEY` dla F-02 safety boundary. Nie uzywac OpenRouter management key.
+- Przygotowac owner-owned `OPENROUTER_API_KEY` dla F-02 safety boundary i S-04 zwyklych odpowiedzi sesji. Nie uzywac OpenRouter management key.
 - Opcjonalnie przygotowac owner-owned `OPERATIONAL_LOG_HASH_SECRET`, jesli produkcyjne logi F-03 maja zawierac stabilny pseudonimiczny `userHash`; brak sekretu pomija korelacje uzytkownika.
 - Po pierwszym deployu dopisac finalny URL Workera w Supabase Auth jako Site URL / redirect URL, jesli email confirmation ma dzialac produkcyjnie.
 - Dla S-02 dopisac w Supabase Auth redirect URL `https://safespace.<workers-dev-subdomain>.workers.dev/auth/callback` i upewnic sie, ze Google Cloud OAuth client ma Supabase `Callback URL (for OAuth)` z dashboardu.
@@ -32,13 +32,14 @@
   - `SUPABASE_DB_PASSWORD` - haslo bazy do zbudowania Session Pooler migration URL
   - `SUPABASE_DB_URL` - opcjonalny fallback jako pelny connection string; uzywac Session Pooler URL z URL-encoded password
   - `SUPABASE_DB_POOLER_HOST` - opcjonalny override, jesli Supabase pokazuje inny host niz `aws-0-eu-west-1.pooler.supabase.com`
-  - `OPENROUTER_API_KEY` - server-only sekret klasyfikatora bezpieczenstwa F-02 przekazywany do Wranglera podczas deployu
+  - `OPENROUTER_API_KEY` - server-only sekret klasyfikatora bezpieczenstwa F-02 i zwyklych odpowiedzi S-04 przekazywany do Wranglera podczas deployu
   - `OPERATIONAL_LOG_HASH_SECRET` - opcjonalny server-only sekret F-03 dla pseudonimicznego `userHash` w logach operacyjnych
 - Supabase: istniejacy hosted project z wlaczonym Email/Password Auth oraz Google providerem skonfigurowanym w Supabase Auth, bez sekretow Google w runtime aplikacji.
 - Nie dodawac teraz `SUPABASE_SERVICE_ROLE_KEY`; aplikacja go nie uzywa i nie powinien trafiac do runtime frontendowego SSR.
 - F-01 nie wymaga nowych runtime secretow poza istniejacymi `SUPABASE_URL` i `SUPABASE_KEY`; migracje nadal uzywaja `SUPABASE_DB_PASSWORD` albo `SUPABASE_DB_URL` w GitHub Actions.
-- F-02 wymaga `OPENROUTER_API_KEY` w runtime Workera. Brak klucza powoduje fail-closed w `evaluateSessionSafety()` i blokuje zwykla przyszla symulacje AI zamiast przepuszczac rozmowe bez klasyfikacji.
+- F-02 i S-04 wymagaja `OPENROUTER_API_KEY` w runtime Workera. Brak klucza powoduje fail-closed w `evaluateSessionSafety()` albo bezpieczny stan niedostepnosci zwyklej odpowiedzi sesji zamiast przepuszczac rozmowe bez klasyfikacji lub zapisywac sztuczna odpowiedz.
 - `OPENROUTER_SAFETY_MODEL` jest opcjonalna konfiguracja bez sekretu. Domyslnie kod uzywa `openai/gpt-4o-mini`; override mozna wpisac lokalnie w `.env` / `.dev.vars`, ale nie jest wymagany w GitHub secrets.
+- `OPENROUTER_SESSION_MODEL` jest opcjonalna konfiguracja bez sekretu dla zwyklych odpowiedzi S-04. Domyslnie kod uzywa `openai/gpt-4o-mini`; override mozna wpisac lokalnie w `.env` / `.dev.vars`, ale nie jest wymagany w GitHub secrets.
 - F-03 opcjonalnie uzywa `OPERATIONAL_LOG_HASH_SECRET`. Brak sekretu nie blokuje zadnego requestu i nie moze powodowac logowania raw Supabase `user.id`; `userHash` jest wtedy pomijany.
 
 ## Kroki automatyczne
