@@ -52,10 +52,20 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.model).toBe("openai/gpt-4o-mini");
     expect(request.stream).toBe(false);
     expect(request.temperature).toBeLessThanOrEqual(0.2);
-    expect(request.max_completion_tokens).toBeLessThanOrEqual(320);
+    expect(request.max_tokens).toBeLessThanOrEqual(320);
+    expect(request).not.toHaveProperty("max_completion_tokens");
     expect(request.provider.require_parameters).toBe(true);
     expect(request.messages[0]?.role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain("Czuje napiecie");
+  });
+
+  it("uses max_tokens for Gemini summary models routed through OpenRouter", () => {
+    const request = buildOpenRouterSummaryRequest(input, "google/gemini-3.1-flash-lite");
+
+    expect(request.model).toBe("google/gemini-3.1-flash-lite");
+    expect(request.max_tokens).toBeLessThanOrEqual(320);
+    expect(request).not.toHaveProperty("max_completion_tokens");
+    expect(request.provider.require_parameters).toBe(true);
   });
 
   it("omits temperature for OpenAI GPT-5 summary models that reject sampling parameters", () => {
@@ -64,6 +74,8 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.model).toBe("openai/gpt-5.4-mini");
     expect(request).not.toHaveProperty("temperature");
     expect(request.stream).toBe(false);
+    expect(request.max_completion_tokens).toBeLessThanOrEqual(320);
+    expect(request).not.toHaveProperty("max_tokens");
   });
 });
 

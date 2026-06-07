@@ -1,4 +1,8 @@
 import { getOpenRouterSessionConfig, resolveSessionModel } from "@/lib/session-ai/env";
+import {
+  buildOpenRouterTokenLimitParameter,
+  supportsOpenRouterTemperature,
+} from "@/lib/session-ai/openrouter-request-params";
 import { SessionSummaryError, type SessionSummaryErrorCategory } from "./errors";
 import { buildSessionSummaryMessages } from "./summary-prompt";
 import type {
@@ -26,7 +30,8 @@ interface OpenRouterSummaryRequestBody {
   model: string;
   messages: readonly SessionSummaryPromptMessage[];
   temperature?: number;
-  max_completion_tokens: number;
+  max_completion_tokens?: number;
+  max_tokens?: number;
   stream: false;
   provider: {
     require_parameters: true;
@@ -100,7 +105,7 @@ export function buildOpenRouterSummaryRequest(
     model,
     messages: buildSessionSummaryMessages(input),
     ...buildOptionalSamplingParameters(model),
-    max_completion_tokens: OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS,
+    ...buildOpenRouterTokenLimitParameter(model, OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS),
     stream: false,
     provider: {
       require_parameters: true,
@@ -109,17 +114,13 @@ export function buildOpenRouterSummaryRequest(
 }
 
 function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSummaryRequestBody, "temperature"> {
-  if (!supportsTemperature(model)) {
+  if (!supportsOpenRouterTemperature(model)) {
     return {};
   }
 
   return {
     temperature: OPENROUTER_SUMMARY_TEMPERATURE,
   };
-}
-
-function supportsTemperature(model: string) {
-  return !/^openai\/gpt-5(?:[.-]|$)/i.test(model.trim());
 }
 
 function resolveTimeoutMs(timeoutMs: number | undefined) {

@@ -47,10 +47,20 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.model).toBe("openai/gpt-4o-mini");
     expect(request.stream).toBe(false);
     expect(request.temperature).toBeLessThanOrEqual(0.4);
-    expect(request.max_completion_tokens).toBeLessThanOrEqual(420);
+    expect(request.max_tokens).toBeLessThanOrEqual(420);
+    expect(request).not.toHaveProperty("max_completion_tokens");
     expect(request.provider.require_parameters).toBe(true);
     expect(request.messages[0]?.role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain(input.currentUserMessage);
+  });
+
+  it("uses max_tokens for Gemini session models routed through OpenRouter", () => {
+    const request = buildOpenRouterSessionRequest(input, "google/gemini-3.1-flash-lite");
+
+    expect(request.model).toBe("google/gemini-3.1-flash-lite");
+    expect(request.max_tokens).toBeLessThanOrEqual(420);
+    expect(request).not.toHaveProperty("max_completion_tokens");
+    expect(request.provider.require_parameters).toBe(true);
   });
 
   it("includes the selected catalog sessionStyleHint in the final provider message", () => {
@@ -101,6 +111,7 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request).not.toHaveProperty("temperature");
     expect(request.stream).toBe(false);
     expect(request.max_completion_tokens).toBeLessThanOrEqual(420);
+    expect(request).not.toHaveProperty("max_tokens");
     expect(request.provider.require_parameters).toBe(true);
   });
 });
