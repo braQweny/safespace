@@ -471,12 +471,12 @@ No Supabase migration is planned for S-05. The feature uses existing F-01 tables
 
 #### Automated
 
-- [x] 5.1 Final `npm run test`, `npx astro sync`, `npm run lint`, `npm run build`, and `git diff --check` results are recorded.
-- [x] 5.2 Final source sweeps are recorded in `verification.md`.
+- [x] 5.1 Final `npm run test`, `npx astro sync`, `npm run lint`, `npm run build`, and `git diff --check` results are recorded. — 5c81b2f
+- [x] 5.2 Final source sweeps are recorded in `verification.md`. — 5c81b2f
 
 #### Manual
 
-- [x] 5.3 Authenticated `/dashboard/avatar` smoke confirms selected-avatar history, URL pagination, max 20 conversations, read-only detail, delete confirmation, delete success, and delete cancel.
-- [x] 5.4 S-04 `/dashboard/session` smoke confirms start/message behavior still works for non-deleted sessions.
-- [x] 5.5 Deleted conversation content is no longer visible through list, detail, or refreshed browser state.
-- [x] 5.6 Any hosted checks not run are explicitly marked pending rather than complete.
+- [x] 5.3 Authenticated `/dashboard/avatar` smoke confirms selected-avatar history, URL pagination, max 20 conversations, read-only detail, delete confirmation, delete success, and delete cancel. — 5c81b2f
+- [x] 5.4 S-04 `/dashboard/session` smoke confirms start/message behavior still works for non-deleted sessions. — 5c81b2f
+- [x] 5.5 Deleted conversation content is no longer visible through list, detail, or refreshed browser state. — 5c81b2f
+- [x] 5.6 Any hosted checks not run are explicitly marked pending rather than complete. — 5c81b2f
