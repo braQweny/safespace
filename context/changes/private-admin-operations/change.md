@@ -1,7 +1,7 @@
 ---
 change_id: private-admin-operations
 title: Private admin operations
-status: implementing
+status: implemented
 created: 2026-06-07
 updated: 2026-06-07
 archived_at: null
