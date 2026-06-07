@@ -481,18 +481,18 @@ No Supabase migration is required. This plan intentionally avoids a database eve
 
 #### Automated
 
-- [ ] 1.1 `npx astro sync` completes successfully.
-- [ ] 1.2 `npm run lint` completes successfully.
-- [ ] 1.3 `npm run build` completes successfully.
-- [ ] 1.4 Source search finds exactly one `OperationalEventName` definition.
-- [ ] 1.5 Source search confirms the operational event allowlist does not include `message`, `prompt`, `content`, `email`, `token`, `cookie`, `authorization`, `password`, `secret`, or raw `error`.
-- [ ] 1.6 Source search confirms user hashing never returns raw Supabase user IDs.
+- [x] 1.1 `npx astro sync` completes successfully.
+- [x] 1.2 `npm run lint` completes successfully.
+- [x] 1.3 `npm run build` completes successfully.
+- [x] 1.4 Source search finds exactly one `OperationalEventName` definition.
+- [x] 1.5 Source search confirms the operational event allowlist does not include `message`, `prompt`, `content`, `email`, `token`, `cookie`, `authorization`, `password`, `secret`, or raw `error`.
+- [x] 1.6 Source search confirms user hashing never returns raw Supabase user IDs.
 
 #### Manual
 
-- [ ] 1.7 Event names cover auth, avatar, protected-route, and future session lifecycle without implementing session features.
-- [ ] 1.8 The allowlist is strict enough that a caller cannot accidentally log form data, cookies, provider payloads, or private conversation text.
-- [ ] 1.9 Missing `OPERATIONAL_LOG_HASH_SECRET` omits user correlation rather than blocking the request or logging raw user IDs.
+- [x] 1.7 Event names cover auth, avatar, protected-route, and future session lifecycle without implementing session features.
+- [x] 1.8 The allowlist is strict enough that a caller cannot accidentally log form data, cookies, provider payloads, or private conversation text.
+- [x] 1.9 Missing `OPERATIONAL_LOG_HASH_SECRET` omits user correlation rather than blocking the request or logging raw user IDs.
 
 ### Phase 2: Request Context And Logger Runtime
 
