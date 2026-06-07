@@ -514,36 +514,36 @@ No Supabase migration is required. F-02 intentionally avoids a safety-events tab
 
 #### Automated
 
-- [x] 3.1 `npx astro sync` completes successfully.
-- [x] 3.2 `npm run lint` completes successfully.
-- [x] 3.3 `npm run build` completes successfully.
-- [x] 3.4 Source search finds exactly one exported `evaluateSessionSafety` entry point.
-- [x] 3.5 Source search finds no new `/api/session`, `/api/chat`, timer, or session UI route.
-- [x] 3.6 Source search finds no `console.log` or `console.error` call that includes `message`, `prompt`, `content`, or provider response text in the session-safety module.
+- [x] 3.1 `npx astro sync` completes successfully. — 413311a
+- [x] 3.2 `npm run lint` completes successfully. — 413311a
+- [x] 3.3 `npm run build` completes successfully. — 413311a
+- [x] 3.4 Source search finds exactly one exported `evaluateSessionSafety` entry point. — 413311a
+- [x] 3.5 Source search finds no new `/api/session`, `/api/chat`, timer, or session UI route. — 413311a
+- [x] 3.6 Source search finds no `console.log` or `console.error` call that includes `message`, `prompt`, `content`, or provider response text in the session-safety module. — 413311a
 
 #### Manual
 
-- [x] 3.7 `normal` is the only state that permits ordinary future simulation.
-- [x] 3.8 `caution` returns explicit response constraints and does not hard-stop.
-- [x] 3.9 `crisis` returns a hard-stop payload with crisis resources and no ordinary simulation prompt.
-- [x] 3.10 Missing OpenRouter configuration produces safe unavailability behavior, not ordinary simulation.
+- [x] 3.7 `normal` is the only state that permits ordinary future simulation. — 413311a
+- [x] 3.8 `caution` returns explicit response constraints and does not hard-stop. — 413311a
+- [x] 3.9 `crisis` returns a hard-stop payload with crisis resources and no ordinary simulation prompt. — 413311a
+- [x] 3.10 Missing OpenRouter configuration produces safe unavailability behavior, not ordinary simulation. — 413311a
 
 ### Phase 4: Minimal Tests And Verification Setup
 
 #### Automated
 
-- [ ] 4.1 `npm run test` or `npm run test:safety` completes successfully.
-- [ ] 4.2 `npx astro sync` completes successfully.
-- [ ] 4.3 `npm run lint` completes successfully.
-- [ ] 4.4 `npm run build` completes successfully.
-- [ ] 4.5 Source search confirms tests do not require or read a real `OPENROUTER_API_KEY`.
-- [ ] 4.6 Source search confirms tests do not make real network calls.
+- [x] 4.1 `npm run test` or `npm run test:safety` completes successfully.
+- [x] 4.2 `npx astro sync` completes successfully.
+- [x] 4.3 `npm run lint` completes successfully.
+- [x] 4.4 `npm run build` completes successfully.
+- [x] 4.5 Source search confirms tests do not require or read a real `OPENROUTER_API_KEY`.
+- [x] 4.6 Source search confirms tests do not make real network calls.
 
 #### Manual
 
-- [ ] 4.7 Test names cover the three selected risk states and fail-closed provider behavior.
-- [ ] 4.8 The added test setup is minimal and does not introduce E2E/browser infrastructure.
-- [ ] 4.9 The new CI command, if added to CI in Phase 5, is acceptable for normal PR runtime.
+- [x] 4.7 Test names cover the three selected risk states and fail-closed provider behavior.
+- [x] 4.8 The added test setup is minimal and does not introduce E2E/browser infrastructure.
+- [x] 4.9 The new CI command, if added to CI in Phase 5, is acceptable for normal PR runtime.
 
 ### Phase 5: Config, Deployment Notes, And Handoff
 
