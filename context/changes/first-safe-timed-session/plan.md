@@ -579,39 +579,39 @@ Runtime configuration reuses `OPENROUTER_API_KEY` and adds optional `OPENROUTER_
 
 #### Automated
 
-- [x] 1.1 `npm run test` completes successfully for session AI tests.
-- [x] 1.2 `npx astro sync` completes successfully.
-- [x] 1.3 `npm run lint` completes successfully.
-- [x] 1.4 `npm run build` completes successfully.
-- [x] 1.5 Source search confirms ordinary OpenRouter response generation lives only under `src/lib/session-ai/`.
-- [x] 1.6 Source search confirms no OpenRouter API key, prompt text, provider payload, or generated response is referenced from client components.
-- [x] 1.7 Source search confirms session AI tests mock the provider/fetch and do not make real network calls.
+- [x] 1.1 `npm run test` completes successfully for session AI tests. — dd065dd
+- [x] 1.2 `npx astro sync` completes successfully. — dd065dd
+- [x] 1.3 `npm run lint` completes successfully. — dd065dd
+- [x] 1.4 `npm run build` completes successfully. — dd065dd
+- [x] 1.5 Source search confirms ordinary OpenRouter response generation lives only under `src/lib/session-ai/`. — dd065dd
+- [x] 1.6 Source search confirms no OpenRouter API key, prompt text, provider payload, or generated response is referenced from client components. — dd065dd
+- [x] 1.7 Source search confirms session AI tests mock the provider/fetch and do not make real network calls. — dd065dd
 
 #### Manual
 
-- [x] 1.8 The ordinary response prompt is educational, modality-aware, non-diagnostic, and does not claim to replace a specialist.
-- [x] 1.9 `OPENROUTER_API_KEY` remains the only required OpenRouter secret; `OPENROUTER_SESSION_MODEL` is optional/configuration only.
-- [x] 1.10 The helper is clearly separate from `src/lib/session-safety/` and does not weaken the F-02 classifier contract.
+- [x] 1.8 The ordinary response prompt is educational, modality-aware, non-diagnostic, and does not claim to replace a specialist. — dd065dd
+- [x] 1.9 `OPENROUTER_API_KEY` remains the only required OpenRouter secret; `OPENROUTER_SESSION_MODEL` is optional/configuration only. — dd065dd
+- [x] 1.10 The helper is clearly separate from `src/lib/session-safety/` and does not weaken the F-02 classifier contract. — dd065dd
 
 ### Phase 2: Session Start And Page Shell
 
 #### Automated
 
-- [ ] 2.1 Route/helper tests cover missing auth, missing avatar, no trial yet, active trial, expired trial, and duplicate-trial states with mocks.
-- [ ] 2.2 `npm run test` completes successfully.
-- [ ] 2.3 `npx astro sync` completes successfully.
-- [ ] 2.4 `npm run lint` completes successfully.
-- [ ] 2.5 `npm run build` completes successfully.
-- [ ] 2.6 Source search confirms `/dashboard/session` page GET does not call `claimFreeTrialSession()`.
-- [ ] 2.7 Source search confirms only `src/pages/api/session/start.ts` starts the free trial through `claimFreeTrialSession()`.
-- [ ] 2.8 Source search confirms missing-avatar start does not create or claim a session.
+- [x] 2.1 Route/helper tests cover missing auth, missing avatar, no trial yet, active trial, expired trial, and duplicate-trial states with mocks.
+- [x] 2.2 `npm run test` completes successfully.
+- [x] 2.3 `npx astro sync` completes successfully.
+- [x] 2.4 `npm run lint` completes successfully.
+- [x] 2.5 `npm run build` completes successfully.
+- [x] 2.6 Source search confirms `/dashboard/session` page GET does not call `claimFreeTrialSession()`.
+- [x] 2.7 Source search confirms only `src/pages/api/session/start.ts` starts the free trial through `claimFreeTrialSession()`.
+- [x] 2.8 Source search confirms missing-avatar start does not create or claim a session.
 
 #### Manual
 
-- [ ] 2.9 Visiting `/dashboard/session` without a saved avatar redirects to `/dashboard/avatar` or shows the avatar prerequisite before any trial is consumed.
-- [ ] 2.10 Visiting `/dashboard/session` with a saved avatar shows a preparation screen and does not consume the trial.
-- [ ] 2.11 Clicking start creates one active trial session with a 15-minute expiry and snapshots the current modality/avatar.
-- [ ] 2.12 A user who already claimed the free trial cannot start a second trial through refresh, repeat click, or direct POST.
+- [x] 2.9 Visiting `/dashboard/session` without a saved avatar redirects to `/dashboard/avatar` or shows the avatar prerequisite before any trial is consumed.
+- [x] 2.10 Visiting `/dashboard/session` with a saved avatar shows a preparation screen and does not consume the trial.
+- [x] 2.11 Clicking start creates one active trial session with a 15-minute expiry and snapshots the current modality/avatar.
+- [x] 2.12 A user who already claimed the free trial cannot start a second trial through refresh, repeat click, or direct POST.
 
 ### Phase 3: Message Flow With Safety And Persistence
 

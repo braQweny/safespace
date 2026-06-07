@@ -1,41 +1,34 @@
 ---
 import Layout from "@/layouts/Layout.astro";
-import { getValidAvatarChoice, toSelectedModalityAvatar } from "@/lib/modalities";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
-import { createClient } from "@/lib/supabase";
+import { getSessionDataContext } from "@/lib/session-data/auth";
+import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 
 const { user } = Astro.locals;
-const supabase = createClient(Astro.request.headers, Astro.cookies);
 const avatarUpdated = Astro.url.searchParams.get("avatar") === "updated";
 const operationalContext = await buildOperationalRequestContext(Astro);
+const sessionContext = getSessionDataContext(Astro);
 
 let currentSelection = null;
 let choiceFetchFailed = false;
 
-if (user && supabase) {
-  const { data, error } = await supabase
-    .from("user_avatar_choices")
-    .select("modality_id, avatar_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+if (sessionContext.ok) {
+  const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
 
-  if (error) {
-    choiceFetchFailed = true;
+  if (avatarChoice.ok) {
+    currentSelection = avatarChoice.data.selected;
     logOperationalEvent(
       {
         event: "avatar.fetch",
-        level: "warn",
-        outcome: "failure",
+        level: "info",
+        outcome: "success",
         status: 200,
-        reasonCode: "fetch_failed",
         provider: "supabase",
       },
       operationalContext,
     );
-  } else if (data) {
-    const selectedChoice = getValidAvatarChoice(data.modality_id, data.avatar_id);
-    currentSelection = selectedChoice ? toSelectedModalityAvatar(selectedChoice) : null;
+  } else if (avatarChoice.error.code === "missing_avatar") {
     logOperationalEvent(
       {
         event: "avatar.fetch",
@@ -47,17 +40,21 @@ if (user && supabase) {
       operationalContext,
     );
   } else {
+    choiceFetchFailed = true;
     logOperationalEvent(
       {
         event: "avatar.fetch",
-        level: "info",
-        outcome: "success",
+        level: "warn",
+        outcome: "failure",
         status: 200,
+        reasonCode: avatarChoice.error.code === "invalid_avatar_choice" ? "invalid_choice" : "fetch_failed",
         provider: "supabase",
       },
       operationalContext,
     );
   }
+} else {
+  choiceFetchFailed = sessionContext.error.code !== "missing_auth";
 }
 ---
 
@@ -105,15 +102,23 @@ if (user && supabase) {
                   <h2 class="mt-2 text-2xl font-semibold text-[#10231f]">{currentSelection.avatarName}</h2>
                   <p class="mt-2 text-base font-medium text-[#1f6f65]">{currentSelection.modalityName}</p>
                   <p class="mt-4 text-sm leading-6 text-[#52645f]">
-                    Ten wybór będzie stabilnym punktem wejścia do przyszłej 15-minutowej sesji. Sesja zostanie dodana w
-                    kolejnym slice roadmapy.
+                    Ten wybór będzie zapisany przy pierwszej 15-minutowej sesji. Samo wejście na stronę sesji nie zużywa
+                    darmowej próby.
                   </p>
-                  <a
-                    href="/dashboard/avatar"
-                    class="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-                  >
-                    Zmień awatara
-                  </a>
+                  <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+                    <a
+                      href="/dashboard/session"
+                      class="inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+                    >
+                      Przejdź do sesji
+                    </a>
+                    <a
+                      href="/dashboard/avatar"
+                      class="inline-flex h-11 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-5 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+                    >
+                      Zmień awatara
+                    </a>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -138,8 +143,8 @@ if (user && supabase) {
         <aside class="rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-5">
           <h2 class="text-base font-semibold text-[#173f39]">Co dalej</h2>
           <p class="mt-2 text-sm leading-6 text-[#52645f]">
-            Pierwsza 15-minutowa sesja jest kolejnym etapem roadmapy. Ten panel pokazuje przygotowanie do sesji, ale nie
-            uruchamia rozmowy, timera ani historii.
+            Jeśli awatar jest zapisany, możesz przejść do strony sesji i rozpocząć jedną darmową 15-minutową próbę
+            świadomym kliknięciem startu.
           </p>
         </aside>
       </div>
