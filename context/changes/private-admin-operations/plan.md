@@ -458,20 +458,20 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to runtime configuration. The safe path f
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes.
-- [ ] 3.2 `npx astro sync` passes.
-- [ ] 3.3 `npm run lint` passes.
-- [ ] 3.4 `npm run build` passes.
-- [ ] 3.5 `git diff --check` passes.
-- [ ] 3.6 Private content sweep passes with no admin access to message content, summary text, prompts, provider payloads, or raw errors.
-- [ ] 3.7 Service-role and secret sweep passes with no runtime service-role key or committed secret.
-- [ ] 3.8 Admin scope sweep passes with no exports, user deletion, trial reset, payment, raw log browser, break-glass content access, or admin-readable content policy.
-- [ ] 3.9 `context/changes/private-admin-operations/plan.md` and `plan-brief.md` exist.
+- [x] 3.1 `npm run test` passes.
+- [x] 3.2 `npx astro sync` passes.
+- [x] 3.3 `npm run lint` passes.
+- [x] 3.4 `npm run build` passes.
+- [x] 3.5 `git diff --check` passes.
+- [x] 3.6 Private content sweep passes with no admin access to message content, summary text, prompts, provider payloads, or raw errors.
+- [x] 3.7 Service-role and secret sweep passes with no runtime service-role key or committed secret.
+- [x] 3.8 Admin scope sweep passes with no exports, user deletion, trial reset, payment, raw log browser, break-glass content access, or admin-readable content policy.
+- [x] 3.9 `context/changes/private-admin-operations/plan.md` and `plan-brief.md` exist.
 
 #### Manual
 
-- [ ] 3.10 Admin overview smoke confirms stats render with privacy thresholds.
-- [ ] 3.11 Admin users smoke confirms search/filter/sort and block/unblock.
-- [ ] 3.12 Blocked-user smoke confirms denied private page and session API access.
-- [ ] 3.13 Verification note records commands, sweeps, manual checks, limitations, and any hosted checks not run.
-- [ ] 3.14 First-admin bootstrap documentation is understandable before starting implementation.
+- [x] 3.10 Admin overview smoke confirms stats render with privacy thresholds.
+- [x] 3.11 Admin users smoke confirms search/filter/sort and block/unblock.
+- [x] 3.12 Blocked-user smoke confirms denied private page and session API access.
+- [x] 3.13 Verification note records commands, sweeps, manual checks, limitations, and any hosted checks not run.
+- [x] 3.14 First-admin bootstrap documentation is understandable before starting implementation.
