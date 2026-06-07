@@ -454,18 +454,18 @@ No Supabase migration is planned for S-05. The feature uses existing F-01 tables
 
 #### Automated
 
-- [ ] 4.1 `npm run test` passes.
-- [ ] 4.2 `npx astro sync` passes.
-- [ ] 4.3 `npm run lint` passes.
-- [ ] 4.4 `npm run build` passes.
-- [ ] 4.5 `git diff --check` passes.
-- [ ] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`.
-- [ ] 4.7 Private logging sweep passes with no private content or private identifiers in logs.
-- [ ] 4.8 Scope creep sweep passes with no S-06 summaries, admin content access, paid flow, trial reset, or new AI/streaming behavior.
+- [x] 4.1 `npm run test` passes.
+- [x] 4.2 `npx astro sync` passes.
+- [x] 4.3 `npm run lint` passes.
+- [x] 4.4 `npm run build` passes.
+- [x] 4.5 `git diff --check` passes.
+- [x] 4.6 Private table access sweep passes with private queries isolated to `src/lib/session-data/`.
+- [x] 4.7 Private logging sweep passes with no private content or private identifiers in logs.
+- [x] 4.8 Scope creep sweep passes with no S-06 summaries, admin content access, paid flow, trial reset, or new AI/streaming behavior.
 
 #### Manual
 
-- [ ] 4.9 Verification note accurately distinguishes local evidence from hosted evidence and does not mark unrun hosted checks complete.
+- [x] 4.9 Verification note accurately distinguishes local evidence from hosted evidence and does not mark unrun hosted checks complete.
 
 ### Phase 5: Manual Verification And Closeout
 
