@@ -498,37 +498,37 @@ No Supabase migration is required. This plan intentionally avoids a database eve
 
 #### Automated
 
-- [x] 2.1 `npx astro sync` completes successfully.
-- [x] 2.2 `npm run lint` completes successfully.
-- [x] 2.3 `npm run build` completes successfully.
-- [x] 2.4 Source search finds `requestId` typed in `src/env.d.ts` and assigned in `src/middleware.ts`.
-- [x] 2.5 Source search finds exactly one application logger wrapper that calls `console.log`.
-- [x] 2.6 Source search confirms no new logger code reads request body text, cookies, authorization headers, or query string payloads.
+- [x] 2.1 `npx astro sync` completes successfully. — 27a1ff9
+- [x] 2.2 `npm run lint` completes successfully. — 27a1ff9
+- [x] 2.3 `npm run build` completes successfully. — 27a1ff9
+- [x] 2.4 Source search finds `requestId` typed in `src/env.d.ts` and assigned in `src/middleware.ts`. — 27a1ff9
+- [x] 2.5 Source search finds exactly one application logger wrapper that calls `console.log`. — 27a1ff9
+- [x] 2.6 Source search confirms no new logger code reads request body text, cookies, authorization headers, or query string payloads. — 27a1ff9
 
 #### Manual
 
-- [x] 2.7 Requests receive a safe request ID that can be used for support/debug correlation.
-- [x] 2.8 Middleware redirects and normal responses both preserve request ID context.
-- [x] 2.9 Logger failures cannot block sign-in, sign-up, sign-out, avatar choice, or future session flow.
-- [x] 2.10 Worker observability remains Cloudflare-first and does not add an external log destination.
+- [x] 2.7 Requests receive a safe request ID that can be used for support/debug correlation. — 27a1ff9
+- [x] 2.8 Middleware redirects and normal responses both preserve request ID context. — 27a1ff9
+- [x] 2.9 Logger failures cannot block sign-in, sign-up, sign-out, avatar choice, or future session flow. — 27a1ff9
+- [x] 2.10 Worker observability remains Cloudflare-first and does not add an external log destination. — 27a1ff9
 
 ### Phase 3: Instrument Existing Critical Flows
 
 #### Automated
 
-- [ ] 3.1 `npx astro sync` completes successfully.
-- [ ] 3.2 `npm run lint` completes successfully.
-- [ ] 3.3 `npm run build` completes successfully.
-- [ ] 3.4 Source search confirms auth instrumentation does not pass `email`, `password`, `confirmPassword`, callback `code`, provider URL, or raw `error.message` into `logOperationalEvent`.
-- [ ] 3.5 Source search confirms avatar instrumentation does not pass `modalityId`, `avatarId`, selected row data, SQL details, or raw `error` objects into `logOperationalEvent`.
-- [ ] 3.6 Source search confirms no new `console.log` calls were added outside the operational visibility logger and approved tests.
+- [x] 3.1 `npx astro sync` completes successfully.
+- [x] 3.2 `npm run lint` completes successfully.
+- [x] 3.3 `npm run build` completes successfully.
+- [x] 3.4 Source search confirms auth instrumentation does not pass `email`, `password`, `confirmPassword`, callback `code`, provider URL, or raw `error.message` into `logOperationalEvent`.
+- [x] 3.5 Source search confirms avatar instrumentation does not pass `modalityId`, `avatarId`, selected row data, SQL details, or raw `error` objects into `logOperationalEvent`.
+- [x] 3.6 Source search confirms no new `console.log` calls were added outside the operational visibility logger and approved tests.
 
 #### Manual
 
-- [ ] 3.7 Sign-in/sign-up/OAuth/password/sign-out failures are diagnosable by safe event names and reason codes.
-- [ ] 3.8 Avatar fetch/save failures are diagnosable by safe event names and reason codes.
-- [ ] 3.9 A developer reading Worker logs cannot infer a user's email, selected modality, conversation content, cookies, or provider tokens from F-03 events.
-- [ ] 3.10 Existing auth and avatar user-facing behavior remains unchanged.
+- [x] 3.7 Sign-in/sign-up/OAuth/password/sign-out failures are diagnosable by safe event names and reason codes.
+- [x] 3.8 Avatar fetch/save failures are diagnosable by safe event names and reason codes.
+- [x] 3.9 A developer reading Worker logs cannot infer a user's email, selected modality, conversation content, cookies, or provider tokens from F-03 events.
+- [x] 3.10 Existing auth and avatar user-facing behavior remains unchanged.
 
 ### Phase 4: Future S-04/F-02 Observability Contract
 

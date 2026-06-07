@@ -1,5 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
+import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import {
   createOperationalRequestId,
   withOperationalRequestIdHeader,
@@ -10,6 +11,10 @@ const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account"] as const;
 
 function isProtectedRoute(pathname: string) {
   return PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
+function getProtectedRouteBucket(pathname: string) {
+  return PROTECTED_ROUTES.find((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -29,6 +34,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (isProtectedRoute(context.url.pathname)) {
     if (!context.locals.user) {
+      logOperationalEvent(
+        {
+          event: "route.protected_redirect",
+          level: "warn",
+          route: getProtectedRouteBucket(context.url.pathname),
+          method: context.request.method,
+          outcome: "redirected",
+          status: 302,
+          reasonCode: "missing_auth",
+        },
+        { requestId },
+      );
+
       return withOperationalRequestIdHeader(context.redirect("/auth/signin"), requestId);
     }
   }

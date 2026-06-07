@@ -7,19 +7,43 @@ import {
   parseAvatarChoiceErrorCode,
 } from "@/lib/avatar-choice-errors";
 import { getValidAvatarChoice, MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import { logOperationalEvent } from "@/lib/operational-visibility/logger";
+import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
 const { user } = Astro.locals;
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 const queryErrorCode = parseAvatarChoiceErrorCode(Astro.url.searchParams.get(AVATAR_CHOICE_ERROR_PARAM));
+const operationalContext = await buildOperationalRequestContext(Astro);
 
 let currentSelection = null;
 let pageError = queryErrorCode ? getAvatarChoiceErrorMessage(queryErrorCode) : null;
 
 if (!user) {
   pageError = getAvatarChoiceErrorMessage("missing_auth");
+  logOperationalEvent(
+    {
+      event: "avatar.fetch",
+      level: "warn",
+      outcome: "failure",
+      status: 200,
+      reasonCode: "missing_auth",
+    },
+    operationalContext,
+  );
 } else if (!supabase) {
   pageError = getAvatarChoiceErrorMessage("config_unavailable");
+  logOperationalEvent(
+    {
+      event: "avatar.fetch",
+      level: "error",
+      outcome: "failure",
+      status: 200,
+      reasonCode: "config_unavailable",
+      provider: "supabase",
+    },
+    operationalContext,
+  );
 } else {
   const { data, error } = await supabase
     .from("user_avatar_choices")
@@ -29,9 +53,41 @@ if (!user) {
 
   if (error) {
     pageError = getAvatarChoiceErrorMessage("fetch_failed");
+    logOperationalEvent(
+      {
+        event: "avatar.fetch",
+        level: "warn",
+        outcome: "failure",
+        status: 200,
+        reasonCode: "fetch_failed",
+        provider: "supabase",
+      },
+      operationalContext,
+    );
   } else if (data) {
     const selectedChoice = getValidAvatarChoice(data.modality_id, data.avatar_id);
     currentSelection = selectedChoice ? toSelectedModalityAvatar(selectedChoice) : null;
+    logOperationalEvent(
+      {
+        event: "avatar.fetch",
+        level: "info",
+        outcome: "success",
+        status: 200,
+        provider: "supabase",
+      },
+      operationalContext,
+    );
+  } else {
+    logOperationalEvent(
+      {
+        event: "avatar.fetch",
+        level: "info",
+        outcome: "success",
+        status: 200,
+        provider: "supabase",
+      },
+      operationalContext,
+    );
   }
 }
 ---

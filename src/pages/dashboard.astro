@@ -1,11 +1,14 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import { getValidAvatarChoice, toSelectedModalityAvatar } from "@/lib/modalities";
+import { logOperationalEvent } from "@/lib/operational-visibility/logger";
+import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
 const { user } = Astro.locals;
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 const avatarUpdated = Astro.url.searchParams.get("avatar") === "updated";
+const operationalContext = await buildOperationalRequestContext(Astro);
 
 let currentSelection = null;
 let choiceFetchFailed = false;
@@ -19,9 +22,41 @@ if (user && supabase) {
 
   if (error) {
     choiceFetchFailed = true;
+    logOperationalEvent(
+      {
+        event: "avatar.fetch",
+        level: "warn",
+        outcome: "failure",
+        status: 200,
+        reasonCode: "fetch_failed",
+        provider: "supabase",
+      },
+      operationalContext,
+    );
   } else if (data) {
     const selectedChoice = getValidAvatarChoice(data.modality_id, data.avatar_id);
     currentSelection = selectedChoice ? toSelectedModalityAvatar(selectedChoice) : null;
+    logOperationalEvent(
+      {
+        event: "avatar.fetch",
+        level: "info",
+        outcome: "success",
+        status: 200,
+        provider: "supabase",
+      },
+      operationalContext,
+    );
+  } else {
+    logOperationalEvent(
+      {
+        event: "avatar.fetch",
+        level: "info",
+        outcome: "success",
+        status: 200,
+        provider: "supabase",
+      },
+      operationalContext,
+    );
   }
 }
 ---
