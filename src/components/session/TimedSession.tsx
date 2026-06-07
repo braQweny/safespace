@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { PlayCircle } from "lucide-react";
+import { FileText, PlayCircle } from "lucide-react";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
 import type { SendSessionMessageResponse } from "@/lib/session-flow/message-contract";
@@ -53,6 +53,10 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   interrupted: {
     title: "Sesja została przerwana",
     body: "Rozmowa została zatrzymana w bezpiecznym stanie. Zwykła symulacja nie będzie kontynuowana w tej sesji.",
+  },
+  followup_ready: {
+    title: "Przygotowanie do kolejnej sesji MVP",
+    body: "Możesz rozpocząć kolejną timed sesję. Przed startem widzisz, czy rozmowa dostanie zatwierdzone podsumowania jako kontekst.",
   },
   trial_already_claimed: {
     title: "Darmowa próba została już wykorzystana",
@@ -124,11 +128,21 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
     setNotice(null);
 
     try {
-      const response = await fetch("/api/session/start", {
+      const isFollowupStart = kind === "followup_ready";
+      const startWithoutContext = isFollowupStart && initialState.canStartWithoutContext;
+      const response = await fetch(isFollowupStart ? "/api/session/start-next" : "/api/session/start", {
         method: "POST",
         headers: {
           Accept: "application/json",
+          ...(startWithoutContext ? { "Content-Type": "application/json" } : {}),
         },
+        ...(startWithoutContext
+          ? {
+              body: JSON.stringify({
+                startWithoutContext: true,
+              }),
+            }
+          : {}),
       });
       const body = await readJson<StartSessionResponse>(response);
 
@@ -146,7 +160,11 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         return;
       }
 
-      setKind(body.code === "trial_already_claimed" ? "trial_already_claimed" : "unavailable");
+      setKind(
+        body.code === "trial_already_claimed" || body.code === "no_context_not_confirmed"
+          ? "followup_ready"
+          : "unavailable",
+      );
       setNotice(buildGenericNotice("Nie udało się rozpocząć sesji", "Spróbuj ponownie za chwilę albo wróć do panelu."));
     } catch {
       setNotice(
@@ -257,7 +275,38 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           </div>
         ) : null}
 
-        {kind === "ready" ? (
+        {kind === "followup_ready" ? (
+          <div className="mt-5 rounded-lg border border-[#c8ddd7] bg-[#f8fcfa] p-4 text-sm leading-6 text-[#38524b]">
+            <div className="flex items-start gap-3">
+              <FileText aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[#1f6f65]" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-[#10231f]">Kontekst pokazany przed startem</p>
+                {initialState.approvedSummaries.length > 0 ? (
+                  <div className="mt-3 space-y-3">
+                    {initialState.approvedSummaries.slice(0, 3).map((summary, index) => (
+                      <div key={summary.id} className="rounded-lg border border-[#d7e5e0] bg-white p-3">
+                        <p className="text-xs font-semibold tracking-wide text-[#1f6f65] uppercase">
+                          Podsumowanie {index + 1}
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-[#10231f]">{summary.summaryText}</p>
+                      </div>
+                    ))}
+                    <p className="text-[#52645f]">
+                      Tylko te zatwierdzone, widoczne podsumowania mogą zostać przekazane do kolejnej rozmowy.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[#52645f]">
+                    Nie ma zatwierdzonych podsumowań. Start bez kontekstu jest możliwy tylko przez poniższy jawny
+                    przycisk.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {kind === "ready" || kind === "followup_ready" ? (
           <button
             type="button"
             onClick={() => {
@@ -267,7 +316,13 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
             className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9abbb4]"
           >
             <PlayCircle aria-hidden="true" className="h-4 w-4" />
-            {isStarting ? "Start..." : "Rozpocznij 15-minutową sesję"}
+            {isStarting
+              ? "Start..."
+              : kind === "followup_ready"
+                ? initialState.approvedSummaries.length > 0
+                  ? "Rozpocznij kolejną sesję z kontekstem"
+                  : "Rozpocznij kolejną sesję bez kontekstu"
+                : "Rozpocznij pierwszą darmową sesję"}
           </button>
         ) : null}
 
@@ -301,8 +356,8 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           loading="lazy"
         />
         <p className="mt-4 text-sm leading-6 text-[#52645f]">
-          Wybrana perspektywa zostaje zapisana w metadanych aktywnej sesji. Ten widok nie dodaje historii ani
-          podsumowań.
+          Wybrana perspektywa zostaje zapisana w metadanych aktywnej sesji. Kolejna sesja korzysta wyłącznie z
+          zatwierdzonych podsumowań pokazanych przed startem albo z jawnego startu bez kontekstu.
         </p>
         <a
           href="/dashboard/avatar"

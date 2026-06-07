@@ -29,6 +29,14 @@ const input = {
       sequenceIndex: 1,
     },
   ],
+  approvedSummaries: [
+    {
+      summaryText: "Zatwierdzone podsumowanie poprzedniej rozmowy.",
+      revision: 1,
+      createdAt: "2026-06-07T09:00:00.000Z",
+      updatedAt: "2026-06-07T09:00:00.000Z",
+    },
+  ],
 } satisfies GenerateSessionResponseInput;
 
 describe("buildSessionResponseMessages", () => {
@@ -46,12 +54,15 @@ describe("buildSessionResponseMessages", () => {
     expect(messages[0]?.content).toContain("not a therapist, doctor, clinician, real human, or real person");
     expect(messages[0]?.content).toContain("Prefer one meaningful question over several shallow questions");
     expect(messages[0]?.content).toContain("Do not diagnose");
+    expect(messages[0]?.content).toContain("approved prior-session summaries");
+    expect(messages[0]?.content).toContain("not as diagnosis, verified fact, risk assessment");
 
     const finalUserMessage = messages.at(-1);
     expect(finalUserMessage?.role).toBe("user");
     expect(finalUserMessage?.content).toContain(input.currentUserMessage);
     expect(finalUserMessage?.content).toContain(input.modality.sessionStyleHint);
     expect(finalUserMessage?.content).toContain("avoid_diagnosis");
+    expect(finalUserMessage?.content).toContain("Zatwierdzone podsumowanie poprzedniej rozmowy.");
   });
 
   it("keeps recent context bounded and separate from the current message", () => {
@@ -95,6 +106,28 @@ describe("buildSessionResponseMessages", () => {
 
     expect(messages.at(-1)?.content).toContain("Typical reply shape");
     expect(messages.at(-1)?.content).toContain("ask one practical question");
+  });
+
+  it("keeps approved summaries capped at three and separate from raw prior messages", () => {
+    const messages = buildSessionResponseMessages({
+      ...input,
+      approvedSummaries: Array.from({ length: 5 }, (_, index) => ({
+        summaryText: `approved-summary-${index}-`.repeat(100),
+        revision: index + 1,
+        createdAt: "2026-06-07T09:00:00.000Z",
+      })),
+    });
+    const finalPayload = JSON.parse(messages.at(-1)?.content ?? "{}") as {
+      approvedPriorSessionSummaries?: { summaryText: string; revision: number }[];
+    };
+
+    expect(finalPayload.approvedPriorSessionSummaries).toHaveLength(3);
+    expect(finalPayload.approvedPriorSessionSummaries?.map((summary) => summary.revision)).toEqual([1, 2, 3]);
+    expect(finalPayload.approvedPriorSessionSummaries?.every((summary) => summary.summaryText.length <= 900)).toBe(
+      true,
+    );
+    expect(JSON.stringify(finalPayload)).not.toContain("rawPriorMessages");
+    expect(messages[0]?.content).toContain("Do not use raw prior-session messages as prior-session context");
   });
 });
 

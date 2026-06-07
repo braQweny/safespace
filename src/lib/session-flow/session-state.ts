@@ -1,7 +1,12 @@
 import { readTrialAvailability } from "@/lib/session-data/quota";
-import { getOwnedSessionMetadata, listOwnedSessionMessages } from "@/lib/session-data/repository";
+import {
+  getOwnedSessionMetadata,
+  listNewestApprovedSessionSummaryContexts,
+  listOwnedSessionMessages,
+} from "@/lib/session-data/repository";
 import type { SessionDataResult } from "@/lib/session-data/errors";
 import type {
+  ApprovedSessionSummaryContext,
   SessionDataContext,
   SessionId,
   SessionLifecycleStatus,
@@ -22,6 +27,7 @@ export type SessionStartPageStateKind =
   | "expired"
   | "completed"
   | "interrupted"
+  | "followup_ready"
   | "trial_already_claimed"
   | "unavailable";
 
@@ -51,12 +57,15 @@ export interface SessionStartPageState {
   session: SessionView | null;
   messages: SessionMessageView[];
   messageFetchFailed: boolean;
+  approvedSummaries: ApprovedSessionSummaryContext[];
+  canStartWithoutContext: boolean;
 }
 
 export interface SessionStateRepository {
   readTrialAvailability: typeof readTrialAvailability;
   getOwnedSessionMetadata: typeof getOwnedSessionMetadata;
   listOwnedSessionMessages: typeof listOwnedSessionMessages;
+  listNewestApprovedSessionSummaryContexts: typeof listNewestApprovedSessionSummaryContexts;
 }
 
 export interface ReadSessionStartPageStateOptions {
@@ -69,6 +78,7 @@ const defaultSessionStateRepository: SessionStateRepository = {
   readTrialAvailability,
   getOwnedSessionMetadata,
   listOwnedSessionMessages,
+  listNewestApprovedSessionSummaryContexts,
 };
 
 function parseTimestampMs(timestamp: string | null) {
@@ -157,6 +167,8 @@ function unavailableState(avatar: CurrentAvatarChoice): SessionStartPageState {
     session: null,
     messages: [],
     messageFetchFailed: false,
+    approvedSummaries: [],
+    canStartWithoutContext: false,
   };
 }
 
@@ -168,17 +180,24 @@ function readyState(avatar: CurrentAvatarChoice): SessionStartPageState {
     session: null,
     messages: [],
     messageFetchFailed: false,
+    approvedSummaries: [],
+    canStartWithoutContext: false,
   };
 }
 
-function claimedState(avatar: CurrentAvatarChoice): SessionStartPageState {
+function claimedState(
+  avatar: CurrentAvatarChoice,
+  approvedSummaries: ApprovedSessionSummaryContext[] = [],
+): SessionStartPageState {
   return {
-    kind: "trial_already_claimed",
+    kind: "followup_ready",
     trialAvailable: false,
     avatar,
     session: null,
     messages: [],
     messageFetchFailed: false,
+    approvedSummaries,
+    canStartWithoutContext: approvedSummaries.length === 0,
   };
 }
 
@@ -200,6 +219,12 @@ async function loadActiveMessages(
     messages: messages.data.map(toMessageView),
     messageFetchFailed: false,
   };
+}
+
+async function loadApprovedSummaryContext(context: SessionDataContext, repository: SessionStateRepository) {
+  const summaries = await repository.listNewestApprovedSessionSummaryContexts(context);
+
+  return summaries.ok ? summaries.data : [];
 }
 
 export async function readSessionStartPageState(
@@ -235,15 +260,27 @@ async function okSessionStartPageState(
   const sessionResult = await repository.getOwnedSessionMetadata(context, availability.existingClaim.sessionId);
 
   if (!sessionResult.ok) {
+    const approvedSummaries = await loadApprovedSummaryContext(context, repository);
+
     return {
       ok: true,
-      data: claimedState(options.avatar),
+      data: claimedState(options.avatar, approvedSummaries),
     };
   }
 
   const session = toSessionView(sessionResult.data, options.now);
   const stateKind = getStateKindFromSession(session);
-  const shouldLoadMessages = stateKind === "active" && options.includeMessagesForActive === true;
+
+  if (stateKind !== "active") {
+    const approvedSummaries = await loadApprovedSummaryContext(context, repository);
+
+    return {
+      ok: true,
+      data: claimedState(options.avatar, approvedSummaries),
+    };
+  }
+
+  const shouldLoadMessages = options.includeMessagesForActive === true;
   const messageState = shouldLoadMessages
     ? await loadActiveMessages(context, session.id, repository)
     : { messages: [], messageFetchFailed: false };
@@ -255,6 +292,8 @@ async function okSessionStartPageState(
       trialAvailable: false,
       avatar: options.avatar,
       session,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
       ...messageState,
     },
   };

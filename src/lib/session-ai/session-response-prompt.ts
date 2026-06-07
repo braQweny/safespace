@@ -2,11 +2,14 @@ import type { GenerateSessionResponseInput, SessionResponsePromptMessage } from 
 
 const MAX_RECENT_CONTEXT_MESSAGES = 8;
 const MAX_RECENT_MESSAGE_CHARS = 1_200;
+const MAX_APPROVED_SUMMARIES = 3;
+const MAX_APPROVED_SUMMARY_CHARS = 900;
 const MAX_CURRENT_USER_MESSAGE_CHARS = 3_000;
 const MAX_SESSION_STYLE_HINT_CHARS = 4_000;
 const MAX_CONSTRAINTS = 8;
 
 type RecentSessionAiMessage = NonNullable<GenerateSessionResponseInput["recentMessages"]>[number];
+type ApprovedSummaryContext = NonNullable<GenerateSessionResponseInput["approvedSummaries"]>[number];
 
 export const SESSION_RESPONSE_SYSTEM_PROMPT = [
   "You generate one natural SafeSpace session reply after a separate safety classifier has allowed ordinary continuation.",
@@ -39,7 +42,9 @@ export const SESSION_RESPONSE_SYSTEM_PROMPT = [
   "",
   "If the current user message indicates immediate danger, self-harm, harm to others, or urgent medical risk, stop ordinary simulation. Do not continue the session-style conversation. Tell the user to seek urgent local help, contact emergency services, or reach out to a trusted nearby person immediately.",
   "",
-  "Use only the bounded recent-message window provided to you. Do not invent previous sessions, summaries, memories, or facts about the user.",
+  "Use only the bounded recent-message window and the approved prior-session summaries provided to you. Do not invent previous sessions, hidden memories, summaries, or facts about the user.",
+  "",
+  "Approved prior-session summaries are user-visible continuity notes. Treat them as the user's approved context, not as diagnosis, verified fact, risk assessment, treatment plan, or hidden memory. Do not use raw prior-session messages as prior-session context.",
   "",
   "End in a way that naturally invites the next step in the conversation, not like a form or checklist.",
 ].join("\n");
@@ -74,6 +79,7 @@ function buildSessionResponseUserContent(input: GenerateSessionResponseInput) {
       id: trimAndLimit(constraint.id, 80),
       instruction: trimAndLimit(constraint.instruction, 360),
     })),
+    approvedPriorSessionSummaries: buildBoundedApprovedSummaries(input.approvedSummaries ?? []),
     locale: normalizeOptionalString(input.locale, 24) ?? "pl",
   });
 }
@@ -82,6 +88,18 @@ function buildBoundedRecentMessages(messages: readonly RecentSessionAiMessage[])
   return messages.slice(-MAX_RECENT_CONTEXT_MESSAGES).map((message) => ({
     role: message.role,
     content: trimAndLimit(message.content, MAX_RECENT_MESSAGE_CHARS),
+  }));
+}
+
+function buildBoundedApprovedSummaries(summaries: readonly ApprovedSummaryContext[]) {
+  return summaries.slice(0, MAX_APPROVED_SUMMARIES).map((summary) => ({
+    summaryText: trimAndLimit(summary.summaryText, MAX_APPROVED_SUMMARY_CHARS),
+    revision:
+      typeof summary.revision === "number" && Number.isFinite(summary.revision)
+        ? Math.round(summary.revision)
+        : undefined,
+    createdAt: normalizeOptionalString(summary.createdAt, 40),
+    updatedAt: normalizeOptionalString(summary.updatedAt, 40),
   }));
 }
 

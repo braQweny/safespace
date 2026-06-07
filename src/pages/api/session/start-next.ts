@@ -1,0 +1,170 @@
+import type { APIRoute } from "astro";
+import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
+import { FREE_TRIAL_DURATION_SECONDS, toSessionView } from "@/lib/session-flow/session-state";
+import { getSessionDataContext } from "@/lib/session-data/auth";
+import {
+  createPendingSession,
+  listNewestApprovedSessionSummaryContexts,
+  transitionSessionLifecycle,
+} from "@/lib/session-data/repository";
+import type { SessionDataErrorCode } from "@/lib/session-data/errors";
+import { logOperationalEvent } from "@/lib/operational-visibility/logger";
+import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
+import { buildSessionStartAttemptedEvent } from "@/lib/operational-visibility/session-events";
+
+type StartNextFailureCode =
+  | SessionDataErrorCode
+  | CurrentAvatarChoiceErrorCode
+  | "summary_context_unavailable"
+  | "no_context_not_confirmed"
+  | "session_start_failed";
+
+function wantsJson(request: Request) {
+  return request.headers.get("Accept")?.toLowerCase().includes("application/json") ?? false;
+}
+
+function jsonResponse(body: Record<string, unknown>, status: number) {
+  return Response.json(body, { status });
+}
+
+function redirectResponse(context: Parameters<APIRoute>[0], path: string) {
+  return context.redirect(path, 303);
+}
+
+function addSeconds(date: Date, seconds: number) {
+  return new Date(date.getTime() + seconds * 1000);
+}
+
+async function parseStartWithoutContext(request: Request) {
+  try {
+    const body: unknown = await request.json();
+
+    return (
+      body !== null && typeof body === "object" && "startWithoutContext" in body && body.startWithoutContext === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+function logStartAttempt(
+  outcome: "success" | "failure" | "blocked",
+  status: number,
+  startedAtMs: number,
+  operationalContext: Awaited<ReturnType<typeof buildOperationalRequestContext>>,
+) {
+  logOperationalEvent(
+    {
+      ...buildSessionStartAttemptedEvent({
+        outcome,
+        reasonCode: outcome === "success" ? undefined : "session_start_failed",
+        durationMs: getOperationalDurationMs(startedAtMs),
+      }),
+      status,
+    },
+    operationalContext,
+  );
+}
+
+function failureResponse(
+  context: Parameters<APIRoute>[0],
+  code: StartNextFailureCode,
+  status: number,
+  redirectTo: string,
+) {
+  if (!wantsJson(context.request)) {
+    return redirectResponse(context, redirectTo);
+  }
+
+  return jsonResponse(
+    {
+      ok: false,
+      code,
+      redirectTo,
+    },
+    status,
+  );
+}
+
+export const POST: APIRoute = async (context) => {
+  const startedAtMs = performance.now();
+  const operationalContext = await buildOperationalRequestContext(context);
+  const sessionContext = getSessionDataContext(context);
+
+  if (!sessionContext.ok) {
+    const status = sessionContext.error.code === "missing_auth" ? 401 : 503;
+    logStartAttempt("failure", status, startedAtMs, operationalContext);
+
+    return failureResponse(context, sessionContext.error.code, status, "/auth/signin");
+  }
+
+  const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
+
+  if (!avatarChoice.ok) {
+    const status = avatarChoice.error.code === "missing_avatar" ? 409 : 503;
+    logStartAttempt("blocked", status, startedAtMs, operationalContext);
+
+    return failureResponse(context, avatarChoice.error.code, status, "/dashboard/avatar");
+  }
+
+  const approvedContext = await listNewestApprovedSessionSummaryContexts(sessionContext.data);
+
+  if (!approvedContext.ok) {
+    logStartAttempt("failure", 503, startedAtMs, operationalContext);
+
+    return failureResponse(context, "summary_context_unavailable", 503, "/dashboard/session?start=unavailable");
+  }
+
+  if (approvedContext.data.length === 0 && !(await parseStartWithoutContext(context.request))) {
+    logStartAttempt("blocked", 409, startedAtMs, operationalContext);
+
+    return failureResponse(context, "no_context_not_confirmed", 409, "/dashboard/session?context=missing");
+  }
+
+  const startedAt = new Date();
+  const expiresAt = addSeconds(startedAt, FREE_TRIAL_DURATION_SECONDS);
+  const startedAtIso = startedAt.toISOString();
+  const expiresAtIso = expiresAt.toISOString();
+  const session = await createPendingSession(sessionContext.data, {
+    startedAt: startedAtIso,
+    expiresAt: expiresAtIso,
+    modalityId: avatarChoice.data.modality.modalityId,
+    avatarId: avatarChoice.data.modality.avatarId,
+    isTrial: false,
+    durationBucketSeconds: FREE_TRIAL_DURATION_SECONDS,
+  });
+
+  if (!session.ok) {
+    logStartAttempt("failure", 500, startedAtMs, operationalContext);
+
+    return failureResponse(context, "session_start_failed", 500, "/dashboard/session?start=failed");
+  }
+
+  const activeSession = await transitionSessionLifecycle(sessionContext.data, {
+    sessionId: session.data.id,
+    nextStatus: "active",
+    startedAt: startedAtIso,
+    expiresAt: expiresAtIso,
+    durationBucketSeconds: FREE_TRIAL_DURATION_SECONDS,
+  });
+
+  if (!activeSession.ok) {
+    logStartAttempt("failure", 500, startedAtMs, operationalContext);
+
+    return failureResponse(context, "session_start_failed", 500, "/dashboard/session?start=failed");
+  }
+
+  logStartAttempt("success", 201, startedAtMs, operationalContext);
+
+  if (!wantsJson(context.request)) {
+    return redirectResponse(context, "/dashboard/session?started=next");
+  }
+
+  return jsonResponse(
+    {
+      ok: true,
+      session: toSessionView(activeSession.data, startedAt),
+    },
+    201,
+  );
+};

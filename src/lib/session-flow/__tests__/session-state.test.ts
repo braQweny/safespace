@@ -92,6 +92,7 @@ function createRepository(overrides: Partial<SessionStateRepository> = {}): Sess
     ),
     getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(activeSession))),
     listOwnedSessionMessages: vi.fn(() => Promise.resolve(ok([message]))),
+    listNewestApprovedSessionSummaryContexts: vi.fn(() => Promise.resolve(ok([]))),
     ...overrides,
   };
 }
@@ -119,6 +120,8 @@ describe("readSessionStartPageState", () => {
         kind: "ready",
         trialAvailable: true,
         session: null,
+        approvedSummaries: [],
+        canStartWithoutContext: false,
       },
     });
   });
@@ -161,11 +164,13 @@ describe("readSessionStartPageState", () => {
             content: "Chce spokojnie opisac sytuacje.",
           },
         ],
+        approvedSummaries: [],
+        canStartWithoutContext: false,
       },
     });
   });
 
-  it("returns expired state when the claimed active session is past the server expiry", async () => {
+  it("returns follow-up preparation when the claimed active session is past the server expiry", async () => {
     const repository = createRepository({
       readTrialAvailability: vi.fn(() =>
         Promise.resolve(
@@ -183,6 +188,20 @@ describe("readSessionStartPageState", () => {
           }),
         ),
       ),
+      listNewestApprovedSessionSummaryContexts: vi.fn(() =>
+        Promise.resolve(
+          ok([
+            {
+              id: "summary-1",
+              sessionId: "session-1",
+              summaryText: "Zatwierdzone podsumowanie do kolejnej sesji.",
+              revision: 1,
+              createdAt: "2026-06-07T09:58:00.000Z",
+              updatedAt: "2026-06-07T09:58:00.000Z",
+            },
+          ]),
+        ),
+      ),
     });
 
     const result = await readSessionStartPageState(context, { avatar, now }, repository);
@@ -190,17 +209,20 @@ describe("readSessionStartPageState", () => {
     expect(result).toMatchObject({
       ok: true,
       data: {
-        kind: "expired",
+        kind: "followup_ready",
         trialAvailable: false,
-        session: {
-          status: "expired",
-          remainingSeconds: 0,
-        },
+        session: null,
+        approvedSummaries: [
+          {
+            summaryText: "Zatwierdzone podsumowanie do kolejnej sesji.",
+          },
+        ],
+        canStartWithoutContext: false,
       },
     });
   });
 
-  it("returns duplicate-trial state when a claim exists but metadata is unavailable", async () => {
+  it("returns follow-up no-context fallback when a claim exists but metadata is unavailable", async () => {
     const repository = createRepository({
       readTrialAvailability: vi.fn(() =>
         Promise.resolve(
@@ -218,9 +240,11 @@ describe("readSessionStartPageState", () => {
     expect(result).toMatchObject({
       ok: true,
       data: {
-        kind: "trial_already_claimed",
+        kind: "followup_ready",
         trialAvailable: false,
         session: null,
+        approvedSummaries: [],
+        canStartWithoutContext: true,
       },
     });
   });

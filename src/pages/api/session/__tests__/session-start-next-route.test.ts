@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
-import type { SessionDataContext, SessionMetadata, SessionTrialClaimState } from "@/lib/session-data/types";
+import type { ApprovedSessionSummaryContext, SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
 
 const getSessionDataContext = vi.fn();
 const readCurrentAvatarChoice = vi.fn();
-const readTrialAvailability = vi.fn();
-const claimFreeTrialSession = vi.fn();
+const createPendingSession = vi.fn();
+const listNewestApprovedSessionSummaryContexts = vi.fn();
 const transitionSessionLifecycle = vi.fn();
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
@@ -19,16 +19,15 @@ vi.mock("@/lib/session-flow/avatar-choice", () => ({
   readCurrentAvatarChoice,
 }));
 
-vi.mock("@/lib/session-data/quota", () => ({
-  readTrialAvailability,
-  claimFreeTrialSession,
-}));
-
 vi.mock("@/lib/session-data/repository", () => ({
-  transitionSessionLifecycle,
+  createPendingSession,
+  createSessionTrialClaim: vi.fn(),
   getOwnedSessionMetadata: vi.fn(),
+  getTrialAvailability: vi.fn(),
+  listNewestApprovedSessionSummaryContexts,
   listOwnedSessionMessages: vi.fn(),
-  listNewestApprovedSessionSummaryContexts: vi.fn(),
+  transitionSessionLifecycle,
+  updateSessionTombstone: vi.fn(),
 }));
 
 vi.mock("@/lib/operational-visibility/request-context", () => ({
@@ -40,7 +39,7 @@ vi.mock("@/lib/operational-visibility/logger", () => ({
   logOperationalEvent,
 }));
 
-const { POST } = await import("@/pages/api/session/start");
+const { POST } = await import("@/pages/api/session/start-next");
 
 const contextData = {
   user: {
@@ -70,8 +69,19 @@ const avatar = {
   },
 } satisfies CurrentAvatarChoice;
 
+const approvedSummaries: ApprovedSessionSummaryContext[] = [
+  {
+    id: "summary-1",
+    sessionId: "old-session-1",
+    summaryText: "Zatwierdzone podsumowanie do kolejnej rozmowy.",
+    revision: 1,
+    createdAt: "2026-06-07T09:00:00.000Z",
+    updatedAt: "2026-06-07T09:00:00.000Z",
+  },
+];
+
 const createdSession: SessionMetadata = {
-  id: "session-1",
+  id: "next-session-1",
   userId: "user-1",
   modalityId: "cbt",
   avatarId: "cbt-guide",
@@ -81,8 +91,8 @@ const createdSession: SessionMetadata = {
   expiresAt: "2026-06-07T10:15:00.000Z",
   deletedAt: null,
   deletionReasonCode: null,
-  isTrial: true,
-  trialClaimId: "claim-1",
+  isTrial: false,
+  trialClaimId: null,
   durationBucketSeconds: 900,
   createdAt: "2026-06-07T10:00:00.000Z",
   updatedAt: "2026-06-07T10:00:00.000Z",
@@ -93,20 +103,15 @@ const activeSession: SessionMetadata = {
   status: "active",
 };
 
-const claim: SessionTrialClaimState = {
-  id: "claim-1",
-  sessionId: "session-1",
-  userId: "user-1",
-  trialDurationSeconds: 900,
-  claimedAt: "2026-06-07T10:00:00.000Z",
-  createdAt: "2026-06-07T10:00:00.000Z",
-};
-
-function createContext(headers: HeadersInit = { Accept: "application/json" }) {
+function createContext(body?: unknown, accept = "application/json") {
   return {
-    request: new Request("https://safespace.local/api/session/start", {
+    request: new Request("https://safespace.local/api/session/start-next", {
       method: "POST",
-      headers,
+      headers: {
+        Accept: accept,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
     }),
     cookies: {},
     locals: {
@@ -115,7 +120,7 @@ function createContext(headers: HeadersInit = { Accept: "application/json" }) {
       },
       requestId: "req-1",
     },
-    url: new URL("https://safespace.local/api/session/start"),
+    url: new URL("https://safespace.local/api/session/start-next"),
     redirect: vi.fn((path: string, status?: number) => {
       const responseStatus = status ?? 302;
 
@@ -133,7 +138,7 @@ async function readJson(response: Response) {
   return response.json() as Promise<Record<string, unknown>>;
 }
 
-describe("POST /api/session/start", () => {
+describe("POST /api/session/start-next", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-07T10:00:00.000Z"));
@@ -141,42 +146,75 @@ describe("POST /api/session/start", () => {
 
     buildOperationalRequestContext.mockResolvedValue({
       requestId: "req-1",
-      route: "/api/session/start",
+      route: "/api/session/start-next",
       method: "POST",
       userHash: "hash-1",
     });
     getSessionDataContext.mockReturnValue(ok(contextData));
     readCurrentAvatarChoice.mockResolvedValue(ok(avatar));
-    readTrialAvailability.mockResolvedValue(
-      ok({
-        isAvailable: true,
-        existingClaim: null,
-      }),
-    );
-    claimFreeTrialSession.mockResolvedValue(
-      ok({
-        session: createdSession,
-        trialClaim: claim,
-      }),
-    );
+    listNewestApprovedSessionSummaryContexts.mockResolvedValue(ok(approvedSummaries));
+    createPendingSession.mockResolvedValue(ok(createdSession));
     transitionSessionLifecycle.mockResolvedValue(ok(activeSession));
   });
 
-  it("rejects missing auth before reading avatar or claiming the trial", async () => {
-    getSessionDataContext.mockReturnValue(sessionDataError("missing_auth"));
-
+  it("starts a non-trial follow-up session with the current avatar and approved context", async () => {
     const response = await POST(createContext() as never);
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(201);
     await expect(readJson(response)).resolves.toMatchObject({
-      ok: false,
-      code: "missing_auth",
+      ok: true,
+      session: {
+        id: "next-session-1",
+        status: "active",
+        isTrial: false,
+        remainingSeconds: 900,
+      },
     });
-    expect(readCurrentAvatarChoice).not.toHaveBeenCalled();
-    expect(claimFreeTrialSession).not.toHaveBeenCalled();
+    expect(listNewestApprovedSessionSummaryContexts).toHaveBeenCalledWith(contextData);
+    expect(createPendingSession).toHaveBeenCalledWith(contextData, {
+      startedAt: "2026-06-07T10:00:00.000Z",
+      expiresAt: "2026-06-07T10:15:00.000Z",
+      modalityId: "cbt",
+      avatarId: "cbt-guide",
+      isTrial: false,
+      durationBucketSeconds: 900,
+    });
+    expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
+      sessionId: "next-session-1",
+      nextStatus: "active",
+      startedAt: "2026-06-07T10:00:00.000Z",
+      expiresAt: "2026-06-07T10:15:00.000Z",
+      durationBucketSeconds: 900,
+    });
   });
 
-  it("returns the avatar prerequisite without claiming a session", async () => {
+  it("does not create trial claims or reset trial state", async () => {
+    await POST(createContext() as never);
+
+    expect(createPendingSession).toHaveBeenCalledOnce();
+    expect(JSON.stringify(createPendingSession.mock.calls)).not.toContain("session_trial_claims");
+    expect(JSON.stringify(transitionSessionLifecycle.mock.calls)).not.toContain("trialClaim");
+  });
+
+  it("requires an explicit no-context flag when no approved summaries exist", async () => {
+    listNewestApprovedSessionSummaryContexts.mockResolvedValue(ok([]));
+
+    const blocked = await POST(createContext() as never);
+
+    expect(blocked.status).toBe(409);
+    await expect(readJson(blocked)).resolves.toMatchObject({
+      ok: false,
+      code: "no_context_not_confirmed",
+    });
+    expect(createPendingSession).not.toHaveBeenCalled();
+
+    const allowed = await POST(createContext({ startWithoutContext: true }) as never);
+
+    expect(allowed.status).toBe(201);
+    expect(createPendingSession).toHaveBeenCalledOnce();
+  });
+
+  it("rejects missing avatar before creating a session", async () => {
     readCurrentAvatarChoice.mockResolvedValue({
       ok: false,
       error: {
@@ -190,75 +228,20 @@ describe("POST /api/session/start", () => {
     await expect(readJson(response)).resolves.toMatchObject({
       ok: false,
       code: "missing_avatar",
-      redirectTo: "/dashboard/avatar",
     });
-    expect(readTrialAvailability).not.toHaveBeenCalled();
-    expect(claimFreeTrialSession).not.toHaveBeenCalled();
+    expect(createPendingSession).not.toHaveBeenCalled();
   });
 
-  it("claims and activates exactly one 15-minute trial with the current avatar snapshot", async () => {
-    const response = await POST(createContext() as never);
-
-    expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toMatchObject({
-      ok: true,
-      session: {
-        id: "session-1",
-        status: "active",
-        remainingSeconds: 900,
-      },
-    });
-    expect(claimFreeTrialSession).toHaveBeenCalledWith(contextData, {
-      startedAt: "2026-06-07T10:00:00.000Z",
-      expiresAt: "2026-06-07T10:15:00.000Z",
-      modalityId: "cbt",
-      avatarId: "cbt-guide",
-    });
-    expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
-      sessionId: "session-1",
-      nextStatus: "active",
-      startedAt: "2026-06-07T10:00:00.000Z",
-      expiresAt: "2026-06-07T10:15:00.000Z",
-      durationBucketSeconds: 900,
-    });
-  });
-
-  it("does not call the claim helper when availability already shows a used trial", async () => {
-    readTrialAvailability.mockResolvedValue(
-      ok({
-        isAvailable: false,
-        existingClaim: claim,
-      }),
-    );
+  it("maps approved context read failures to a stable unavailable response", async () => {
+    listNewestApprovedSessionSummaryContexts.mockResolvedValue(sessionDataError("read_failed"));
 
     const response = await POST(createContext() as never);
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(503);
     await expect(readJson(response)).resolves.toMatchObject({
       ok: false,
-      code: "trial_already_claimed",
+      code: "summary_context_unavailable",
     });
-    expect(claimFreeTrialSession).not.toHaveBeenCalled();
-  });
-
-  it("maps a race-time duplicate claim to a stable duplicate state", async () => {
-    claimFreeTrialSession.mockResolvedValue(sessionDataError("trial_already_claimed"));
-
-    const response = await POST(createContext() as never);
-
-    expect(response.status).toBe(409);
-    await expect(readJson(response)).resolves.toMatchObject({
-      ok: false,
-      code: "trial_already_claimed",
-    });
-  });
-
-  it("redirects browser form posts after successful start", async () => {
-    const context = createContext({ Accept: "text/html" });
-
-    const response = await POST(context as never);
-
-    expect(response.status).toBe(303);
-    expect(response.headers.get("Location")).toBe("/dashboard/session?started=1");
+    expect(createPendingSession).not.toHaveBeenCalled();
   });
 });

@@ -449,36 +449,36 @@ Runtime configuration reuses server-only OpenRouter secrets. If a separate summa
 
 #### Automated
 
-- [x] 2.1 Route tests pass for summary `GET`, generate/retry, approval, missing auth, not-found, non-summarizable, provider failure, and approval failure.
-- [x] 2.2 Component tests confirm summary preview is visible only in detail, not in the history list.
-- [x] 2.3 Component tests confirm "use in next session" is explicit and summary editing is absent.
-- [x] 2.4 `npm run test` passes for summary route, helper, and component tests.
+- [x] 2.1 Route tests pass for summary `GET`, generate/retry, approval, missing auth, not-found, non-summarizable, provider failure, and approval failure. — 302e3cb
+- [x] 2.2 Component tests confirm summary preview is visible only in detail, not in the history list. — 302e3cb
+- [x] 2.3 Component tests confirm "use in next session" is explicit and summary editing is absent. — 302e3cb
+- [x] 2.4 `npm run test` passes for summary route, helper, and component tests. — 302e3cb
 
 #### Manual
 
-- [x] 2.5 On `/dashboard/avatar`, opening a completed/expired/interrupted conversation shows summary controls.
-- [x] 2.6 Generate summary shows a preview that clearly says it may be used as context only after approval.
-- [x] 2.7 Approval changes the state to "will be used in next session" or equivalent clear copy.
-- [x] 2.8 Retry state appears when generation fails and does not approve hidden context.
-- [x] 2.9 Active or empty conversations cannot be summarized.
+- [x] 2.5 On `/dashboard/avatar`, opening a completed/expired/interrupted conversation shows summary controls. — 302e3cb
+- [x] 2.6 Generate summary shows a preview that clearly says it may be used as context only after approval. — 302e3cb
+- [x] 2.7 Approval changes the state to "will be used in next session" or equivalent clear copy. — 302e3cb
+- [x] 2.8 Retry state appears when generation fails and does not approve hidden context. — 302e3cb
+- [x] 2.9 Active or empty conversations cannot be summarized. — 302e3cb
 
 ### Phase 3: Summary-Backed Next Session Flow
 
 #### Automated
 
-- [ ] 3.1 Route tests confirm `/api/session/start` still blocks duplicate free trial and `/api/session/start-next` starts only non-trial sessions.
-- [ ] 3.2 Route tests confirm follow-up start does not call `claimFreeTrialSession()` and does not reset `session_trial_claims`.
-- [ ] 3.3 Prompt tests confirm only approved summaries are included, capped at 3, and raw prior messages are not used as prior-session context.
-- [ ] 3.4 Message route tests confirm `evaluateSessionSafety()` still runs before ordinary generation.
-- [ ] 3.5 `npm run test` passes for session state, start, message, prompt, and UI tests.
+- [x] 3.1 Route tests confirm `/api/session/start` still blocks duplicate free trial and `/api/session/start-next` starts only non-trial sessions.
+- [x] 3.2 Route tests confirm follow-up start does not call `claimFreeTrialSession()` and does not reset `session_trial_claims`.
+- [x] 3.3 Prompt tests confirm only approved summaries are included, capped at 3, and raw prior messages are not used as prior-session context.
+- [x] 3.4 Message route tests confirm `evaluateSessionSafety()` still runs before ordinary generation.
+- [x] 3.5 `npm run test` passes for session state, start, message, prompt, and UI tests.
 
 #### Manual
 
-- [ ] 3.6 `/dashboard/session` still lets a new user start the first 15-minute trial by explicit action.
-- [ ] 3.7 A user who already used the trial sees a follow-up preparation state instead of only a dead-end trial-used state.
-- [ ] 3.8 Approved summaries shown on `/dashboard/session` match what the user approved in history.
-- [ ] 3.9 Starting without context is possible only through explicit no-context copy/action.
-- [ ] 3.10 Follow-up conversation runs with the same visible timer and response-progress UX as S-04.
+- [x] 3.6 `/dashboard/session` still lets a new user start the first 15-minute trial by explicit action.
+- [x] 3.7 A user who already used the trial sees a follow-up preparation state instead of only a dead-end trial-used state.
+- [x] 3.8 Approved summaries shown on `/dashboard/session` match what the user approved in history.
+- [x] 3.9 Starting without context is possible only through explicit no-context copy/action.
+- [x] 3.10 Follow-up conversation runs with the same visible timer and response-progress UX as S-04.
 
 ### Phase 4: Tests, Sweeps, Verification
 

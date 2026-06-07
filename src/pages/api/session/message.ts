@@ -7,6 +7,7 @@ import { evaluateSessionSafety } from "@/lib/session-safety/evaluate-session-saf
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import {
   getOwnedSessionMetadata,
+  listNewestApprovedSessionSummaryContexts,
   listOwnedSessionMessages,
   transitionSessionLifecycle,
 } from "@/lib/session-data/repository";
@@ -226,6 +227,12 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
+  const approvedSummaries = await listNewestApprovedSessionSummaryContexts(sessionContext.data);
+
+  if (!approvedSummaries.ok) {
+    return jsonResponse(unavailableResponse(), 503);
+  }
+
   let assistantText: string;
 
   try {
@@ -239,6 +246,12 @@ export const POST: APIRoute = async (context) => {
         },
         cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
         recentMessages: toRecentSessionAiMessages(recentMessages.data),
+        approvedSummaries: approvedSummaries.data.map((summary) => ({
+          summaryText: summary.summaryText,
+          revision: summary.revision,
+          createdAt: summary.createdAt,
+          updatedAt: summary.updatedAt,
+        })),
         locale: "pl",
       },
       undefined,

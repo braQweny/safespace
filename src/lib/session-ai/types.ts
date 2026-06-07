@@ -10,6 +10,13 @@ export interface SessionAiRecentMessage {
   sequenceIndex?: number;
 }
 
+export interface SessionAiApprovedSummaryContext {
+  summaryText: string;
+  createdAt?: string;
+  updatedAt?: string;
+  revision?: number;
+}
+
 export interface SessionAiModalityContext {
   modalityName: string;
   avatarName: string;
@@ -26,6 +33,7 @@ export interface GenerateSessionResponseInput {
   modality: SessionAiModalityContext;
   cautionConstraints?: readonly SessionAiConstraint[];
   recentMessages?: readonly SessionAiRecentMessage[];
+  approvedSummaries?: readonly SessionAiApprovedSummaryContext[];
   locale?: string;
 }
 

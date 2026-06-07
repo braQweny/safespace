@@ -9,6 +9,7 @@ import type { PersistedMessageTurn } from "@/lib/session-flow/message-persistenc
 const getSessionDataContext = vi.fn();
 const getOwnedSessionMetadata = vi.fn();
 const listOwnedSessionMessages = vi.fn();
+const listNewestApprovedSessionSummaryContexts = vi.fn();
 const transitionSessionLifecycle = vi.fn();
 const evaluateSessionSafety = vi.fn();
 const generateSessionResponse = vi.fn();
@@ -23,6 +24,7 @@ vi.mock("@/lib/session-data/auth", () => ({
 vi.mock("@/lib/session-data/repository", () => ({
   getOwnedSessionMetadata,
   listOwnedSessionMessages,
+  listNewestApprovedSessionSummaryContexts,
   transitionSessionLifecycle,
   appendSessionMessages: vi.fn(),
 }));
@@ -204,6 +206,18 @@ describe("POST /api/session/message", () => {
     getSessionDataContext.mockReturnValue(ok(contextData));
     getOwnedSessionMetadata.mockResolvedValue(ok(activeSession));
     listOwnedSessionMessages.mockResolvedValue(ok([existingMessage]));
+    listNewestApprovedSessionSummaryContexts.mockResolvedValue(
+      ok([
+        {
+          id: "summary-1",
+          sessionId: "previous-session-1",
+          summaryText: "Uzytkownik zatwierdzil kontekst o napieciu przed rozmowa w pracy.",
+          revision: 1,
+          createdAt: "2026-06-07T09:00:00.000Z",
+          updatedAt: "2026-06-07T09:00:00.000Z",
+        },
+      ]),
+    );
     transitionSessionLifecycle.mockResolvedValue(ok({ ...activeSession, status: "interrupted" }));
     evaluateSessionSafety.mockResolvedValue(allowDecision);
     generateSessionResponse.mockResolvedValue({
@@ -244,6 +258,14 @@ describe("POST /api/session/message", () => {
       avatarName: "Marek, praktyczny przewodnik",
     });
     expect(generationInput.modality.sessionStyleHint).toContain("Avatar: Marek");
+    expect(generationInput.approvedSummaries).toEqual([
+      {
+        summaryText: "Uzytkownik zatwierdzil kontekst o napieciu przed rozmowa w pracy.",
+        revision: 1,
+        createdAt: "2026-06-07T09:00:00.000Z",
+        updatedAt: "2026-06-07T09:00:00.000Z",
+      },
+    ]);
     expect(providerArg).toBeUndefined();
     expect(optionsArg).toMatchObject({
       timeoutMs: 12000,
@@ -300,6 +322,7 @@ describe("POST /api/session/message", () => {
       contextData,
       expect.objectContaining({ nextStatus: "interrupted" }),
     );
+    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
     expect(generateSessionResponse).not.toHaveBeenCalled();
     expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
   });
@@ -315,6 +338,22 @@ describe("POST /api/session/message", () => {
       type: "hard_stop",
       code: "safety_stop",
     });
+    expect(generateSessionResponse).not.toHaveBeenCalled();
+    expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
+  });
+
+  it("returns unavailable when approved summary context cannot be loaded after safety allow", async () => {
+    listNewestApprovedSessionSummaryContexts.mockResolvedValue(sessionDataError("read_failed"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(503);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      type: "session_not_active",
+      code: "session_unavailable",
+    });
+    expect(evaluateSessionSafety).toHaveBeenCalled();
     expect(generateSessionResponse).not.toHaveBeenCalled();
     expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
   });
