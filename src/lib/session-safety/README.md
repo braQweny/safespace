@@ -22,3 +22,9 @@ Ten katalog nie dodaje chat UI, timera, tras `/api/session` ani `/api/chat`, str
 - `caution` zwraca `allow_with_constraints`, z ograniczeniami przeciw diagnozie, ryzykownym instrukcjom i preskrypcyjnym twierdzeniom terapeutycznym.
 - `crisis` zwraca `hard_stop`, zatrzymuje zwykla symulacje i udostepnia zasoby dla Polski, Stanow Zjednoczonych oraz lokalny fallback.
 - Fail-closed rowniez zwraca `hard_stop`, ale z kopia o niedostepnej granicy bezpieczenstwa zamiast komunikatu sugerujacego rozpoznanie ryzyka.
+
+## Handoff dla F-03
+
+F-03 udostepnia sesyjne zdarzenia operacyjne w `../operational-visibility/session-events.ts`. Przyszly S-04 powinien logowac wynik `evaluateSessionSafety()` przez te helpery, uzywajac tylko `riskState`, `action`, `reasonCode`, `durationMs`, `requestId` i opcjonalnego `userHash`.
+
+Nie przekazuj do logow operacyjnych tekstu uzytkownika, promptow, payloadow providera, tresci decyzji klasyfikatora, kopii kryzysowej ani danych wyboru nurtu lub avatara.

@@ -516,37 +516,37 @@ No Supabase migration is required. This plan intentionally avoids a database eve
 
 #### Automated
 
-- [x] 3.1 `npx astro sync` completes successfully.
-- [x] 3.2 `npm run lint` completes successfully.
-- [x] 3.3 `npm run build` completes successfully.
-- [x] 3.4 Source search confirms auth instrumentation does not pass `email`, `password`, `confirmPassword`, callback `code`, provider URL, or raw `error.message` into `logOperationalEvent`.
-- [x] 3.5 Source search confirms avatar instrumentation does not pass `modalityId`, `avatarId`, selected row data, SQL details, or raw `error` objects into `logOperationalEvent`.
-- [x] 3.6 Source search confirms no new `console.log` calls were added outside the operational visibility logger and approved tests.
+- [x] 3.1 `npx astro sync` completes successfully. — c14a3f6
+- [x] 3.2 `npm run lint` completes successfully. — c14a3f6
+- [x] 3.3 `npm run build` completes successfully. — c14a3f6
+- [x] 3.4 Source search confirms auth instrumentation does not pass `email`, `password`, `confirmPassword`, callback `code`, provider URL, or raw `error.message` into `logOperationalEvent`. — c14a3f6
+- [x] 3.5 Source search confirms avatar instrumentation does not pass `modalityId`, `avatarId`, selected row data, SQL details, or raw `error` objects into `logOperationalEvent`. — c14a3f6
+- [x] 3.6 Source search confirms no new `console.log` calls were added outside the operational visibility logger and approved tests. — c14a3f6
 
 #### Manual
 
-- [x] 3.7 Sign-in/sign-up/OAuth/password/sign-out failures are diagnosable by safe event names and reason codes.
-- [x] 3.8 Avatar fetch/save failures are diagnosable by safe event names and reason codes.
-- [x] 3.9 A developer reading Worker logs cannot infer a user's email, selected modality, conversation content, cookies, or provider tokens from F-03 events.
-- [x] 3.10 Existing auth and avatar user-facing behavior remains unchanged.
+- [x] 3.7 Sign-in/sign-up/OAuth/password/sign-out failures are diagnosable by safe event names and reason codes. — c14a3f6
+- [x] 3.8 Avatar fetch/save failures are diagnosable by safe event names and reason codes. — c14a3f6
+- [x] 3.9 A developer reading Worker logs cannot infer a user's email, selected modality, conversation content, cookies, or provider tokens from F-03 events. — c14a3f6
+- [x] 3.10 Existing auth and avatar user-facing behavior remains unchanged. — c14a3f6
 
 ### Phase 4: Future S-04/F-02 Observability Contract
 
 #### Automated
 
-- [ ] 4.1 `npx astro sync` completes successfully.
-- [ ] 4.2 `npm run lint` completes successfully.
-- [ ] 4.3 `npm run build` completes successfully.
-- [ ] 4.4 Source search confirms no new `/api/session`, `/api/chat`, timer, history, summary, or AI response route was added.
-- [ ] 4.5 Source search confirms session event helpers reject or omit `message`, `prompt`, `content`, `summary`, `email`, `token`, `cookie`, `authorization`, raw provider payloads, and raw errors.
-- [ ] 4.6 Source search confirms no helper accepts `modalityId` or `avatarId` as log metadata.
+- [x] 4.1 `npx astro sync` completes successfully.
+- [x] 4.2 `npm run lint` completes successfully.
+- [x] 4.3 `npm run build` completes successfully.
+- [x] 4.4 Source search confirms no new `/api/session`, `/api/chat`, timer, history, summary, or AI response route was added.
+- [x] 4.5 Source search confirms session event helpers reject or omit `message`, `prompt`, `content`, `summary`, `email`, `token`, `cookie`, `authorization`, raw provider payloads, and raw errors.
+- [x] 4.6 Source search confirms no helper accepts `modalityId` or `avatarId` as log metadata.
 
 #### Manual
 
-- [ ] 4.7 Future S-04 implementers have clear event names for start, safety, provider failure, time-limit, and completion states.
-- [ ] 4.8 `safety_evaluated` exposes only coarse safe state/action/reason metadata, not private text.
-- [ ] 4.9 F-03 still does not implement a visible chat/session feature.
-- [ ] 4.10 S-07 remains responsible for any admin-facing aggregate view; raw operational logs are not exposed through the app.
+- [x] 4.7 Future S-04 implementers have clear event names for start, safety, provider failure, time-limit, and completion states.
+- [x] 4.8 `safety_evaluated` exposes only coarse safe state/action/reason metadata, not private text.
+- [x] 4.9 F-03 still does not implement a visible chat/session feature.
+- [x] 4.10 S-07 remains responsible for any admin-facing aggregate view; raw operational logs are not exposed through the app.
 
 ### Phase 5: Tests, Sweeps, And Docs
 
