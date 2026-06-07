@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, MessageSquareText, RotateCw, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Loader2,
+  MessageSquareText,
+  RotateCw,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionHistoryDetail, SessionHistoryListItem, SessionHistoryPagination } from "@/lib/session-data/types";
 import type {
@@ -8,6 +19,12 @@ import type {
   SessionHistoryFailureCode,
   SessionHistoryListResponse,
 } from "@/lib/session-flow/session-history-contract";
+import type {
+  SessionSummaryApproveResponse,
+  SessionSummaryFailureCode,
+  SessionSummaryGenerateResponse,
+  SessionSummaryResponse,
+} from "@/lib/session-flow/session-summary-contract";
 import type { UiSessionMessage } from "@/lib/session-flow/message-state";
 import { cn } from "@/lib/utils";
 import SessionMessages from "@/components/session/SessionMessages";
@@ -48,6 +65,18 @@ const errorCopy: Record<SessionHistoryFailureCode, string> = {
   session_data_unavailable: "Historia rozmów jest chwilowo niedostępna.",
 };
 
+const summaryErrorCopy: Record<SessionSummaryFailureCode, string> = {
+  missing_auth: "Musisz być zalogowany, żeby zarządzać podsumowaniem.",
+  session_data_unavailable: "Podsumowania są chwilowo niedostępne.",
+  session_not_found: "Nie znaleziono tej rozmowy albo została już usunięta.",
+  session_not_summarizable: "Tę rozmowę można podsumować dopiero po zakończeniu, przerwaniu albo wygaśnięciu.",
+  summary_unavailable: "Nie znaleziono podsumowania do zatwierdzenia.",
+  generation_failed: "Nie udało się zapisać podsumowania. Spróbuj ponownie za chwilę.",
+  approval_failed: "Nie udało się zatwierdzić podsumowania. Spróbuj ponownie za chwilę.",
+  read_failed: "Nie udało się odczytać podsumowania. Spróbuj ponownie za chwilę.",
+  provider_unavailable: "Nie udało się wygenerować podsumowania. Możesz spróbować ponownie później.",
+};
+
 function getHistoryKey(avatarId: string | null, page: number) {
   return avatarId ? `${avatarId}:${page}` : null;
 }
@@ -68,6 +97,18 @@ function isDeleteSuccess(
   response: SessionHistoryDeleteResponse,
 ): response is Extract<SessionHistoryDeleteResponse, { ok: true }> {
   return response.ok;
+}
+
+function isSummaryGeneratedSuccess(
+  response: SessionSummaryResponse,
+): response is Extract<SessionSummaryResponse, { type: "session_summary_generated" }> {
+  return response.ok && response.type === "session_summary_generated";
+}
+
+function isSummaryApprovedSuccess(
+  response: SessionSummaryResponse,
+): response is Extract<SessionSummaryResponse, { type: "session_summary_approved" }> {
+  return response.ok && response.type === "session_summary_approved";
 }
 
 function getInitialState(
@@ -197,6 +238,13 @@ export default function AvatarSessionHistory({
   const [detailStatus, setDetailStatus] = useState<"idle" | "loading" | "error" | "ready">(
     initialDetail ? "ready" : "idle",
   );
+  const [summaryState, setSummaryState] = useState<SessionHistoryDetail["summary"]>(
+    initialDetail?.summary ?? {
+      kind: "none",
+    },
+  );
+  const [summaryStatus, setSummaryStatus] = useState<"idle" | "generating" | "approving">("idle");
+  const [summaryErrorCode, setSummaryErrorCode] = useState<SessionSummaryFailureCode | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(initialConfirmSessionId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -303,16 +351,96 @@ export default function AvatarSessionHistory({
       if (!isDetailSuccess(body)) {
         setDetail(null);
         setDetailStatus("error");
+        setSummaryState({
+          kind: "none",
+        });
+        setSummaryErrorCode(null);
         setNotice(errorCopy[body.code]);
         return;
       }
 
       setDetail(body.detail);
+      setSummaryState(body.detail.summary);
+      setSummaryErrorCode(null);
       setDetailStatus("ready");
     } catch {
       setDetail(null);
       setDetailStatus("error");
+      setSummaryState({
+        kind: "none",
+      });
+      setSummaryErrorCode(null);
       setNotice(errorCopy.read_failed);
+    }
+  }
+
+  async function generateSummary() {
+    if (!detail) {
+      return;
+    }
+
+    setSummaryStatus("generating");
+    setSummaryErrorCode(null);
+
+    try {
+      const response = await fetch(`/api/session/summary/${encodeURIComponent(detail.session.id)}`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      const body = await readJson<SessionSummaryGenerateResponse>(response);
+
+      if (!isSummaryGeneratedSuccess(body)) {
+        setSummaryErrorCode(body.code);
+        return;
+      }
+
+      setSummaryState({
+        kind: "preview",
+        summary: body.summary,
+      });
+    } catch {
+      setSummaryErrorCode("provider_unavailable");
+    } finally {
+      setSummaryStatus("idle");
+    }
+  }
+
+  async function approveSummary() {
+    if (!detail || summaryState.kind === "none") {
+      return;
+    }
+
+    setSummaryStatus("approving");
+    setSummaryErrorCode(null);
+
+    try {
+      const response = await fetch(`/api/session/summary/${encodeURIComponent(detail.session.id)}`, {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          revision: summaryState.summary.revision,
+        }),
+      });
+      const body = await readJson<SessionSummaryApproveResponse>(response);
+
+      if (!isSummaryApprovedSuccess(body)) {
+        setSummaryErrorCode(body.code);
+        return;
+      }
+
+      setSummaryState({
+        kind: "approved",
+        summary: body.summary,
+      });
+    } catch {
+      setSummaryErrorCode("approval_failed");
+    } finally {
+      setSummaryStatus("idle");
     }
   }
 
@@ -344,6 +472,10 @@ export default function AvatarSessionHistory({
       if (detail?.session.id === sessionId) {
         setDetail(null);
         setDetailStatus("idle");
+        setSummaryState({
+          kind: "none",
+        });
+        setSummaryErrorCode(null);
       }
 
       if (selectedAvatar) {
@@ -368,6 +500,13 @@ export default function AvatarSessionHistory({
   const activePage = history.pagination?.page ?? page;
   const canGoBack = history.pagination?.hasPreviousPage ?? activePage > 1;
   const canGoForward = history.pagination?.hasNextPage ?? false;
+  const canSummarizeDetail =
+    detail !== null &&
+    detail.messages.length > 0 &&
+    (detail.session.status === "completed" ||
+      detail.session.status === "expired" ||
+      detail.session.status === "interrupted");
+  const summaryIsBusy = summaryStatus !== "idle";
 
   return (
     <section className="mt-8 rounded-lg border border-[#c8ddd7] bg-white p-5 shadow-[0_18px_46px_rgba(24,78,70,0.10)]">
@@ -542,12 +681,95 @@ export default function AvatarSessionHistory({
             ) : null}
 
             {detail && selectedAvatar ? (
-              <div className="mt-4">
+              <div className="mt-4 space-y-4">
                 <SessionMessages
                   messages={detailMessages}
                   assistantAvatar={selectedAvatar}
                   emptyCopy="Ta rozmowa nie ma zapisanych wiadomości."
                 />
+                <div className="rounded-lg border border-[#c8ddd7] bg-white p-4 text-sm leading-6 text-[#38524b]">
+                  <div className="flex items-start gap-3">
+                    <FileText aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[#1f6f65]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-[#10231f]">Podsumowanie do kolejnej sesji</p>
+                      {summaryState.kind === "none" ? (
+                        <p className="mt-1 text-[#52645f]">
+                          Brak zatwierdzonego podsumowania dla tej rozmowy. Kontekst kolejnej sesji powstanie dopiero po
+                          wygenerowaniu preview i świadomym zatwierdzeniu.
+                        </p>
+                      ) : null}
+                      {summaryState.kind !== "none" ? (
+                        <div className="mt-3 rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-3">
+                          <p className="text-xs font-semibold tracking-wide text-[#1f6f65] uppercase">
+                            {summaryState.kind === "approved"
+                              ? "Zatwierdzone"
+                              : summaryState.kind === "stale"
+                                ? "Nieaktualne"
+                                : "Preview do zatwierdzenia"}
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap text-[#10231f]">{summaryState.summary.summaryText}</p>
+                          {summaryState.kind === "approved" ? (
+                            <p className="mt-2 text-[#52645f]">
+                              To podsumowanie może zostać użyte jako jawny kontekst późniejszej rozmowy.
+                            </p>
+                          ) : null}
+                          {summaryState.kind === "preview" ? (
+                            <p className="mt-2 text-[#52645f]">
+                              Zobacz treść przed użyciem. Dopiero przycisk „Użyj w kolejnej sesji” pozwoli użyć tej
+                              rewizji jako kontekstu.
+                            </p>
+                          ) : null}
+                          {summaryState.kind === "stale" ? (
+                            <p className="mt-2 text-[#52645f]">
+                              Ta rewizja nie będzie używana jako kontekst kolejnej sesji.
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {summaryErrorCode ? (
+                        <div className="mt-3 flex gap-2 rounded-lg border border-[#f0c7c7] bg-[#fff8f8] p-3 text-[#7d2d2d]">
+                          <AlertCircle aria-hidden="true" className="mt-1 h-4 w-4 shrink-0" />
+                          <p>{summaryErrorCopy[summaryErrorCode]}</p>
+                        </div>
+                      ) : null}
+                      {!canSummarizeDetail ? (
+                        <p className="mt-3 text-[#52645f]">Aktywne albo puste rozmowy nie mogą zostać podsumowane.</p>
+                      ) : null}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={!canSummarizeDetail || summaryIsBusy}
+                          onClick={() => {
+                            void generateSummary();
+                          }}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-3 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {summaryStatus === "generating" ? (
+                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles aria-hidden="true" className="h-4 w-4" />
+                          )}
+                          {summaryState.kind === "none" ? "Generuj podsumowanie" : "Wygeneruj ponownie"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={summaryState.kind === "none" || summaryState.kind === "approved" || summaryIsBusy}
+                          onClick={() => {
+                            void approveSummary();
+                          }}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-3 text-sm font-medium text-white transition-colors hover:bg-[#185a52] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9bb9b3]"
+                        >
+                          {summaryStatus === "approving" ? (
+                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+                          )}
+                          Użyj w kolejnej sesji
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : detailStatus === "idle" ? (
               <div className="mt-4 rounded-lg border border-[#d7e5e0] bg-white p-4 text-sm leading-6 text-[#52645f]">

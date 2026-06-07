@@ -88,6 +88,9 @@ const detailResponse = {
         createdAt: "2026-06-07T10:01:00.000Z",
       },
     ],
+    summary: {
+      kind: "none",
+    },
   },
 } satisfies SessionHistoryDetailResponse;
 

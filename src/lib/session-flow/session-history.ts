@@ -1,5 +1,9 @@
 import { getModalityByAvatarId, toSelectedModalityAvatar } from "@/lib/modalities";
-import { getOwnedSessionHistoryDetail, listOwnedSessionHistoryPage } from "@/lib/session-data/repository";
+import {
+  getLatestOwnedSessionSummaryState,
+  getOwnedSessionHistoryDetail,
+  listOwnedSessionHistoryPage,
+} from "@/lib/session-data/repository";
 import {
   SESSION_HISTORY_PAGE_SIZE,
   type DeletedSessionTombstone,
@@ -24,6 +28,7 @@ import {
 export interface SessionHistoryRepository {
   listOwnedSessionHistoryPage: typeof listOwnedSessionHistoryPage;
   getOwnedSessionHistoryDetail: typeof getOwnedSessionHistoryDetail;
+  getLatestOwnedSessionSummaryState: typeof getLatestOwnedSessionSummaryState;
 }
 
 export interface ReadSessionHistoryListInput {
@@ -40,6 +45,7 @@ type PageParseResult = { ok: true; page: number } | { ok: false; code: "invalid_
 const defaultSessionHistoryRepository: SessionHistoryRepository = {
   listOwnedSessionHistoryPage,
   getOwnedSessionHistoryDetail,
+  getLatestOwnedSessionSummaryState,
 };
 
 function parseTimestampMs(timestamp: string | null) {
@@ -134,7 +140,10 @@ function toSessionHistoryMessage(message: SessionMessageRecord): SessionHistoryM
   };
 }
 
-function toSessionHistoryDetail(detail: OwnedSessionHistoryDetail): SessionHistoryDetail | null {
+function toSessionHistoryDetail(
+  detail: OwnedSessionHistoryDetail,
+  summary: SessionHistoryDetail["summary"],
+): SessionHistoryDetail | null {
   const session = toSessionHistoryListItem(detail.session);
 
   if (!session) {
@@ -144,6 +153,7 @@ function toSessionHistoryDetail(detail: OwnedSessionHistoryDetail): SessionHisto
   return {
     session,
     messages: [...detail.messages].sort(compareMessagesBySequence).map(toSessionHistoryMessage),
+    summary,
   };
 }
 
@@ -214,7 +224,13 @@ export async function readSessionHistoryDetail(
     return sessionHistoryFailure(mapSessionDataCode(detail.error.code));
   }
 
-  const safeDetail = toSessionHistoryDetail(detail.data);
+  const summary = await repository.getLatestOwnedSessionSummaryState(context, sessionId);
+
+  if (!summary.ok) {
+    return sessionHistoryFailure(mapSessionDataCode(summary.error.code));
+  }
+
+  const safeDetail = toSessionHistoryDetail(detail.data, summary.data);
 
   if (!safeDetail) {
     return sessionHistoryFailure("session_not_found");

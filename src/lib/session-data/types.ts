@@ -264,4 +264,5 @@ export interface SessionHistoryMessage {
 export interface SessionHistoryDetail {
   session: SessionHistoryListItem;
   messages: SessionHistoryMessage[];
+  summary: LatestSessionSummaryState;
 }

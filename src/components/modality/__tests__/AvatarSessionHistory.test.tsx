@@ -84,6 +84,9 @@ describe("AvatarSessionHistory", () => {
           createdAt: "2026-06-07T10:00:00.000Z",
         },
       ],
+      summary: {
+        kind: "none",
+      },
     };
     const html = renderHistory({
       initialDetail: detail,
@@ -97,6 +100,117 @@ describe("AvatarSessionHistory", () => {
     expect(html).toContain("Pelny zapis rozmowy");
     expect(html).not.toContain("Wyślij");
     expect(html).not.toContain("Rozpocznij");
+  });
+
+  it("renders summary preview only in detail and requires explicit approval", () => {
+    const html = renderHistory({
+      initialDetail: {
+        session: createHistoryItem(1),
+        messages: [
+          {
+            id: "message-1",
+            role: "user",
+            sequenceIndex: 1,
+            content: "Pelny zapis rozmowy widoczny tylko po otwarciu.",
+            createdAt: "2026-06-07T10:00:00.000Z",
+          },
+        ],
+        summary: {
+          kind: "preview",
+          summary: {
+            id: "summary-1",
+            sessionId: "session-1",
+            summaryText: "Widoczne podsumowanie do sprawdzenia przed uzyciem.",
+            status: "draft",
+            isVisible: true,
+            revision: 1,
+            createdAt: "2026-06-07T10:12:00.000Z",
+            updatedAt: "2026-06-07T10:12:00.000Z",
+          },
+        },
+      },
+    });
+
+    expect(html).toContain("Preview do zatwierdzenia");
+    expect(html).toContain("Widoczne podsumowanie do sprawdzenia przed uzyciem.");
+    expect(html).toContain("Użyj w kolejnej sesji");
+    expect(html).not.toContain("Edytuj");
+  });
+
+  it("renders approved, stale, retry, and non-summarizable summary states without list leakage", () => {
+    const approvedHtml = renderHistory({
+      initialDetail: {
+        session: createHistoryItem(1),
+        messages: [
+          {
+            id: "message-1",
+            role: "assistant",
+            sequenceIndex: 1,
+            content: "Pelny zapis detail.",
+            createdAt: "2026-06-07T10:00:00.000Z",
+          },
+        ],
+        summary: {
+          kind: "approved",
+          summary: {
+            id: "summary-1",
+            sessionId: "session-1",
+            summaryText: "Zatwierdzone podsumowanie widoczne tylko w detail.",
+            status: "ready",
+            isVisible: true,
+            revision: 1,
+            createdAt: "2026-06-07T10:12:00.000Z",
+            updatedAt: "2026-06-07T10:12:00.000Z",
+          },
+        },
+      },
+    });
+    const staleHtml = renderHistory({
+      initialDetail: {
+        session: createHistoryItem(1),
+        messages: [
+          {
+            id: "message-1",
+            role: "assistant",
+            sequenceIndex: 1,
+            content: "Pelny zapis detail.",
+            createdAt: "2026-06-07T10:00:00.000Z",
+          },
+        ],
+        summary: {
+          kind: "stale",
+          summary: {
+            id: "summary-2",
+            sessionId: "session-1",
+            summaryText: "Nieaktualne podsumowanie widoczne tylko w detail.",
+            status: "stale",
+            isVisible: true,
+            revision: 2,
+            createdAt: "2026-06-07T10:13:00.000Z",
+            updatedAt: "2026-06-07T10:13:00.000Z",
+          },
+        },
+      },
+    });
+    const nonSummarizableHtml = renderHistory({
+      initialDetail: {
+        session: {
+          ...createHistoryItem(1),
+          status: "active",
+        },
+        messages: [],
+        summary: {
+          kind: "none",
+        },
+      },
+    });
+
+    expect(approvedHtml).toContain("Zatwierdzone");
+    expect(approvedHtml).toContain("może zostać użyte jako jawny kontekst");
+    expect(staleHtml).toContain("Nieaktualne");
+    expect(staleHtml).toContain("nie będzie używana jako kontekst");
+    expect(nonSummarizableHtml).toContain("Aktywne albo puste rozmowy nie mogą zostać podsumowane");
+    expect(renderHistory()).not.toContain("Zatwierdzone podsumowanie widoczne tylko w detail.");
   });
 
   it("renders deletion confirmation copy without treating delete as avatar save", () => {

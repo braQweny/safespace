@@ -435,32 +435,32 @@ Runtime configuration reuses server-only OpenRouter secrets. If a separate summa
 
 #### Automated
 
-- [x] 1.1 Unit tests cover summary status transitions: generated preview, approved ready summary, stale older revision, deleted summary exclusion.
-- [x] 1.2 Unit tests confirm approved context returns at most 3 newest `ready + visible` summaries and excludes draft/stale/deleted/deleted-session summaries.
-- [x] 1.3 Unit tests confirm summary generation is server-only, mocked in tests, and does not return raw provider payloads or raw provider errors.
-- [x] 1.4 `npm run test` passes for new summary contract tests and existing tests.
+- [x] 1.1 Unit tests cover summary status transitions: generated preview, approved ready summary, stale older revision, deleted summary exclusion. — edd5713
+- [x] 1.2 Unit tests confirm approved context returns at most 3 newest `ready + visible` summaries and excludes draft/stale/deleted/deleted-session summaries. — edd5713
+- [x] 1.3 Unit tests confirm summary generation is server-only, mocked in tests, and does not return raw provider payloads or raw provider errors. — edd5713
+- [x] 1.4 `npm run test` passes for new summary contract tests and existing tests. — edd5713
 
 #### Manual
 
-- [x] 1.5 Developer review confirms a summary cannot become next-session context before the user has seen and approved it.
-- [x] 1.6 Developer review confirms no new Supabase migration is needed for the planned MVP semantics, or records the exact schema blocker if one is discovered.
+- [x] 1.5 Developer review confirms a summary cannot become next-session context before the user has seen and approved it. — edd5713
+- [x] 1.6 Developer review confirms no new Supabase migration is needed for the planned MVP semantics, or records the exact schema blocker if one is discovered. — edd5713
 
 ### Phase 2: Summary API And History UI
 
 #### Automated
 
-- [ ] 2.1 Route tests pass for summary `GET`, generate/retry, approval, missing auth, not-found, non-summarizable, provider failure, and approval failure.
-- [ ] 2.2 Component tests confirm summary preview is visible only in detail, not in the history list.
-- [ ] 2.3 Component tests confirm "use in next session" is explicit and summary editing is absent.
-- [ ] 2.4 `npm run test` passes for summary route, helper, and component tests.
+- [x] 2.1 Route tests pass for summary `GET`, generate/retry, approval, missing auth, not-found, non-summarizable, provider failure, and approval failure.
+- [x] 2.2 Component tests confirm summary preview is visible only in detail, not in the history list.
+- [x] 2.3 Component tests confirm "use in next session" is explicit and summary editing is absent.
+- [x] 2.4 `npm run test` passes for summary route, helper, and component tests.
 
 #### Manual
 
-- [ ] 2.5 On `/dashboard/avatar`, opening a completed/expired/interrupted conversation shows summary controls.
-- [ ] 2.6 Generate summary shows a preview that clearly says it may be used as context only after approval.
-- [ ] 2.7 Approval changes the state to "will be used in next session" or equivalent clear copy.
-- [ ] 2.8 Retry state appears when generation fails and does not approve hidden context.
-- [ ] 2.9 Active or empty conversations cannot be summarized.
+- [x] 2.5 On `/dashboard/avatar`, opening a completed/expired/interrupted conversation shows summary controls.
+- [x] 2.6 Generate summary shows a preview that clearly says it may be used as context only after approval.
+- [x] 2.7 Approval changes the state to "will be used in next session" or equivalent clear copy.
+- [x] 2.8 Retry state appears when generation fails and does not approve hidden context.
+- [x] 2.9 Active or empty conversations cannot be summarized.
 
 ### Phase 3: Summary-Backed Next Session Flow
 

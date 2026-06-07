@@ -80,6 +80,13 @@ function createRepository(overrides: Partial<SessionHistoryRepository> = {}): Se
   return {
     listOwnedSessionHistoryPage: vi.fn(() => Promise.resolve(ok(page))),
     getOwnedSessionHistoryDetail: vi.fn(() => Promise.resolve(ok(detail))),
+    getLatestOwnedSessionSummaryState: vi.fn(() =>
+      Promise.resolve(
+        ok({
+          kind: "none",
+        }),
+      ),
+    ),
     ...overrides,
   };
 }
@@ -221,6 +228,45 @@ describe("readSessionHistoryDetail", () => {
       expect(result.detail.messages[0].content).toBe("Prywatna tresc uzytkownika widoczna tylko w detail.");
       expect(result.detail.session).not.toHaveProperty("modalityId");
       expect(result.detail.session).not.toHaveProperty("avatarId");
+      expect(result.detail.summary).toEqual({
+        kind: "none",
+      });
+    }
+  });
+
+  it("returns explicit summary preview state only in the read-only detail", async () => {
+    const repository = createRepository({
+      getLatestOwnedSessionSummaryState: vi.fn(() =>
+        Promise.resolve(
+          ok({
+            kind: "preview",
+            summary: {
+              id: "summary-1",
+              sessionId: "session-1",
+              summaryText: "Widoczne podsumowanie tylko dla detail.",
+              status: "draft",
+              isVisible: true,
+              revision: 1,
+              createdAt: "2026-06-07T10:12:00.000Z",
+              updatedAt: "2026-06-07T10:12:00.000Z",
+            },
+          }),
+        ),
+      ),
+    });
+
+    const result = await readSessionHistoryDetail(context, { sessionId: "session-1" }, repository);
+
+    expect(result.ok).toBe(true);
+
+    if (result.ok) {
+      expect(result.detail.summary).toMatchObject({
+        kind: "preview",
+        summary: {
+          summaryText: "Widoczne podsumowanie tylko dla detail.",
+          status: "draft",
+        },
+      });
     }
   });
 
@@ -237,6 +283,7 @@ describe("readSessionHistoryDetail", () => {
     expect(JSON.stringify(listItem)).not.toContain("Prywatna tresc");
     expect(JSON.stringify(listItem)).not.toContain("Podsumowanie");
     expect(JSON.stringify(listItem)).not.toContain("Preview");
+    expect(listItem).not.toHaveProperty("summary");
   });
 
   it("maps missing or deleted detail targets to not found", async () => {
