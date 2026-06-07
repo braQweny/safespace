@@ -424,31 +424,31 @@ No Supabase migration is planned for S-05. The feature uses existing F-01 tables
 
 #### Automated
 
-- [x] 2.1 Route tests pass for list, detail, delete, missing auth, invalid input, not-found, and delete failure paths.
-- [x] 2.2 API responses never include raw Supabase `message`, `details`, `hint`, private message content on list responses, or deleted tombstone avatar/modality fields.
-- [x] 2.3 `npm run test` passes for all route and helper tests.
+- [x] 2.1 Route tests pass for list, detail, delete, missing auth, invalid input, not-found, and delete failure paths. — 4a758bb
+- [x] 2.2 API responses never include raw Supabase `message`, `details`, `hint`, private message content on list responses, or deleted tombstone avatar/modality fields. — 4a758bb
+- [x] 2.3 `npm run test` passes for all route and helper tests. — 4a758bb
 
 #### Manual
 
-- [x] 2.4 Developer review confirms deletion cannot bypass `deleteOwnedSession()` and cannot be implemented as UI-only hiding.
+- [x] 2.4 Developer review confirms deletion cannot bypass `deleteOwnedSession()` and cannot be implemented as UI-only hiding. — 4a758bb
 
 ### Phase 3: Avatar Page History UI
 
 #### Automated
 
-- [ ] 3.1 Component tests confirm the list does not render private message content before detail is opened.
-- [ ] 3.2 Component tests confirm pagination controls and read-only detail affordances render from safe props.
-- [ ] 3.3 `npm run test` passes for component, route, and helper tests.
+- [x] 3.1 Component tests confirm the list does not render private message content before detail is opened.
+- [x] 3.2 Component tests confirm pagination controls and read-only detail affordances render from safe props.
+- [x] 3.3 `npm run test` passes for component, route, and helper tests.
 
 #### Manual
 
-- [ ] 3.4 On `/dashboard/avatar`, selecting each avatar changes the history list for that avatar before saving the choice.
-- [ ] 3.5 The URL updates to `?avatar=<avatarId>&page=<n>` and refresh preserves the selected avatar/page.
-- [ ] 3.6 The list shows a maximum of 20 conversations per page.
-- [ ] 3.7 Opening details shows the full read-only conversation and no composer, timer restart, retry, or send action.
-- [ ] 3.8 Confirmed deletion removes the conversation from the visible list and shows neutral confirmation.
-- [ ] 3.9 Cancelling deletion leaves the conversation visible and unchanged.
-- [ ] 3.10 The avatar save flow still works and does not accidentally delete or change history.
+- [x] 3.4 On `/dashboard/avatar`, selecting each avatar changes the history list for that avatar before saving the choice.
+- [x] 3.5 The URL updates to `?avatar=<avatarId>&page=<n>` and refresh preserves the selected avatar/page.
+- [x] 3.6 The list shows a maximum of 20 conversations per page.
+- [x] 3.7 Opening details shows the full read-only conversation and no composer, timer restart, retry, or send action.
+- [x] 3.8 Confirmed deletion removes the conversation from the visible list and shows neutral confirmation.
+- [x] 3.9 Cancelling deletion leaves the conversation visible and unchanged.
+- [x] 3.10 The avatar save flow still works and does not accidentally delete or change history.
 
 ### Phase 4: Tests And Privacy Sweeps
 

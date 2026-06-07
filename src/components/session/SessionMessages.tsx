@@ -4,8 +4,9 @@ import type { SelectedModalityAvatar } from "@/lib/modalities";
 
 interface SessionMessagesProps {
   messages: readonly UiSessionMessage[];
-  isPending: boolean;
+  isPending?: boolean;
   assistantAvatar: SelectedModalityAvatar;
+  emptyCopy?: string;
 }
 
 function getMessageClasses(role: UiSessionMessage["role"]) {
@@ -104,12 +105,17 @@ function MessageHeader({
   );
 }
 
-export default function SessionMessages({ messages, isPending, assistantAvatar }: SessionMessagesProps) {
+export default function SessionMessages({
+  messages,
+  isPending = false,
+  assistantAvatar,
+  emptyCopy = "Pierwsza wiadomość może być krótka. Opisz sytuację, którą chcesz spokojnie uporządkować.",
+}: SessionMessagesProps) {
   return (
     <div className="min-h-[280px] rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4">
       {messages.length === 0 ? (
         <div className="flex min-h-56 items-center justify-center text-center text-sm leading-6 text-[#52645f]">
-          Pierwsza wiadomość może być krótka. Opisz sytuację, którą chcesz spokojnie uporządkować.
+          {emptyCopy}
         </div>
       ) : (
         <ol className="space-y-3">
