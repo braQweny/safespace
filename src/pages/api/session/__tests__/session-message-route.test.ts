@@ -7,6 +7,7 @@ import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "
 import type { PersistedMessageTurn } from "@/lib/session-flow/message-persistence";
 
 const getSessionDataContext = vi.fn();
+const requireActiveAccountAccess = vi.fn();
 const getOwnedSessionMetadata = vi.fn();
 const listOwnedSessionMessages = vi.fn();
 const listNewestApprovedSessionSummaryContexts = vi.fn();
@@ -19,6 +20,10 @@ const logOperationalEvent = vi.fn();
 
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
+}));
+
+vi.mock("@/lib/admin/account-access", () => ({
+  requireActiveAccountAccess,
 }));
 
 vi.mock("@/lib/session-data/repository", () => ({
@@ -200,6 +205,15 @@ describe("POST /api/session/message", () => {
       userHash: "hash-1",
     });
     getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+      },
+    });
     getOwnedSessionMetadata.mockResolvedValue(ok(activeSession));
     listOwnedSessionMessages.mockResolvedValue(ok([existingMessage]));
     listNewestApprovedSessionSummaryContexts.mockResolvedValue(
@@ -271,6 +285,26 @@ describe("POST /api/session/message", () => {
       userMessage: "Chce uporzadkowac mysli.",
       assistantMessage: "Mozemy zaczac od nazwania najwazniejszych faktow.",
     });
+  });
+
+  it("rejects blocked accounts before parsing session ownership", async () => {
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "account_blocked",
+      },
+    });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      type: "missing_or_unauthorized",
+      code: "account_blocked",
+    });
+    expect(getOwnedSessionMetadata).not.toHaveBeenCalled();
+    expect(evaluateSessionSafety).not.toHaveBeenCalled();
   });
 
   it("continues caution decisions without visible copy and with constrained ordinary generation", async () => {

@@ -4,6 +4,7 @@ import type { CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import type { SessionDataContext, SessionMetadata, SessionTrialClaimState } from "@/lib/session-data/types";
 
 const getSessionDataContext = vi.fn();
+const requireActiveAccountAccess = vi.fn();
 const readCurrentAvatarChoice = vi.fn();
 const readTrialAvailability = vi.fn();
 const claimFreeTrialSession = vi.fn();
@@ -13,6 +14,10 @@ const logOperationalEvent = vi.fn();
 
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
+}));
+
+vi.mock("@/lib/admin/account-access", () => ({
+  requireActiveAccountAccess,
 }));
 
 vi.mock("@/lib/session-flow/avatar-choice", () => ({
@@ -146,6 +151,15 @@ describe("POST /api/session/start", () => {
       userHash: "hash-1",
     });
     getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+      },
+    });
     readCurrentAvatarChoice.mockResolvedValue(ok(avatar));
     readTrialAvailability.mockResolvedValue(
       ok({
@@ -171,6 +185,26 @@ describe("POST /api/session/start", () => {
     await expect(readJson(response)).resolves.toMatchObject({
       ok: false,
       code: "missing_auth",
+    });
+    expect(readCurrentAvatarChoice).not.toHaveBeenCalled();
+    expect(claimFreeTrialSession).not.toHaveBeenCalled();
+  });
+
+  it("rejects blocked accounts before reading avatar or claiming the trial", async () => {
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "account_blocked",
+      },
+    });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "account_blocked",
+      redirectTo: "/account/blocked",
     });
     expect(readCurrentAvatarChoice).not.toHaveBeenCalled();
     expect(claimFreeTrialSession).not.toHaveBeenCalled();

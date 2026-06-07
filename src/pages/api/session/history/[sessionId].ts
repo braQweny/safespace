@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { requireActiveAccountAccess } from "@/lib/admin/account-access";
+import type { AdminErrorCode } from "@/lib/admin/errors";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { deleteOwnedSession } from "@/lib/session-data/deletion";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
@@ -26,9 +28,21 @@ function mapDeleteErrorCode(code: SessionDataErrorCode): SessionHistoryFailureCo
   return "delete_failed";
 }
 
+function mapAccountAccessFailureCode(code: AdminErrorCode): SessionHistoryFailureCode {
+  if (code === "missing_auth" || code === "account_blocked") {
+    return code;
+  }
+
+  return "account_access_unavailable";
+}
+
 function getFailureStatus(code: SessionHistoryFailureCode) {
   if (code === "missing_auth") {
     return 401;
+  }
+
+  if (code === "account_blocked") {
+    return 403;
   }
 
   if (code === "invalid_avatar" || code === "invalid_page") {
@@ -58,6 +72,12 @@ export const GET: APIRoute = async (context) => {
     return jsonResponse(sessionHistoryFailure(mapDeleteErrorCode(sessionContext.error.code)));
   }
 
+  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
+
+  if (!accountAccess.ok) {
+    return jsonResponse(sessionHistoryFailure(mapAccountAccessFailureCode(accountAccess.error.code)));
+  }
+
   const response = await readSessionHistoryDetail(sessionContext.data, {
     sessionId: getSessionId(context),
   });
@@ -70,6 +90,12 @@ export const DELETE: APIRoute = async (context) => {
 
   if (!sessionContext.ok) {
     return jsonResponse(sessionHistoryFailure(mapDeleteErrorCode(sessionContext.error.code)));
+  }
+
+  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
+
+  if (!accountAccess.ok) {
+    return jsonResponse(sessionHistoryFailure(mapAccountAccessFailureCode(accountAccess.error.code)));
   }
 
   const sessionId = getSessionId(context);

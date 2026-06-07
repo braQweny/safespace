@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { requireActiveAccountAccess } from "@/lib/admin/account-access";
+import type { AdminErrorCode } from "@/lib/admin/errors";
 import { SessionAiError, type SessionAiErrorCategory } from "@/lib/session-ai/errors";
 import { generateSessionResponse } from "@/lib/session-ai/provider";
 import { getSessionAiFailureCopy } from "@/lib/session-ai/session-response-copy";
@@ -48,6 +50,30 @@ function missingOrUnauthorizedResponse(code: MissingOrUnauthorizedCode) {
   } satisfies SendSessionMessageFailureResponse;
 }
 
+function mapAccountAccessFailureCode(code: AdminErrorCode): MissingOrUnauthorizedCode {
+  if (code === "missing_auth" || code === "account_blocked") {
+    return code;
+  }
+
+  return "account_access_unavailable";
+}
+
+function getMissingOrUnauthorizedStatus(code: MissingOrUnauthorizedCode) {
+  if (code === "missing_auth") {
+    return 401;
+  }
+
+  if (code === "account_blocked") {
+    return 403;
+  }
+
+  if (code === "account_access_unavailable" || code === "session_data_unavailable") {
+    return 503;
+  }
+
+  return 404;
+}
+
 function getSessionAiErrorCategory(error: unknown): SessionAiErrorCategory {
   return error instanceof SessionAiError ? error.category : "provider_unavailable";
 }
@@ -86,9 +112,18 @@ export const POST: APIRoute = async (context) => {
   const sessionContext = getSessionDataContext(context);
 
   if (!sessionContext.ok) {
-    const status = sessionContext.error.code === "missing_auth" ? 401 : 503;
+    return jsonResponse(
+      missingOrUnauthorizedResponse(sessionContext.error.code),
+      getMissingOrUnauthorizedStatus(sessionContext.error.code),
+    );
+  }
 
-    return jsonResponse(missingOrUnauthorizedResponse(sessionContext.error.code), status);
+  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
+
+  if (!accountAccess.ok) {
+    const code = mapAccountAccessFailureCode(accountAccess.error.code);
+
+    return jsonResponse(missingOrUnauthorizedResponse(code), getMissingOrUnauthorizedStatus(code));
   }
 
   const messageRequest = await parseSendSessionMessageRequest(context.request);

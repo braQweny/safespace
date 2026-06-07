@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { requireActiveAccountAccess } from "@/lib/admin/account-access";
+import type { AdminErrorCode } from "@/lib/admin/errors";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import {
@@ -36,6 +38,14 @@ function mapSessionDataErrorCode(code: SessionDataErrorCode): SessionSummaryFail
   return "read_failed";
 }
 
+function mapAccountAccessFailureCode(code: AdminErrorCode): SessionSummaryFailureCode {
+  if (code === "missing_auth" || code === "account_blocked") {
+    return code;
+  }
+
+  return "account_access_unavailable";
+}
+
 function mapGenerationErrorCode(code: SessionSummaryFlowFailureCode): SessionSummaryFailureCode {
   if (code === "missing_auth" || code === "session_not_found" || code === "session_not_summarizable") {
     return code;
@@ -51,6 +61,10 @@ function mapGenerationErrorCode(code: SessionSummaryFlowFailureCode): SessionSum
 function getFailureStatus(code: SessionSummaryFailureCode) {
   if (code === "missing_auth") {
     return 401;
+  }
+
+  if (code === "account_blocked") {
+    return 403;
   }
 
   if (code === "session_not_found" || code === "summary_unavailable") {
@@ -92,6 +106,12 @@ export const GET: APIRoute = async (context) => {
     return jsonResponse(sessionSummaryFailure(mapSessionDataErrorCode(sessionContext.error.code)));
   }
 
+  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
+
+  if (!accountAccess.ok) {
+    return jsonResponse(sessionSummaryFailure(mapAccountAccessFailureCode(accountAccess.error.code)));
+  }
+
   const sessionId = getSessionId(context);
 
   if (!sessionId) {
@@ -116,6 +136,12 @@ export const POST: APIRoute = async (context) => {
 
   if (!sessionContext.ok) {
     return jsonResponse(sessionSummaryFailure(mapSessionDataErrorCode(sessionContext.error.code)));
+  }
+
+  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
+
+  if (!accountAccess.ok) {
+    return jsonResponse(sessionSummaryFailure(mapAccountAccessFailureCode(accountAccess.error.code)));
   }
 
   const sessionId = getSessionId(context);
@@ -166,6 +192,12 @@ export const PATCH: APIRoute = async (context) => {
 
   if (!sessionContext.ok) {
     return jsonResponse(sessionSummaryFailure(mapSessionDataErrorCode(sessionContext.error.code)));
+  }
+
+  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
+
+  if (!accountAccess.ok) {
+    return jsonResponse(sessionSummaryFailure(mapAccountAccessFailureCode(accountAccess.error.code)));
   }
 
   const sessionId = getSessionId(context);

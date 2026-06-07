@@ -3,6 +3,7 @@ import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { SessionDataContext, SessionSummaryRecord } from "@/lib/session-data/types";
 
 const getSessionDataContext = vi.fn();
+const requireActiveAccountAccess = vi.fn();
 const getLatestOwnedSessionSummaryState = vi.fn();
 const saveGeneratedVisibleSessionSummary = vi.fn();
 const approveOwnedSessionSummaryRevision = vi.fn();
@@ -10,6 +11,10 @@ const generateOwnedSessionSummary = vi.fn();
 
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
+}));
+
+vi.mock("@/lib/admin/account-access", () => ({
+  requireActiveAccountAccess,
 }));
 
 vi.mock("@/lib/session-data/repository", async () => {
@@ -91,6 +96,15 @@ describe("/api/session/summary/[sessionId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+      },
+    });
     getLatestOwnedSessionSummaryState.mockResolvedValue(
       ok({
         kind: "none",
@@ -124,6 +138,25 @@ describe("/api/session/summary/[sessionId]", () => {
       ok: false,
       type: "session_summary_error",
       code: "missing_auth",
+    });
+    expect(getLatestOwnedSessionSummaryState).not.toHaveBeenCalled();
+  });
+
+  it("rejects blocked accounts before reading summary state", async () => {
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "account_blocked",
+      },
+    });
+
+    const response = await GET(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toEqual({
+      ok: false,
+      type: "session_summary_error",
+      code: "account_blocked",
     });
     expect(getLatestOwnedSessionSummaryState).not.toHaveBeenCalled();
   });

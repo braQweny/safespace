@@ -415,22 +415,22 @@ Do not add `SUPABASE_SERVICE_ROLE_KEY` to runtime configuration. The safe path f
 
 #### Automated
 
-- [ ] 1.1 Admin migration source enables RLS on every new admin table.
-- [ ] 1.2 Admin migration source contains no policy, view, grant, or function exposing `session_messages.content` or `session_summaries.summary_text`.
-- [ ] 1.3 Source search confirms no `SUPABASE_SERVICE_ROLE_KEY` runtime dependency was added.
-- [ ] 1.4 Source search confirms `/admin` is protected and blocked users are denied private pages.
-- [ ] 1.5 Source search confirms all private session API routes call the account-block guard or shared equivalent.
-- [ ] 1.6 Unit tests cover admin membership checks, blocked-account checks, non-admin rejection, blocked admin rejection, and safe error-code mapping.
-- [ ] 1.7 `npm run test` passes for Phase 1 tests.
-- [ ] 1.8 `npx astro sync` passes.
-- [ ] 1.9 `npm run lint` passes.
-- [ ] 1.10 `npm run build` passes.
+- [x] 1.1 Admin migration source enables RLS on every new admin table.
+- [x] 1.2 Admin migration source contains no policy, view, grant, or function exposing `session_messages.content` or `session_summaries.summary_text`.
+- [x] 1.3 Source search confirms no `SUPABASE_SERVICE_ROLE_KEY` runtime dependency was added.
+- [x] 1.4 Source search confirms `/admin` is protected and blocked users are denied private pages.
+- [x] 1.5 Source search confirms all private session API routes call the account-block guard or shared equivalent.
+- [x] 1.6 Unit tests cover admin membership checks, blocked-account checks, non-admin rejection, blocked admin rejection, and safe error-code mapping.
+- [x] 1.7 `npm run test` passes for Phase 1 tests.
+- [x] 1.8 `npx astro sync` passes.
+- [x] 1.9 `npm run lint` passes.
+- [x] 1.10 `npm run build` passes.
 
 #### Manual
 
-- [ ] 1.11 Review migration and confirm the first-admin bootstrap path is owner-controlled and not hard-coded to an email secret.
-- [ ] 1.12 Confirm a blocked user loses product/session access without deleting or exposing private data.
-- [ ] 1.13 Confirm the blocked-account copy is neutral and does not expose admin audit details.
+- [x] 1.11 Review migration and confirm the first-admin bootstrap path is owner-controlled and not hard-coded to an email secret.
+- [x] 1.12 Confirm a blocked user loses product/session access without deleting or exposing private data.
+- [x] 1.13 Confirm the blocked-account copy is neutral and does not expose admin audit details.
 
 ### Phase 2: Admin Dashboard And User Management
 

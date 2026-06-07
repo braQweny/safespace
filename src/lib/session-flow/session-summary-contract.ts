@@ -9,7 +9,9 @@ export type SessionSummaryFailureCode =
   | "generation_failed"
   | "approval_failed"
   | "read_failed"
-  | "provider_unavailable";
+  | "provider_unavailable"
+  | "account_blocked"
+  | "account_access_unavailable";
 
 export interface SessionSummaryFailureResponse {
   ok: false;

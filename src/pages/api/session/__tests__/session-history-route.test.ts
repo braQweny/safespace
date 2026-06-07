@@ -7,12 +7,17 @@ import type {
 } from "@/lib/session-flow/session-history-contract";
 
 const getSessionDataContext = vi.fn();
+const requireActiveAccountAccess = vi.fn();
 const readSessionHistoryList = vi.fn();
 const readSessionHistoryDetail = vi.fn();
 const deleteOwnedSession = vi.fn();
 
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
+}));
+
+vi.mock("@/lib/admin/account-access", () => ({
+  requireActiveAccountAccess,
 }));
 
 vi.mock("@/lib/session-flow/session-history", async () => {
@@ -139,6 +144,15 @@ describe("GET /api/session/history", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+      },
+    });
     readSessionHistoryList.mockResolvedValue(listResponse);
     readSessionHistoryDetail.mockResolvedValue(detailResponse);
     deleteOwnedSession.mockResolvedValue(ok(tombstone));
@@ -153,6 +167,24 @@ describe("GET /api/session/history", () => {
     await expect(readJson(response)).resolves.toMatchObject({
       ok: false,
       code: "missing_auth",
+    });
+    expect(readSessionHistoryList).not.toHaveBeenCalled();
+  });
+
+  it("rejects blocked accounts before listing history", async () => {
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "account_blocked",
+      },
+    });
+
+    const response = await GET_LIST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "account_blocked",
     });
     expect(readSessionHistoryList).not.toHaveBeenCalled();
   });
@@ -206,6 +238,15 @@ describe("GET /api/session/history/[sessionId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+      },
+    });
     readSessionHistoryDetail.mockResolvedValue(detailResponse);
     deleteOwnedSession.mockResolvedValue(ok(tombstone));
   });
@@ -251,6 +292,15 @@ describe("DELETE /api/session/history/[sessionId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+      },
+    });
     readSessionHistoryDetail.mockResolvedValue(detailResponse);
     deleteOwnedSession.mockResolvedValue(ok(tombstone));
   });

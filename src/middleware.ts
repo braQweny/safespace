@@ -1,4 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
+import { readAccountAccessState } from "@/lib/admin/account-access";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import {
@@ -7,7 +8,8 @@ import {
 } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
-const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account"] as const;
+const BLOCKED_ACCOUNT_PATH = "/account/blocked";
+const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account", "/admin"] as const;
 
 function isProtectedRoute(pathname: string) {
   return PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
@@ -15,6 +17,10 @@ function isProtectedRoute(pathname: string) {
 
 function getProtectedRouteBucket(pathname: string) {
   return PROTECTED_ROUTES.find((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
+function shouldCheckAccountAccess(pathname: string) {
+  return isProtectedRoute(pathname) && pathname !== BLOCKED_ACCOUNT_PATH;
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -31,6 +37,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   } else {
     context.locals.user = null;
   }
+  context.locals.accountAccess = null;
 
   if (isProtectedRoute(context.url.pathname)) {
     if (!context.locals.user) {
@@ -48,6 +55,46 @@ export const onRequest = defineMiddleware(async (context, next) => {
       );
 
       return withOperationalRequestIdHeader(context.redirect("/auth/signin"), requestId);
+    }
+
+    if (shouldCheckAccountAccess(context.url.pathname)) {
+      const accountAccess = await readAccountAccessState(context, supabase);
+
+      if (!accountAccess.ok) {
+        logOperationalEvent(
+          {
+            event: "route.protected_redirect",
+            level: "warn",
+            route: getProtectedRouteBucket(context.url.pathname),
+            method: context.request.method,
+            outcome: "redirected",
+            status: 302,
+            reasonCode: accountAccess.error.code,
+          },
+          { requestId },
+        );
+
+        return withOperationalRequestIdHeader(context.redirect(`${BLOCKED_ACCOUNT_PATH}?state=unavailable`), requestId);
+      }
+
+      context.locals.accountAccess = accountAccess.data;
+
+      if (accountAccess.data.status === "blocked") {
+        logOperationalEvent(
+          {
+            event: "route.protected_redirect",
+            level: "warn",
+            route: getProtectedRouteBucket(context.url.pathname),
+            method: context.request.method,
+            outcome: "redirected",
+            status: 302,
+            reasonCode: "account_blocked",
+          },
+          { requestId },
+        );
+
+        return withOperationalRequestIdHeader(context.redirect(BLOCKED_ACCOUNT_PATH), requestId);
+      }
     }
   }
 

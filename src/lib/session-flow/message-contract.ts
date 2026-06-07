@@ -51,7 +51,13 @@ export type SendSessionMessageFailureResponse =
   | {
       ok: false;
       type: "missing_or_unauthorized";
-      code: "missing_auth" | "session_not_found" | "not_session_owner" | "session_data_unavailable";
+      code:
+        | "missing_auth"
+        | "session_not_found"
+        | "not_session_owner"
+        | "session_data_unavailable"
+        | "account_blocked"
+        | "account_access_unavailable";
     }
   | {
       ok: false;

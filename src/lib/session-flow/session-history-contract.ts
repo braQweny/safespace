@@ -13,7 +13,9 @@ export type SessionHistoryFailureCode =
   | "session_not_found"
   | "read_failed"
   | "delete_failed"
-  | "session_data_unavailable";
+  | "session_data_unavailable"
+  | "account_blocked"
+  | "account_access_unavailable";
 
 export interface SessionHistoryFailureResponse {
   ok: false;
