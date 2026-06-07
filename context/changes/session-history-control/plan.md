@@ -436,19 +436,19 @@ No Supabase migration is planned for S-05. The feature uses existing F-01 tables
 
 #### Automated
 
-- [x] 3.1 Component tests confirm the list does not render private message content before detail is opened.
-- [x] 3.2 Component tests confirm pagination controls and read-only detail affordances render from safe props.
-- [x] 3.3 `npm run test` passes for component, route, and helper tests.
+- [x] 3.1 Component tests confirm the list does not render private message content before detail is opened. — 3ee7841
+- [x] 3.2 Component tests confirm pagination controls and read-only detail affordances render from safe props. — 3ee7841
+- [x] 3.3 `npm run test` passes for component, route, and helper tests. — 3ee7841
 
 #### Manual
 
-- [x] 3.4 On `/dashboard/avatar`, selecting each avatar changes the history list for that avatar before saving the choice.
-- [x] 3.5 The URL updates to `?avatar=<avatarId>&page=<n>` and refresh preserves the selected avatar/page.
-- [x] 3.6 The list shows a maximum of 20 conversations per page.
-- [x] 3.7 Opening details shows the full read-only conversation and no composer, timer restart, retry, or send action.
-- [x] 3.8 Confirmed deletion removes the conversation from the visible list and shows neutral confirmation.
-- [x] 3.9 Cancelling deletion leaves the conversation visible and unchanged.
-- [x] 3.10 The avatar save flow still works and does not accidentally delete or change history.
+- [x] 3.4 On `/dashboard/avatar`, selecting each avatar changes the history list for that avatar before saving the choice. — 3ee7841
+- [x] 3.5 The URL updates to `?avatar=<avatarId>&page=<n>` and refresh preserves the selected avatar/page. — 3ee7841
+- [x] 3.6 The list shows a maximum of 20 conversations per page. — 3ee7841
+- [x] 3.7 Opening details shows the full read-only conversation and no composer, timer restart, retry, or send action. — 3ee7841
+- [x] 3.8 Confirmed deletion removes the conversation from the visible list and shows neutral confirmation. — 3ee7841
+- [x] 3.9 Cancelling deletion leaves the conversation visible and unchanged. — 3ee7841
+- [x] 3.10 The avatar save flow still works and does not accidentally delete or change history. — 3ee7841
 
 ### Phase 4: Tests And Privacy Sweeps
 
