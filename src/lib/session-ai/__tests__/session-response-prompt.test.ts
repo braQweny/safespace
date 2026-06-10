@@ -42,29 +42,62 @@ const input = {
 describe("buildSessionResponseMessages", () => {
   it("frames ordinary replies as educational, modality-aware, and non-diagnostic", () => {
     const messages = buildSessionResponseMessages(input);
+    const systemMessage = messages[0];
 
-    expect(messages[0]).toEqual({
-      role: "system",
-      content: SESSION_RESPONSE_SYSTEM_PROMPT,
-    });
-    expect(messages[0]?.content).toContain("one natural SafeSpace session reply");
-    expect(messages[0]?.content).toContain(
+    expect(systemMessage.role).toBe("system");
+    expect(systemMessage.content).toContain(SESSION_RESPONSE_SYSTEM_PROMPT);
+    expect(systemMessage.content).toContain("one natural SafeSpace session reply");
+    expect(systemMessage.content).toContain(
       "not therapy, diagnosis, crisis care, medical care, or a replacement for a qualified professional",
     );
-    expect(messages[0]?.content).toContain("not a therapist, doctor, clinician, real human, or real person");
-    expect(messages[0]?.content).toContain("Prefer one meaningful question over several shallow questions");
-    expect(messages[0]?.content).toContain("Do not diagnose");
-    expect(messages[0]?.content).toContain("Do not add generic product disclaimers");
-    expect(messages[0]?.content).not.toContain("weave the boundary");
-    expect(messages[0]?.content).toContain("approved prior-session summaries");
-    expect(messages[0]?.content).toContain("not as diagnosis, verified fact, risk assessment");
+    expect(systemMessage.content).toContain("not a therapist, doctor, clinician, real human, or real person");
+    expect(systemMessage.content).toContain("Prefer one meaningful question over several shallow questions");
+    expect(systemMessage.content).toContain("Do not diagnose");
+    expect(systemMessage.content).toContain("Do not add generic product disclaimers");
+    expect(systemMessage.content).toContain("approved prior-session summaries");
+    expect(systemMessage.content).toContain("not as diagnosis, verified fact, risk assessment");
+  });
 
+  it("encourages natural, non-templated conversation in the base prompt", () => {
+    const messages = buildSessionResponseMessages(input);
+    const systemMessage = messages[0];
+
+    expect(systemMessage.content).toContain("Match the user's pace, length, and register");
+    expect(systemMessage.content).toContain("A reply does not have to end with a question");
+    expect(systemMessage.content).toContain("Do not reuse the same openers or signature phrases");
+    expect(systemMessage.content).toContain("Vary the length, rhythm, and structure of your replies");
+  });
+
+  it("moves modality, constraints, and summaries into the system message and keeps the user turn plain", () => {
+    const messages = buildSessionResponseMessages(input);
+    const systemMessage = messages[0];
     const finalUserMessage = messages.at(-1);
+
+    expect(systemMessage.content).toContain("## Selected modality and avatar");
+    expect(systemMessage.content).toContain(input.modality.modalityName);
+    expect(systemMessage.content).toContain(input.modality.avatarName);
+    expect(systemMessage.content).toContain(input.modality.sessionStyleHint);
+    expect(systemMessage.content).toContain("## Caution constraints");
+    expect(systemMessage.content).toContain("avoid_diagnosis");
+    expect(systemMessage.content).toContain("## Approved prior-session summaries");
+    expect(systemMessage.content).toContain("Zatwierdzone podsumowanie poprzedniej rozmowy.");
+    expect(systemMessage.content).toContain("User locale: pl");
+
     expect(finalUserMessage?.role).toBe("user");
-    expect(finalUserMessage?.content).toContain(input.currentUserMessage);
-    expect(finalUserMessage?.content).toContain(input.modality.sessionStyleHint);
-    expect(finalUserMessage?.content).toContain("avoid_diagnosis");
-    expect(finalUserMessage?.content).toContain("Zatwierdzone podsumowanie poprzedniej rozmowy.");
+    expect(finalUserMessage?.content).toBe(input.currentUserMessage);
+    expect(finalUserMessage?.content).not.toContain("sessionStyleHint");
+    expect(finalUserMessage?.content).not.toContain("avoid_diagnosis");
+  });
+
+  it("omits constraint and summary sections when none are provided", () => {
+    const messages = buildSessionResponseMessages({
+      ...input,
+      cautionConstraints: [],
+      approvedSummaries: [],
+    });
+
+    expect(messages[0]?.content).not.toContain("## Caution constraints");
+    expect(messages[0]?.content).not.toContain("## Approved prior-session summaries");
   });
 
   it("keeps recent context bounded and separate from the current message", () => {
@@ -77,7 +110,7 @@ describe("buildSessionResponseMessages", () => {
     const messages = buildSessionResponseMessages({
       ...input,
       recentMessages: longMessages,
-      currentUserMessage: "aktualna-wiadomosc-".repeat(400),
+      currentUserMessage: "aktualna-wiadomosc ".repeat(400),
     });
     const recentContextMessages = messages.slice(1, -1);
 
@@ -85,7 +118,7 @@ describe("buildSessionResponseMessages", () => {
     expect(recentContextMessages[0]?.content).toContain("wiadomosc-4");
     expect(recentContextMessages.every((message) => message.content.length <= 1_200)).toBe(true);
     expect(messages.at(-1)?.content).toContain("aktualna-wiadomosc");
-    expect(messages.at(-1)?.content.length).toBeLessThan(4_500);
+    expect(messages.at(-1)?.content.length).toBeLessThanOrEqual(3_000);
   });
 
   it("passes the selected modality style hint without cutting off the reply-shape guidance", () => {
@@ -106,30 +139,27 @@ describe("buildSessionResponseMessages", () => {
       },
     });
 
-    expect(messages.at(-1)?.content).toContain("Typical reply shape");
-    expect(messages.at(-1)?.content).toContain("ask one practical question");
+    expect(messages[0]?.content).toContain("Reply shapes");
+    expect(messages[0]?.content).toContain("CBT jargon");
   });
 
   it("keeps approved summaries capped at three and separate from raw prior messages", () => {
     const messages = buildSessionResponseMessages({
       ...input,
       approvedSummaries: Array.from({ length: 5 }, (_, index) => ({
-        summaryText: `approved-summary-${index}-`.repeat(100),
+        summaryText: `approved-summary-${index} `.repeat(100),
         revision: index + 1,
         createdAt: "2026-06-07T09:00:00.000Z",
       })),
     });
-    const finalPayload = JSON.parse(messages.at(-1)?.content ?? "{}") as {
-      approvedPriorSessionSummaries?: { summaryText: string; revision: number }[];
-    };
+    const systemContent = messages[0]?.content ?? "";
 
-    expect(finalPayload.approvedPriorSessionSummaries).toHaveLength(3);
-    expect(finalPayload.approvedPriorSessionSummaries?.map((summary) => summary.revision)).toEqual([1, 2, 3]);
-    expect(finalPayload.approvedPriorSessionSummaries?.every((summary) => summary.summaryText.length <= 900)).toBe(
-      true,
-    );
-    expect(JSON.stringify(finalPayload)).not.toContain("rawPriorMessages");
-    expect(messages[0]?.content).toContain("Do not use raw prior-session messages as prior-session context");
+    expect(systemContent).toContain("approved-summary-0");
+    expect(systemContent).toContain("approved-summary-1");
+    expect(systemContent).toContain("approved-summary-2");
+    expect(systemContent).not.toContain("approved-summary-3");
+    expect(systemContent).not.toContain("approved-summary-4");
+    expect(systemContent).toContain("Do not use raw prior-session messages as prior-session context");
   });
 });
 
@@ -166,6 +196,20 @@ describe("MVP_MODALITIES session style hints", () => {
       "relacji",
     ]) {
       expect(hints).toContain(term);
+    }
+  });
+
+  it("treats example phrases as inspiration and allows replies without questions in every hint", () => {
+    for (const modality of MVP_MODALITIES) {
+      expect(modality.sessionStyleHint).toContain("never repeat them verbatim");
+      expect(modality.sessionStyleHint).toContain("Reply shapes");
+      expect(modality.sessionStyleHint).toContain("no question");
+    }
+  });
+
+  it("keeps every style hint within the prompt budget", () => {
+    for (const modality of MVP_MODALITIES) {
+      expect(modality.sessionStyleHint.length).toBeLessThanOrEqual(4_000);
     }
   });
 });

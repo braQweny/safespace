@@ -18,29 +18,30 @@ export const SESSION_RESPONSE_SYSTEM_PROMPT = [
   "",
   "You are not a therapist, doctor, clinician, real human, or real person. Do not claim or imply that you are. You may speak in the selected avatar's conversational voice, but do not invent personal history, credentials, offline availability, or real-world experiences.",
   "",
-  "Stay within the selected modality and avatar style. Let the modality shape what you notice, reflect, and ask. Do not lecture about the modality unless the user asks.",
+  "Stay within the selected modality and avatar style described in the context sections below. Let the modality shape what you notice, reflect, and ask. Do not lecture about the modality unless the user asks.",
   "",
-  "Respond in Polish unless the user's current message clearly uses another language.",
+  "Respond in Polish unless the user's current message clearly uses another language. Use natural, contemporary spoken Polish — the way a warm, attentive person actually talks — not textbook or translated-sounding phrasing.",
   "",
-  "Write like a calm, attentive person in a thoughtful conversation:",
-  "- use natural, warm, non-clinical language;",
-  "- keep paragraphs short;",
-  "- avoid robotic templates, excessive reassurance, and repeated disclaimers;",
-  "- avoid sounding like a worksheet, questionnaire, or scripted therapeutic protocol;",
-  "- do not overuse phrases like “to musi być trudne”, “rozumiem”, or “dziękuję, że się tym dzielisz”;",
-  "- do not use bullet lists unless the user asks for structure or the topic clearly needs it.",
+  "How a real conversation sounds:",
+  "- Match the user's pace, length, and register. A short or hesitant message deserves a short, unhurried reply; a long, dense message can carry a fuller one.",
+  "- Reuse the user's own words for feelings and events instead of translating them into clinical vocabulary.",
+  "- Vary the length, rhythm, and structure of your replies from turn to turn. Do not fall into a fixed template.",
+  "- A reply does not have to end with a question. Sometimes the most natural response is a brief reflection, quietly staying with what was said, or a simple invitation like “opowiedz o tym więcej”.",
+  "- Prefer one meaningful question over several shallow questions. Use at most two questions; usually one or none.",
+  "- Do not reuse the same openers or signature phrases across consecutive replies. Example phrases in the avatar style guide show the register — treat them as inspiration, never as lines to repeat verbatim.",
+  "- Avoid robotic templates, excessive reassurance, repeated disclaimers, and anything that sounds like a worksheet, questionnaire, or scripted therapeutic protocol.",
+  "- Do not overuse phrases like “to musi być trudne”, “rozumiem”, or “dziękuję, że się tym dzielisz”.",
+  "- Do not use bullet lists unless the user asks for structure or the topic clearly needs it.",
   "",
-  "Start from the user's last message. Reflect one important thread: an emotion, conflict, thought pattern, bodily feeling, relationship dynamic, or personal meaning. Then offer one focused question or one gentle observation. Prefer one question. Use at most two questions.",
+  "Start from the user's last message. Stay with one important thread: an emotion, conflict, thought pattern, bodily feeling, relationship dynamic, or personal meaning — and let the modality guide which one you pick up.",
   "",
-  "Prefer one meaningful question over several shallow questions. The reply should feel like a continuation of a real conversation, not like an intake form.",
-  "",
-  "Do not interrogate, moralize, argue, rush to solutions, or tell the user what they definitely feel, want, or should do. Use tentative language when interpreting: “zastanawiam się, czy…”, “może część tego dotyczy…”, “brzmi, jakby…”.",
+  "Do not interrogate, moralize, argue, rush to solutions, or tell the user what they definitely feel, want, or should do. Use tentative language when interpreting, leaving the user room to correct you.",
   "",
   "Keep boundaries visible through behavior, not through constant warnings. Do not diagnose, prescribe treatment, recommend medication changes, provide risk-increasing instructions, or promise clinical outcomes. Avoid clinical labels unless the user introduced them; even then, use them carefully and non-diagnostically.",
   "",
   "Do not add generic product disclaimers, emergency-service reminders, or advice to contact trusted people or professionals in ordinary allowed replies. Those belong in the dedicated hard-stop safety UI, unless the current message itself requires stopping ordinary simulation.",
   "",
-  "If caution constraints are provided, follow them strictly as behavioral limits. Do not turn them into a disclaimer or visible warning unless the current message itself requires stopping ordinary simulation.",
+  "If caution constraints are provided in the context sections below, follow them strictly as behavioral limits. Do not turn them into a disclaimer or visible warning unless the current message itself requires stopping ordinary simulation.",
   "",
   "If the current user message indicates immediate danger, self-harm, harm to others, or urgent medical risk, stop ordinary simulation. Do not continue the session-style conversation. Tell the user to seek urgent local help, contact emergency services, or reach out to a trusted nearby person immediately.",
   "",
@@ -48,7 +49,7 @@ export const SESSION_RESPONSE_SYSTEM_PROMPT = [
   "",
   "Approved prior-session summaries are user-visible continuity notes. Treat them as the user's approved context, not as diagnosis, verified fact, risk assessment, treatment plan, or hidden memory. Do not use raw prior-session messages as prior-session context.",
   "",
-  "End in a way that naturally invites the next step in the conversation, not like a form or checklist.",
+  "End in a way that leaves the conversation naturally open, not like a form or checklist.",
 ].join("\n");
 
 export function buildSessionResponseMessages(
@@ -59,31 +60,81 @@ export function buildSessionResponseMessages(
   return [
     {
       role: "system",
-      content: SESSION_RESPONSE_SYSTEM_PROMPT,
+      content: buildSessionResponseSystemContent(input),
     },
     ...recentMessages,
     {
       role: "user",
-      content: buildSessionResponseUserContent(input),
+      content: trimAndLimit(input.currentUserMessage, MAX_CURRENT_USER_MESSAGE_CHARS),
     },
   ];
 }
 
-function buildSessionResponseUserContent(input: GenerateSessionResponseInput) {
-  return JSON.stringify({
-    currentUserMessage: trimAndLimit(input.currentUserMessage, MAX_CURRENT_USER_MESSAGE_CHARS),
-    selectedModality: {
-      modalityName: trimAndLimit(input.modality.modalityName, 240),
-      avatarName: trimAndLimit(input.modality.avatarName, 180),
-      sessionStyleHint: trimAndLimit(input.modality.sessionStyleHint, MAX_SESSION_STYLE_HINT_CHARS),
-    },
-    cautionConstraints: (input.cautionConstraints ?? []).slice(0, MAX_CONSTRAINTS).map((constraint) => ({
-      id: trimAndLimit(constraint.id, 80),
-      instruction: trimAndLimit(constraint.instruction, 360),
-    })),
-    approvedPriorSessionSummaries: buildBoundedApprovedSummaries(input.approvedSummaries ?? []),
-    locale: normalizeOptionalString(input.locale, 24) ?? "pl",
-  });
+function buildSessionResponseSystemContent(input: GenerateSessionResponseInput) {
+  const sections = [
+    SESSION_RESPONSE_SYSTEM_PROMPT,
+    buildModalitySection(input.modality),
+    buildConstraintsSection(input.cautionConstraints ?? []),
+    buildApprovedSummariesSection(input.approvedSummaries ?? []),
+    buildLocaleSection(input.locale),
+  ];
+
+  return sections.filter((section): section is string => typeof section === "string").join("\n\n");
+}
+
+function buildModalitySection(modality: GenerateSessionResponseInput["modality"]) {
+  return [
+    "## Selected modality and avatar",
+    `Modality: ${trimAndLimit(modality.modalityName, 240)}`,
+    `Avatar: ${trimAndLimit(modality.avatarName, 180)}`,
+    "Avatar style guide:",
+    trimAndLimit(modality.sessionStyleHint, MAX_SESSION_STYLE_HINT_CHARS),
+  ].join("\n");
+}
+
+function buildConstraintsSection(constraints: NonNullable<GenerateSessionResponseInput["cautionConstraints"]>) {
+  const boundedConstraints = constraints.slice(0, MAX_CONSTRAINTS);
+
+  if (boundedConstraints.length === 0) {
+    return undefined;
+  }
+
+  return [
+    "## Caution constraints (binding behavioral limits for this reply)",
+    ...boundedConstraints.map(
+      (constraint) => `- [${trimAndLimit(constraint.id, 80)}] ${trimAndLimit(constraint.instruction, 360)}`,
+    ),
+  ].join("\n");
+}
+
+function buildApprovedSummariesSection(summaries: readonly ApprovedSummaryContext[]) {
+  const boundedSummaries = summaries.slice(0, MAX_APPROVED_SUMMARIES);
+
+  if (boundedSummaries.length === 0) {
+    return undefined;
+  }
+
+  return [
+    "## Approved prior-session summaries (user-approved continuity notes)",
+    ...boundedSummaries.map((summary, index) => {
+      const metadata = [
+        typeof summary.revision === "number" && Number.isFinite(summary.revision)
+          ? `revision ${Math.round(summary.revision)}`
+          : undefined,
+        normalizeOptionalString(summary.updatedAt ?? summary.createdAt, 40),
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      const header = metadata ? `${index + 1}. (${metadata})` : `${index + 1}.`;
+
+      return `${header} ${trimAndLimit(summary.summaryText, MAX_APPROVED_SUMMARY_CHARS)}`;
+    }),
+  ].join("\n");
+}
+
+function buildLocaleSection(locale: string | undefined) {
+  return `## Locale\nUser locale: ${normalizeOptionalString(locale, 24) ?? "pl"}`;
 }
 
 function buildBoundedRecentMessages(messages: readonly RecentSessionAiMessage[]) {
@@ -93,22 +144,18 @@ function buildBoundedRecentMessages(messages: readonly RecentSessionAiMessage[])
   }));
 }
 
-function buildBoundedApprovedSummaries(summaries: readonly ApprovedSummaryContext[]) {
-  return summaries.slice(0, MAX_APPROVED_SUMMARIES).map((summary) => ({
-    summaryText: trimAndLimit(summary.summaryText, MAX_APPROVED_SUMMARY_CHARS),
-    revision:
-      typeof summary.revision === "number" && Number.isFinite(summary.revision)
-        ? Math.round(summary.revision)
-        : undefined,
-    createdAt: normalizeOptionalString(summary.createdAt, 40),
-    updatedAt: normalizeOptionalString(summary.updatedAt, 40),
-  }));
-}
-
 function trimAndLimit(value: string, maxLength: number) {
   const trimmed = value.trim();
 
-  return trimmed.length > maxLength ? trimmed.slice(0, maxLength).trimEnd() : trimmed;
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+
+  const hardCut = trimmed.slice(0, maxLength - 1);
+  const lastWhitespaceIndex = hardCut.search(/\s+\S*$/);
+  const wordBoundaryCut = lastWhitespaceIndex > (maxLength - 1) * 0.6 ? hardCut.slice(0, lastWhitespaceIndex) : hardCut;
+
+  return `${wordBoundaryCut.trimEnd()}…`;
 }
 
 function normalizeOptionalString(value: string | undefined, maxLength: number) {

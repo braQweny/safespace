@@ -111,12 +111,12 @@ async function readOpenRouterRequest(fetcher: ReturnType<typeof vi.fn>) {
 }
 
 describe("buildOpenRouterSessionRequest", () => {
-  it("builds a conservative non-streaming chat request", () => {
+  it("builds a bounded non-streaming chat request with conversational sampling", () => {
     const request = buildOpenRouterSessionRequest(input, "openai/gpt-4o-mini");
 
     expect(request.model).toBe("openai/gpt-4o-mini");
     expect(request.stream).toBe(false);
-    expect(request.temperature).toBeLessThanOrEqual(0.4);
+    expect(request.temperature).toBe(0.7);
     expect(request.maxTokens).toBe(800);
     expect(request).not.toHaveProperty("maxCompletionTokens");
     expect(request.provider.requireParameters).toBe(true);
@@ -136,7 +136,7 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.provider.requireParameters).toBe(true);
   });
 
-  it("includes the selected catalog sessionStyleHint in the final provider message", () => {
+  it("includes the selected catalog sessionStyleHint in the system message and keeps the user turn plain", () => {
     const modality = MVP_MODALITIES.find((item) => item.avatarId === "integrative-guide");
 
     expect(modality).toBeDefined();
@@ -168,13 +168,14 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.messages[0]).toMatchObject({
       role: "system",
     });
+    expect(request.messages[0].content).toContain("Avatar: Iga");
+    expect(request.messages[0].content).toContain("przewodniczka łącząca wątki");
+    expect(request.messages[0].content).toContain("Reply shapes");
     expect(request.messages.at(-1)).toMatchObject({
       role: "user",
     });
-    expect(request.messages.at(-1)?.content).toContain("Avatar: Iga");
-    expect(request.messages.at(-1)?.content).toContain("przewodniczka łącząca wątki");
-    expect(request.messages.at(-1)?.content).toContain("Typical reply shape");
-    expect(request.messages.at(-1)?.content).toContain("Mam wrażenie, że wszystko się we mnie miesza.");
+    expect(request.messages.at(-1)?.content).toBe("Mam wrażenie, że wszystko się we mnie miesza.");
+    expect(request.messages.at(-1)?.content).not.toContain("Avatar: Iga");
   });
 
   it("omits temperature for OpenAI GPT-5 session models that reject sampling parameters", () => {
