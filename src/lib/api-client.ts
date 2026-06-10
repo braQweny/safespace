@@ -7,6 +7,14 @@
  */
 export type ApiJsonResult = { kind: "json"; status: number; body: unknown } | { kind: "network_error" };
 
+/**
+ * Middleware-level rate limiting (429) happens before any route contract, so
+ * islands detect it here instead of in per-route type guards.
+ */
+export function isRateLimitedApiResult(result: ApiJsonResult) {
+  return result.kind === "json" && result.status === 429;
+}
+
 export async function requestApiJson(input: string, init?: RequestInit): Promise<ApiJsonResult> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/json");

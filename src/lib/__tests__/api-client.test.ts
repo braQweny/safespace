@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestApiJson } from "@/lib/api-client";
+import { isRateLimitedApiResult, requestApiJson } from "@/lib/api-client";
 
 function stubFetch(impl: (input: string, init?: RequestInit) => Promise<Response>) {
   const fetchMock = vi.fn(impl);
@@ -105,5 +105,20 @@ describe("requestApiJson", () => {
     const result = await requestApiJson("/api/example");
 
     expect(result).toEqual({ kind: "network_error" });
+  });
+});
+
+describe("isRateLimitedApiResult", () => {
+  it("detects the middleware rate limit response", async () => {
+    stubFetch(() => Promise.resolve(jsonResponse({ ok: false, code: "rate_limited" }, 429)));
+
+    const result = await requestApiJson("/api/session/message", { method: "POST" });
+
+    expect(isRateLimitedApiResult(result)).toBe(true);
+  });
+
+  it("ignores other statuses and network errors", () => {
+    expect(isRateLimitedApiResult({ kind: "json", status: 409, body: { ok: false } })).toBe(false);
+    expect(isRateLimitedApiResult({ kind: "network_error" })).toBe(false);
   });
 });

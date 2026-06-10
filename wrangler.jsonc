@@ -15,4 +15,20 @@
   "observability": {
     "enabled": true,
   },
+  // Per-user rate limit for AI-backed session endpoints. Counters are kept
+  // per Cloudflare location (approximate, not global) — good enough for cost
+  // and abuse protection. The "unsafe" prefix means open-beta API, not danger.
+  "unsafe": {
+    "bindings": [
+      {
+        "name": "SESSION_RATE_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "1001",
+        "simple": {
+          "limit": 20,
+          "period": 60,
+        },
+      },
+    ],
+  },
 }

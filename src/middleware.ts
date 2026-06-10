@@ -6,6 +6,7 @@ import {
   createOperationalRequestId,
   withOperationalRequestIdHeader,
 } from "@/lib/operational-visibility/request-context";
+import { checkSessionRateLimit, getRateLimitKey, isRateLimitedApiRequest } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase";
 
 const BLOCKED_ACCOUNT_PATH = "/account/blocked";
@@ -72,6 +73,32 @@ export const onRequest = defineMiddleware(async (context, next) => {
     context.locals.user = null;
   }
   context.locals.accountAccess = null;
+
+  if (isRateLimitedApiRequest(context.request.method, context.url.pathname)) {
+    const limiter = context.locals.runtime?.env?.SESSION_RATE_LIMITER;
+    const key = getRateLimitKey(context.locals.user?.id ?? null, context.request);
+    const verdict = await checkSessionRateLimit(limiter, key);
+
+    if (verdict === "limited") {
+      logOperationalEvent(
+        {
+          event: "route.request_rejected",
+          level: "warn",
+          route: context.url.pathname,
+          method: context.request.method,
+          outcome: "blocked",
+          status: 429,
+          reasonCode: "rate_limited",
+        },
+        { requestId },
+      );
+
+      return withOperationalRequestIdHeader(
+        Response.json({ ok: false, code: "rate_limited" }, { status: 429, headers: { "Retry-After": "60" } }),
+        requestId,
+      );
+    }
+  }
 
   if (isProtectedRoute(context.url.pathname)) {
     if (!context.locals.user) {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { FileText, PlayCircle, ShieldCheck } from "lucide-react";
-import { requestApiJson } from "@/lib/api-client";
+import { isRateLimitedApiResult, requestApiJson } from "@/lib/api-client";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
 import { isSendSessionMessageResponse } from "@/lib/session-flow/message-contract";
@@ -146,6 +146,16 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         return;
       }
 
+      if (isRateLimitedApiResult(result)) {
+        setNotice(
+          buildGenericNotice(
+            "Za dużo prób w krótkim czasie",
+            "Odczekaj około minuty i spróbuj ponownie rozpocząć sesję.",
+          ),
+        );
+        return;
+      }
+
       const body = result.body;
 
       if (isStartSessionSuccess(body)) {
@@ -198,6 +208,17 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         setDraft(trimmedDraft);
         setNotice(
           buildGenericNotice("Nie udało się wysłać wiadomości", "Połączenie z serwerem jest chwilowo niedostępne."),
+        );
+        return;
+      }
+
+      if (isRateLimitedApiResult(result)) {
+        setDraft(trimmedDraft);
+        setNotice(
+          buildGenericNotice(
+            "Zwolnij na chwilę",
+            "Wysyłasz wiadomości zbyt szybko. Odczekaj około minuty i spróbuj ponownie — treść wiadomości została zachowana.",
+          ),
         );
         return;
       }
