@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { logOperationalEvent } from "../logger";
+import type { OperationalEvent } from "../types";
 
 describe("logOperationalEvent", () => {
   afterEach(() => {
@@ -11,13 +12,15 @@ describe("logOperationalEvent", () => {
       return undefined;
     });
 
+    // A private field cannot be expressed in OperationalEvent anymore, so this
+    // simulates an untyped caller to prove the runtime sanitizer still drops it.
     logOperationalEvent(
       {
         event: "auth.signin",
         level: "info",
         outcome: "success",
         email: "person@example.test",
-      },
+      } as unknown as OperationalEvent,
       {
         requestId: "req-1",
         route: "/auth/signin",

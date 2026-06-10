@@ -1,12 +1,15 @@
 import { sanitizeOperationalEvent } from "./sanitize-event";
 import { OPERATIONAL_EVENT_SCHEMA_VERSION, type OperationalEvent } from "./types";
 
-type OperationalLogPayload = OperationalEvent | Record<string, unknown>;
+// Only the strict, enumerated OperationalEvent shape is accepted: event names,
+// outcomes and reason codes are closed unions, so a payload with private data
+// (message text, emails, raw ids) fails to compile. The runtime sanitizer in
+// sanitizeOperationalEvent stays as defense-in-depth for non-TS callers.
 type OperationalLogContext = Partial<
   Pick<OperationalEvent, "requestId" | "route" | "method" | "durationMs" | "userHash" | "deploymentTarget">
 >;
 
-export function logOperationalEvent(event: OperationalLogPayload, context: OperationalLogContext = {}) {
+export function logOperationalEvent(event: OperationalEvent, context: OperationalLogContext = {}) {
   try {
     const sanitizedEvent = sanitizeOperationalEvent({
       ...context,

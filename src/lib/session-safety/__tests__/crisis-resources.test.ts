@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { CRISIS_RESOURCE_CATALOG } from "../crisis-resources";
 import { evaluateSessionSafety } from "../evaluate-session-safety";
-import type { SessionSafetyProvider } from "../provider";
+import type { ProviderSafetyDecision, SessionSafetyProvider } from "../provider";
 
 vi.mock("../openrouter-classifier", () => ({
   openRouterSafetyProvider: {
@@ -20,7 +20,7 @@ describe("crisis resources", () => {
   it("returns hard-stop resources without claiming SafeSpace contacted emergency services", async () => {
     const provider: SessionSafetyProvider = {
       classify: vi.fn(() =>
-        Promise.resolve({
+        Promise.resolve<ProviderSafetyDecision>({
           risk: "crisis",
           action: "hard_stop",
           reasonCode: "harm_to_others_signal",

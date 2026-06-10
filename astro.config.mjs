@@ -9,6 +9,13 @@ import cloudflare from "@astrojs/cloudflare";
 // https://astro.build/config
 export default defineConfig({
   output: "server",
+  // CSRF: reject POST/PATCH/PUT/DELETE with a mismatched Origin header (403).
+  // This is Astro's default since v5 — kept explicit so it cannot be disabled
+  // (or change with a future default) unnoticed. JSON requests are additionally
+  // covered by the browser CORS preflight model.
+  security: {
+    checkOrigin: true,
+  },
   integrations: [react(), sitemap()],
   vite: {
     plugins: [tailwindcss()],

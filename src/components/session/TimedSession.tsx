@@ -5,7 +5,12 @@ import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
 import { isSendSessionMessageResponse } from "@/lib/session-flow/message-contract";
 import { appendSuccessfulTurn, isComposerAvailable, type UiSessionMessage } from "@/lib/session-flow/message-state";
-import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
+import {
+  toSessionStartPageStateKind,
+  type SessionStartPageState,
+  type SessionStartPageStateKind,
+  type SessionView,
+} from "@/lib/session-flow/session-state";
 import SessionComposer from "./SessionComposer";
 import SessionMessages from "./SessionMessages";
 import SessionSafetyNotice from "./SessionSafetyNotice";
@@ -161,7 +166,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
       if (isStartSessionSuccess(body)) {
         setSession(body.session);
         setMessages([]);
-        setKind(body.session.status === "active" ? "active" : body.session.status);
+        setKind(toSessionStartPageStateKind(body.session.status));
         setIsClientExpired(body.session.remainingSeconds === 0);
         setIsHardStopped(false);
         return;
@@ -234,7 +239,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
       if (body.ok) {
         setMessages((currentMessages) => appendSuccessfulTurn(currentMessages, body.messages));
         setSession(body.session);
-        setKind(body.session.status === "active" ? "active" : body.session.status);
+        setKind(toSessionStartPageStateKind(body.session.status));
         setDraft("");
         setNotice(null);
         return;

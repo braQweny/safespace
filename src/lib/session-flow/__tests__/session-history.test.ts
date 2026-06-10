@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import {
   SESSION_HISTORY_PAGE_SIZE,
+  type LatestSessionSummaryState,
   type OwnedSessionHistoryDetail,
   type OwnedSessionHistoryPage,
   type SessionDataContext,
@@ -82,7 +83,7 @@ function createRepository(overrides: Partial<SessionHistoryRepository> = {}): Se
     getOwnedSessionHistoryDetail: vi.fn(() => Promise.resolve(ok(detail))),
     getLatestOwnedSessionSummaryState: vi.fn(() =>
       Promise.resolve(
-        ok({
+        ok<LatestSessionSummaryState>({
           kind: "none",
         }),
       ),
@@ -238,7 +239,7 @@ describe("readSessionHistoryDetail", () => {
     const repository = createRepository({
       getLatestOwnedSessionSummaryState: vi.fn(() =>
         Promise.resolve(
-          ok({
+          ok<LatestSessionSummaryState>({
             kind: "preview",
             summary: {
               id: "summary-1",

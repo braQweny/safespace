@@ -68,7 +68,10 @@ function compareMessagesBySequence(left: SessionMessageRecord, right: SessionMes
 
 function toSummarySourceMessages(messages: readonly SessionMessageRecord[]): GenerateSessionSummaryInput["messages"] {
   return [...messages]
-    .filter((message) => message.role === "user" || message.role === "assistant")
+    .filter(
+      (message): message is SessionMessageRecord & { role: "user" | "assistant" } =>
+        message.role === "user" || message.role === "assistant",
+    )
     .sort(compareMessagesBySequence)
     .slice(-SUMMARY_SOURCE_MESSAGE_LIMIT)
     .map((message) => ({

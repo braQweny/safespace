@@ -239,7 +239,7 @@ function compareSummaryRecordsNewestFirst(left: SessionSummaryRecord, right: Ses
 }
 
 function normalizeApprovedSummaryContextLimit(limit: number | undefined) {
-  if (!Number.isSafeInteger(limit) || limit <= 0) {
+  if (typeof limit !== "number" || !Number.isSafeInteger(limit) || limit <= 0) {
     return DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT;
   }
 
@@ -302,7 +302,7 @@ export function toLatestSessionSummaryState(summaries: readonly SessionSummaryRe
 
 export function toApprovedSessionSummaryContexts(
   summaries: readonly SessionSummaryRecord[],
-  limit = DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT,
+  limit: number = DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT,
 ): ApprovedSessionSummaryContext[] {
   const normalizedLimit = normalizeApprovedSummaryContextLimit(limit);
   const seenSessionIds = new Set<SessionId>();

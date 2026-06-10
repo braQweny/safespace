@@ -61,7 +61,7 @@ function sanitizeMethod(value: unknown) {
 }
 
 function sanitizeStatus(value: unknown) {
-  if (!Number.isInteger(value)) {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
     return undefined;
   }
 

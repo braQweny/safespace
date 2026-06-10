@@ -119,7 +119,7 @@ function pickBaseMetadata(metadata: SessionEventBaseMetadata): SafeSessionEventB
 
   return {
     ...(requestId ? { requestId } : {}),
-    ...(outcome && outcome !== "redirected" ? { outcome } : {}),
+    ...(outcome ? { outcome } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
     ...(userHash ? { userHash } : {}),
   };

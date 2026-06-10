@@ -22,6 +22,7 @@ jobs:
       - run: npm run test
       - run: npx astro sync
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm run build
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

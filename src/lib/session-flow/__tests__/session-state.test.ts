@@ -27,11 +27,11 @@ const avatar: CurrentAvatarChoice = {
     avatarId: "cbt-guide",
     modalityName: "Podejscie poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
-    explanation: "Pomaga zauwazac powiazania miedzy myslami, emocjami, reakcjami ciala i dzialaniami.",
-    focus: "Porzadkuje sytuacje krok po kroku.",
+    explanation: "Pomaga zauwazac powiazania miedzy myslami, emocjami, reakcjami ciala i codziennymi dzialaniami.",
+    focus: "Porzadkuje sytuacje krok po kroku i szuka konkretnych obserwacji, ktore da sie nazwac.",
     sessionStyleHint: "Uzywa jasnej struktury.",
     assetPath: "/avatars/cbt-guide.png",
-    altText: "Awatar Marka",
+    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
   selected: {
     modalityId: "cbt",
@@ -39,7 +39,7 @@ const avatar: CurrentAvatarChoice = {
     modalityName: "Podejscie poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
     assetPath: "/avatars/cbt-guide.png",
-    altText: "Awatar Marka",
+    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
 };
 

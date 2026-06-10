@@ -118,10 +118,20 @@ export function getEffectiveSessionStatus(
   }
 
   if (session.status === "deleted") {
-    return "trial_already_claimed";
+    // A deleted session never reaches active flows; map it to "claimed" so the
+    // page state resolves to trial_already_claimed without leaking "deleted".
+    return "claimed";
   }
 
   return session.status;
+}
+
+export function toSessionStartPageStateKind(status: EffectiveSessionStatus): SessionStartPageStateKind {
+  if (status === "active" || status === "expired" || status === "completed" || status === "interrupted") {
+    return status;
+  }
+
+  return "trial_already_claimed";
 }
 
 export function toSessionView(session: SessionMetadata, now: Date = new Date()): SessionView {
@@ -148,15 +158,7 @@ function toMessageView(message: SessionMessageRecord): SessionMessageView {
 }
 
 function getStateKindFromSession(session: SessionView): SessionStartPageStateKind {
-  if (session.status === "active") {
-    return "active";
-  }
-
-  if (session.status === "expired" || session.status === "completed" || session.status === "interrupted") {
-    return session.status;
-  }
-
-  return "trial_already_claimed";
+  return toSessionStartPageStateKind(session.status);
 }
 
 function unavailableState(avatar: CurrentAvatarChoice): SessionStartPageState {

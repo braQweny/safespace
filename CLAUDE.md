@@ -38,6 +38,8 @@ Astro 6 SSR (`output: "server"`) + React 19 islands + Tailwind 4 + Supabase auth
 4. Rate-limits AI-backed session endpoints (`/api/session/message`, `start`, `start-next`) per user via the Cloudflare `SESSION_RATE_LIMITER` binding (`src/lib/rate-limit.ts`, wrangler.jsonc). Fail-open when the binding is absent (local dev, tests); over-limit → 429 `{ code: "rate_limited" }`.
 5. For `PROTECTED_ROUTES` (`/dashboard`, `/account`, `/admin`): redirects unauthenticated users to `/auth/signin`, then checks **account access** (`readAccountAccessState`) and redirects blocked/unavailable accounts to `/account/blocked`. Result lands in `context.locals.accountAccess`.
 
+CSRF: `security.checkOrigin: true` in `astro.config.mjs` (explicit, do not remove) makes Astro reject form-content-type POST/PATCH/PUT/DELETE with a mismatched `Origin` header; JSON requests are covered by the CORS preflight model.
+
 Auth: `src/lib/supabase.ts` (cookie SSR client, `astro:env/server` secrets), pages in `src/pages/auth/`, endpoints in `src/pages/api/auth/` (incl. Google OAuth `google.ts` + `callback.ts`).
 
 ### Session flow (the core feature)

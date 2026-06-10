@@ -157,7 +157,9 @@ function parseResponseModel(responseBody: ChatResult) {
 
 function parseFinishReason(responseBody: ChatResult): SessionSummaryFinishReason | undefined {
   const choice = extractFirstChoice(responseBody);
-  const finishReason = choice.finishReason;
+  // The SDK types finishReason as a branded Unrecognized<string> union that
+  // equality checks cannot narrow; widen to plain string first.
+  const finishReason = choice.finishReason as string | undefined;
 
   if (finishReason === "stop" || finishReason === "length" || finishReason === "content_filter") {
     return finishReason;

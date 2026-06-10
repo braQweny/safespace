@@ -65,7 +65,7 @@ describe("deleteOwnedSession", () => {
     const repository: DeletionRepository = {
       getOwnedSessionMetadata: vi.fn(() =>
         Promise.resolve(
-          ok({
+          ok<SessionMetadata>({
             ...activeSession,
             modalityId: null,
             avatarId: null,

@@ -1,3 +1,4 @@
+import type { AdminErrorCode } from "@/lib/admin/errors";
 import type { AuthErrorCode } from "@/lib/auth-errors";
 import type { AvatarChoiceErrorCode } from "@/lib/avatar-choice-errors";
 import type { SessionSafetyReasonCode } from "@/lib/session-safety/reason-codes";
@@ -56,6 +57,7 @@ export type OperationalSessionReasonCode =
   | "interrupted";
 
 export type OperationalReasonCode =
+  | AdminErrorCode
   | AuthErrorCode
   | AvatarChoiceErrorCode
   | ProtectedRouteReasonCode

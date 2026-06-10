@@ -54,7 +54,10 @@ function getSessionAiErrorCategory(error: unknown): SessionAiErrorCategory {
 
 function toRecentSessionAiMessages(messages: readonly SessionMessageRecord[]) {
   return messages
-    .filter((message) => message.role === "user" || message.role === "assistant")
+    .filter(
+      (message): message is SessionMessageRecord & { role: "user" | "assistant" } =>
+        message.role === "user" || message.role === "assistant",
+    )
     .slice(-RECENT_MESSAGE_CONTEXT_LIMIT)
     .map((message) => ({
       role: message.role,
