@@ -3,6 +3,8 @@ import { getAdminContext } from "@/lib/admin/auth";
 import { adminApiFailure, getAdminApiFailureStatus, type AdminOverviewResponse } from "@/lib/admin/contracts";
 import { readAdminOverviewMetrics } from "@/lib/admin/aggregates";
 
+export const prerender = false;
+
 function jsonResponse(body: AdminOverviewResponse) {
   const status = body.ok ? 200 : getAdminApiFailureStatus(body.code);
   return Response.json(body, { status });

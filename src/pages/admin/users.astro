@@ -29,7 +29,7 @@ if (adminContext.ok) {
   {
     adminContext.ok ? (
       <AdminShell title="Użytkownicy" active="users" adminEmail={adminContext.data.user.email}>
-        <AdminUsersTable initialResponse={usersResponse} currentAdminUserId={adminContext.data.user.id} client:load />
+        <AdminUsersTable initialResponse={usersResponse} currentAdminUserId={adminContext.data.user.id} client:idle />
       </AdminShell>
     ) : (
       <main class="min-h-screen bg-[#f5f7f7] px-4 py-10 text-[#17211f]">

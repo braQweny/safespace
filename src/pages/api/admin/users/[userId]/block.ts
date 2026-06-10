@@ -3,6 +3,8 @@ import { getAdminContext } from "@/lib/admin/auth";
 import { adminApiFailure, getAdminApiFailureStatus, type AdminUserBlockResponse } from "@/lib/admin/contracts";
 import { parseAdminUserBlockInput, setAdminUserBlockState } from "@/lib/admin/users";
 
+export const prerender = false;
+
 function jsonResponse(body: AdminUserBlockResponse) {
   const status = body.ok ? 200 : getAdminApiFailureStatus(body.code);
   return Response.json(body, { status });

@@ -1,5 +1,6 @@
 import { adminError, adminOk, type AdminResult } from "./errors";
 import { writeAdminAuditEvent, type WriteAdminAuditEventInput } from "./audit";
+import { isRecord } from "@/lib/type-guards";
 import type {
   AdminBlockReasonCode,
   AdminContext,
@@ -68,10 +69,6 @@ const defaultAdminUserMutationRepository: AdminUserMutationRepository = {
   updateBlockState: updateAdminUserProfileBlockState,
   writeAuditEvent: writeAdminAuditEvent,
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function readRpcResult(value: unknown): RpcResult | null {
   if (!isRecord(value) || !("data" in value) || !("error" in value)) {

@@ -18,6 +18,8 @@ import {
   type SessionSummaryStateResponse,
 } from "@/lib/session-flow/session-summary-contract";
 
+export const prerender = false;
+
 function getSessionId(context: Parameters<APIRoute>[0]) {
   const sessionId = context.params.sessionId;
 

@@ -13,6 +13,7 @@ const AUTH_ERROR_MESSAGES = {
   signout_failed: "Nie udalo sie wylogowac. Sprobuj ponownie za chwile.",
   oauth_start_failed: "Nie udalo sie rozpoczac logowania przez Google. Sprobuj ponownie za chwile.",
   oauth_callback_failed: "Nie udalo sie dokonczyc logowania. Sprobuj ponownie.",
+  reset_password_failed: "Nie udało się wysłać linku do zmiany hasła. Spróbuj ponownie za chwilę.",
 } as const;
 
 export type AuthErrorCode = keyof typeof AUTH_ERROR_MESSAGES;
@@ -65,6 +66,16 @@ export function mapSignUpError(error: SupabaseAuthLikeError): AuthErrorCode {
   }
 
   return "signup_failed";
+}
+
+export function mapResetPasswordError(error: SupabaseAuthLikeError): AuthErrorCode {
+  const message = error.message?.toLowerCase() ?? "";
+
+  if (message.includes("rate limit") || message.includes("too many")) {
+    return "rate_limited";
+  }
+
+  return "reset_password_failed";
 }
 
 export function mapPasswordUpdateError(error: SupabaseAuthLikeError): AuthErrorCode {

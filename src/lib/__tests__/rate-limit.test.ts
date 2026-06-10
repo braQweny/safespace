@@ -20,10 +20,15 @@ describe("isRateLimitedApiRequest", () => {
     expect(isRateLimitedApiRequest("POST", "/api/session/start-next")).toBe(true);
   });
 
+  it("matches summary generation under its dynamic session segment", () => {
+    expect(isRateLimitedApiRequest("POST", "/api/session/summary/123e4567-e89b-42d3-a456-426614174000")).toBe(true);
+  });
+
   it("ignores other methods and routes", () => {
     expect(isRateLimitedApiRequest("GET", "/api/session/message")).toBe(false);
     expect(isRateLimitedApiRequest("POST", "/api/session/history")).toBe(false);
     expect(isRateLimitedApiRequest("POST", "/dashboard/session")).toBe(false);
+    expect(isRateLimitedApiRequest("PATCH", "/api/session/summary/123e4567-e89b-42d3-a456-426614174000")).toBe(false);
   });
 });
 

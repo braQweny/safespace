@@ -3,6 +3,8 @@ import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import { readSessionHistoryList } from "@/lib/session-flow/session-history";
 import { sessionHistoryFailure, type SessionHistoryFailureCode } from "@/lib/session-flow/session-history-contract";
 
+export const prerender = false;
+
 function getFailureStatus(code: SessionHistoryFailureCode) {
   if (code === "missing_auth") {
     return 401;

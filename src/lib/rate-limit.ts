@@ -15,10 +15,20 @@ export interface RateLimiterBinding {
 
 const RATE_LIMITED_API_PATHS = new Set(["/api/session/message", "/api/session/start", "/api/session/start-next"]);
 
+// Summary generation hits the AI provider too, but lives under a dynamic
+// `[sessionId]` segment, so it is matched by prefix instead of exact path.
+const RATE_LIMITED_API_PATH_PREFIXES = ["/api/session/summary/"];
+
 export type RateLimitVerdict = "allowed" | "limited";
 
 export function isRateLimitedApiRequest(method: string, pathname: string) {
-  return method === "POST" && RATE_LIMITED_API_PATHS.has(pathname);
+  if (method !== "POST") {
+    return false;
+  }
+
+  return (
+    RATE_LIMITED_API_PATHS.has(pathname) || RATE_LIMITED_API_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
 }
 
 export function getRateLimitKey(userId: string | null, request: Request) {

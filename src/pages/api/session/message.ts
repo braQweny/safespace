@@ -29,6 +29,8 @@ import { persistSuccessfulMessageTurn } from "@/lib/session-flow/message-persist
 import { expireOwnedSession, getProviderTimeoutWithinSessionMs, isSessionExpired } from "@/lib/session-flow/time-limit";
 import { toSessionView } from "@/lib/session-flow/session-state";
 
+export const prerender = false;
+
 const RECENT_MESSAGE_CONTEXT_LIMIT = 8;
 
 function jsonResponse(body: SendSessionMessageResponse, status: number) {

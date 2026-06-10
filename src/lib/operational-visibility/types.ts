@@ -12,6 +12,7 @@ export const OPERATIONAL_EVENT_NAMES = [
   "auth.oauth_callback",
   "auth.signout",
   "auth.password_update",
+  "auth.reset_password",
   "avatar.fetch",
   "avatar.save",
   "route.protected_redirect",

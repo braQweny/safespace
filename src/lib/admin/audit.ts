@@ -1,5 +1,6 @@
 import { adminError, adminOk, type AdminResult } from "./errors";
 import type { AdminAuditEvent, AdminAuditEventType, AdminBlockReasonCode, AdminContext, AdminUserId } from "./types";
+import { isRecord } from "@/lib/type-guards";
 
 const AUDIT_EVENT_SELECT = "id,admin_user_id,target_user_id,action,reason_code,created_at";
 
@@ -16,10 +17,6 @@ export interface WriteAdminAuditEventInput {
   targetUserId: AdminUserId;
   action: AdminAuditEventType;
   reasonCode: AdminBlockReasonCode;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function coerceAuditEventRow(value: unknown): AdminAuditEventRow | null {

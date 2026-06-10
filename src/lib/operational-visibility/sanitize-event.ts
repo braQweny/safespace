@@ -13,6 +13,7 @@ import {
   type OperationalEventAllowedField,
 } from "./allowed-fields";
 import type { SanitizedOperationalEvent } from "./types";
+import { isRecord } from "@/lib/type-guards";
 
 const MAX_SAFE_STRING_LENGTH = 160;
 const MAX_REQUEST_ID_LENGTH = 96;
@@ -24,10 +25,6 @@ const OUTCOME_SET = new Set<string>(OPERATIONAL_EVENT_OUTCOMES);
 const PROVIDER_SET = new Set<string>(OPERATIONAL_EVENT_PROVIDERS);
 const RISK_STATE_SET = new Set<string>(OPERATIONAL_RISK_STATES);
 const SAFETY_ACTION_SET = new Set<string>(OPERATIONAL_SAFETY_ACTIONS);
-
-function isRecord(input: unknown): input is Record<string, unknown> {
-  return typeof input === "object" && input !== null && !Array.isArray(input);
-}
 
 function sanitizeShortString(value: unknown, maxLength = MAX_SAFE_STRING_LENGTH) {
   if (typeof value !== "string") {

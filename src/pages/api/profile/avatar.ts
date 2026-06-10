@@ -1,14 +1,12 @@
 import type { APIRoute } from "astro";
 import { getAvatarChoiceErrorRedirect } from "@/lib/avatar-choice-errors";
+import { getFormString } from "@/lib/auth-validation";
 import { getModalityById } from "@/lib/modalities";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
-function getFormString(form: FormData, field: string) {
-  const value = form.get(field);
-  return typeof value === "string" ? value.trim() : "";
-}
+export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
   const operationalContext = await buildOperationalRequestContext(context);

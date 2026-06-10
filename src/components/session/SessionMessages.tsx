@@ -112,7 +112,12 @@ export default function SessionMessages({
   emptyCopy = "Pierwsza wiadomość może być krótka. Opisz sytuację, którą chcesz spokojnie uporządkować.",
 }: SessionMessagesProps) {
   return (
-    <div className="min-h-[280px] rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4">
+    <div
+      role="log"
+      aria-live="polite"
+      aria-label="Przebieg rozmowy"
+      className="min-h-[280px] rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4"
+    >
       {messages.length === 0 ? (
         <div className="flex min-h-56 items-center justify-center text-center text-sm leading-6 text-[#52645f]">
           {emptyCopy}

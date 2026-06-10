@@ -35,9 +35,13 @@ export default function SessionTimer({ expiresAt, initialRemainingSeconds, onExp
   }, [onExpired, remainingSeconds]);
 
   return (
-    <div className="inline-flex h-10 min-w-32 items-center justify-center gap-2 rounded-lg border border-[#bfd8d1] bg-[#f8fcfa] px-4 text-sm font-semibold text-[#173f39]">
+    <div
+      role="timer"
+      aria-label="Pozostały czas sesji"
+      className="inline-flex h-10 min-w-32 items-center justify-center gap-2 rounded-lg border border-[#bfd8d1] bg-[#f8fcfa] px-4 text-sm font-semibold text-[#173f39]"
+    >
       <Clock aria-hidden="true" className="h-4 w-4 text-[#1f6f65]" />
-      <span aria-live="polite">{formatRemainingTime(remainingSeconds)}</span>
+      <span>{formatRemainingTime(remainingSeconds)}</span>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase";
 import { adminError, adminOk, type AdminResult } from "./errors";
 import type { AccountAccessState, AdminBlockReasonCode, AdminRouteContext, AdminSupabaseClient } from "./types";
+import { isRecord } from "@/lib/type-guards";
 
 const ACCOUNT_ACCESS_SELECT = "user_id,blocked_at,block_reason_code";
 
@@ -8,10 +9,6 @@ interface AccountAccessRow {
   user_id: string;
   blocked_at: string | null;
   block_reason_code: AdminBlockReasonCode | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function coerceAccountAccessRow(value: unknown): AccountAccessRow | null {

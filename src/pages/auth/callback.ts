@@ -5,6 +5,14 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
+// Exact-match allowlist for the post-callback destination; anything else
+// (including attacker-supplied values) falls back to the dashboard.
+const SAFE_NEXT_PATHS = new Set(["/account/security"]);
+
+function getSafeNextPath(nextParam: string | null) {
+  return nextParam && SAFE_NEXT_PATHS.has(nextParam) ? nextParam : AUTHENTICATED_REDIRECT_PATH;
+}
+
 export const GET: APIRoute = async (context) => {
   const operationalContext = await buildOperationalRequestContext(context);
   const providerError = context.url.searchParams.get("error");
@@ -71,5 +79,5 @@ export const GET: APIRoute = async (context) => {
     operationalContext,
   );
 
-  return context.redirect(AUTHENTICATED_REDIRECT_PATH);
+  return context.redirect(getSafeNextPath(context.url.searchParams.get("next")));
 };

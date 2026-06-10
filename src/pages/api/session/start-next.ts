@@ -12,6 +12,8 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
 import { buildSessionStartAttemptedEvent } from "@/lib/operational-visibility/session-events";
 
+export const prerender = false;
+
 type StartNextFailureCode =
   | SessionDataErrorCode
   | "account_blocked"

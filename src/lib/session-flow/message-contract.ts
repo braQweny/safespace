@@ -4,6 +4,7 @@ import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safe
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import type { SessionMessageRole } from "@/lib/session-data/types";
 import type { SessionView } from "./session-state";
+import { isRecord } from "@/lib/type-guards";
 
 export const SESSION_MESSAGE_MAX_CHARS = 3_000;
 
@@ -91,10 +92,6 @@ export type SendSessionMessageFailureResponse =
     };
 
 export type SendSessionMessageResponse = SendSessionMessageSuccessResponse | SendSessionMessageFailureResponse;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function normalizeString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

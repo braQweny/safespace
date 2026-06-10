@@ -17,6 +17,25 @@ const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account", "/admin"] as 
 const API_BODY_LIMIT_BYTES = 32 * 1024;
 const API_BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
+// Baseline browser hardening for every response. A full Content-Security-Policy
+// is intentionally absent: Astro islands rely on inline hydration scripts, so a
+// meaningful CSP needs nonce plumbing rather than a blanket header here.
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+};
+
+function withSecurityHeaders(response: Response) {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(name, value);
+  }
+
+  return response;
+}
+
 function isApiBodyTooLarge(request: Request, pathname: string) {
   if (!pathname.startsWith("/api/") || !API_BODY_METHODS.has(request.method)) {
     return false;
@@ -56,9 +75,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
       { requestId },
     );
 
-    return withOperationalRequestIdHeader(
-      Response.json({ ok: false, code: "payload_too_large" }, { status: 413 }),
-      requestId,
+    return withSecurityHeaders(
+      withOperationalRequestIdHeader(
+        Response.json({ ok: false, code: "payload_too_large" }, { status: 413 }),
+        requestId,
+      ),
     );
   }
 
@@ -93,9 +114,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
         { requestId },
       );
 
-      return withOperationalRequestIdHeader(
-        Response.json({ ok: false, code: "rate_limited" }, { status: 429, headers: { "Retry-After": "60" } }),
-        requestId,
+      return withSecurityHeaders(
+        withOperationalRequestIdHeader(
+          Response.json({ ok: false, code: "rate_limited" }, { status: 429, headers: { "Retry-After": "60" } }),
+          requestId,
+        ),
       );
     }
   }
@@ -115,7 +138,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         { requestId },
       );
 
-      return withOperationalRequestIdHeader(context.redirect("/auth/signin"), requestId);
+      return withSecurityHeaders(withOperationalRequestIdHeader(context.redirect("/auth/signin"), requestId));
     }
 
     if (shouldCheckAccountAccess(context.url.pathname)) {
@@ -135,7 +158,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
           { requestId },
         );
 
-        return withOperationalRequestIdHeader(context.redirect(`${BLOCKED_ACCOUNT_PATH}?state=unavailable`), requestId);
+        return withSecurityHeaders(
+          withOperationalRequestIdHeader(context.redirect(`${BLOCKED_ACCOUNT_PATH}?state=unavailable`), requestId),
+        );
       }
 
       context.locals.accountAccess = accountAccess.data;
@@ -154,11 +179,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
           { requestId },
         );
 
-        return withOperationalRequestIdHeader(context.redirect(BLOCKED_ACCOUNT_PATH), requestId);
+        return withSecurityHeaders(withOperationalRequestIdHeader(context.redirect(BLOCKED_ACCOUNT_PATH), requestId));
       }
     }
   }
 
   const response = await next();
-  return withOperationalRequestIdHeader(response, requestId);
+  return withSecurityHeaders(withOperationalRequestIdHeader(response, requestId));
 });

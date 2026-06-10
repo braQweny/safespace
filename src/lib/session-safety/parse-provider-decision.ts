@@ -7,6 +7,7 @@ import {
   type ProviderSafetyReasonCode,
 } from "./provider";
 import type { SessionSafetyAction, SessionSafetyRisk } from "./types";
+import { isRecord } from "@/lib/type-guards";
 
 const PROVIDER_DECISION_KEYS = new Set(["risk", "action", "reasonCode"]);
 const SESSION_SAFETY_RISK_VALUES = ["normal", "caution", "crisis"] as const satisfies readonly SessionSafetyRisk[];
@@ -61,17 +62,18 @@ function extractFirstChoiceContent(response: unknown) {
 }
 
 function parseDecisionContent(content: string) {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(content);
-
-    if (!isRecord(parsed)) {
-      throwInvalidProviderResponse();
-    }
-
-    return parsed;
-  } catch (_error) {
+    parsed = JSON.parse(content);
+  } catch {
     throwInvalidProviderResponse();
   }
+
+  if (!isRecord(parsed)) {
+    throwInvalidProviderResponse();
+  }
+
+  return parsed;
 }
 
 function rejectUnknownKeys(decision: Record<string, unknown>) {
@@ -122,10 +124,6 @@ function isReasonAllowedForRisk(risk: SessionSafetyRisk, reasonCode: ProviderSaf
     reasonCode === "harm_to_others_signal" ||
     reasonCode === "immediate_danger_signal"
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isNonEmptyUnknownArray(value: unknown): value is readonly [unknown, ...unknown[]] {

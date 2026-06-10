@@ -2,10 +2,7 @@ import { createClient } from "@/lib/supabase";
 import { adminError, adminOk, type AdminResult } from "./errors";
 import { readAccountAccessState } from "./account-access";
 import type { AdminContext, AdminRouteContext } from "./types";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import { isRecord } from "@/lib/type-guards";
 
 function readBooleanRpcResult(value: unknown) {
   if (!isRecord(value) || !("data" in value) || !("error" in value)) {

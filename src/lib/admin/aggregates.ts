@@ -2,18 +2,13 @@ import type { SessionLifecycleStatus } from "@/lib/session-data/types";
 import { adminError, adminOk, type AdminResult } from "./errors";
 import { segmentPrivacyCount } from "./privacy-counts";
 import type { AdminContext, AdminOverviewMetrics, PrivacySafeCount } from "./types";
+import { isRecord } from "@/lib/type-guards";
 
 const SESSION_STATUSES = ["created", "active", "completed", "expired", "interrupted", "deleted"] as const;
-
-type RawOverviewRecord = Record<string, unknown>;
 
 interface RpcResult {
   data: unknown;
   error: unknown;
-}
-
-function isRecord(value: unknown): value is RawOverviewRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readRpcResult(value: unknown): RpcResult | null {

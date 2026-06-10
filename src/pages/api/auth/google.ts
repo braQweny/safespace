@@ -6,6 +6,8 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
+export const prerender = false;
+
 export const POST: APIRoute = async (context) => {
   const operationalContext = await buildOperationalRequestContext(context);
   const supabase = createClient(context.request.headers, context.cookies);

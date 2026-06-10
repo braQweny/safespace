@@ -1,20 +1,13 @@
 import type { APIRoute } from "astro";
 import { getAuthErrorRedirect, mapPasswordUpdateError } from "@/lib/auth-errors";
+import { MIN_PASSWORD_LENGTH, getFormString } from "@/lib/auth-validation";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
 
-const MIN_PASSWORD_LENGTH = 6;
+export const prerender = false;
+
 const SECURITY_PATH = "/account/security";
-
-function getFormString(form: FormData, field: string, trim = true) {
-  const value = form.get(field);
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return trim ? value.trim() : value;
-}
 
 export const POST: APIRoute = async (context) => {
   const operationalContext = await buildOperationalRequestContext(context);

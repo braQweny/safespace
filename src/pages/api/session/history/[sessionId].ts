@@ -10,6 +10,8 @@ import {
   type SessionHistoryFailureCode,
 } from "@/lib/session-flow/session-history-contract";
 
+export const prerender = false;
+
 function getSessionId(context: Parameters<APIRoute>[0]) {
   return context.params.sessionId;
 }
