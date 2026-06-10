@@ -14,6 +14,7 @@ export const OPERATIONAL_EVENT_NAMES = [
   "avatar.fetch",
   "avatar.save",
   "route.protected_redirect",
+  "route.request_rejected",
   "session.start_attempted",
   "session.safety_evaluated",
   "session.ai_provider_failed",
@@ -40,6 +41,8 @@ export type OperationalSafetyAction = (typeof OPERATIONAL_SAFETY_ACTIONS)[number
 
 export type ProtectedRouteReasonCode = "missing_auth";
 
+export type RequestGuardReasonCode = "payload_too_large";
+
 export type OperationalDiagnosticReasonCode = "private_field_denied" | "invalid_event_payload" | "logger_unavailable";
 
 export type OperationalSessionReasonCode =
@@ -56,6 +59,7 @@ export type OperationalReasonCode =
   | AuthErrorCode
   | AvatarChoiceErrorCode
   | ProtectedRouteReasonCode
+  | RequestGuardReasonCode
   | OperationalSessionReasonCode
   | OperationalDiagnosticReasonCode;
 

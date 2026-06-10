@@ -1,7 +1,5 @@
 import type { APIRoute } from "astro";
-import { requireActiveAccountAccess } from "@/lib/admin/account-access";
-import type { AdminErrorCode } from "@/lib/admin/errors";
-import { getSessionDataContext } from "@/lib/session-data/auth";
+import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import { readSessionHistoryList } from "@/lib/session-flow/session-history";
 import { sessionHistoryFailure, type SessionHistoryFailureCode } from "@/lib/session-flow/session-history-contract";
 
@@ -21,14 +19,6 @@ function getFailureStatus(code: SessionHistoryFailureCode) {
   return 503;
 }
 
-function mapAccountAccessFailureCode(code: AdminErrorCode): SessionHistoryFailureCode {
-  if (code === "missing_auth" || code === "account_blocked") {
-    return code;
-  }
-
-  return "account_access_unavailable";
-}
-
 function jsonResponse(
   body: ReturnType<typeof sessionHistoryFailure> | Awaited<ReturnType<typeof readSessionHistoryList>>,
 ) {
@@ -37,16 +27,10 @@ function jsonResponse(
 }
 
 export const GET: APIRoute = async (context) => {
-  const sessionContext = getSessionDataContext(context);
+  const sessionContext = await requireSessionRouteAccess(context);
 
   if (!sessionContext.ok) {
     return jsonResponse(sessionHistoryFailure(sessionContext.error.code));
-  }
-
-  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
-
-  if (!accountAccess.ok) {
-    return jsonResponse(sessionHistoryFailure(mapAccountAccessFailureCode(accountAccess.error.code)));
   }
 
   const response = await readSessionHistoryList(sessionContext.data, {

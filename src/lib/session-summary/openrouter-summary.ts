@@ -1,6 +1,6 @@
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
-import { getOpenRouterSessionConfig, resolveSessionModel } from "@/lib/session-ai/env";
+import { getOpenRouterSummaryConfig, resolveSummaryModel } from "./env";
 import {
   buildOpenRouterTokenLimitParameter,
   supportsOpenRouterTemperature,
@@ -41,15 +41,13 @@ type OpenRouterSummaryRequestBody = OpenRouterNonStreamingChatRequest & {
   };
 };
 
-export function resolveSummaryModel(modelOverride?: string | null) {
-  return resolveSessionModel(modelOverride);
-}
+export { resolveSummaryModel } from "./env";
 
 export async function generateSessionSummaryWithOpenRouter(
   input: GenerateSessionSummaryInput,
   options: OpenRouterSummaryOptions = {},
 ): Promise<SessionSummaryResponse> {
-  const config = getOpenRouterSessionConfig();
+  const config = getOpenRouterSummaryConfig();
   const apiKey = options.apiKey ?? config.apiKey;
   const model = resolveSummaryModel(options.model ?? config.model);
 

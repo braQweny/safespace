@@ -25,12 +25,14 @@ vi.mock("@/lib/session-flow/avatar-choice", () => ({
 }));
 
 vi.mock("@/lib/session-data/repository", () => ({
+  claimFreeTrialSessionAtomic: vi.fn(),
   createPendingSession,
   createSessionTrialClaim: vi.fn(),
   getOwnedSessionMetadata: vi.fn(),
   getTrialAvailability: vi.fn(),
   listNewestApprovedSessionSummaryContexts,
   listOwnedSessionMessages: vi.fn(),
+  purgeAndTombstoneOwnedSession: vi.fn(),
   transitionSessionLifecycle,
   updateSessionTombstone: vi.fn(),
 }));

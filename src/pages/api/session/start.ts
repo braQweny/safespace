@@ -1,9 +1,7 @@
 import type { APIRoute } from "astro";
-import { requireActiveAccountAccess } from "@/lib/admin/account-access";
-import type { AdminErrorCode } from "@/lib/admin/errors";
 import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
+import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
 import { FREE_TRIAL_DURATION_SECONDS, toSessionView } from "@/lib/session-flow/session-state";
-import { getSessionDataContext } from "@/lib/session-data/auth";
 import { claimFreeTrialSession, readTrialAvailability } from "@/lib/session-data/quota";
 import { transitionSessionLifecycle } from "@/lib/session-data/repository";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
@@ -69,50 +67,21 @@ function failureResponse(context: Parameters<APIRoute>[0], code: StartFailureCod
   );
 }
 
-function mapAccountAccessFailureCode(code: AdminErrorCode): Extract<StartFailureCode, AdminErrorCode> {
-  if (code === "missing_auth" || code === "account_blocked") {
-    return code;
-  }
-
-  return "account_access_unavailable";
-}
-
-function getAccountAccessFailureStatus(code: StartFailureCode) {
-  if (code === "missing_auth") {
-    return 401;
-  }
-
-  if (code === "account_blocked") {
-    return 403;
-  }
-
-  return 503;
-}
-
-function getAccountAccessRedirect(code: StartFailureCode) {
+function getAccountAccessRedirect(code: SessionRouteAccessFailureCode) {
   return code === "account_blocked" ? "/account/blocked" : "/account/blocked?state=unavailable";
 }
 
 export const POST: APIRoute = async (context) => {
   const startedAtMs = performance.now();
   const operationalContext = await buildOperationalRequestContext(context);
-  const sessionContext = getSessionDataContext(context);
+  const sessionContext = await requireSessionRouteAccess(context);
 
   if (!sessionContext.ok) {
-    const status = sessionContext.error.code === "missing_auth" ? 401 : 503;
-    logStartAttempt("failure", status, startedAtMs, operationalContext);
+    const { code, status, source } = sessionContext.error;
+    const fromSessionContext = source === "session_context";
+    logStartAttempt(fromSessionContext ? "failure" : "blocked", status, startedAtMs, operationalContext);
 
-    return failureResponse(context, sessionContext.error.code, status, "/auth/signin");
-  }
-
-  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
-
-  if (!accountAccess.ok) {
-    const code = mapAccountAccessFailureCode(accountAccess.error.code);
-    const status = getAccountAccessFailureStatus(code);
-    logStartAttempt("blocked", status, startedAtMs, operationalContext);
-
-    return failureResponse(context, code, status, getAccountAccessRedirect(code));
+    return failureResponse(context, code, status, fromSessionContext ? "/auth/signin" : getAccountAccessRedirect(code));
   }
 
   const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);

@@ -1,6 +1,13 @@
 import { Ban, RotateCcw, Search } from "lucide-react";
 import { useState } from "react";
-import type { AdminApiFailureCode, AdminUsersResponse } from "@/lib/admin/contracts";
+import { requestApiJson } from "@/lib/api-client";
+import {
+  isAdminApiFailure,
+  isAdminUserBlockSuccess,
+  isAdminUsersSuccess,
+  type AdminApiFailureCode,
+  type AdminUsersResponse,
+} from "@/lib/admin/contracts";
 import type {
   AdminBlockReasonCode,
   AdminUserListItem,
@@ -102,20 +109,21 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
       page: String(nextPage),
       pageSize: String(result.filters.pageSize),
     });
-    const response = await fetch(`/api/admin/users?${params.toString()}`, {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-    const body = (await response.json()) as AdminUsersResponse;
+    const response = await requestApiJson(`/api/admin/users?${params.toString()}`);
 
-    if (body.ok) {
+    if (response.kind === "network_error") {
+      return;
+    }
+
+    const body = response.body;
+
+    if (isAdminUsersSuccess(body)) {
       setResult(body.result);
       setErrorCode(null);
       return;
     }
 
-    setErrorCode(body.code);
+    setErrorCode(isAdminApiFailure(body) ? body.code : "admin_data_unavailable");
   }
 
   async function toggleBlock(user: AdminUserListItem) {
@@ -124,21 +132,22 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
     setPendingUserId(user.profile.userId);
 
     try {
-      const response = await fetch(`/api/admin/users/${user.profile.userId}/block`, {
+      const response = await requestApiJson(`/api/admin/users/${user.profile.userId}/block`, {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           action,
           reasonCode,
         }),
       });
-      const body = (await response.json()) as { ok: boolean; code?: AdminApiFailureCode };
 
-      if (!body.ok) {
-        setErrorCode(body.code ?? "write_failed");
+      if (response.kind === "network_error") {
+        return;
+      }
+
+      const body = response.body;
+
+      if (!isAdminUserBlockSuccess(body)) {
+        setErrorCode(isAdminApiFailure(body) ? body.code : "write_failed");
         return;
       }
 

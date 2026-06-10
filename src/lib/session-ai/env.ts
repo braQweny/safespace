@@ -1,6 +1,6 @@
-import { OPENROUTER_API_KEY, OPENROUTER_SESSION_MODEL } from "astro:env/server";
+import { getOpenRouterEnv, OPENROUTER_DEFAULT_MODEL, resolveOpenRouterModel } from "@/lib/openrouter/env";
 
-export const OPENROUTER_SESSION_DEFAULT_MODEL = "openai/gpt-4o-mini";
+export const OPENROUTER_SESSION_DEFAULT_MODEL = OPENROUTER_DEFAULT_MODEL;
 
 export interface OpenRouterSessionConfig {
   apiKey?: string;
@@ -8,14 +8,14 @@ export interface OpenRouterSessionConfig {
 }
 
 export function resolveSessionModel(modelOverride?: string | null) {
-  const trimmedModel = modelOverride?.trim();
-
-  return trimmedModel && trimmedModel.length > 0 ? trimmedModel : OPENROUTER_SESSION_DEFAULT_MODEL;
+  return resolveOpenRouterModel(modelOverride, OPENROUTER_SESSION_DEFAULT_MODEL);
 }
 
 export function getOpenRouterSessionConfig(): OpenRouterSessionConfig {
+  const env = getOpenRouterEnv();
+
   return {
-    apiKey: OPENROUTER_API_KEY,
-    model: resolveSessionModel(OPENROUTER_SESSION_MODEL),
+    apiKey: env.apiKey,
+    model: env.sessionModel,
   };
 }

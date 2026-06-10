@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { FileText, PlayCircle, ShieldCheck } from "lucide-react";
+import { requestApiJson } from "@/lib/api-client";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
-import type { SendSessionMessageResponse } from "@/lib/session-flow/message-contract";
+import { isSendSessionMessageResponse } from "@/lib/session-flow/message-contract";
 import { appendSuccessfulTurn, isComposerAvailable, type UiSessionMessage } from "@/lib/session-flow/message-state";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
 import SessionComposer from "./SessionComposer";
@@ -24,8 +25,6 @@ interface StartSessionFailureResponse {
   code: string;
   redirectTo?: string;
 }
-
-type StartSessionResponse = StartSessionSuccessResponse | StartSessionFailureResponse;
 
 interface SafetyNoticeState {
   variant: "hard_stop" | "retry" | "info";
@@ -72,13 +71,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function readJson<T>(response: Response) {
-  const body: unknown = await response.json();
-  return body as T;
+function isStartSessionSuccess(body: unknown): body is StartSessionSuccessResponse {
+  return isRecord(body) && body.ok === true && isRecord(body.session);
 }
 
-function isStartSessionSuccess(response: StartSessionResponse): response is StartSessionSuccessResponse {
-  return response.ok && isRecord(response.session);
+function isStartSessionFailure(body: unknown): body is StartSessionFailureResponse {
+  return isRecord(body) && body.ok === false && typeof body.code === "string";
 }
 
 function buildGenericNotice(title: string, body: string): SafetyNoticeState {
@@ -130,12 +128,8 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
     try {
       const isFollowupStart = kind === "followup_ready";
       const startWithoutContext = isFollowupStart && initialState.canStartWithoutContext;
-      const response = await fetch(isFollowupStart ? "/api/session/start-next" : "/api/session/start", {
+      const result = await requestApiJson(isFollowupStart ? "/api/session/start-next" : "/api/session/start", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          ...(startWithoutContext ? { "Content-Type": "application/json" } : {}),
-        },
         ...(startWithoutContext
           ? {
               body: JSON.stringify({
@@ -144,7 +138,15 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
             }
           : {}),
       });
-      const body = await readJson<StartSessionResponse>(response);
+
+      if (result.kind === "network_error") {
+        setNotice(
+          buildGenericNotice("Nie udało się rozpocząć sesji", "Połączenie z serwerem jest chwilowo niedostępne."),
+        );
+        return;
+      }
+
+      const body = result.body;
 
       if (isStartSessionSuccess(body)) {
         setSession(body.session);
@@ -155,21 +157,19 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         return;
       }
 
-      if (body.redirectTo) {
+      if (isStartSessionFailure(body) && body.redirectTo) {
         window.location.assign(body.redirectTo);
         return;
       }
 
+      const failureCode = isStartSessionFailure(body) ? body.code : null;
+
       setKind(
-        body.code === "trial_already_claimed" || body.code === "no_context_not_confirmed"
+        failureCode === "trial_already_claimed" || failureCode === "no_context_not_confirmed"
           ? "followup_ready"
           : "unavailable",
       );
       setNotice(buildGenericNotice("Nie udało się rozpocząć sesji", "Spróbuj ponownie za chwilę albo wróć do panelu."));
-    } catch {
-      setNotice(
-        buildGenericNotice("Nie udało się rozpocząć sesji", "Połączenie z serwerem jest chwilowo niedostępne."),
-      );
     } finally {
       setIsStarting(false);
     }
@@ -186,18 +186,29 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
     setNotice(null);
 
     try {
-      const response = await fetch("/api/session/message", {
+      const result = await requestApiJson("/api/session/message", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           sessionId: session.id,
           message: trimmedDraft,
         }),
       });
-      const body = await readJson<SendSessionMessageResponse>(response);
+
+      if (result.kind === "network_error") {
+        setDraft(trimmedDraft);
+        setNotice(
+          buildGenericNotice("Nie udało się wysłać wiadomości", "Połączenie z serwerem jest chwilowo niedostępne."),
+        );
+        return;
+      }
+
+      const body = result.body;
+
+      if (!isSendSessionMessageResponse(body)) {
+        setDraft(trimmedDraft);
+        setNotice(buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."));
+        return;
+      }
 
       if (body.ok) {
         setMessages((currentMessages) => appendSuccessfulTurn(currentMessages, body.messages));
@@ -238,11 +249,6 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
 
       setDraft(trimmedDraft);
       setNotice(buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."));
-    } catch {
-      setDraft(trimmedDraft);
-      setNotice(
-        buildGenericNotice("Nie udało się wysłać wiadomości", "Połączenie z serwerem jest chwilowo niedostępne."),
-      );
     } finally {
       setIsMessagePending(false);
     }

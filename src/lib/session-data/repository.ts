@@ -1,9 +1,18 @@
-import { mapSupabaseReadError, mapSupabaseWriteError, ok, sessionDataError, type SessionDataResult } from "./errors";
+import {
+  getStableSupabaseErrorCode,
+  mapSupabaseReadError,
+  mapSupabaseWriteError,
+  ok,
+  sessionDataError,
+  type SessionDataResult,
+} from "./errors";
 import type {
   ApprovedSessionSummaryContext,
   ApproveSessionSummaryRevisionInput,
   AppendSessionMessageInput,
   AppendSessionMessagesInput,
+  ClaimFreeTrialSessionInput,
+  ClaimFreeTrialSessionResult,
   CreatePendingSessionInput,
   DeletedSessionTombstone,
   DeleteOwnedSessionInput,
@@ -482,6 +491,9 @@ export async function transitionSessionLifecycle(
     return sessionDataError("invalid_lifecycle_transition");
   }
 
+  // Compare-and-set on the observed status: a concurrent request that already
+  // moved the session past this state makes the update match zero rows instead
+  // of silently overwriting the newer status.
   const { data, error } = await context.supabase
     .from("therapy_sessions")
     .update({
@@ -494,15 +506,16 @@ export async function transitionSessionLifecycle(
     })
     .eq("id", input.sessionId)
     .eq("user_id", context.user.id)
+    .eq("status", current.data.status)
     .select(SESSION_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     return sessionDataError(mapSupabaseWriteError(error));
   }
 
   const row = coerceSessionRow(data);
-  return row ? ok(mapSession(row)) : sessionDataError("write_failed");
+  return row ? ok(mapSession(row)) : sessionDataError("invalid_lifecycle_transition");
 }
 
 export async function appendSessionMessage(
@@ -551,7 +564,7 @@ export async function appendSessionMessages(
     .select(MESSAGE_SELECT);
 
   if (error) {
-    return sessionDataError(mapSupabaseWriteError(error));
+    return sessionDataError(mapSupabaseWriteError(error, { conflictCode: "sequence_conflict" }));
   }
 
   const messages = coerceMessageRows(data).map(mapMessage);
@@ -891,6 +904,67 @@ export async function getTrialAvailability(context: SessionDataContext): Promise
     isAvailable: !row,
     existingClaim: row ? mapTrialClaim(row) : null,
   });
+}
+
+export async function claimFreeTrialSessionAtomic(
+  context: SessionDataContext,
+  input: ClaimFreeTrialSessionInput,
+): Promise<SessionDataResult<ClaimFreeTrialSessionResult>> {
+  const response = (await context.supabase.rpc("claim_free_trial_session", {
+    p_modality_id: input.modalityId ?? null,
+    p_avatar_id: input.avatarId ?? null,
+    p_started_at: input.startedAt ?? null,
+    p_expires_at: input.expiresAt ?? null,
+  })) as { data: unknown; error: unknown };
+  const { data, error } = response;
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error, { conflictCode: "trial_already_claimed" }));
+  }
+
+  const payload = isRecord(data) ? (data as { session?: unknown; trial_claim?: unknown }) : null;
+  const sessionRow = payload ? coerceSessionRow(payload.session) : null;
+  const claimRow = payload ? coerceTrialClaimRow(payload.trial_claim) : null;
+
+  if (!sessionRow || !claimRow) {
+    return sessionDataError("write_failed");
+  }
+
+  return ok({
+    session: mapSession(sessionRow),
+    trialClaim: mapTrialClaim(claimRow),
+  });
+}
+
+export async function purgeAndTombstoneOwnedSession(
+  context: SessionDataContext,
+  input: UpdateSessionTombstoneInput,
+): Promise<SessionDataResult<DeletedSessionTombstone>> {
+  const response = (await context.supabase.rpc("delete_owned_session", {
+    p_session_id: input.sessionId,
+    p_deletion_reason_code: input.deletionReasonCode,
+    p_ended_at: input.endedAt ?? null,
+    p_duration_bucket_seconds: input.durationBucketSeconds ?? null,
+  })) as { data: unknown; error: unknown };
+  const { data, error } = response;
+
+  if (error) {
+    const code = getStableSupabaseErrorCode(error);
+
+    if (code === "P0002") {
+      return sessionDataError("session_not_found");
+    }
+
+    if (code === "P0004") {
+      return sessionDataError("invalid_lifecycle_transition");
+    }
+
+    return sessionDataError("delete_failed");
+  }
+
+  const row = coerceSessionRow(data);
+  const tombstone = row ? toDeletedSessionTombstone(mapSession(row)) : null;
+  return tombstone ? ok(tombstone) : sessionDataError("delete_failed");
 }
 
 export async function createSessionTrialClaim(

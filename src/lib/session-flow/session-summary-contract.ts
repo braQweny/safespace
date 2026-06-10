@@ -52,3 +52,24 @@ export function sessionSummaryFailure(code: SessionSummaryFailureCode): SessionS
     code,
   };
 }
+
+function isResponseRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isSessionSummaryGeneratedSuccess(value: unknown): value is SessionSummaryGeneratedSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "session_summary_generated";
+}
+
+export function isSessionSummaryApprovedSuccess(value: unknown): value is SessionSummaryApprovedSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "session_summary_approved";
+}
+
+export function isSessionSummaryFailure(value: unknown): value is SessionSummaryFailureResponse {
+  return (
+    isResponseRecord(value) &&
+    value.ok === false &&
+    value.type === "session_summary_error" &&
+    typeof value.code === "string"
+  );
+}

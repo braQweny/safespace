@@ -4,12 +4,12 @@ import { SessionSummaryError } from "../errors";
 import { buildOpenRouterSummaryRequest, generateSessionSummaryWithOpenRouter } from "../openrouter-summary";
 import type { GenerateSessionSummaryInput } from "../types";
 
-vi.mock("@/lib/session-ai/env", () => ({
-  getOpenRouterSessionConfig: () => ({
+vi.mock("@/lib/session-summary/env", () => ({
+  getOpenRouterSummaryConfig: () => ({
     apiKey: undefined,
     model: "openai/gpt-4o-mini",
   }),
-  resolveSessionModel: (modelOverride?: string | null) => {
+  resolveSummaryModel: (modelOverride?: string | null) => {
     const trimmedModel = modelOverride?.trim();
 
     return trimmedModel && trimmedModel.length > 0 ? trimmedModel : "openai/gpt-4o-mini";

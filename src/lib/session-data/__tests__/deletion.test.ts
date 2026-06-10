@@ -40,37 +40,23 @@ const tombstone: DeletedSessionTombstone = {
 };
 
 describe("deleteOwnedSession", () => {
-  it("purges private rows before writing the safe tombstone", async () => {
-    const calls: string[] = [];
+  it("purges private rows and writes the safe tombstone through one atomic operation", async () => {
     const repository: DeletionRepository = {
       getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(activeSession))),
-      purgeOwnedSessionMessages: vi.fn(() => {
-        calls.push("messages");
-        return Promise.resolve(ok(null));
-      }),
-      purgeOwnedSessionSummaries: vi.fn(() => {
-        calls.push("summaries");
-        return Promise.resolve(ok(null));
-      }),
-      updateSessionTombstone: vi.fn(() => {
-        calls.push("tombstone");
-        return Promise.resolve(ok(tombstone));
-      }),
+      purgeAndTombstoneOwnedSession: vi.fn(() => Promise.resolve(ok(tombstone))),
     };
 
-    const result = await deleteOwnedSession(
-      context,
-      {
-        sessionId: "session-1",
-        deletionReasonCode: "user_request",
-        endedAt: "2026-06-06T10:05:00.000Z",
-        durationBucketSeconds: 900,
-      },
-      repository,
-    );
+    const input = {
+      sessionId: "session-1",
+      deletionReasonCode: "user_request",
+      endedAt: "2026-06-06T10:05:00.000Z",
+      durationBucketSeconds: 900,
+    } as const;
+
+    const result = await deleteOwnedSession(context, input, repository);
 
     expect(result).toEqual(ok(tombstone));
-    expect(calls).toEqual(["messages", "summaries", "tombstone"]);
+    expect(repository.purgeAndTombstoneOwnedSession).toHaveBeenCalledWith(context, input);
     expect(result.ok ? result.data : null).not.toHaveProperty("modalityId");
     expect(result.ok ? result.data : null).not.toHaveProperty("avatarId");
   });
@@ -89,9 +75,7 @@ describe("deleteOwnedSession", () => {
           }),
         ),
       ),
-      purgeOwnedSessionMessages: vi.fn(() => Promise.resolve(ok(null))),
-      purgeOwnedSessionSummaries: vi.fn(() => Promise.resolve(ok(null))),
-      updateSessionTombstone: vi.fn(() => Promise.resolve(ok(tombstone))),
+      purgeAndTombstoneOwnedSession: vi.fn(() => Promise.resolve(ok(tombstone))),
     };
 
     const result = await deleteOwnedSession(
@@ -104,8 +88,24 @@ describe("deleteOwnedSession", () => {
     );
 
     expect(result).toEqual(sessionDataError("invalid_lifecycle_transition"));
-    expect(repository.purgeOwnedSessionMessages).not.toHaveBeenCalled();
-    expect(repository.purgeOwnedSessionSummaries).not.toHaveBeenCalled();
-    expect(repository.updateSessionTombstone).not.toHaveBeenCalled();
+    expect(repository.purgeAndTombstoneOwnedSession).not.toHaveBeenCalled();
+  });
+
+  it("maps an atomic purge failure to delete_failed", async () => {
+    const repository: DeletionRepository = {
+      getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(activeSession))),
+      purgeAndTombstoneOwnedSession: vi.fn(() => Promise.resolve(sessionDataError("write_failed"))),
+    };
+
+    const result = await deleteOwnedSession(
+      context,
+      {
+        sessionId: "session-1",
+        deletionReasonCode: "user_request",
+      },
+      repository,
+    );
+
+    expect(result).toEqual(sessionDataError("delete_failed"));
   });
 });

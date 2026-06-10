@@ -1,12 +1,10 @@
 import type { APIRoute } from "astro";
-import { requireActiveAccountAccess } from "@/lib/admin/account-access";
-import type { AdminErrorCode } from "@/lib/admin/errors";
 import { SessionAiError, type SessionAiErrorCategory } from "@/lib/session-ai/errors";
 import { generateSessionResponse } from "@/lib/session-ai/provider";
 import { getSessionAiFailureCopy } from "@/lib/session-ai/session-response-copy";
 import { getValidAvatarChoice } from "@/lib/modalities";
 import { evaluateSessionSafety } from "@/lib/session-safety/evaluate-session-safety";
-import { getSessionDataContext } from "@/lib/session-data/auth";
+import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import {
   getOwnedSessionMetadata,
   listNewestApprovedSessionSummaryContexts,
@@ -50,30 +48,6 @@ function missingOrUnauthorizedResponse(code: MissingOrUnauthorizedCode) {
   } satisfies SendSessionMessageFailureResponse;
 }
 
-function mapAccountAccessFailureCode(code: AdminErrorCode): MissingOrUnauthorizedCode {
-  if (code === "missing_auth" || code === "account_blocked") {
-    return code;
-  }
-
-  return "account_access_unavailable";
-}
-
-function getMissingOrUnauthorizedStatus(code: MissingOrUnauthorizedCode) {
-  if (code === "missing_auth") {
-    return 401;
-  }
-
-  if (code === "account_blocked") {
-    return 403;
-  }
-
-  if (code === "account_access_unavailable" || code === "session_data_unavailable") {
-    return 503;
-  }
-
-  return 404;
-}
-
 function getSessionAiErrorCategory(error: unknown): SessionAiErrorCategory {
   return error instanceof SessionAiError ? error.category : "provider_unavailable";
 }
@@ -109,21 +83,10 @@ async function markInterrupted(context: SessionDataContext, session: SessionMeta
 export const POST: APIRoute = async (context) => {
   const startedAtMs = performance.now();
   const operationalContext = await buildOperationalRequestContext(context);
-  const sessionContext = getSessionDataContext(context);
+  const sessionContext = await requireSessionRouteAccess(context);
 
   if (!sessionContext.ok) {
-    return jsonResponse(
-      missingOrUnauthorizedResponse(sessionContext.error.code),
-      getMissingOrUnauthorizedStatus(sessionContext.error.code),
-    );
-  }
-
-  const accountAccess = await requireActiveAccountAccess(context, sessionContext.data.supabase);
-
-  if (!accountAccess.ok) {
-    const code = mapAccountAccessFailureCode(accountAccess.error.code);
-
-    return jsonResponse(missingOrUnauthorizedResponse(code), getMissingOrUnauthorizedStatus(code));
+    return jsonResponse(missingOrUnauthorizedResponse(sessionContext.error.code), sessionContext.error.status);
   }
 
   const messageRequest = await parseSendSessionMessageRequest(context.request);

@@ -54,3 +54,28 @@ export function sessionHistoryFailure(code: SessionHistoryFailureCode): SessionH
     code,
   };
 }
+
+function isResponseRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isSessionHistoryListSuccess(value: unknown): value is SessionHistoryListSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "session_history_list";
+}
+
+export function isSessionHistoryDetailSuccess(value: unknown): value is SessionHistoryDetailSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "session_history_detail";
+}
+
+export function isSessionHistoryDeleteSuccess(value: unknown): value is SessionHistoryDeleteSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "session_history_deleted";
+}
+
+export function isSessionHistoryFailure(value: unknown): value is SessionHistoryFailureResponse {
+  return (
+    isResponseRecord(value) &&
+    value.ok === false &&
+    value.type === "session_history_error" &&
+    typeof value.code === "string"
+  );
+}

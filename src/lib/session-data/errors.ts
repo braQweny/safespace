@@ -5,6 +5,7 @@ export const SESSION_DATA_ERROR_CODES = {
   not_session_owner: "not_session_owner",
   trial_already_claimed: "trial_already_claimed",
   invalid_lifecycle_transition: "invalid_lifecycle_transition",
+  sequence_conflict: "sequence_conflict",
   delete_failed: "delete_failed",
   write_failed: "write_failed",
   read_failed: "read_failed",

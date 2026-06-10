@@ -126,6 +126,10 @@ export async function parseSendSessionMessageRequest(request: Request) {
   } satisfies SendSessionMessageRequest;
 }
 
+export function isSendSessionMessageResponse(value: unknown): value is SendSessionMessageResponse {
+  return isRecord(value) && typeof value.ok === "boolean" && typeof value.type === "string";
+}
+
 export function buildValidationFailureResponse(): SendSessionMessageFailureResponse {
   return {
     ok: false,

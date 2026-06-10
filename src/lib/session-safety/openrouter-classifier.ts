@@ -1,7 +1,7 @@
 import type { Fetcher } from "@openrouter/sdk";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
-import { OPENROUTER_API_KEY, OPENROUTER_SAFETY_MODEL } from "astro:env/server";
+import { getOpenRouterEnv, resolveOpenRouterModel } from "@/lib/openrouter/env";
 
 import { buildSessionSafetyClassifierUserContent, SESSION_SAFETY_CLASSIFIER_SYSTEM_PROMPT } from "./classifier-prompt";
 import { parseProviderSafetyDecision } from "./parse-provider-decision";
@@ -76,7 +76,7 @@ export async function classifySessionSafetyWithOpenRouter(
   input: SessionSafetyInput,
   options: OpenRouterSafetyClassifierOptions = {},
 ): Promise<ProviderSafetyDecision> {
-  const apiKey = options.apiKey ?? OPENROUTER_API_KEY;
+  const apiKey = options.apiKey ?? getOpenRouterEnv().apiKey;
 
   try {
     const response = await sendOpenRouterChat({
@@ -136,10 +136,7 @@ export function buildOpenRouterSafetyRequest(
 }
 
 function resolveSafetyModel(modelOverride?: string) {
-  const configuredModel = modelOverride ?? OPENROUTER_SAFETY_MODEL;
-  const trimmedModel = configuredModel?.trim();
-
-  return trimmedModel && trimmedModel.length > 0 ? trimmedModel : OPENROUTER_SAFETY_DEFAULT_MODEL;
+  return resolveOpenRouterModel(modelOverride ?? getOpenRouterEnv().safetyModel, OPENROUTER_SAFETY_DEFAULT_MODEL);
 }
 
 function resolveTimeoutMs(timeoutMs: number | undefined) {

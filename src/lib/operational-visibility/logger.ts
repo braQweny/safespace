@@ -17,6 +17,19 @@ export function logOperationalEvent(event: OperationalLogPayload, context: Opera
     // eslint-disable-next-line no-console
     console.log(sanitizedEvent);
   } catch {
-    // Logging is diagnostic only and must never affect product flows.
+    // Logging is diagnostic only and must never affect product flows, but a
+    // silent drop would hide that the only visibility channel is failing.
+    // The fallback payload is fully static, so nothing private can leak.
+    try {
+      // eslint-disable-next-line no-console
+      console.warn({
+        schemaVersion: OPERATIONAL_EVENT_SCHEMA_VERSION,
+        level: "warn",
+        outcome: "failure",
+        reasonCode: "logger_unavailable",
+      });
+    } catch {
+      // Nothing left to do without a working console.
+    }
   }
 }

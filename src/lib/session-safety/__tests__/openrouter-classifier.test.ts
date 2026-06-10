@@ -8,6 +8,7 @@ import type { SessionSafetyInput } from "../types";
 vi.mock("astro:env/server", () => ({
   OPENROUTER_API_KEY: undefined,
   OPENROUTER_SAFETY_MODEL: "openai/gpt-4o-mini",
+  OPENROUTER_SESSION_MODEL: undefined,
 }));
 
 const input = {

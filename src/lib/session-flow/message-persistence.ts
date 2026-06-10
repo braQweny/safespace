@@ -46,36 +46,60 @@ function getNextSequenceIndex(messages: readonly SessionMessageRecord[]) {
   return Math.max(...messages.map((message) => message.sequenceIndex)) + 1;
 }
 
+const SEQUENCE_CONFLICT_MAX_ATTEMPTS = 3;
+
 export async function persistSuccessfulMessageTurn(
   context: SessionDataContext,
   input: PersistSuccessfulMessageTurnInput,
   repository: MessagePersistenceRepository = defaultMessagePersistenceRepository,
 ): Promise<SessionDataResult<PersistedMessageTurn>> {
-  const existingMessages = await repository.listOwnedSessionMessages(context, input.sessionId);
+  let insertedMessages: Awaited<ReturnType<typeof repository.appendSessionMessages>> | null = null;
 
-  if (!existingMessages.ok) {
-    return existingMessages;
+  // The unique (session_id, sequence_index) constraint rejects a turn whose
+  // indexes were taken by a concurrent request; re-read and retry instead of
+  // failing the whole turn.
+  for (let attempt = 0; attempt < SEQUENCE_CONFLICT_MAX_ATTEMPTS; attempt += 1) {
+    const existingMessages = await repository.listOwnedSessionMessages(context, input.sessionId);
+
+    if (!existingMessages.ok) {
+      return existingMessages;
+    }
+
+    const userSequenceIndex = getNextSequenceIndex(existingMessages.data);
+    const assistantSequenceIndex = userSequenceIndex + 1;
+    insertedMessages = await repository.appendSessionMessages(context, [
+      {
+        sessionId: input.sessionId,
+        role: "user",
+        sequenceIndex: userSequenceIndex,
+        content: input.userMessage,
+      },
+      {
+        sessionId: input.sessionId,
+        role: "assistant",
+        sequenceIndex: assistantSequenceIndex,
+        content: input.assistantMessage,
+      },
+    ]);
+
+    if (insertedMessages.ok || insertedMessages.error.code !== "sequence_conflict") {
+      break;
+    }
   }
 
-  const userSequenceIndex = getNextSequenceIndex(existingMessages.data);
-  const assistantSequenceIndex = userSequenceIndex + 1;
-  const insertedMessages = await repository.appendSessionMessages(context, [
-    {
-      sessionId: input.sessionId,
-      role: "user",
-      sequenceIndex: userSequenceIndex,
-      content: input.userMessage,
-    },
-    {
-      sessionId: input.sessionId,
-      role: "assistant",
-      sequenceIndex: assistantSequenceIndex,
-      content: input.assistantMessage,
-    },
-  ]);
+  if (!insertedMessages) {
+    return {
+      ok: false,
+      error: {
+        code: "write_failed",
+      },
+    };
+  }
 
   if (!insertedMessages.ok) {
-    return insertedMessages;
+    return insertedMessages.error.code === "sequence_conflict"
+      ? { ok: false, error: { code: "write_failed" } }
+      : insertedMessages;
   }
 
   const user = insertedMessages.data.find((message) => message.role === "user");

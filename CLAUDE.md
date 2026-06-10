@@ -82,6 +82,8 @@ AI is OpenRouter via `@openrouter/sdk` (`src/lib/openrouter/sdk-chat.ts`). Two m
 
 `supabase/migrations/`, naming `YYYYMMDDHHmmss_short_description.sql`. **Always enable RLS on new tables with granular per-operation, per-role policies.** Private session tables and admin operation functions are defined here. Local stack: `npx supabase start` (Docker). There is no break-glass admin content access — any legal/safety exception needs a separate audited plan, not an implicit helper.
 
+CI applies migrations *before* deploying code (`migrate` → `deploy`), so every migration must be backward-compatible with the currently deployed code (expand/contract: add before you remove). Multi-step owner-bound writes that must not partially fail live in SQL functions (`claim_free_trial_session`, `delete_owned_session`) — `security invoker`, so RLS keeps applying to the calling user. `src/lib/session-data/__tests__/schema-drift.test.ts` pins the hand-maintained domain enums in `session-data/types.ts` to the boundary migration's check constraints; update both sides together.
+
 ## Environment
 
 - Node v22.14.0 (`.nvmrc`).

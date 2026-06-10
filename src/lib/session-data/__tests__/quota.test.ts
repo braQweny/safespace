@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "../errors";
 import { claimFreeTrialSession, readTrialAvailability, type QuotaRepository } from "../quota";
-import type { DeletedSessionTombstone, SessionDataContext, SessionMetadata, SessionTrialClaimState } from "../types";
+import type { SessionDataContext, SessionMetadata, SessionTrialClaimState } from "../types";
 
 const context = {} as SessionDataContext;
 
@@ -17,7 +17,7 @@ const session: SessionMetadata = {
   deletedAt: null,
   deletionReasonCode: null,
   isTrial: true,
-  trialClaimId: null,
+  trialClaimId: "claim-1",
   durationBucketSeconds: 900,
   createdAt: "2026-06-06T09:59:00.000Z",
   updatedAt: "2026-06-06T09:59:00.000Z",
@@ -32,31 +32,13 @@ const claim: SessionTrialClaimState = {
   createdAt: "2026-06-06T10:00:00.000Z",
 };
 
-const tombstone: DeletedSessionTombstone = {
-  id: "session-1",
-  userId: "user-1",
-  status: "deleted",
-  startedAt: null,
-  endedAt: null,
-  expiresAt: null,
-  deletedAt: "2026-06-06T10:01:00.000Z",
-  deletionReasonCode: "system_cleanup",
-  isTrial: true,
-  trialClaimId: null,
-  durationBucketSeconds: 900,
-  createdAt: "2026-06-06T09:59:00.000Z",
-  updatedAt: "2026-06-06T10:01:00.000Z",
-};
-
 function createRepository(overrides: Partial<QuotaRepository> = {}): QuotaRepository {
   return {
-    createPendingSession: vi.fn(() => Promise.resolve(ok(session))),
-    createSessionTrialClaim: vi.fn(() => Promise.resolve(ok(claim))),
-    getOwnedSessionMetadata: vi.fn(() =>
+    claimFreeTrialSessionAtomic: vi.fn(() =>
       Promise.resolve(
         ok({
-          ...session,
-          trialClaimId: claim.id,
+          session,
+          trialClaim: claim,
         }),
       ),
     ),
@@ -68,7 +50,6 @@ function createRepository(overrides: Partial<QuotaRepository> = {}): QuotaReposi
         }),
       ),
     ),
-    updateSessionTombstone: vi.fn(() => Promise.resolve(ok(tombstone))),
     ...overrides,
   };
 }
@@ -88,43 +69,47 @@ describe("session trial quota helpers", () => {
     expect(repository.getTrialAvailability).toHaveBeenCalledWith(context);
   });
 
-  it("claims a trial session through the database-backed claim operation", async () => {
+  it("claims a trial session through the atomic database operation", async () => {
     const repository = createRepository();
 
-    const result = await claimFreeTrialSession(context, {}, repository);
+    const result = await claimFreeTrialSession(
+      context,
+      {
+        modalityId: "cbt",
+        avatarId: "cbt-guide",
+        startedAt: "2026-06-06T10:00:00.000Z",
+        expiresAt: "2026-06-06T10:15:00.000Z",
+      },
+      repository,
+    );
 
     expect(result).toEqual(
       ok({
-        session: {
-          ...session,
-          trialClaimId: claim.id,
-        },
+        session,
         trialClaim: claim,
       }),
     );
-    expect(repository.createPendingSession).toHaveBeenCalledWith(context, {
-      modalityId: null,
-      avatarId: null,
-      isTrial: true,
-      startedAt: null,
-      expiresAt: null,
-      durationBucketSeconds: 900,
+    expect(repository.claimFreeTrialSessionAtomic).toHaveBeenCalledWith(context, {
+      modalityId: "cbt",
+      avatarId: "cbt-guide",
+      startedAt: "2026-06-06T10:00:00.000Z",
+      expiresAt: "2026-06-06T10:15:00.000Z",
     });
-    expect(repository.createSessionTrialClaim).toHaveBeenCalledWith(context, "session-1");
   });
 
-  it("maps duplicate trial claims to a stable code and tombstones the attempted session", async () => {
+  it("maps duplicate trial claims to a stable code", async () => {
     const repository = createRepository({
-      createSessionTrialClaim: vi.fn(() => Promise.resolve(sessionDataError("trial_already_claimed"))),
+      claimFreeTrialSessionAtomic: vi.fn(() => Promise.resolve(sessionDataError("trial_already_claimed"))),
     });
 
     const result = await claimFreeTrialSession(context, {}, repository);
 
     expect(result).toEqual(sessionDataError("trial_already_claimed"));
-    expect(repository.updateSessionTombstone).toHaveBeenCalledWith(context, {
-      sessionId: "session-1",
-      deletionReasonCode: "system_cleanup",
-      durationBucketSeconds: 900,
+    expect(repository.claimFreeTrialSessionAtomic).toHaveBeenCalledWith(context, {
+      modalityId: null,
+      avatarId: null,
+      startedAt: null,
+      expiresAt: null,
     });
   });
 });

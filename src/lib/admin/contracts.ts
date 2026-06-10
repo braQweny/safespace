@@ -48,6 +48,24 @@ export function adminApiFailure(code: AdminApiFailureCode): AdminApiFailureRespo
   };
 }
 
+function isResponseRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isAdminUsersSuccess(value: unknown): value is AdminUsersSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "admin_users";
+}
+
+export function isAdminUserBlockSuccess(value: unknown): value is AdminUserBlockSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "admin_user_block";
+}
+
+export function isAdminApiFailure(value: unknown): value is AdminApiFailureResponse {
+  return (
+    isResponseRecord(value) && value.ok === false && value.type === "admin_error" && typeof value.code === "string"
+  );
+}
+
 export function getAdminApiFailureStatus(code: AdminApiFailureCode) {
   if (code === "missing_auth") {
     return 401;
