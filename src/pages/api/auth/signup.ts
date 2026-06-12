@@ -1,15 +1,13 @@
 import type { APIRoute } from "astro";
-import { getAuthErrorRedirect, mapSignUpError } from "@/lib/auth-errors";
+import { mapSignUpError } from "@/lib/auth-errors";
+import { createAuthRoute } from "@/lib/auth-route";
 import { getAuthCallbackUrl, getSafeAuthRedirect } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, MIN_PASSWORD_LENGTH, getFormString } from "@/lib/auth-validation";
-import { logOperationalEvent } from "@/lib/operational-visibility/logger";
-import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
-import { createClient } from "@/lib/supabase";
 
 export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
-  const operationalContext = await buildOperationalRequestContext(context);
+  const route = await createAuthRoute(context, "auth.signup");
   const form = await context.request.formData();
   const email = getFormString(form, "email");
   const password = getFormString(form, "password", false);
@@ -17,83 +15,26 @@ export const POST: APIRoute = async (context) => {
   const redirectTo = getSafeAuthRedirect(form.get("redirectTo") ?? context.url.searchParams.get("redirectTo"));
 
   if (!EMAIL_PATTERN.test(email)) {
-    logOperationalEvent(
-      {
-        event: "auth.signup",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "invalid_email",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signup", "invalid_email"), 303);
+    return route.failureRedirect("/auth/signup", "invalid_email");
   }
 
   if (!password) {
-    logOperationalEvent(
-      {
-        event: "auth.signup",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "missing_password",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signup", "missing_password"), 303);
+    return route.failureRedirect("/auth/signup", "missing_password");
   }
 
   if (password.length < MIN_PASSWORD_LENGTH) {
-    logOperationalEvent(
-      {
-        event: "auth.signup",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "password_too_short",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signup", "password_too_short"), 303);
+    return route.failureRedirect("/auth/signup", "password_too_short");
   }
 
   if (password !== confirmPassword) {
-    logOperationalEvent(
-      {
-        event: "auth.signup",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "passwords_do_not_match",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signup", "passwords_do_not_match"), 303);
+    return route.failureRedirect("/auth/signup", "passwords_do_not_match");
   }
 
-  const supabase = createClient(context.request.headers, context.cookies);
-  if (!supabase) {
-    logOperationalEvent(
-      {
-        event: "auth.signup",
-        level: "error",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "auth_not_configured",
-        provider: "supabase",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signup", "auth_not_configured"), 303);
+  if (!route.supabase) {
+    return route.failureRedirect("/auth/signup", "auth_not_configured", { level: "error", provider: "supabase" });
   }
 
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await route.supabase.auth.signUp({
     email,
     password,
     options: {
@@ -102,37 +43,8 @@ export const POST: APIRoute = async (context) => {
   });
 
   if (error) {
-    const reasonCode = mapSignUpError(error);
-
-    logOperationalEvent(
-      {
-        event: "auth.signup",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode,
-        provider: "supabase",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signup", reasonCode), 303);
+    return route.failureRedirect("/auth/signup", mapSignUpError(error), { provider: "supabase" });
   }
 
-  logOperationalEvent(
-    {
-      event: "auth.signup",
-      level: "info",
-      outcome: "success",
-      status: 303,
-      provider: "supabase",
-    },
-    operationalContext,
-  );
-
-  if (data.session) {
-    return context.redirect(redirectTo, 303);
-  }
-
-  return context.redirect("/auth/confirm-email", 303);
+  return route.successRedirect(data.session ? redirectTo : "/auth/confirm-email");
 };

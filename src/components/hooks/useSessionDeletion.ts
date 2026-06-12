@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requestApiJson } from "@/lib/api-client";
 import {
   isSessionHistoryDeleteSuccess,
@@ -19,6 +19,15 @@ export function useSessionDeletion({
 }: UseSessionDeletionOptions) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(initialConfirmSessionId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Abort only on unmount — DELETE has a server-side effect, so a newer call
+  // must not cancel an in-flight delete that may already have executed.
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   function requestDelete(sessionId: string) {
     setPendingDeleteId(sessionId);
@@ -29,12 +38,21 @@ export function useSessionDeletion({
   }
 
   async function confirmDelete(sessionId: string) {
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setDeletingId(sessionId);
 
     try {
       const result = await requestApiJson(`/api/session/history/${encodeURIComponent(sessionId)}`, {
         method: "DELETE",
+        signal: controller.signal,
       });
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
       const body = result.kind === "json" ? result.body : null;
 
       if (!isSessionHistoryDeleteSuccess(body)) {

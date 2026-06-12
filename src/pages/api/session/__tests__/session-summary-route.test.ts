@@ -55,7 +55,7 @@ const contextData = {
 
 const summaryRecord: SessionSummaryRecord = {
   id: "summary-1",
-  sessionId: "session-1",
+  sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
   userId: "user-1",
   summaryText: "Uzytkownik chce kontynuowac watek napiecia w pracy.",
   status: "draft",
@@ -67,7 +67,7 @@ const summaryRecord: SessionSummaryRecord = {
 
 function createContext(method = "GET", body?: unknown) {
   return {
-    request: new Request("https://safespace.local/api/session/summary/session-1", {
+    request: new Request("https://safespace.local/api/session/summary/5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a", {
       method,
       headers: {
         Accept: "application/json",
@@ -82,9 +82,9 @@ function createContext(method = "GET", body?: unknown) {
       },
     },
     params: {
-      sessionId: "session-1",
+      sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
     },
-    url: new URL("https://safespace.local/api/session/summary/session-1"),
+    url: new URL("https://safespace.local/api/session/summary/5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a"),
   };
 }
 
@@ -167,7 +167,7 @@ describe("/api/session/summary/[sessionId]", () => {
         kind: "preview",
         summary: {
           id: "summary-1",
-          sessionId: "session-1",
+          sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
           summaryText: summaryRecord.summaryText,
           status: "draft",
           isVisible: true,
@@ -202,13 +202,13 @@ describe("/api/session/summary/[sessionId]", () => {
     expect(generateOwnedSessionSummary).toHaveBeenCalledWith(
       contextData,
       {
-        sessionId: "session-1",
+        sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
         locale: "pl",
       },
       expect.any(Object),
     );
     expect(saveGeneratedVisibleSessionSummary).toHaveBeenCalledWith(contextData, {
-      sessionId: "session-1",
+      sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
       summaryText: summaryRecord.summaryText,
       status: "draft",
       isVisible: true,
@@ -279,7 +279,7 @@ describe("/api/session/summary/[sessionId]", () => {
 
     expect(response.status).toBe(200);
     expect(approveOwnedSessionSummaryRevision).toHaveBeenCalledWith(contextData, {
-      sessionId: "session-1",
+      sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
       revision: 1,
     });
     await expect(readJson(response)).resolves.toMatchObject({

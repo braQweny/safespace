@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requestApiJson } from "@/lib/api-client";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import {
@@ -22,11 +22,29 @@ export function useSessionHistoryDetail({
 }: UseSessionHistoryDetailOptions) {
   const [detail, setDetail] = useState<SessionHistoryDetail | null>(initialDetail);
   const [detailStatus, setDetailStatus] = useState<SessionHistoryDetailStatus>(initialDetail ? "ready" : "idle");
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   async function openDetail(sessionId: string) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setDetailStatus("loading");
 
-    const result = await requestApiJson(`/api/session/history/${encodeURIComponent(sessionId)}`);
+    const result = await requestApiJson(`/api/session/history/${encodeURIComponent(sessionId)}`, {
+      signal: controller.signal,
+    });
+
+    if (controller.signal.aborted) {
+      return;
+    }
+
     const body = result.kind === "json" ? result.body : null;
 
     if (!isSessionHistoryDetailSuccess(body)) {
@@ -42,6 +60,7 @@ export function useSessionHistoryDetail({
   }
 
   function clearDetail() {
+    abortRef.current?.abort();
     setDetail(null);
     setDetailStatus("idle");
   }

@@ -3,6 +3,7 @@ import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import { deleteOwnedSession } from "@/lib/session-data/deletion";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import { readSessionHistoryDetail, toSessionHistoryDeleteSuccessResponse } from "@/lib/session-flow/session-history";
+import { parseSessionIdParam } from "@/lib/session-flow/session-id";
 import {
   sessionHistoryFailure,
   type SessionHistoryDeleteResponse,
@@ -11,10 +12,6 @@ import {
 } from "@/lib/session-flow/session-history-contract";
 
 export const prerender = false;
-
-function getSessionId(context: Parameters<APIRoute>[0]) {
-  return context.params.sessionId;
-}
 
 function mapDeleteErrorCode(code: SessionDataErrorCode): SessionHistoryFailureCode {
   if (code === "missing_auth" || code === "session_data_unavailable" || code === "session_not_found") {
@@ -64,8 +61,14 @@ export const GET: APIRoute = async (context) => {
     return jsonResponse(sessionHistoryFailure(sessionContext.error.code));
   }
 
+  const sessionId = parseSessionIdParam(context.params.sessionId);
+
+  if (!sessionId) {
+    return jsonResponse(sessionHistoryFailure("session_not_found"));
+  }
+
   const response = await readSessionHistoryDetail(sessionContext.data, {
-    sessionId: getSessionId(context),
+    sessionId,
   });
 
   return jsonResponse(response);
@@ -78,7 +81,7 @@ export const DELETE: APIRoute = async (context) => {
     return jsonResponse(sessionHistoryFailure(sessionContext.error.code));
   }
 
-  const sessionId = getSessionId(context);
+  const sessionId = parseSessionIdParam(context.params.sessionId);
 
   if (!sessionId) {
     return jsonResponse(sessionHistoryFailure("session_not_found"));

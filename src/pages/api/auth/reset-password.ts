@@ -1,10 +1,8 @@
 import type { APIRoute } from "astro";
-import { getAuthErrorRedirect, mapResetPasswordError } from "@/lib/auth-errors";
+import { mapResetPasswordError } from "@/lib/auth-errors";
+import { createAuthRoute } from "@/lib/auth-route";
 import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, getFormString } from "@/lib/auth-validation";
-import { logOperationalEvent } from "@/lib/operational-visibility/logger";
-import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
-import { createClient } from "@/lib/supabase";
 
 export const prerender = false;
 
@@ -15,75 +13,33 @@ const FORGOT_PASSWORD_PATH = "/auth/forgot-password";
 const RECOVERY_NEXT_PATH = "/account/security";
 
 export const POST: APIRoute = async (context) => {
-  const operationalContext = await buildOperationalRequestContext(context);
+  const route = await createAuthRoute(context, "auth.reset_password");
   const form = await context.request.formData();
   const email = getFormString(form, "email");
 
   if (!EMAIL_PATTERN.test(email)) {
-    logOperationalEvent(
-      {
-        event: "auth.reset_password",
-        level: "warn",
-        outcome: "failure",
-        status: 302,
-        reasonCode: "invalid_email",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect(FORGOT_PASSWORD_PATH, "invalid_email"));
+    return route.failureRedirect(FORGOT_PASSWORD_PATH, "invalid_email", { status: 302 });
   }
 
-  const supabase = createClient(context.request.headers, context.cookies);
-  if (!supabase) {
-    logOperationalEvent(
-      {
-        event: "auth.reset_password",
-        level: "error",
-        outcome: "failure",
-        status: 302,
-        reasonCode: "auth_not_configured",
-        provider: "supabase",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect(FORGOT_PASSWORD_PATH, "auth_not_configured"));
+  if (!route.supabase) {
+    return route.failureRedirect(FORGOT_PASSWORD_PATH, "auth_not_configured", {
+      level: "error",
+      provider: "supabase",
+      status: 302,
+    });
   }
 
   const redirectTo = `${getAuthCallbackUrl(context.url.origin)}?next=${encodeURIComponent(RECOVERY_NEXT_PATH)}`;
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  const { error } = await route.supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
   if (error) {
-    const code = mapResetPasswordError(error);
-
-    logOperationalEvent(
-      {
-        event: "auth.reset_password",
-        level: "warn",
-        outcome: "failure",
-        status: 302,
-        reasonCode: code,
-        provider: "supabase",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect(FORGOT_PASSWORD_PATH, code));
-  }
-
-  logOperationalEvent(
-    {
-      event: "auth.reset_password",
-      level: "info",
-      outcome: "success",
-      status: 302,
+    return route.failureRedirect(FORGOT_PASSWORD_PATH, mapResetPasswordError(error), {
       provider: "supabase",
-    },
-    operationalContext,
-  );
+      status: 302,
+    });
+  }
 
   // Always end on the same confirmation regardless of whether the address has
   // an account — the response must not reveal account existence.
-  return context.redirect(`${FORGOT_PASSWORD_PATH}?sent=1`);
+  return route.successRedirect(`${FORGOT_PASSWORD_PATH}?sent=1`, { status: 302 });
 };

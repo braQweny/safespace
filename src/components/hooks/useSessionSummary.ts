@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requestApiJson } from "@/lib/api-client";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import {
@@ -18,14 +18,36 @@ export function useSessionSummary(initialSummary?: LatestSessionSummaryState | n
   );
   const [summaryStatus, setSummaryStatus] = useState<SessionSummaryStatus>("idle");
   const [summaryErrorCode, setSummaryErrorCode] = useState<SessionSummaryFailureCode | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  function startRequest() {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    return controller;
+  }
 
   async function generateSummary(sessionId: string) {
+    const controller = startRequest();
+
     setSummaryStatus("generating");
     setSummaryErrorCode(null);
 
     const result = await requestApiJson(`/api/session/summary/${encodeURIComponent(sessionId)}`, {
       method: "POST",
+      signal: controller.signal,
     });
+
+    if (controller.signal.aborted) {
+      return;
+    }
+
     const body = result.kind === "json" ? result.body : null;
 
     if (!isSessionSummaryGeneratedSuccess(body)) {
@@ -46,6 +68,8 @@ export function useSessionSummary(initialSummary?: LatestSessionSummaryState | n
       return;
     }
 
+    const controller = startRequest();
+
     setSummaryStatus("approving");
     setSummaryErrorCode(null);
 
@@ -54,7 +78,13 @@ export function useSessionSummary(initialSummary?: LatestSessionSummaryState | n
       body: JSON.stringify({
         revision: summaryState.summary.revision,
       }),
+      signal: controller.signal,
     });
+
+    if (controller.signal.aborted) {
+      return;
+    }
+
     const body = result.kind === "json" ? result.body : null;
 
     if (!isSessionSummaryApprovedSuccess(body)) {

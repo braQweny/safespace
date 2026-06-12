@@ -1,97 +1,35 @@
 import type { APIRoute } from "astro";
-import { getAuthErrorRedirect, mapSignInError } from "@/lib/auth-errors";
+import { mapSignInError } from "@/lib/auth-errors";
+import { createAuthRoute } from "@/lib/auth-route";
 import { getSafeAuthRedirect } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, getFormString } from "@/lib/auth-validation";
-import { logOperationalEvent } from "@/lib/operational-visibility/logger";
-import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
-import { createClient } from "@/lib/supabase";
 
 export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
-  const operationalContext = await buildOperationalRequestContext(context);
+  const route = await createAuthRoute(context, "auth.signin");
   const form = await context.request.formData();
   const email = getFormString(form, "email");
   const password = getFormString(form, "password", false);
   const redirectTo = getSafeAuthRedirect(form.get("redirectTo") ?? context.url.searchParams.get("redirectTo"));
 
   if (!EMAIL_PATTERN.test(email)) {
-    logOperationalEvent(
-      {
-        event: "auth.signin",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "invalid_email",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signin", "invalid_email"), 303);
+    return route.failureRedirect("/auth/signin", "invalid_email");
   }
 
   if (!password) {
-    logOperationalEvent(
-      {
-        event: "auth.signin",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "missing_password",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signin", "missing_password"), 303);
+    return route.failureRedirect("/auth/signin", "missing_password");
   }
 
-  const supabase = createClient(context.request.headers, context.cookies);
-  if (!supabase) {
-    logOperationalEvent(
-      {
-        event: "auth.signin",
-        level: "error",
-        outcome: "failure",
-        status: 303,
-        reasonCode: "auth_not_configured",
-        provider: "supabase",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signin", "auth_not_configured"), 303);
+  if (!route.supabase) {
+    return route.failureRedirect("/auth/signin", "auth_not_configured", { level: "error", provider: "supabase" });
   }
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await route.supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    const reasonCode = mapSignInError(error);
-
-    logOperationalEvent(
-      {
-        event: "auth.signin",
-        level: "warn",
-        outcome: "failure",
-        status: 303,
-        reasonCode,
-        provider: "supabase",
-      },
-      operationalContext,
-    );
-
-    return context.redirect(getAuthErrorRedirect("/auth/signin", reasonCode), 303);
+    return route.failureRedirect("/auth/signin", mapSignInError(error), { provider: "supabase" });
   }
 
-  logOperationalEvent(
-    {
-      event: "auth.signin",
-      level: "info",
-      outcome: "success",
-      status: 303,
-      provider: "supabase",
-    },
-    operationalContext,
-  );
-
-  return context.redirect(redirectTo, 303);
+  return route.successRedirect(redirectTo);
 };

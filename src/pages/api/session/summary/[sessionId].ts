@@ -8,6 +8,7 @@ import {
   toSessionSummaryPreview,
 } from "@/lib/session-data/repository";
 import { openRouterSessionSummaryProvider } from "@/lib/session-summary/provider";
+import { parseSessionIdParam } from "@/lib/session-flow/session-id";
 import { generateOwnedSessionSummary, type SessionSummaryFlowFailureCode } from "@/lib/session-flow/session-summary";
 import {
   sessionSummaryFailure,
@@ -21,9 +22,7 @@ import {
 export const prerender = false;
 
 function getSessionId(context: Parameters<APIRoute>[0]) {
-  const sessionId = context.params.sessionId;
-
-  return typeof sessionId === "string" && sessionId.trim().length > 0 ? sessionId.trim() : null;
+  return parseSessionIdParam(context.params.sessionId);
 }
 
 function mapSessionDataErrorCode(code: SessionDataErrorCode): SessionSummaryFailureCode {

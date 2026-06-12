@@ -60,7 +60,7 @@ const listResponse = {
   },
   items: [
     {
-      id: "session-1",
+      id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
       status: "completed",
       startedAt: "2026-06-07T10:00:00.000Z",
       endedAt: "2026-06-07T10:12:00.000Z",
@@ -100,7 +100,7 @@ const detailResponse = {
 } satisfies SessionHistoryDetailResponse;
 
 const tombstone: DeletedSessionTombstone = {
-  id: "session-1",
+  id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
   userId: "user-1",
   status: "deleted",
   startedAt: "2026-06-07T10:00:00.000Z",
@@ -130,7 +130,7 @@ function createContext(url = "https://safespace.local/api/session/history?avatar
       },
     },
     params: {
-      sessionId: "session-1",
+      sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
     },
     url: new URL(url),
   };
@@ -252,7 +252,9 @@ describe("GET /api/session/history/[sessionId]", () => {
   });
 
   it("returns the read-only detail for an owned session", async () => {
-    const response = await GET_DETAIL(createContext("https://safespace.local/api/session/history/session-1") as never);
+    const response = await GET_DETAIL(
+      createContext("https://safespace.local/api/session/history/5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a") as never,
+    );
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toMatchObject({
@@ -267,7 +269,7 @@ describe("GET /api/session/history/[sessionId]", () => {
       },
     });
     expect(readSessionHistoryDetail).toHaveBeenCalledWith(contextData, {
-      sessionId: "session-1",
+      sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
     });
   });
 
@@ -308,7 +310,9 @@ describe("DELETE /api/session/history/[sessionId]", () => {
   it("rejects missing auth before deleting", async () => {
     getSessionDataContext.mockReturnValue(sessionDataError("missing_auth"));
 
-    const response = await DELETE(createContext("https://safespace.local/api/session/history/session-1") as never);
+    const response = await DELETE(
+      createContext("https://safespace.local/api/session/history/5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a") as never,
+    );
 
     expect(response.status).toBe(401);
     await expect(readJson(response)).resolves.toMatchObject({
@@ -319,13 +323,15 @@ describe("DELETE /api/session/history/[sessionId]", () => {
   });
 
   it("deletes through deleteOwnedSession and returns a safe tombstone", async () => {
-    const response = await DELETE(createContext("https://safespace.local/api/session/history/session-1") as never);
+    const response = await DELETE(
+      createContext("https://safespace.local/api/session/history/5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a") as never,
+    );
     const body = await readJson(response);
     const serialized = JSON.stringify(body);
 
     expect(response.status).toBe(200);
     expect(deleteOwnedSession).toHaveBeenCalledWith(contextData, {
-      sessionId: "session-1",
+      sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
       deletionReasonCode: "user_request",
     });
     expect(serialized).not.toContain("content");
@@ -335,7 +341,7 @@ describe("DELETE /api/session/history/[sessionId]", () => {
       ok: true,
       type: "session_history_deleted",
       deletedSession: {
-        id: "session-1",
+        id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
         status: "deleted",
       },
     });
@@ -344,7 +350,9 @@ describe("DELETE /api/session/history/[sessionId]", () => {
   it("maps already-deleted sessions to not found", async () => {
     deleteOwnedSession.mockResolvedValue(sessionDataError("invalid_lifecycle_transition"));
 
-    const response = await DELETE(createContext("https://safespace.local/api/session/history/session-1") as never);
+    const response = await DELETE(
+      createContext("https://safespace.local/api/session/history/5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a") as never,
+    );
 
     expect(response.status).toBe(404);
     await expect(readJson(response)).resolves.toMatchObject({
@@ -356,7 +364,9 @@ describe("DELETE /api/session/history/[sessionId]", () => {
   it("maps delete failures to a stable failure without raw Supabase fields", async () => {
     deleteOwnedSession.mockResolvedValue(sessionDataError("delete_failed"));
 
-    const response = await DELETE(createContext("https://safespace.local/api/session/history/session-1") as never);
+    const response = await DELETE(
+      createContext("https://safespace.local/api/session/history/5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a") as never,
+    );
     const body = await readJson(response);
     const serialized = JSON.stringify(body);
 
