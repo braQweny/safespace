@@ -78,8 +78,8 @@ AI is OpenRouter via `@openrouter/sdk` (`src/lib/openrouter/sdk-chat.ts`). Two m
 - **Astro components** for static layout; **React islands** only for interactivity. No Next.js directives (`"use client"`). Extract hooks under `src/components/hooks/`.
 - **Tailwind**: merge classes with `cn()` from `@/lib/utils` — never concatenate class strings.
 - **shadcn/ui** in `src/components/ui/` ("new-york", base color neutral, lucide icons). Add via `npx shadcn@latest add [name]`.
-- **Validate API input with zod**; return stable domain error codes, never raw Supabase `message`/`details`/`hint` to UI, logs, or response bodies.
-- **Tests** live in `__tests__/` next to code (`src/lib/**`, `src/components/**`, `src/pages/api/**`); `.test.ts` / `.test.tsx`. Vitest `environment: "node"`.
+- **Validate API input with hand-written type guards / contract modules** (zod is NOT a dependency — e.g. `session-flow/message-contract.ts`, `parseSessionIdParam`, `auth-validation.ts`); return stable domain error codes, never raw Supabase `message`/`details`/`hint` to UI, logs, or response bodies.
+- **Tests** live in `__tests__/` next to code (`src/lib/**`, `src/components/**`, `src/pages/**`); `.test.ts` / `.test.tsx`. Vitest `environment: "node"`.
 - **Shared types** (entities, DTOs) in `src/types.ts`; subsystem-local domain types stay in that subsystem's `types.ts`.
 
 ## Migrations & data

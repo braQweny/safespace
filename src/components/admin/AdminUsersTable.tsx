@@ -1,43 +1,12 @@
 import { Ban, RotateCcw, Search } from "lucide-react";
-import { useState } from "react";
-import { requestApiJson } from "@/lib/api-client";
-import {
-  isAdminApiFailure,
-  isAdminUserBlockSuccess,
-  isAdminUsersSuccess,
-  type AdminApiFailureCode,
-  type AdminUsersResponse,
-} from "@/lib/admin/contracts";
-import type {
-  AdminBlockReasonCode,
-  AdminUserListItem,
-  AdminUserListResult,
-  AdminUserSort,
-  AdminUserStatusFilter,
-} from "@/lib/admin/types";
+import { useAdminUsers } from "@/components/hooks/useAdminUsers";
+import type { AdminApiFailureCode, AdminUsersResponse } from "@/lib/admin/contracts";
+import type { AdminBlockReasonCode, AdminUserListItem, AdminUserSort, AdminUserStatusFilter } from "@/lib/admin/types";
 
 interface AdminUsersTableProps {
   initialResponse: AdminUsersResponse;
   currentAdminUserId: string;
 }
-
-const DEFAULT_RESULT: AdminUserListResult = {
-  filters: {
-    emailSearch: "",
-    status: "all",
-    sort: "created_desc",
-    page: 1,
-    pageSize: 20,
-  },
-  users: [],
-  pagination: {
-    page: 1,
-    pageSize: 20,
-    totalCount: 0,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  },
-};
 
 const REASON_OPTIONS: { value: AdminBlockReasonCode; label: string }[] = [
   { value: "policy_violation", label: "Naruszenie zasad" },
@@ -59,14 +28,6 @@ const SORT_OPTIONS: { value: AdminUserSort; label: string }[] = [
   { value: "last_activity_desc", label: "Ostatnia aktywność" },
   { value: "last_activity_asc", label: "Najdawniejsza aktywność" },
 ];
-
-function getInitialResult(response: AdminUsersResponse) {
-  return response.ok ? response.result : DEFAULT_RESULT;
-}
-
-function getInitialError(response: AdminUsersResponse) {
-  return response.ok ? null : response.code;
-}
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -93,69 +54,21 @@ function ErrorNotice({ code }: { code: AdminApiFailureCode }) {
 }
 
 export default function AdminUsersTable({ initialResponse, currentAdminUserId }: AdminUsersTableProps) {
-  const [result, setResult] = useState(() => getInitialResult(initialResponse));
-  const [emailSearch, setEmailSearch] = useState(result.filters.emailSearch);
-  const [status, setStatus] = useState<AdminUserStatusFilter>(result.filters.status);
-  const [sort, setSort] = useState<AdminUserSort>(result.filters.sort);
-  const [reasonByUser, setReasonByUser] = useState<Record<string, AdminBlockReasonCode>>({});
-  const [errorCode, setErrorCode] = useState<AdminApiFailureCode | null>(() => getInitialError(initialResponse));
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-
-  async function refreshUsers(nextPage = 1) {
-    const params = new URLSearchParams({
-      q: emailSearch,
-      status,
-      sort,
-      page: String(nextPage),
-      pageSize: String(result.filters.pageSize),
-    });
-    const response = await requestApiJson(`/api/admin/users?${params.toString()}`);
-
-    if (response.kind === "network_error") {
-      return;
-    }
-
-    const body = response.body;
-
-    if (isAdminUsersSuccess(body)) {
-      setResult(body.result);
-      setErrorCode(null);
-      return;
-    }
-
-    setErrorCode(isAdminApiFailure(body) ? body.code : "admin_data_unavailable");
-  }
-
-  async function toggleBlock(user: AdminUserListItem) {
-    const action = user.accountStatus === "blocked" ? "unblock" : "block";
-    const reasonCode = reasonByUser[user.profile.userId] ?? "policy_violation";
-    setPendingUserId(user.profile.userId);
-
-    try {
-      const response = await requestApiJson(`/api/admin/users/${user.profile.userId}/block`, {
-        method: "POST",
-        body: JSON.stringify({
-          action,
-          reasonCode,
-        }),
-      });
-
-      if (response.kind === "network_error") {
-        return;
-      }
-
-      const body = response.body;
-
-      if (!isAdminUserBlockSuccess(body)) {
-        setErrorCode(isAdminApiFailure(body) ? body.code : "write_failed");
-        return;
-      }
-
-      await refreshUsers(result.pagination.page);
-    } finally {
-      setPendingUserId(null);
-    }
-  }
+  const {
+    result,
+    emailSearch,
+    setEmailSearch,
+    status,
+    setStatus,
+    sort,
+    setSort,
+    errorCode,
+    pendingUserId,
+    getReason,
+    setReason,
+    refreshUsers,
+    toggleBlock,
+  } = useAdminUsers(initialResponse);
 
   return (
     <section className="space-y-4">
@@ -272,12 +185,9 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                       <div className="flex flex-wrap items-center gap-2">
                         {!isBlocked ? (
                           <select
-                            value={reasonByUser[user.profile.userId] ?? "policy_violation"}
+                            value={getReason(user.profile.userId)}
                             onChange={(event) => {
-                              setReasonByUser((current) => ({
-                                ...current,
-                                [user.profile.userId]: event.target.value as AdminBlockReasonCode,
-                              }));
+                              setReason(user.profile.userId, event.target.value as AdminBlockReasonCode);
                             }}
                             className="h-9 rounded-md border border-[#b8c9c5] bg-white px-2 text-xs text-[#10231f]"
                           >
