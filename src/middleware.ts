@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { defineMiddleware } from "astro:middleware";
 import { readAccountAccessState } from "@/lib/admin/account-access";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
@@ -96,7 +97,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.accountAccess = null;
 
   if (isRateLimitedApiRequest(context.request.method, context.url.pathname)) {
-    const limiter = context.locals.runtime?.env?.SESSION_RATE_LIMITER;
+    const limiter = env.SESSION_RATE_LIMITER;
     const key = getRateLimitKey(context.locals.user?.id ?? null, context.request);
     const verdict = await checkSessionRateLimit(limiter, key);
 

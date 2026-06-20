@@ -138,6 +138,18 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.provider.requireParameters).toBe(true);
   });
 
+  it("uses medium reasoning and a larger token limit for Gemini 3.5 Flash summaries", () => {
+    const request = buildOpenRouterSummaryRequest(input, "google/gemini-3.5-flash");
+
+    expect(request.model).toBe("google/gemini-3.5-flash");
+    expect(request.maxTokens).toBe(800);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
+    expect(request.reasoning).toEqual({
+      effort: "medium",
+    });
+    expect(request.provider.requireParameters).toBe(true);
+  });
+
   it("omits temperature for OpenAI GPT-5 summary models that reject sampling parameters", () => {
     const request = buildOpenRouterSummaryRequest(input, "openai/gpt-5.4-mini");
 
@@ -146,6 +158,19 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.stream).toBe(false);
     expect(request.maxCompletionTokens).toBeLessThanOrEqual(320);
     expect(request).not.toHaveProperty("maxTokens");
+  });
+
+  it("uses medium reasoning for OpenAI GPT-5.5 summaries", () => {
+    const request = buildOpenRouterSummaryRequest(input, "openai/gpt-5.5");
+
+    expect(request.model).toBe("openai/gpt-5.5");
+    expect(request).not.toHaveProperty("temperature");
+    expect(request.stream).toBe(false);
+    expect(request.maxCompletionTokens).toBeLessThanOrEqual(320);
+    expect(request).not.toHaveProperty("maxTokens");
+    expect(request.reasoning).toEqual({
+      effort: "medium",
+    });
   });
 });
 

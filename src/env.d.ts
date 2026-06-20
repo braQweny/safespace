@@ -1,5 +1,9 @@
-interface SafespaceRuntimeEnv {
+interface SafespaceCloudflareEnv {
   SESSION_RATE_LIMITER?: import("@/lib/rate-limit").RateLimiterBinding;
+}
+
+declare module "cloudflare:workers" {
+  export const env: SafespaceCloudflareEnv;
 }
 
 declare namespace App {
@@ -7,9 +11,5 @@ declare namespace App {
     user: import("@supabase/supabase-js").User | null;
     requestId: string;
     accountAccess?: import("@/lib/admin/types").AccountAccessState | null;
-    /** Injected by the @astrojs/cloudflare adapter; absent in tests and Node tooling. */
-    runtime?: {
-      env?: SafespaceRuntimeEnv;
-    };
   }
 }

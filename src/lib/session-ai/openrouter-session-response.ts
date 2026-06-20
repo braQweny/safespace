@@ -4,7 +4,12 @@ import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-ch
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterSessionConfig, resolveSessionModel } from "./env";
 import { SessionAiError } from "./errors";
-import { buildOpenRouterTokenLimitParameter, supportsOpenRouterTemperature } from "./openrouter-request-params";
+import {
+  buildOpenRouterReasoningParameter,
+  buildOpenRouterTokenLimitParameter,
+  isOpenRouterGemini35FlashModel,
+  supportsOpenRouterTemperature,
+} from "./openrouter-request-params";
 import { buildSessionResponseMessages } from "./session-response-prompt";
 import type {
   GenerateSessionResponseInput,
@@ -17,9 +22,8 @@ import type {
 
 const OPENROUTER_SESSION_TIMEOUT_MS = 12_000;
 const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 800;
+const OPENROUTER_GEMINI_3_5_FLASH_SESSION_MAX_COMPLETION_TOKENS = 1_600;
 const OPENROUTER_SESSION_TEMPERATURE = 0.7;
-const OPENROUTER_SESSION_REASONING_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$|[-:])/i;
-const OPENROUTER_SESSION_REASONING_EFFORT = "medium";
 
 interface OpenRouterSessionResponseOptions {
   apiKey?: string;
@@ -35,7 +39,7 @@ type OpenRouterSessionRequestBody = OpenRouterNonStreamingChatRequest & {
   maxCompletionTokens?: number;
   maxTokens?: number;
   reasoning?: {
-    effort: typeof OPENROUTER_SESSION_REASONING_EFFORT;
+    effort: "minimal" | "medium";
   };
   stream: false;
   provider: {
@@ -84,8 +88,8 @@ export function buildOpenRouterSessionRequest(
     model,
     messages: [...buildSessionResponseMessages(input)],
     ...buildOptionalSamplingParameters(model),
-    ...buildOptionalReasoningParameters(model),
-    ...buildOpenRouterTokenLimitParameter(model, OPENROUTER_SESSION_MAX_COMPLETION_TOKENS),
+    ...buildOpenRouterReasoningParameter(model),
+    ...buildOpenRouterTokenLimitParameter(model, resolveSessionMaxCompletionTokens(model)),
     stream: false,
     provider: {
       requireParameters: true,
@@ -93,16 +97,12 @@ export function buildOpenRouterSessionRequest(
   };
 }
 
-function buildOptionalReasoningParameters(model: string): Pick<OpenRouterSessionRequestBody, "reasoning"> {
-  if (!supportsOpenRouterSessionReasoning(model)) {
-    return {};
+function resolveSessionMaxCompletionTokens(model: string) {
+  if (isOpenRouterGemini35FlashModel(model)) {
+    return OPENROUTER_GEMINI_3_5_FLASH_SESSION_MAX_COMPLETION_TOKENS;
   }
 
-  return {
-    reasoning: {
-      effort: OPENROUTER_SESSION_REASONING_EFFORT,
-    },
-  };
+  return OPENROUTER_SESSION_MAX_COMPLETION_TOKENS;
 }
 
 function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSessionRequestBody, "temperature"> {
@@ -113,10 +113,6 @@ function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSessionR
   return {
     temperature: OPENROUTER_SESSION_TEMPERATURE,
   };
-}
-
-function supportsOpenRouterSessionReasoning(model: string) {
-  return OPENROUTER_SESSION_REASONING_MODEL_PATTERN.test(model.trim());
 }
 
 function resolveTimeoutMs(timeoutMs: number | undefined) {

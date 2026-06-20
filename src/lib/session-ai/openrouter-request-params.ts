@@ -1,4 +1,9 @@
 const OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|o\d(?:[.-]|$))/i;
+const OPENAI_GPT_5_5_MODEL_PATTERN = /^openai\/gpt-5\.5(?:$|[-:])/i;
+const GEMINI_3_1_FLASH_LITE_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$|[-:])/i;
+const GEMINI_3_5_FLASH_MODEL_PATTERN = /^google\/gemini-3\.5-flash(?:$|[-:])/i;
+
+type OpenRouterReasoningEffort = "minimal" | "medium";
 
 export function buildOpenRouterTokenLimitParameter(model: string, maxTokens: number) {
   if (usesMaxCompletionTokens(model)) {
@@ -16,6 +21,42 @@ export function supportsOpenRouterTemperature(model: string) {
   return !usesMaxCompletionTokens(model);
 }
 
+export function buildOpenRouterReasoningParameter(model: string) {
+  const effort = resolveOpenRouterReasoningEffort(model);
+
+  if (!effort) {
+    return {};
+  }
+
+  return {
+    reasoning: {
+      effort,
+    },
+  };
+}
+
+export function isOpenRouterGemini35FlashModel(model: string) {
+  return GEMINI_3_5_FLASH_MODEL_PATTERN.test(model.trim());
+}
+
 function usesMaxCompletionTokens(model: string) {
   return OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN.test(model.trim());
+}
+
+function resolveOpenRouterReasoningEffort(model: string): OpenRouterReasoningEffort | undefined {
+  const trimmedModel = model.trim();
+
+  if (OPENAI_GPT_5_5_MODEL_PATTERN.test(trimmedModel)) {
+    return "medium";
+  }
+
+  if (isOpenRouterGemini35FlashModel(trimmedModel)) {
+    return "medium";
+  }
+
+  if (GEMINI_3_1_FLASH_LITE_MODEL_PATTERN.test(trimmedModel)) {
+    return "medium";
+  }
+
+  return undefined;
 }

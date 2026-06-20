@@ -105,6 +105,29 @@ function MessageHeader({
   );
 }
 
+function getAssistantDisplayName(assistantAvatar: SelectedModalityAvatar) {
+  return assistantAvatar.avatarName.split(",")[0]?.trim() || assistantAvatar.avatarName;
+}
+
+function PendingAssistantStatus({ assistantAvatar }: { assistantAvatar: SelectedModalityAvatar }) {
+  const assistantName = getAssistantDisplayName(assistantAvatar);
+
+  return (
+    <div
+      className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#bfd8d1] bg-white px-4 py-3 text-sm font-medium text-[#38524b]"
+      role="status"
+      aria-label={`${assistantName} myśli...`}
+    >
+      <span>{assistantName} myśli</span>
+      <span aria-hidden="true" className="inline-flex items-center gap-0.5">
+        <span className="animate-pulse">.</span>
+        <span className="animate-pulse [animation-delay:150ms]">.</span>
+        <span className="animate-pulse [animation-delay:300ms]">.</span>
+      </span>
+    </div>
+  );
+}
+
 export default function SessionMessages({
   messages,
   isPending = false,
@@ -136,15 +159,7 @@ export default function SessionMessages({
         </ol>
       )}
 
-      {isPending ? (
-        <div
-          className="mt-4 rounded-lg border border-[#bfd8d1] bg-white p-4 text-sm leading-6 text-[#38524b]"
-          role="status"
-        >
-          Odpowiedź trwa. {assistantAvatar.avatarName} przygotowuje niestreamingową odpowiedź po sprawdzeniu granic
-          bezpieczeństwa.
-        </div>
-      ) : null}
+      {isPending ? <PendingAssistantStatus assistantAvatar={assistantAvatar} /> : null}
     </div>
   );
 }

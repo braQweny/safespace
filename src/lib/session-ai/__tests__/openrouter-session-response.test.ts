@@ -136,6 +136,18 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.provider.requireParameters).toBe(true);
   });
 
+  it("uses medium reasoning and a larger token limit for Gemini 3.5 Flash", () => {
+    const request = buildOpenRouterSessionRequest(input, "google/gemini-3.5-flash");
+
+    expect(request.model).toBe("google/gemini-3.5-flash");
+    expect(request.maxTokens).toBe(1600);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
+    expect(request.reasoning).toEqual({
+      effort: "medium",
+    });
+    expect(request.provider.requireParameters).toBe(true);
+  });
+
   it("includes the selected catalog sessionStyleHint in the system message and keeps the user turn plain", () => {
     const modality = MVP_MODALITIES.find((item) => item.avatarId === "integrative-guide");
 
@@ -187,6 +199,20 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.maxCompletionTokens).toBe(800);
     expect(request).not.toHaveProperty("maxTokens");
     expect(request).not.toHaveProperty("reasoning");
+    expect(request.provider.requireParameters).toBe(true);
+  });
+
+  it("uses medium reasoning for OpenAI GPT-5.5 session responses", () => {
+    const request = buildOpenRouterSessionRequest(input, "openai/gpt-5.5");
+
+    expect(request.model).toBe("openai/gpt-5.5");
+    expect(request).not.toHaveProperty("temperature");
+    expect(request.stream).toBe(false);
+    expect(request.maxCompletionTokens).toBe(800);
+    expect(request).not.toHaveProperty("maxTokens");
+    expect(request.reasoning).toEqual({
+      effort: "medium",
+    });
     expect(request.provider.requireParameters).toBe(true);
   });
 });

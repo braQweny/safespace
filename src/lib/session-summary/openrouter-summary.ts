@@ -2,7 +2,9 @@ import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
 import { getOpenRouterSummaryConfig, resolveSummaryModel } from "./env";
 import {
+  buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
+  isOpenRouterGemini35FlashModel,
   supportsOpenRouterTemperature,
 } from "@/lib/session-ai/openrouter-request-params";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
@@ -20,6 +22,7 @@ import type {
 
 const OPENROUTER_SUMMARY_TIMEOUT_MS = 12_000;
 const OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS = 320;
+const OPENROUTER_GEMINI_3_5_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 800;
 const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
 
 interface OpenRouterSummaryOptions {
@@ -35,6 +38,9 @@ type OpenRouterSummaryRequestBody = OpenRouterNonStreamingChatRequest & {
   temperature?: number;
   maxCompletionTokens?: number;
   maxTokens?: number;
+  reasoning?: {
+    effort: "minimal" | "medium";
+  };
   stream: false;
   provider: {
     requireParameters: true;
@@ -84,12 +90,21 @@ export function buildOpenRouterSummaryRequest(
     model,
     messages: [...buildSessionSummaryMessages(input)],
     ...buildOptionalSamplingParameters(model),
-    ...buildOpenRouterTokenLimitParameter(model, OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS),
+    ...buildOpenRouterReasoningParameter(model),
+    ...buildOpenRouterTokenLimitParameter(model, resolveSummaryMaxCompletionTokens(model)),
     stream: false,
     provider: {
       requireParameters: true,
     },
   };
+}
+
+function resolveSummaryMaxCompletionTokens(model: string) {
+  if (isOpenRouterGemini35FlashModel(model)) {
+    return OPENROUTER_GEMINI_3_5_FLASH_SUMMARY_MAX_COMPLETION_TOKENS;
+  }
+
+  return OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS;
 }
 
 function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSummaryRequestBody, "temperature"> {

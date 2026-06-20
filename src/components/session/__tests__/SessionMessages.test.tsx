@@ -36,4 +36,15 @@ describe("SessionMessages", () => {
     expect(html).toContain("<ol");
     expect(html).toContain("<strong");
   });
+
+  it("renders a short pulsing thinking state while waiting for a response", () => {
+    const html = renderToStaticMarkup(<SessionMessages assistantAvatar={assistantAvatar} isPending messages={[]} />);
+
+    expect(html).toContain("Marek myśli");
+    expect(html).toContain('aria-label="Marek myśli..."');
+    expect(html).toContain("animate-pulse");
+    expect(html).not.toContain("Odpowiedź trwa");
+    expect(html).not.toContain("niestreamingową odpowiedź");
+    expect(html).not.toContain("granic bezpieczeństwa");
+  });
 });
