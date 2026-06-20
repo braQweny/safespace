@@ -32,6 +32,7 @@ vi.mock("@/lib/session-data/quota", () => ({
 vi.mock("@/lib/session-data/repository", () => ({
   transitionSessionLifecycle,
   getOwnedSessionMetadata: vi.fn(),
+  listOwnedActiveSessionMetadata: vi.fn(),
   listOwnedSessionMessages: vi.fn(),
   listNewestApprovedSessionSummaryContexts: vi.fn(),
 }));

@@ -1,6 +1,7 @@
 import { readTrialAvailability } from "@/lib/session-data/quota";
 import {
   getOwnedSessionMetadata,
+  listOwnedActiveSessionMetadata,
   listNewestApprovedSessionSummaryContexts,
   listOwnedSessionMessages,
 } from "@/lib/session-data/repository";
@@ -18,6 +19,7 @@ import type {
 import type { CurrentAvatarChoice } from "./avatar-choice";
 
 export const FREE_TRIAL_DURATION_SECONDS = 900;
+const ACTIVE_SESSION_SCAN_LIMIT = 5;
 
 export type EffectiveSessionStatus = Exclude<SessionLifecycleStatus, "created" | "deleted"> | "claimed";
 
@@ -64,6 +66,7 @@ export interface SessionStartPageState {
 export interface SessionStateRepository {
   readTrialAvailability: typeof readTrialAvailability;
   getOwnedSessionMetadata: typeof getOwnedSessionMetadata;
+  listOwnedActiveSessionMetadata: typeof listOwnedActiveSessionMetadata;
   listOwnedSessionMessages: typeof listOwnedSessionMessages;
   listNewestApprovedSessionSummaryContexts: typeof listNewestApprovedSessionSummaryContexts;
 }
@@ -71,12 +74,14 @@ export interface SessionStateRepository {
 export interface ReadSessionStartPageStateOptions {
   avatar: CurrentAvatarChoice;
   includeMessagesForActive?: boolean;
+  resumeSessionId?: string | null;
   now?: Date;
 }
 
 const defaultSessionStateRepository: SessionStateRepository = {
   readTrialAvailability,
   getOwnedSessionMetadata,
+  listOwnedActiveSessionMetadata,
   listOwnedSessionMessages,
   listNewestApprovedSessionSummaryContexts,
 };
@@ -88,6 +93,11 @@ function parseTimestampMs(timestamp: string | null) {
 
   const parsed = Date.parse(timestamp);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeResumeSessionId(value: string | null | undefined) {
+  const sessionId = typeof value === "string" ? value.trim() : "";
+  return sessionId || null;
 }
 
 export function computeRemainingSeconds(expiresAt: string | null, now: Date = new Date()) {
@@ -161,6 +171,17 @@ function getStateKindFromSession(session: SessionView): SessionStartPageStateKin
   return toSessionStartPageStateKind(session.status);
 }
 
+function getSameAvatarSessionView(
+  session: SessionMetadata,
+  options: ReadSessionStartPageStateOptions,
+): SessionView | null {
+  if (session.avatarId !== options.avatar.selected.avatarId) {
+    return null;
+  }
+
+  return toSessionView(session, options.now);
+}
+
 function unavailableState(avatar: CurrentAvatarChoice): SessionStartPageState {
   return {
     kind: "unavailable",
@@ -203,7 +224,7 @@ function claimedState(
   };
 }
 
-async function loadActiveMessages(
+async function loadSessionMessages(
   context: SessionDataContext,
   sessionId: SessionId,
   repository: SessionStateRepository,
@@ -229,11 +250,143 @@ async function loadApprovedSummaryContext(context: SessionDataContext, repositor
   return summaries.ok ? summaries.data : [];
 }
 
+async function pageStateFromSessionView(
+  context: SessionDataContext,
+  session: SessionView,
+  options: ReadSessionStartPageStateOptions,
+  repository: SessionStateRepository,
+): Promise<SessionStartPageState> {
+  const stateKind = getStateKindFromSession(session);
+  const shouldLoadMessages = options.includeMessagesForActive === true;
+  const messageState = shouldLoadMessages
+    ? await loadSessionMessages(context, session.id, repository)
+    : { messages: [], messageFetchFailed: false };
+
+  return {
+    kind: stateKind,
+    trialAvailable: false,
+    avatar: options.avatar,
+    session,
+    approvedSummaries: [],
+    canStartWithoutContext: false,
+    ...messageState,
+  };
+}
+
+async function readExplicitActiveSessionState(
+  context: SessionDataContext,
+  options: ReadSessionStartPageStateOptions,
+  repository: SessionStateRepository,
+): Promise<SessionDataResult<SessionStartPageState | null>> {
+  const sessionId = normalizeResumeSessionId(options.resumeSessionId);
+
+  if (!sessionId) {
+    return {
+      ok: true,
+      data: null,
+    };
+  }
+
+  const sessionResult = await repository.getOwnedSessionMetadata(context, sessionId);
+
+  if (!sessionResult.ok) {
+    if (sessionResult.error.code === "session_not_found") {
+      return {
+        ok: true,
+        data: null,
+      };
+    }
+
+    return sessionResult;
+  }
+
+  const session = getSameAvatarSessionView(sessionResult.data, options);
+
+  if (!session || getStateKindFromSession(session) === "trial_already_claimed") {
+    return {
+      ok: true,
+      data: null,
+    };
+  }
+
+  return {
+    ok: true,
+    data: await pageStateFromSessionView(context, session, options, repository),
+  };
+}
+
+async function readLatestActiveSessionState(
+  context: SessionDataContext,
+  options: ReadSessionStartPageStateOptions,
+  repository: SessionStateRepository,
+): Promise<SessionDataResult<SessionStartPageState | null>> {
+  const activeSessions = await repository.listOwnedActiveSessionMetadata(context, {
+    avatarId: options.avatar.selected.avatarId,
+    limit: ACTIVE_SESSION_SCAN_LIMIT,
+  });
+
+  if (!activeSessions.ok) {
+    return activeSessions;
+  }
+
+  const session = activeSessions.data
+    .map((candidate) => {
+      const sessionView = getSameAvatarSessionView(candidate, options);
+
+      return sessionView?.status === "active" ? sessionView : null;
+    })
+    .find((candidate) => candidate !== null);
+
+  if (!session) {
+    return {
+      ok: true,
+      data: null,
+    };
+  }
+
+  return {
+    ok: true,
+    data: await pageStateFromSessionView(context, session, options, repository),
+  };
+}
+
 export async function readSessionStartPageState(
   context: SessionDataContext,
   options: ReadSessionStartPageStateOptions,
   repository: SessionStateRepository = defaultSessionStateRepository,
 ): Promise<SessionDataResult<SessionStartPageState>> {
+  const explicitActiveState = await readExplicitActiveSessionState(context, options, repository);
+
+  if (!explicitActiveState.ok) {
+    return {
+      ok: true,
+      data: unavailableState(options.avatar),
+    };
+  }
+
+  if (explicitActiveState.data) {
+    return {
+      ok: true,
+      data: explicitActiveState.data,
+    };
+  }
+
+  const latestActiveState = await readLatestActiveSessionState(context, options, repository);
+
+  if (!latestActiveState.ok) {
+    return {
+      ok: true,
+      data: unavailableState(options.avatar),
+    };
+  }
+
+  if (latestActiveState.data) {
+    return {
+      ok: true,
+      data: latestActiveState.data,
+    };
+  }
+
   const availability = await repository.readTrialAvailability(context);
 
   if (!availability.ok) {
@@ -284,7 +437,7 @@ async function okSessionStartPageState(
 
   const shouldLoadMessages = options.includeMessagesForActive === true;
   const messageState = shouldLoadMessages
-    ? await loadActiveMessages(context, session.id, repository)
+    ? await loadSessionMessages(context, session.id, repository)
     : { messages: [], messageFetchFailed: false };
 
   return {

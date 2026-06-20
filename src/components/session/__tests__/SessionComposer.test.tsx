@@ -1,5 +1,10 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { shouldSubmitSessionComposerFromKeyboard } from "../SessionComposer";
+import SessionComposer, {
+  appendTranscriptionToDraft,
+  getSupportedWebmMimeType,
+  shouldSubmitSessionComposerFromKeyboard,
+} from "../SessionComposer";
 
 function keyboardEvent(
   overrides: Partial<Parameters<typeof shouldSubmitSessionComposerFromKeyboard>[0]> = {},
@@ -32,5 +37,72 @@ describe("SessionComposer keyboard submit shortcut", () => {
   it("does not swap platform-specific modifiers", () => {
     expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ metaKey: true }), "Win32")).toBe(false);
     expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ ctrlKey: true }), "MacIntel")).toBe(false);
+  });
+});
+
+describe("SessionComposer dictation controls", () => {
+  it("renders a microphone action next to the send action", () => {
+    const html = renderToStaticMarkup(
+      <SessionComposer
+        value=""
+        isDisabled={false}
+        isPending={false}
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("Dyktuj");
+    expect(html).toContain("Wyślij");
+  });
+
+  it("disables dictation when the composer is disabled or message is pending", () => {
+    const disabledHtml = renderToStaticMarkup(
+      <SessionComposer
+        value=""
+        isDisabled={true}
+        isPending={false}
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+    const pendingHtml = renderToStaticMarkup(
+      <SessionComposer
+        value=""
+        isDisabled={false}
+        isPending={true}
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    );
+
+    expect(disabledHtml).toContain('disabled=""');
+    expect(pendingHtml).toContain('disabled=""');
+  });
+
+  it("appends transcriptions to the current draft without submitting", () => {
+    expect(appendTranscriptionToDraft("Mam myśl", "którą chcę dopisać.")).toEqual({
+      value: "Mam myśl którą chcę dopisać.",
+      didAppend: true,
+      wasTruncated: false,
+    });
+    expect(appendTranscriptionToDraft("", "  Nowa wiadomość.  ")).toEqual({
+      value: "Nowa wiadomość.",
+      didAppend: true,
+      wasTruncated: false,
+    });
+  });
+
+  it("detects WebM MediaRecorder support for v1 dictation", () => {
+    expect(
+      getSupportedWebmMimeType({
+        isTypeSupported: (mimeType) => mimeType === "audio/webm;codecs=opus",
+      }),
+    ).toBe("audio/webm;codecs=opus");
+    expect(
+      getSupportedWebmMimeType({
+        isTypeSupported: () => false,
+      }),
+    ).toBeNull();
   });
 });

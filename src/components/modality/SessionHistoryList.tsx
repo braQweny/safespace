@@ -1,5 +1,7 @@
-import { Loader2, MessageSquareText, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Clock, Loader2, MessageSquareText, PlayCircle, Trash2 } from "lucide-react";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
+import { computeClientRemainingSeconds, formatRemainingTime } from "@/lib/session-flow/message-state";
 import { cn } from "@/lib/utils";
 
 interface SessionHistoryListProps {
@@ -56,6 +58,148 @@ function getDurationLabel(item: SessionHistoryListItem) {
   return "Czas nieustalony";
 }
 
+function getActiveSessionHref(sessionId: string) {
+  return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
+}
+
+function getInitialActiveRemainingSeconds(item: SessionHistoryListItem) {
+  return item.status === "active" ? computeClientRemainingSeconds(item.expiresAt) : null;
+}
+
+interface SessionHistoryListItemRowProps {
+  item: SessionHistoryListItem;
+  isSelected: boolean;
+  isConfirming: boolean;
+  isDeleting: boolean;
+  onOpenDetail: (sessionId: string) => void;
+  onRequestDelete: (sessionId: string) => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: (sessionId: string) => void;
+}
+
+function SessionHistoryListItemRow({
+  item,
+  isSelected,
+  isConfirming,
+  isDeleting,
+  onOpenDetail,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
+}: SessionHistoryListItemRowProps) {
+  const [remainingSeconds, setRemainingSeconds] = useState(() => getInitialActiveRemainingSeconds(item));
+
+  useEffect(() => {
+    if (item.status !== "active" || !item.expiresAt) {
+      return;
+    }
+
+    function updateRemainingSeconds() {
+      setRemainingSeconds(computeClientRemainingSeconds(item.expiresAt));
+    }
+
+    const intervalId = window.setInterval(updateRemainingSeconds, 1_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [item.expiresAt, item.status]);
+
+  const effectiveStatus = item.status === "active" && remainingSeconds === 0 ? "expired" : item.status;
+  const isActive = effectiveStatus === "active";
+
+  return (
+    <li
+      data-history-item={item.id}
+      className={cn(
+        "rounded-lg border p-4 text-sm leading-6 transition-colors",
+        isSelected ? "border-[#1f6f65] bg-[#f4faf7]" : "border-[#d7e5e0] bg-white",
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-semibold text-[#10231f]">{formatDateTime(item.startedAt ?? item.createdAt)}</p>
+          <p className="mt-1 text-[#52645f]">
+            {statusLabels[effectiveStatus]} · {getDurationLabel(item)}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {isActive ? (
+            <>
+              <div
+                role="timer"
+                aria-label="Pozostały czas sesji"
+                className="inline-flex h-9 min-w-36 items-center justify-center gap-2 rounded-lg border border-[#bfd8d1] bg-[#f8fcfa] px-3 text-sm font-semibold text-[#173f39]"
+              >
+                <Clock aria-hidden="true" className="h-4 w-4 text-[#1f6f65]" />
+                Pozostało {formatRemainingTime(remainingSeconds)}
+              </div>
+              <a
+                href={getActiveSessionHref(item.id)}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-3 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+              >
+                <PlayCircle aria-hidden="true" className="h-4 w-4" />
+                Wróć do sesji
+              </a>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              onOpenDetail(item.id);
+            }}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-3 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+          >
+            <MessageSquareText aria-hidden="true" className="h-4 w-4" />
+            Otwórz
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onRequestDelete(item.id);
+            }}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#e2b8b8] bg-white px-3 text-sm font-medium text-[#7d2d2d] transition-colors hover:bg-[#fff8f8] focus:ring-2 focus:ring-[#c46d6d] focus:outline-none"
+          >
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
+            Usuń
+          </button>
+        </div>
+      </div>
+
+      {isConfirming ? (
+        <div className="mt-4 rounded-lg border border-[#edd3a1] bg-[#fffaf0] p-4 text-sm leading-6 text-[#654b16]">
+          <p className="font-semibold">Potwierdź usunięcie rozmowy</p>
+          <p className="mt-1">
+            Usunięcie jest nieodwracalne. Treść rozmowy zostanie usunięta i nie przywraca darmowej próby.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                onCancelDelete();
+              }}
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d7c38d] bg-white px-3 text-sm font-medium text-[#654b16] transition-colors hover:bg-[#fff6df] focus:ring-2 focus:ring-[#d6af53] focus:outline-none"
+            >
+              Anuluj
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => {
+                onConfirmDelete(item.id);
+              }}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#7d2d2d] px-3 text-sm font-medium text-white transition-colors hover:bg-[#6b2424] focus:ring-2 focus:ring-[#c46d6d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#caa0a0]"
+            >
+              {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
+              Potwierdź usunięcie
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 export default function SessionHistoryList({
   items,
   selectedSessionId,
@@ -69,81 +213,18 @@ export default function SessionHistoryList({
   return (
     <ol className="space-y-3">
       {items.map((item) => {
-        const isSelected = selectedSessionId === item.id;
-        const isConfirming = pendingDeleteId === item.id;
-        const isDeleting = deletingId === item.id;
-
         return (
-          <li
+          <SessionHistoryListItemRow
             key={item.id}
-            data-history-item={item.id}
-            className={cn(
-              "rounded-lg border p-4 text-sm leading-6 transition-colors",
-              isSelected ? "border-[#1f6f65] bg-[#f4faf7]" : "border-[#d7e5e0] bg-white",
-            )}
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="font-semibold text-[#10231f]">{formatDateTime(item.startedAt ?? item.createdAt)}</p>
-                <p className="mt-1 text-[#52645f]">
-                  {statusLabels[item.status]} · {getDurationLabel(item)}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOpenDetail(item.id);
-                  }}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-3 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-                >
-                  <MessageSquareText aria-hidden="true" className="h-4 w-4" />
-                  Otwórz
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onRequestDelete(item.id);
-                  }}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#e2b8b8] bg-white px-3 text-sm font-medium text-[#7d2d2d] transition-colors hover:bg-[#fff8f8] focus:ring-2 focus:ring-[#c46d6d] focus:outline-none"
-                >
-                  <Trash2 aria-hidden="true" className="h-4 w-4" />
-                  Usuń
-                </button>
-              </div>
-            </div>
-
-            {isConfirming ? (
-              <div className="mt-4 rounded-lg border border-[#edd3a1] bg-[#fffaf0] p-4 text-sm leading-6 text-[#654b16]">
-                <p className="font-semibold">Potwierdź usunięcie rozmowy</p>
-                <p className="mt-1">
-                  Usunięcie jest nieodwracalne. Treść rozmowy zostanie usunięta i nie przywraca darmowej próby.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onCancelDelete();
-                    }}
-                    className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d7c38d] bg-white px-3 text-sm font-medium text-[#654b16] transition-colors hover:bg-[#fff6df] focus:ring-2 focus:ring-[#d6af53] focus:outline-none"
-                  >
-                    Anuluj
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isDeleting}
-                    onClick={() => {
-                      onConfirmDelete(item.id);
-                    }}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#7d2d2d] px-3 text-sm font-medium text-white transition-colors hover:bg-[#6b2424] focus:ring-2 focus:ring-[#c46d6d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#caa0a0]"
-                  >
-                    {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-                    Potwierdź usunięcie
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </li>
+            item={item}
+            isSelected={selectedSessionId === item.id}
+            isConfirming={pendingDeleteId === item.id}
+            isDeleting={deletingId === item.id}
+            onOpenDetail={onOpenDetail}
+            onRequestDelete={onRequestDelete}
+            onCancelDelete={onCancelDelete}
+            onConfirmDelete={onConfirmDelete}
+          />
         );
       })}
     </ol>

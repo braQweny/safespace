@@ -126,6 +126,8 @@ function resolveTimeoutMs(timeoutMs: number | undefined) {
 }
 
 function extractSummaryText(responseBody: ChatResult) {
+  assertCompleteSummaryResponse(responseBody);
+
   const choice = extractFirstChoice(responseBody);
   const content: unknown = choice.message.content;
 
@@ -140,6 +142,14 @@ function extractSummaryText(responseBody: ChatResult) {
   }
 
   return summaryText;
+}
+
+function assertCompleteSummaryResponse(responseBody: ChatResult) {
+  const finishReason = parseFinishReason(responseBody);
+
+  if (finishReason === "length" || finishReason === "content_filter" || finishReason === "tool_calls") {
+    throw new SessionSummaryError("invalid_provider_response");
+  }
 }
 
 function buildProviderMetadata(responseBody: ChatResult, fallbackModel: string): SessionSummaryProviderMetadata {

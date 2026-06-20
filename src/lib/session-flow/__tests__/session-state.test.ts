@@ -91,6 +91,7 @@ function createRepository(overrides: Partial<SessionStateRepository> = {}): Sess
       ),
     ),
     getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(activeSession))),
+    listOwnedActiveSessionMetadata: vi.fn(() => Promise.resolve(ok([]))),
     listOwnedSessionMessages: vi.fn(() => Promise.resolve(ok([message]))),
     listNewestApprovedSessionSummaryContexts: vi.fn(() => Promise.resolve(ok([]))),
     ...overrides,
@@ -168,6 +169,160 @@ describe("readSessionStartPageState", () => {
         canStartWithoutContext: false,
       },
     });
+  });
+
+  it("returns active state for an explicit active follow-up session", async () => {
+    const followupSession: SessionMetadata = {
+      ...activeSession,
+      id: "followup-session-1",
+      isTrial: false,
+      trialClaimId: null,
+      createdAt: "2026-06-07T09:59:30.000Z",
+    };
+    const repository = createRepository({
+      getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(followupSession))),
+      readTrialAvailability: vi.fn(() =>
+        Promise.resolve(
+          ok({
+            isAvailable: true,
+            existingClaim: null,
+          }),
+        ),
+      ),
+    });
+
+    const result = await readSessionStartPageState(
+      context,
+      {
+        avatar,
+        includeMessagesForActive: true,
+        resumeSessionId: "followup-session-1",
+        now,
+      },
+      repository,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        kind: "active",
+        trialAvailable: false,
+        session: {
+          id: "followup-session-1",
+          status: "active",
+          remainingSeconds: 600,
+          isTrial: false,
+        },
+        messages: [
+          {
+            id: "message-1",
+            content: "Chce spokojnie opisac sytuacje.",
+          },
+        ],
+      },
+    });
+    expect(repository.readTrialAvailability).not.toHaveBeenCalled();
+  });
+
+  it("returns expired state for an explicit follow-up session past the server expiry", async () => {
+    const followupSession: SessionMetadata = {
+      ...activeSession,
+      id: "followup-session-1",
+      expiresAt: "2026-06-07T09:59:59.000Z",
+      isTrial: false,
+      trialClaimId: null,
+    };
+    const repository = createRepository({
+      getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(followupSession))),
+      readTrialAvailability: vi.fn(() =>
+        Promise.resolve(
+          ok({
+            isAvailable: true,
+            existingClaim: null,
+          }),
+        ),
+      ),
+    });
+
+    const result = await readSessionStartPageState(
+      context,
+      {
+        avatar,
+        includeMessagesForActive: true,
+        resumeSessionId: "followup-session-1",
+        now,
+      },
+      repository,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        kind: "expired",
+        trialAvailable: false,
+        session: {
+          id: "followup-session-1",
+          status: "expired",
+          remainingSeconds: 0,
+          isTrial: false,
+        },
+        messages: [
+          {
+            id: "message-1",
+            content: "Chce spokojnie opisac sytuacje.",
+          },
+        ],
+      },
+    });
+    expect(repository.readTrialAvailability).not.toHaveBeenCalled();
+  });
+
+  it("returns latest active session for the selected avatar before checking trial availability", async () => {
+    const followupSession: SessionMetadata = {
+      ...activeSession,
+      id: "followup-session-1",
+      isTrial: false,
+      trialClaimId: null,
+      createdAt: "2026-06-07T09:59:30.000Z",
+    };
+    const repository = createRepository({
+      listOwnedActiveSessionMetadata: vi.fn(() => Promise.resolve(ok([followupSession]))),
+      readTrialAvailability: vi.fn(() =>
+        Promise.resolve(
+          ok({
+            isAvailable: true,
+            existingClaim: null,
+          }),
+        ),
+      ),
+    });
+
+    const result = await readSessionStartPageState(
+      context,
+      {
+        avatar,
+        includeMessagesForActive: true,
+        now,
+      },
+      repository,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        kind: "active",
+        session: {
+          id: "followup-session-1",
+          status: "active",
+          isTrial: false,
+        },
+      },
+    });
+    expect(repository.listOwnedActiveSessionMetadata).toHaveBeenCalledWith(context, {
+      avatarId: "cbt-guide",
+      limit: 5,
+    });
+    expect(repository.readTrialAvailability).not.toHaveBeenCalled();
   });
 
   it("returns follow-up preparation when the claimed active session is past the server expiry", async () => {

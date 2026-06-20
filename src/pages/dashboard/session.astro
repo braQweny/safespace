@@ -7,6 +7,7 @@ import { readSessionStartPageState } from "@/lib/session-flow/session-state";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 
 const sessionContext = getSessionDataContext(Astro);
+const resumeSessionId = Astro.url.searchParams.get("sessionId");
 
 let pageState: SessionStartPageState | null = null;
 let pageError: string | null = null;
@@ -34,6 +35,7 @@ if (!sessionContext.ok) {
     const state = await readSessionStartPageState(sessionContext.data, {
       avatar: avatarChoice.data,
       includeMessagesForActive: true,
+      resumeSessionId,
     });
 
     pageState = state.ok ? state.data : null;

@@ -13,9 +13,12 @@ import { createClient } from "@/lib/supabase";
 const BLOCKED_ACCOUNT_PATH = "/account/blocked";
 const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account", "/admin"] as const;
 
-// Generous compared to the largest accepted payload (a 3000-char session
-// message); blocks oversized bodies before any JSON parsing happens.
+// Generous compared to the largest accepted regular API payload (a 3000-char
+// session message); the transcription route gets a separate cap because WebM
+// audio is base64-encoded JSON.
 const API_BODY_LIMIT_BYTES = 32 * 1024;
+const TRANSCRIPTION_API_BODY_LIMIT_BYTES = 7 * 1024 * 1024;
+const TRANSCRIPTION_API_PATH = "/api/session/transcribe";
 const API_BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
 // Baseline browser hardening for every response. A full Content-Security-Policy
@@ -26,7 +29,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
 };
 
 function withSecurityHeaders(response: Response) {
@@ -43,7 +46,9 @@ function isApiBodyTooLarge(request: Request, pathname: string) {
   }
 
   const contentLength = Number(request.headers.get("content-length"));
-  return Number.isFinite(contentLength) && contentLength > API_BODY_LIMIT_BYTES;
+  const limit = pathname === TRANSCRIPTION_API_PATH ? TRANSCRIPTION_API_BODY_LIMIT_BYTES : API_BODY_LIMIT_BYTES;
+
+  return Number.isFinite(contentLength) && contentLength > limit;
 }
 
 function isProtectedRoute(pathname: string) {

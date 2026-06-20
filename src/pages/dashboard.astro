@@ -1,16 +1,29 @@
 ---
+import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
 import Layout from "@/layouts/Layout.astro";
+import type { SelectedModalityAvatar } from "@/lib/modalities";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
+import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-flow/session-history";
+import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 
 const { user } = Astro.locals;
 const avatarUpdated = Astro.url.searchParams.get("avatar") === "updated";
+const queryPage = parseSessionHistoryPage(Astro.url.searchParams.get("page"));
+const initialHistoryPage = queryPage.ok ? queryPage.page : 1;
 const operationalContext = await buildOperationalRequestContext(Astro);
 const sessionContext = getSessionDataContext(Astro);
 
-let currentSelection = null;
+let currentSelection: SelectedModalityAvatar | null = null;
+let initialHistory: SessionHistoryListResponse | null = queryPage.ok
+  ? null
+  : {
+      ok: false,
+      type: "session_history_error",
+      code: queryPage.code,
+    };
 let choiceFetchFailed = false;
 
 if (sessionContext.ok) {
@@ -55,6 +68,13 @@ if (sessionContext.ok) {
   }
 } else {
   choiceFetchFailed = sessionContext.error.code !== "missing_auth";
+}
+
+if (!initialHistory && sessionContext.ok && currentSelection) {
+  initialHistory = await readSessionHistoryList(sessionContext.data, {
+    avatar: currentSelection.avatarId,
+    page: String(initialHistoryPage),
+  });
 }
 ---
 
@@ -148,6 +168,17 @@ if (sessionContext.ok) {
           </p>
         </aside>
       </div>
+
+      {
+        currentSelection ? (
+          <DashboardSessionHistory
+            client:load
+            selectedAvatar={currentSelection}
+            initialHistoryPage={initialHistoryPage}
+            initialHistory={initialHistory}
+          />
+        ) : null
+      }
 
       <div class="mt-6 flex flex-col gap-3 sm:flex-row">
         <a

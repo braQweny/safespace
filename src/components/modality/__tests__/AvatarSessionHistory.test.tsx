@@ -102,6 +102,42 @@ describe("AvatarSessionHistory", () => {
     expect(html).not.toContain("Rozpocznij");
   });
 
+  it("shows a direct return action for active sessions in the history list", () => {
+    const html = renderHistory({
+      initialHistory: createHistoryResponse([
+        {
+          ...createHistoryItem(1),
+          status: "active",
+          endedAt: null,
+          expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        },
+      ]),
+    });
+
+    expect(html).toContain("Aktywna");
+    expect(html).toContain("Pozostało");
+    expect(html).toContain('role="timer"');
+    expect(html).toContain("Wróć do sesji");
+    expect(html).toContain('href="/dashboard/session?sessionId=session-1"');
+  });
+
+  it("hides the return action when an active history row is already past expiresAt", () => {
+    const html = renderHistory({
+      initialHistory: createHistoryResponse([
+        {
+          ...createHistoryItem(1),
+          status: "active",
+          endedAt: null,
+          expiresAt: "2000-01-01T00:00:00.000Z",
+        },
+      ]),
+    });
+
+    expect(html).toContain("Po czasie");
+    expect(html).not.toContain("Pozostało");
+    expect(html).not.toContain("Wróć do sesji");
+  });
+
   it("renders summary preview only in detail and requires explicit approval", () => {
     const html = renderHistory({
       initialDetail: {

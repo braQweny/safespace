@@ -30,6 +30,7 @@ vi.mock("@/lib/session-data/repository", () => ({
   createSessionTrialClaim: vi.fn(),
   getOwnedSessionMetadata: vi.fn(),
   getTrialAvailability: vi.fn(),
+  listOwnedActiveSessionMetadata: vi.fn(),
   listNewestApprovedSessionSummaryContexts,
   listOwnedSessionMessages: vi.fn(),
   purgeAndTombstoneOwnedSession: vi.fn(),

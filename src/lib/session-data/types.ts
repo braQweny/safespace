@@ -214,6 +214,11 @@ export interface ListSessionMetadataOptions {
   limit?: number;
 }
 
+export interface ListActiveSessionMetadataInput {
+  avatarId: SessionAvatarId;
+  limit?: number;
+}
+
 export interface ListSessionSummariesOptions {
   visibleOnly?: boolean;
 }

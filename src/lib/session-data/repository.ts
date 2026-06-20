@@ -10,6 +10,7 @@ export {
   canTransitionSessionLifecycle,
   createPendingSession,
   getOwnedSessionMetadata,
+  listOwnedActiveSessionMetadata,
   listOwnedSessionHistoryPage,
   listOwnedSessionMetadata,
   markOwnedSessionDeleted,

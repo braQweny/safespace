@@ -132,7 +132,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
     await expect(
       buildOwnedSessionSummaryGenerationInput(
         context,
-        { sessionId: "session-1" },
+        { sessionId: "session-1", now: new Date("2026-06-07T10:01:00.000Z") },
         createRepository({
           session: {
             ...baseSession,
@@ -163,6 +163,27 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
         code: "session_not_summarizable",
       },
     });
+  });
+
+  it("allows active sessions past expiresAt to be summarized", async () => {
+    const result = await buildOwnedSessionSummaryGenerationInput(
+      context,
+      { sessionId: "session-1", now: new Date("2026-06-07T10:16:00.000Z") },
+      createRepository({
+        session: {
+          ...baseSession,
+          status: "active",
+          endedAt: null,
+        },
+        messages,
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+
+    if (result.ok) {
+      expect(result.data.messages).toHaveLength(2);
+    }
   });
 
   it("builds ordered, bounded provider input from owned non-deleted history detail", async () => {

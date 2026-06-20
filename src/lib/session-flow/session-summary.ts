@@ -1,6 +1,6 @@
 import { getValidAvatarChoice } from "@/lib/modalities";
 import { getOwnedSessionHistoryDetail } from "@/lib/session-data/repository";
-import type { SessionDataContext, SessionId, SessionMessageRecord } from "@/lib/session-data/types";
+import type { SessionDataContext, SessionId, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
 import { SessionSummaryError } from "@/lib/session-summary/errors";
 import type { SessionSummaryProvider } from "@/lib/session-summary/provider";
 import type { GenerateSessionSummaryInput, SessionSummaryResponse } from "@/lib/session-summary/types";
@@ -35,6 +35,7 @@ export interface SessionSummarySourceRepository {
 export interface BuildSessionSummaryGenerationInputOptions {
   sessionId: unknown;
   locale?: string;
+  now?: Date;
 }
 
 const defaultSessionSummarySourceRepository: SessionSummarySourceRepository = {
@@ -64,6 +65,20 @@ function trimAndLimit(value: string, maxLength: number) {
 
 function compareMessagesBySequence(left: SessionMessageRecord, right: SessionMessageRecord) {
   return left.sequenceIndex - right.sequenceIndex;
+}
+
+function isActiveSessionPastExpiry(session: Pick<SessionMetadata, "status" | "expiresAt">, now: Date) {
+  if (session.status !== "active" || !session.expiresAt) {
+    return false;
+  }
+
+  const expiresAt = Date.parse(session.expiresAt);
+
+  return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
+}
+
+function isSessionSummarizable(session: SessionMetadata, now: Date) {
+  return SUMMARIZABLE_SESSION_STATUSES.has(session.status) || isActiveSessionPastExpiry(session, now);
 }
 
 function toSummarySourceMessages(messages: readonly SessionMessageRecord[]): GenerateSessionSummaryInput["messages"] {
@@ -103,7 +118,7 @@ export async function buildOwnedSessionSummaryGenerationInput(
     return summaryFlowFailure(detail.error.code === "session_not_found" ? "session_not_found" : "read_failed");
   }
 
-  if (!SUMMARIZABLE_SESSION_STATUSES.has(detail.data.session.status)) {
+  if (!isSessionSummarizable(detail.data.session, options.now ?? new Date())) {
     return summaryFlowFailure("session_not_summarizable");
   }
 

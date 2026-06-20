@@ -28,6 +28,7 @@ vi.mock("@/lib/admin/account-access", () => ({
 
 vi.mock("@/lib/session-data/repository", () => ({
   getOwnedSessionMetadata,
+  listOwnedActiveSessionMetadata: vi.fn(),
   listOwnedSessionMessages,
   listNewestApprovedSessionSummaryContexts,
   transitionSessionLifecycle,

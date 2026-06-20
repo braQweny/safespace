@@ -282,6 +282,28 @@ describe("generateSessionSummaryWithOpenRouter", () => {
     });
   });
 
+  it("rejects length-truncated summary responses instead of saving partial text", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve(
+        createJsonResponse(
+          createChatCompletionResponse("Rozmowa zostala ucieta w polowie zdan", {
+            model: "openai/gpt-4o-mini",
+            finishReason: "length",
+          }),
+        ),
+      ),
+    );
+
+    await expect(
+      generateSessionSummaryWithOpenRouter(input, {
+        apiKey: "test-openrouter-key",
+        fetcher: fetcher as unknown as Fetcher,
+      }),
+    ).rejects.toMatchObject({
+      category: "invalid_provider_response",
+    });
+  });
+
   it("maps aborts to provider timeouts and other fetch failures to provider unavailable", async () => {
     const abortedFetcher = vi.fn(() => Promise.reject(new DOMException("aborted", "AbortError")));
     const failingFetcher = vi.fn(() => Promise.reject(new Error("network failed")));

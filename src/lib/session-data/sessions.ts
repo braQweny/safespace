@@ -22,6 +22,7 @@ import type {
   CreatePendingSessionInput,
   DeletedSessionTombstone,
   DeleteOwnedSessionInput,
+  ListActiveSessionMetadataInput,
   ListOwnedSessionHistoryInput,
   ListSessionMetadataOptions,
   OwnedSessionHistoryPage,
@@ -92,6 +93,26 @@ export async function listOwnedSessionMetadata(
   }
 
   const { data, error } = await query;
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  return ok(coerceSessionRows(data).map(mapSession));
+}
+
+export async function listOwnedActiveSessionMetadata(
+  context: SessionDataContext,
+  input: ListActiveSessionMetadataInput,
+): Promise<SessionDataResult<SessionMetadata[]>> {
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .select(SESSION_SELECT)
+    .eq("user_id", context.user.id)
+    .eq("avatar_id", input.avatarId)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(input.limit ?? 5);
 
   if (error) {
     return sessionDataError(mapSupabaseReadError(error));

@@ -13,7 +13,12 @@ export interface RateLimiterBinding {
   limit(options: { key: string }): Promise<{ success: boolean }>;
 }
 
-const RATE_LIMITED_API_PATHS = new Set(["/api/session/message", "/api/session/start", "/api/session/start-next"]);
+const RATE_LIMITED_API_PATHS = new Set([
+  "/api/session/message",
+  "/api/session/start",
+  "/api/session/start-next",
+  "/api/session/transcribe",
+]);
 
 // Summary generation hits the AI provider too, but lives under a dynamic
 // `[sessionId]` segment, so it is matched by prefix instead of exact path.

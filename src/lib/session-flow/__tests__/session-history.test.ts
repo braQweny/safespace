@@ -214,6 +214,43 @@ describe("readSessionHistoryList", () => {
       code: "read_failed",
     });
   });
+
+  it("returns expired metadata for active history rows past expiresAt", async () => {
+    const repository = createRepository({
+      listOwnedSessionHistoryPage: vi.fn(() =>
+        Promise.resolve(
+          ok({
+            sessions: [
+              {
+                ...baseSession,
+                status: "active",
+                endedAt: null,
+                expiresAt: "2026-06-07T09:59:59.000Z",
+              },
+            ],
+            pagination: {
+              page: 1,
+              pageSize: SESSION_HISTORY_PAGE_SIZE,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            },
+          }),
+        ),
+      ),
+    });
+
+    const result = await readSessionHistoryList(context, { avatar: "cbt-guide", page: "1" }, repository);
+
+    expect(result).toMatchObject({
+      ok: true,
+      items: [
+        {
+          id: "session-1",
+          status: "expired",
+        },
+      ],
+    });
+  });
 });
 
 describe("readSessionHistoryDetail", () => {
@@ -285,6 +322,23 @@ describe("readSessionHistoryDetail", () => {
     expect(JSON.stringify(listItem)).not.toContain("Podsumowanie");
     expect(JSON.stringify(listItem)).not.toContain("Preview");
     expect(listItem).not.toHaveProperty("summary");
+  });
+
+  it("shows active sessions past expiresAt as expired in safe history metadata", () => {
+    const listItem = toSessionHistoryListItem(
+      {
+        ...baseSession,
+        status: "active",
+        endedAt: null,
+        expiresAt: "2026-06-07T09:59:59.000Z",
+      },
+      new Date("2026-06-07T10:00:00.000Z"),
+    );
+
+    expect(listItem).toMatchObject({
+      id: "session-1",
+      status: "expired",
+    });
   });
 
   it("maps missing or deleted detail targets to not found", async () => {

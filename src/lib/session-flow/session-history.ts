@@ -112,14 +112,35 @@ function normalizeSessionHistorySessionId(value: unknown) {
   return sessionId || null;
 }
 
-export function toSessionHistoryListItem(session: SessionMetadata): SessionHistoryListItem | null {
+function hasActiveSessionExpired(session: SessionMetadata, now: Date) {
+  if (session.status !== "active" || !session.expiresAt) {
+    return false;
+  }
+
+  const expiresAt = Date.parse(session.expiresAt);
+
+  return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
+}
+
+function getEffectiveHistoryStatus(session: SessionMetadata, now: Date): SessionHistoryListItem["status"] {
+  if (session.status === "deleted") {
+    return "expired";
+  }
+
+  return hasActiveSessionExpired(session, now) ? "expired" : session.status;
+}
+
+export function toSessionHistoryListItem(
+  session: SessionMetadata,
+  now: Date = new Date(),
+): SessionHistoryListItem | null {
   if (session.status === "deleted") {
     return null;
   }
 
   return {
     id: session.id,
-    status: session.status,
+    status: getEffectiveHistoryStatus(session, now),
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     expiresAt: session.expiresAt,
@@ -166,7 +187,7 @@ function toSessionHistoryListResponse(
     type: "session_history_list",
     avatar: toSelectedModalityAvatar(avatar),
     items: page.sessions
-      .map(toSessionHistoryListItem)
+      .map((session) => toSessionHistoryListItem(session))
       .filter((item) => item !== null)
       .sort(compareHistoryItemsNewestFirst),
     pagination: {
