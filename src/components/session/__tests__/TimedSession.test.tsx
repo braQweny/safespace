@@ -49,6 +49,58 @@ describe("TimedSession", () => {
     expect(html).not.toContain("Kontekst pokazany przed startem");
   });
 
+  it("renders an explicit end action only while the session is active", () => {
+    const html = renderSession({
+      kind: "active",
+      trialAvailable: false,
+      avatar,
+      session: {
+        id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+        status: "active",
+        startedAt: "2026-06-12T10:00:00.000Z",
+        endedAt: null,
+        expiresAt: "2026-06-12T10:15:00.000Z",
+        remainingSeconds: 600,
+        isTrial: true,
+        durationBucketSeconds: 900,
+      },
+      messages: [],
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+    });
+
+    expect(html).toContain("Sesja jest aktywna");
+    expect(html).toContain("Zakończ sesję");
+    expect(html).toContain("Pozostały czas sesji");
+  });
+
+  it("hides the active timer and end action after completion", () => {
+    const html = renderSession({
+      kind: "completed",
+      trialAvailable: false,
+      avatar,
+      session: {
+        id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+        status: "completed",
+        startedAt: "2026-06-12T10:00:00.000Z",
+        endedAt: "2026-06-12T10:05:00.000Z",
+        expiresAt: "2026-06-12T10:15:00.000Z",
+        remainingSeconds: 600,
+        isTrial: true,
+        durationBucketSeconds: 900,
+      },
+      messages: [],
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+    });
+
+    expect(html).toContain("Sesja została zakończona");
+    expect(html).not.toContain("Zakończ sesję");
+    expect(html).not.toContain("Pozostały czas sesji");
+  });
+
   it("renders approved summary context before follow-up start", () => {
     const html = renderSession({
       kind: "followup_ready",

@@ -28,6 +28,7 @@ const baseState: TimedSessionUiState = {
   messages: [],
   draft: "",
   isStarting: false,
+  isEnding: false,
   isMessagePending: false,
   isClientExpired: false,
   isHardStopped: false,
@@ -118,6 +119,34 @@ describe("timedSessionReducer", () => {
     expect(state.notice?.variant).toBe("hard_stop");
   });
 
+  it("marks an explicitly ended session as completed and clears the draft", () => {
+    const completedSession: SessionView = {
+      ...activeSession,
+      status: "completed",
+      endedAt: "2026-06-12T10:05:00.000Z",
+      remainingSeconds: 600,
+    };
+    const state = timedSessionReducer(
+      {
+        ...baseState,
+        kind: "active",
+        session: activeSession,
+        draft: "niewysłana wiadomość",
+        isClientExpired: true,
+        isHardStopped: true,
+        notice: infoNotice,
+      },
+      { type: "end_succeeded", session: completedSession },
+    );
+
+    expect(state.kind).toBe("completed");
+    expect(state.session).toEqual(completedSession);
+    expect(state.draft).toBe("");
+    expect(state.isClientExpired).toBe(false);
+    expect(state.isHardStopped).toBe(false);
+    expect(state.notice).toBeNull();
+  });
+
   it("restores the draft when a message fails and keeps kind on start failure without kind", () => {
     const failed = timedSessionReducer(
       { ...baseState, kind: "active", session: activeSession, isMessagePending: true },
@@ -137,6 +166,7 @@ describe("timedSessionReducer", () => {
 
   it("settles pending flags via dedicated actions", () => {
     expect(timedSessionReducer({ ...baseState, isStarting: true }, { type: "start_settled" }).isStarting).toBe(false);
+    expect(timedSessionReducer({ ...baseState, isEnding: true }, { type: "end_settled" }).isEnding).toBe(false);
     expect(
       timedSessionReducer({ ...baseState, isMessagePending: true }, { type: "message_settled" }).isMessagePending,
     ).toBe(false);

@@ -1,4 +1,4 @@
-import { FileText, PlayCircle, ShieldCheck } from "lucide-react";
+import { CircleStop, FileText, PlayCircle, ShieldCheck } from "lucide-react";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import type { SessionStartPageState, SessionStartPageStateKind } from "@/lib/session-flow/session-state";
 import SessionComposer from "./SessionComposer";
@@ -46,9 +46,10 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
 };
 
 export default function TimedSession({ initialState }: TimedSessionProps) {
-  const { state, composerAvailable, handleExpired, setDraft, startSession, sendMessage } =
+  const { state, composerAvailable, handleExpired, setDraft, startSession, sendMessage, endSession } =
     useTimedSession(initialState);
-  const { kind, session, messages, draft, isStarting, isMessagePending, notice } = state;
+  const { kind, session, messages, draft, isStarting, isEnding, isMessagePending, notice } = state;
+  const canEndSession = kind === "active" && session?.status === "active";
 
   return (
     <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -59,13 +60,26 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
             <h2 className="mt-2 text-2xl font-semibold text-[#10231f]">{initialState.avatar.selected.avatarName}</h2>
             <p className="mt-1 text-base font-medium text-[#1f6f65]">{initialState.avatar.selected.modalityName}</p>
           </div>
-          {session ? (
-            <SessionTimer
-              key={session.id}
-              expiresAt={session.expiresAt}
-              initialRemainingSeconds={session.remainingSeconds}
-              onExpired={handleExpired}
-            />
+          {canEndSession ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <SessionTimer
+                key={session.id}
+                expiresAt={session.expiresAt}
+                initialRemainingSeconds={session.remainingSeconds}
+                onExpired={handleExpired}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  void endSession();
+                }}
+                disabled={isEnding || isMessagePending}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d6aaa7] bg-white px-4 text-sm font-semibold text-[#7d2d2d] transition-colors hover:bg-[#fff8f8] focus:ring-2 focus:ring-[#b85c58] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <CircleStop aria-hidden="true" className="h-4 w-4" />
+                {isEnding ? "Kończenie..." : "Zakończ sesję"}
+              </button>
+            </div>
           ) : null}
         </div>
 

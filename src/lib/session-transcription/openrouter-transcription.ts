@@ -104,7 +104,7 @@ async function sendOpenRouterTranscription({
     }
 
     try {
-      return (await response.json()) as OpenRouterTranscriptionResponseBody;
+      return await response.json();
     } catch {
       throw new SessionTranscriptionError("invalid_provider_response");
     }

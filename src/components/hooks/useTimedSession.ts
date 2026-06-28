@@ -7,6 +7,7 @@ import {
   type SendSessionMessageSuccessResponse,
 } from "@/lib/session-flow/message-contract";
 import { appendSuccessfulTurn, isComposerAvailable, type UiSessionMessage } from "@/lib/session-flow/message-state";
+import { isCompleteSessionResponse } from "@/lib/session-flow/session-completion-contract";
 import {
   toSessionStartPageStateKind,
   type SessionStartPageState,
@@ -26,6 +27,7 @@ export interface TimedSessionUiState {
   messages: UiSessionMessage[];
   draft: string;
   isStarting: boolean;
+  isEnding: boolean;
   isMessagePending: boolean;
   isClientExpired: boolean;
   isHardStopped: boolean;
@@ -39,6 +41,10 @@ export type TimedSessionAction =
   | { type: "start_succeeded"; session: SessionView }
   | { type: "start_failed"; kind?: SessionStartPageStateKind; notice: SafetyNoticeState }
   | { type: "start_settled" }
+  | { type: "end_requested" }
+  | { type: "end_succeeded"; session: SessionView }
+  | { type: "end_failed"; notice: SafetyNoticeState }
+  | { type: "end_settled" }
   | { type: "message_requested" }
   | { type: "turn_succeeded"; turn: SendSessionMessageSuccessResponse["messages"]; session: SessionView }
   | { type: "hard_stopped"; notice: SafetyNoticeState }
@@ -87,6 +93,7 @@ export function getInitialTimedSessionState(initialState: SessionStartPageState)
     messages: initialState.messages,
     draft: "",
     isStarting: false,
+    isEnding: false,
     isMessagePending: false,
     isClientExpired: initialState.session?.remainingSeconds === 0,
     isHardStopped: initialState.kind === "interrupted",
@@ -110,11 +117,28 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
         kind: toSessionStartPageStateKind(action.session.status),
         isClientExpired: action.session.remainingSeconds === 0,
         isHardStopped: false,
+        isEnding: false,
       };
     case "start_failed":
       return { ...state, kind: action.kind ?? state.kind, notice: action.notice };
     case "start_settled":
       return { ...state, isStarting: false };
+    case "end_requested":
+      return { ...state, isEnding: true, notice: null };
+    case "end_succeeded":
+      return {
+        ...state,
+        session: action.session,
+        kind: "completed",
+        draft: "",
+        isClientExpired: false,
+        isHardStopped: false,
+        notice: null,
+      };
+    case "end_failed":
+      return { ...state, notice: action.notice };
+    case "end_settled":
+      return { ...state, isEnding: false };
     case "message_requested":
       return { ...state, isMessagePending: true, notice: null };
     case "turn_succeeded":
@@ -142,13 +166,14 @@ export function useTimedSession(initialState: SessionStartPageState) {
 
   const composerAvailable = useMemo(
     () =>
+      !state.isEnding &&
       isComposerAvailable({
         session: state.session,
         isPending: state.isMessagePending,
         isHardStopped: state.isHardStopped,
         isClientExpired: state.isClientExpired,
       }),
-    [state.isClientExpired, state.isHardStopped, state.isMessagePending, state.session],
+    [state.isClientExpired, state.isEnding, state.isHardStopped, state.isMessagePending, state.session],
   );
 
   const handleExpired = useCallback(() => {
@@ -330,6 +355,87 @@ export function useTimedSession(initialState: SessionStartPageState) {
     }
   }
 
+  async function endSession() {
+    if (
+      !state.session ||
+      state.kind !== "active" ||
+      state.session.status !== "active" ||
+      state.isEnding ||
+      state.isMessagePending
+    ) {
+      return;
+    }
+
+    dispatch({ type: "end_requested" });
+
+    try {
+      const result = await requestApiJson("/api/session/end", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: state.session.id,
+        }),
+      });
+
+      if (result.kind === "network_error") {
+        dispatch({
+          type: "end_failed",
+          notice: buildGenericNotice(
+            "Nie udało się zakończyć sesji",
+            "Połączenie z serwerem jest chwilowo niedostępne.",
+          ),
+        });
+        return;
+      }
+
+      if (isRateLimitedApiResult(result)) {
+        dispatch({
+          type: "end_failed",
+          notice: buildGenericNotice(
+            "Za dużo prób w krótkim czasie",
+            "Odczekaj około minuty i spróbuj ponownie zakończyć sesję.",
+          ),
+        });
+        return;
+      }
+
+      const body = result.body;
+
+      if (!isCompleteSessionResponse(body)) {
+        dispatch({
+          type: "end_failed",
+          notice: buildGenericNotice("Nie udało się zakończyć sesji", "Spróbuj ponownie za chwilę."),
+        });
+        return;
+      }
+
+      if (body.ok) {
+        dispatch({ type: "end_succeeded", session: body.session });
+        return;
+      }
+
+      if (body.type === "expired") {
+        dispatch({
+          type: "session_expired",
+          session: body.session,
+          notice: buildGenericNotice("Limit czasu został osiągnięty", "Nowe wiadomości są już blokowane w tej sesji."),
+        });
+        return;
+      }
+
+      dispatch({
+        type: "end_failed",
+        notice: buildGenericNotice(
+          body.code === "session_not_active" ? "Sesja nie jest już aktywna" : "Nie udało się zakończyć sesji",
+          body.code === "session_not_active"
+            ? "Odśwież widok historii, żeby zobaczyć aktualny status rozmowy."
+            : "Spróbuj ponownie za chwilę.",
+        ),
+      });
+    } finally {
+      dispatch({ type: "end_settled" });
+    }
+  }
+
   return {
     state,
     composerAvailable,
@@ -337,5 +443,6 @@ export function useTimedSession(initialState: SessionStartPageState) {
     setDraft,
     startSession,
     sendMessage,
+    endSession,
   };
 }

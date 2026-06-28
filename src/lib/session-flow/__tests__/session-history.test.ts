@@ -223,7 +223,7 @@ describe("readSessionHistoryList", () => {
             sessions: [
               {
                 ...baseSession,
-                status: "active",
+                status: "active" as const,
                 endedAt: null,
                 expiresAt: "2026-06-07T09:59:59.000Z",
               },
