@@ -73,6 +73,12 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
     useTimedSession(initialState);
   const { kind, session, messages, draft, isStarting, isEnding, isMessagePending, pendingUserText, notice } = state;
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
+  const [skipContext, setSkipContext] = useState(false);
+  const hasApprovedSummaries = initialState.approvedSummaries.length > 0;
+  // Without approved summaries there is nothing to carry over, so the start is
+  // context-free either way; the checkbox only matters when context exists.
+  const startsWithoutContext =
+    initialState.canStartWithoutContext && (skipContext || !hasApprovedSummaries) && kind === "followup_ready";
   const canEndSession = kind === "active" && session?.status === "active";
   const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
   const avatar = initialState.avatar.selected;
@@ -85,7 +91,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
       <button
         type="button"
         onClick={() => {
-          void startSession();
+          void startSession({ withoutContext: startsWithoutContext });
         }}
         disabled={isStarting}
         className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
@@ -94,9 +100,9 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         {isStarting
           ? "Start..."
           : kind === "followup_ready"
-            ? initialState.approvedSummaries.length > 0
-              ? "Rozpocznij kolejną sesję z kontekstem"
-              : "Rozpocznij kolejną sesję bez kontekstu"
+            ? startsWithoutContext
+              ? "Rozpocznij kolejną sesję bez kontekstu"
+              : "Rozpocznij kolejną sesję z kontekstem"
             : "Rozpocznij pierwszą darmową sesję"}
       </button>
     ) : null;
@@ -108,17 +114,46 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           <FileText aria-hidden="true" className="text-brand mt-1 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-ink font-semibold">Kontekst pokazany przed startem</p>
-            {initialState.approvedSummaries.length > 0 ? (
+            {hasApprovedSummaries ? (
               <div className="mt-3 space-y-3">
                 {initialState.approvedSummaries.slice(0, 3).map((summary, index) => (
-                  <div key={summary.id} className="border-line bg-surface rounded-lg border p-3">
+                  <div
+                    key={summary.id}
+                    className={cn("border-line bg-surface rounded-lg border p-3", skipContext && "opacity-50")}
+                  >
                     <p className="text-brand text-xs font-semibold tracking-wide uppercase">Podsumowanie {index + 1}</p>
                     <p className="text-ink mt-2 whitespace-pre-wrap">{summary.summaryText}</p>
                   </div>
                 ))}
                 <p className="text-ink-muted">
-                  Tylko te zatwierdzone, widoczne podsumowania mogą zostać przekazane do kolejnej rozmowy.
+                  {skipContext
+                    ? "Ta sesja zacznie się od zera. Żadne z powyższych podsumowań nie trafi do rozmowy — zostają w historii i możesz je przekazać przy następnym starcie."
+                    : "Tylko te zatwierdzone, widoczne podsumowania mogą zostać przekazane do kolejnej rozmowy."}
                 </p>
+                {initialState.canStartWithoutContext ? (
+                  <label
+                    htmlFor="skip-approved-context"
+                    className="border-line bg-surface text-ink hover:bg-surface-hover flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
+                  >
+                    <input
+                      id="skip-approved-context"
+                      type="checkbox"
+                      checked={skipContext}
+                      onChange={(event) => {
+                        setSkipContext(event.target.checked);
+                      }}
+                      disabled={isStarting}
+                      className="accent-brand focus:ring-brand-ring mt-1 h-4 w-4 shrink-0 rounded focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
+                    />
+                    <span className="min-w-0">
+                      <span className="font-medium">Zacznij bez przekazywania kontekstu</span>
+                      <span className="text-ink-muted mt-1 block text-xs leading-5">
+                        Wybór obowiązuje przez całą sesję — podsumowanie zatwierdzone w jej trakcie też do niej nie
+                        trafi.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
               </div>
             ) : (
               <p className="text-ink-muted mt-2">

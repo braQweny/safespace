@@ -51,6 +51,12 @@ export interface SessionMetadata {
   isTrial: boolean;
   trialClaimId: TrialClaimId | null;
   durationBucketSeconds: SessionDurationBucketSeconds | null;
+  /**
+   * Start-time decision: false when the owner explicitly began this session
+   * without approved summary context. Read by the message flow instead of
+   * resolving the context per user on every turn.
+   */
+  usesApprovedContext: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +149,7 @@ export interface CreatePendingSessionInput {
   startedAt?: string | null;
   expiresAt?: string | null;
   durationBucketSeconds?: SessionDurationBucketSeconds | null;
+  usesApprovedContext?: boolean;
 }
 
 export interface ClaimFreeTrialSessionInput {

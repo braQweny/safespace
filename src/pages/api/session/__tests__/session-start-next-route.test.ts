@@ -102,6 +102,7 @@ const createdSession: SessionMetadata = {
   isTrial: false,
   trialClaimId: null,
   durationBucketSeconds: 900,
+  usesApprovedContext: true,
   createdAt: "2026-06-07T10:00:00.000Z",
   updatedAt: "2026-06-07T10:00:00.000Z",
 };
@@ -195,6 +196,7 @@ describe("POST /api/session/start-next", () => {
       avatarId: "cbt-guide",
       isTrial: false,
       durationBucketSeconds: 900,
+      usesApprovedContext: true,
     });
     expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
       sessionId: "next-session-1",
@@ -249,6 +251,20 @@ describe("POST /api/session/start-next", () => {
 
     expect(allowed.status).toBe(201);
     expect(createPendingSession).toHaveBeenCalledOnce();
+    expect(createPendingSession).toHaveBeenLastCalledWith(
+      contextData,
+      expect.objectContaining({ usesApprovedContext: false }),
+    );
+  });
+
+  it("pins a context-free start on the session even when approved summaries exist", async () => {
+    const response = await POST(createContext({ startWithoutContext: true }) as never);
+
+    expect(response.status).toBe(201);
+    expect(createPendingSession).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ usesApprovedContext: false }),
+    );
   });
 
   it("rejects missing avatar before creating a session", async () => {

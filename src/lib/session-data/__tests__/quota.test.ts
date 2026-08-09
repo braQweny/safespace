@@ -19,6 +19,7 @@ const session: SessionMetadata = {
   isTrial: true,
   trialClaimId: "claim-1",
   durationBucketSeconds: 900,
+  usesApprovedContext: true,
   createdAt: "2026-06-06T09:59:00.000Z",
   updatedAt: "2026-06-06T09:59:00.000Z",
 };

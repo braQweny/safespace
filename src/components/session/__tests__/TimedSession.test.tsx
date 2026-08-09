@@ -121,11 +121,39 @@ describe("TimedSession", () => {
           updatedAt: "2026-06-07T09:00:00.000Z",
         },
       ],
-      canStartWithoutContext: false,
+      canStartWithoutContext: true,
     });
 
     expect(html).toContain("Przygotowanie do kolejnej sesji");
     expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
+    expect(html).toContain("Rozpocznij kolejną sesję z kontekstem");
+    // The opt-out has to be reachable next to the context it opts out of.
+    expect(html).toContain("Zacznij bez przekazywania kontekstu");
+    expect(html).toContain('id="skip-approved-context"');
+  });
+
+  it("omits the opt-out when a context-free start is not offered", () => {
+    const html = renderSession({
+      kind: "followup_ready",
+      trialAvailable: false,
+      avatar,
+      session: null,
+      messages: [],
+      messageFetchFailed: false,
+      approvedSummaries: [
+        {
+          id: "summary-1",
+          sessionId: "old-session-1",
+          summaryText: "Zatwierdzone podsumowanie widoczne przed startem.",
+          revision: 1,
+          createdAt: "2026-06-07T09:00:00.000Z",
+          updatedAt: "2026-06-07T09:00:00.000Z",
+        },
+      ],
+      canStartWithoutContext: false,
+    });
+
+    expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
     expect(html).toContain("Rozpocznij kolejną sesję z kontekstem");
   });
 

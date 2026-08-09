@@ -83,6 +83,12 @@ S-06 ma tworzyc i pokazywac user-visible summaries przez `saveVisibleSessionSumm
 
 S-06 nie moze bypassowac statusow `draft`, `ready`, `stale`, `deleted`, nie moze uzywac usunietych podsumowan jako kontekstu i nie moze ukrywac przed uzytkownikiem podsumowania, ktore zasila nastepna rozmowe.
 
+### Start bez kontekstu
+
+`therapy_sessions.uses_approved_context` to decyzja wlasciciela podjeta przy starcie sesji. `false` oznacza, ze ta rozmowa nie czyta zatwierdzonych podsumowan w ogole — takze tych zatwierdzonych juz po jej rozpoczeciu. Flaga jest zapisywana wylacznie przez `createPendingSession()` (grant tylko na insert) i czytana przez przeplyw wiadomosci; nie ma sciezki, ktora zmienia ja w trakcie trwajacej sesji.
+
+Nie rozwiazuj kontekstu per uzytkownik w handlerze wiadomosci. Sprawdz `session.usesApprovedContext` zanim siegniesz po `listNewestApprovedSessionSummaryContexts()`, inaczej sesja zaczeta jako czysta cicho odzyska kontekst w polowie rozmowy.
+
 ## Handoff for S-07 private admin operations
 
 S-07 moze budowac tylko agregaty i operacje admina bez prywatnej tresci. Jesli potrzebne sa statystyki, powinny bazowac na bezpiecznych polach metadata/tombstone, takich jak status, duration bucket, trial marker i daty, bez `session_messages.content` oraz bez `session_summaries.summary_text`.

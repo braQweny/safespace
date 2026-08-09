@@ -33,6 +33,7 @@ const baseSession: SessionMetadata = {
   isTrial: true,
   trialClaimId: "claim-1",
   durationBucketSeconds: 900,
+  usesApprovedContext: true,
   createdAt: "2026-06-07T09:59:00.000Z",
   updatedAt: "2026-06-07T10:12:00.000Z",
 };

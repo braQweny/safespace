@@ -83,6 +83,7 @@ const activeSession: SessionMetadata = {
   isTrial: true,
   trialClaimId: "claim-1",
   durationBucketSeconds: 900,
+  usesApprovedContext: true,
   createdAt: "2026-06-07T10:00:00.000Z",
   updatedAt: "2026-06-07T10:00:00.000Z",
 };
@@ -287,6 +288,20 @@ describe("POST /api/session/message", () => {
       userMessage: "Chce uporzadkowac mysli.",
       assistantMessage: "Mozemy zaczac od nazwania najwazniejszych faktow.",
     });
+  });
+
+  it("carries no approved summaries for a session started without context", async () => {
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesApprovedContext: false }));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    // The summaries exist and are approved; the session simply must not read
+    // them, so nothing can leak into the prompt of a clean-start conversation.
+    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+    const [generationInput] = generateSessionResponse.mock.calls[0] as unknown as [GenerateSessionResponseInput];
+
+    expect(generationInput.approvedSummaries).toEqual([]);
   });
 
   it("rejects blocked accounts before parsing session ownership", async () => {

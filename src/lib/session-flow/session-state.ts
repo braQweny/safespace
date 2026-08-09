@@ -60,6 +60,11 @@ export interface SessionStartPageState {
   messages: SessionMessageView[];
   messageFetchFailed: boolean;
   approvedSummaries: ApprovedSessionSummaryContext[];
+  /**
+   * True when an explicit context-free start is offered. With no approved
+   * summaries it is the only way forward; with summaries present it is the
+   * opt-out the user can pick before starting.
+   */
   canStartWithoutContext: boolean;
 }
 
@@ -220,7 +225,7 @@ function claimedState(
     messages: [],
     messageFetchFailed: false,
     approvedSummaries,
-    canStartWithoutContext: approvedSummaries.length === 0,
+    canStartWithoutContext: true,
   };
 }
 

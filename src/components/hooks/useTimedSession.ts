@@ -53,6 +53,37 @@ export type TimedSessionAction =
   | { type: "message_failed"; draft: string; notice: SafetyNoticeState }
   | { type: "message_settled" };
 
+export interface StartSessionOptions {
+  /** Start a follow-up session that carries no approved summary context. */
+  withoutContext?: boolean;
+}
+
+export interface ResolveStartWithoutContextInput {
+  isFollowupStart: boolean;
+  canStartWithoutContext: boolean;
+  approvedSummaryCount: number;
+  requestedWithoutContext: boolean;
+}
+
+/**
+ * Decides whether the start request declares a context-free session. With no
+ * approved summaries the confirmation is implicit — there is nothing to carry
+ * over and the server requires the flag anyway; with summaries present the flag
+ * only goes out when the user explicitly opted out.
+ */
+export function resolveStartWithoutContext({
+  isFollowupStart,
+  canStartWithoutContext,
+  approvedSummaryCount,
+  requestedWithoutContext,
+}: ResolveStartWithoutContextInput) {
+  if (!isFollowupStart || !canStartWithoutContext) {
+    return false;
+  }
+
+  return requestedWithoutContext || approvedSummaryCount === 0;
+}
+
 interface StartSessionSuccessResponse {
   ok: true;
   session: SessionView;
@@ -194,7 +225,7 @@ export function useTimedSession(initialState: SessionStartPageState) {
     dispatch({ type: "draft_changed", draft });
   }, []);
 
-  async function startSession() {
+  async function startSession(options: StartSessionOptions = {}) {
     if (state.isStarting) {
       return;
     }
@@ -203,7 +234,12 @@ export function useTimedSession(initialState: SessionStartPageState) {
 
     try {
       const isFollowupStart = state.kind === "followup_ready";
-      const startWithoutContext = isFollowupStart && initialState.canStartWithoutContext;
+      const startWithoutContext = resolveStartWithoutContext({
+        isFollowupStart,
+        canStartWithoutContext: initialState.canStartWithoutContext,
+        approvedSummaryCount: initialState.approvedSummaries.length,
+        requestedWithoutContext: options.withoutContext === true,
+      });
       const result = await requestApiJson(isFollowupStart ? "/api/session/start-next" : "/api/session/start", {
         method: "POST",
         ...(startWithoutContext

@@ -11,7 +11,12 @@ import {
   listRecentOwnedSessionMessages,
   transitionSessionLifecycle,
 } from "@/lib/session-data/repository";
-import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
+import type {
+  ApprovedSessionSummaryContext,
+  SessionDataContext,
+  SessionMessageRecord,
+  SessionMetadata,
+} from "@/lib/session-data/types";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
 import {
@@ -73,6 +78,17 @@ function unavailableResponse(): SendSessionMessageFailureResponse {
     type: "session_not_active",
     code: "session_unavailable",
   };
+}
+
+// A session started without context never reads approved summaries — not even
+// ones approved after it began. The decision is pinned on the session row at
+// start time instead of being resolved per user on every turn.
+async function loadApprovedSummaryContext(context: SessionDataContext, session: SessionMetadata) {
+  if (!session.usesApprovedContext) {
+    return { ok: true as const, data: [] as ApprovedSessionSummaryContext[] };
+  }
+
+  return listNewestApprovedSessionSummaryContexts(context);
 }
 
 async function markInterrupted(context: SessionDataContext, session: SessionMetadata) {
@@ -236,7 +252,7 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
-  const approvedSummaries = await listNewestApprovedSessionSummaryContexts(sessionContext.data);
+  const approvedSummaries = await loadApprovedSummaryContext(sessionContext.data, session);
 
   if (!approvedSummaries.ok) {
     return jsonResponse(unavailableResponse(), 503);

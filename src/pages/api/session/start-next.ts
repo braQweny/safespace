@@ -116,6 +116,10 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, avatarChoice.error.code, status, "/dashboard/avatar");
   }
 
+  // Read once: the body stream cannot be consumed twice, and the flag is now
+  // needed both as the empty-context confirmation and as the session's own
+  // start-time decision.
+  const startWithoutContext = await parseStartWithoutContext(context.request);
   const approvedContext = await listNewestApprovedSessionSummaryContexts(sessionContext.data);
 
   if (!approvedContext.ok) {
@@ -124,7 +128,7 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, "summary_context_unavailable", 503, "/dashboard/session?start=unavailable");
   }
 
-  if (approvedContext.data.length === 0 && !(await parseStartWithoutContext(context.request))) {
+  if (approvedContext.data.length === 0 && !startWithoutContext) {
     logStartAttempt("blocked", 409, startedAtMs, operationalContext);
 
     return failureResponse(context, "no_context_not_confirmed", 409, "/dashboard/session?context=missing");
@@ -141,6 +145,9 @@ export const POST: APIRoute = async (context) => {
     avatarId: avatarChoice.data.modality.avatarId,
     isTrial: false,
     durationBucketSeconds: FREE_TRIAL_DURATION_SECONDS,
+    // Pinned at start so a summary approved mid-conversation cannot add context
+    // the user chose not to carry over.
+    usesApprovedContext: !startWithoutContext,
   });
 
   if (!session.ok) {

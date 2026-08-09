@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { timedSessionReducer, type SafetyNoticeState, type TimedSessionUiState } from "../useTimedSession";
+import {
+  resolveStartWithoutContext,
+  timedSessionReducer,
+  type SafetyNoticeState,
+  type TimedSessionUiState,
+} from "../useTimedSession";
 import type { SessionView } from "@/lib/session-flow/session-state";
 
 const activeSession: SessionView = {
@@ -202,6 +207,42 @@ describe("timedSessionReducer", () => {
     expect(timedSessionReducer({ ...baseState, isEnding: true }, { type: "end_settled" }).isEnding).toBe(false);
     expect(
       timedSessionReducer({ ...baseState, isMessagePending: true }, { type: "message_settled" }).isMessagePending,
+    ).toBe(false);
+  });
+});
+
+describe("resolveStartWithoutContext", () => {
+  const followupWithContext = {
+    isFollowupStart: true,
+    canStartWithoutContext: true,
+    approvedSummaryCount: 2,
+    requestedWithoutContext: false,
+  };
+
+  it("keeps approved context unless the user opts out", () => {
+    expect(resolveStartWithoutContext(followupWithContext)).toBe(false);
+    expect(resolveStartWithoutContext({ ...followupWithContext, requestedWithoutContext: true })).toBe(true);
+  });
+
+  it("confirms the context-free start implicitly when there is nothing to carry over", () => {
+    expect(resolveStartWithoutContext({ ...followupWithContext, approvedSummaryCount: 0 })).toBe(true);
+  });
+
+  it("never declares a context-free start outside an offered follow-up", () => {
+    expect(
+      resolveStartWithoutContext({
+        ...followupWithContext,
+        isFollowupStart: false,
+        approvedSummaryCount: 0,
+        requestedWithoutContext: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveStartWithoutContext({
+        ...followupWithContext,
+        canStartWithoutContext: false,
+        requestedWithoutContext: true,
+      }),
     ).toBe(false);
   });
 });

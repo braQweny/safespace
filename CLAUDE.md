@@ -33,6 +33,7 @@ Astro 6 SSR (`output: "server"`) + React 19 islands + Tailwind 4 + Supabase auth
 ### Request lifecycle
 
 `src/middleware.ts` runs on every request and:
+
 1. Mints a `requestId` (`context.locals.requestId`) for operational logging and stamps it on the response header.
 2. Rejects oversized `/api/*` bodies (413, Content-Length cap) before any parsing: 32 KB default, 7 MB only for `/api/session/transcribe` (WebM audio).
 3. Resolves the Supabase user via `createClient()` → `context.locals.user`.
@@ -46,12 +47,13 @@ Auth: `src/lib/supabase.ts` (cookie SSR client, `astro:env/server` secrets), pag
 ### Session flow (the core feature)
 
 `POST /api/session/message` (`src/pages/api/session/message.ts`) is the canonical orchestration and the file to read first. Order is load-bearing:
+
 1. `getSessionDataContext(context)` — owner-bound private data context (never `.from(...)` private tables directly).
 2. `requireActiveAccountAccess` — block check.
 3. Load owned session metadata + recent messages via `session-data/repository` helpers.
 4. **`evaluateSessionSafety()` gates everything.** Branch on `decision.action`, never on model output: `allow` → normal generation; `allow_with_constraints` → pass `decision.constraints` to the model (no user-visible warning); `hard_stop` / fail-closed → interrupt, return `decision.copy` + `decision.crisisResources` (HTTP 423). Missing OpenRouter config, timeout, or a malformed provider reply are all treated as `hard_stop`.
 5. Enforce the per-session time budget (`session-flow/time-limit`); expired → 409.
-6. `generateSessionResponse()` with recent messages + **approved summaries** as the only carried-over context (no unbounded raw history).
+6. `generateSessionResponse()` with recent messages + **approved summaries** as the only carried-over context (no unbounded raw history) — and only when `session.usesApprovedContext` is true; a session the owner started without context never reads summaries, not even ones approved after it began.
 7. Persist the turn via `persistSuccessfulMessageTurn` (never direct inserts).
 
 Other session routes: `start.ts` / `start-next.ts` (start free trial / summary-backed follow-up), `end.ts` (explicit completion / expiry transition via `session-flow/session-completion-contract`), `transcribe.ts` (voice input → text), `history/`, `summary/`. Avatar choice is saved via `POST /api/profile/avatar` (redirect-based errors from `avatar-choice-errors.ts`).
@@ -60,7 +62,7 @@ Other session routes: `start.ts` / `start-next.ts` (start free trial / summary-b
 
 Several directories carry a `README.md` that is the **authoritative contract** — read it before touching the code. The boundaries are a privacy design, not just style:
 
-- **`session-data/`** — owner-bound repository over private tables (`therapy_sessions`, `session_messages`, `session_summaries`, `session_trial_claims`). Entry point `getSessionDataContext()`. Free-trial start *must* go through `claimFreeTrialSession()` (DB unique constraint, not a UI check). Deletes go through `deleteOwnedSession()` (hard-deletes content, leaves a content-free tombstone). Hand-maintained domain types in `types.ts` are the privacy contract — see its README before adding Supabase typegen.
+- **`session-data/`** — owner-bound repository over private tables (`therapy_sessions`, `session_messages`, `session_summaries`, `session_trial_claims`). Entry point `getSessionDataContext()`. Free-trial start _must_ go through `claimFreeTrialSession()` (DB unique constraint, not a UI check). Deletes go through `deleteOwnedSession()` (hard-deletes content, leaves a content-free tombstone). Hand-maintained domain types in `types.ts` are the privacy contract — see its README before adding Supabase typegen.
 - **`session-safety/`** — `evaluateSessionSafety()`; OpenRouter classifier maps `normal|caution|crisis` → `allow|allow_with_constraints|hard_stop`. Fail-closed. Crisis resources for PL/US + local fallback.
 - **`session-ai/`** — `generateSessionResponse()`, prompt + copy + OpenRouter request params. Provider abstraction in `provider.ts`, env in `env.ts`.
 - **`session-summary/`** — generates user-visible session summaries (drives "summary-backed next session").
@@ -88,7 +90,7 @@ AI is OpenRouter via `@openrouter/sdk` (`src/lib/openrouter/sdk-chat.ts`). Three
 
 `supabase/migrations/`, naming `YYYYMMDDHHmmss_short_description.sql`. **Always enable RLS on new tables with granular per-operation, per-role policies.** Private session tables and admin operation functions are defined here. Local stack: `npx supabase start` (Docker). There is no break-glass admin content access — any legal/safety exception needs a separate audited plan, not an implicit helper.
 
-CI applies migrations *before* deploying code (`migrate` → `deploy`), so every migration must be backward-compatible with the currently deployed code (expand/contract: add before you remove). Multi-step owner-bound writes that must not partially fail live in SQL functions (`claim_free_trial_session`, `delete_owned_session`) — `security invoker`, so RLS keeps applying to the calling user. `src/lib/session-data/__tests__/schema-drift.test.ts` pins the hand-maintained domain enums in `session-data/types.ts` to the boundary migration's check constraints; update both sides together.
+CI applies migrations _before_ deploying code (`migrate` → `deploy`), so every migration must be backward-compatible with the currently deployed code (expand/contract: add before you remove). Multi-step owner-bound writes that must not partially fail live in SQL functions (`claim_free_trial_session`, `delete_owned_session`) — `security invoker`, so RLS keeps applying to the calling user. `src/lib/session-data/__tests__/schema-drift.test.ts` pins the hand-maintained domain enums in `session-data/types.ts` to the boundary migration's check constraints; update both sides together.
 
 ## Environment
 

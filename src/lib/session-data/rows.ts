@@ -20,7 +20,7 @@ import type {
 } from "./types";
 
 export const SESSION_SELECT =
-  "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,created_at,updated_at";
+  "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,uses_approved_context,created_at,updated_at";
 export const HISTORY_SESSION_SELECT = `${SESSION_SELECT},session_messages!inner(id)`;
 export const MESSAGE_SELECT = "id,session_id,user_id,role,sequence_index,content,created_at";
 export const SUMMARY_SELECT = "id,session_id,user_id,summary_text,status,is_visible,revision,created_at,updated_at";
@@ -41,6 +41,7 @@ export interface TherapySessionRow {
   is_trial: boolean;
   trial_claim_id: TrialClaimId | null;
   duration_bucket_seconds: SessionDurationBucketSeconds | null;
+  uses_approved_context: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -123,6 +124,9 @@ export function mapSession(row: TherapySessionRow): SessionMetadata {
     isTrial: row.is_trial,
     trialClaimId: row.trial_claim_id,
     durationBucketSeconds: row.duration_bucket_seconds,
+    // The column is `not null default true`, so a row written before the flag
+    // existed still reports the previous carry-over behaviour.
+    usesApprovedContext: row.uses_approved_context,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

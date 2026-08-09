@@ -66,6 +66,7 @@ const activeSession: SessionMetadata = {
   isTrial: true,
   trialClaimId: "claim-1",
   durationBucketSeconds: 900,
+  usesApprovedContext: true,
   createdAt: "2026-06-07T09:55:00.000Z",
   updatedAt: "2026-06-07T09:55:00.000Z",
 };
@@ -372,7 +373,8 @@ describe("readSessionStartPageState", () => {
             summaryText: "Zatwierdzone podsumowanie do kolejnej sesji.",
           },
         ],
-        canStartWithoutContext: false,
+        // The opt-out stays available even when there is context to carry over.
+        canStartWithoutContext: true,
       },
     });
   });
