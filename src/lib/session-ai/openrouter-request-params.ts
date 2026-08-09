@@ -1,5 +1,6 @@
 const OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|o\d(?:[.-]|$))/i;
 const OPENAI_GPT_5_5_MODEL_PATTERN = /^openai\/gpt-5\.5(?:$|[-:])/i;
+const OPENAI_GPT_5_6_LUNA_PRO_MODEL_PATTERN = /^openai\/gpt-5\.6-luna-pro(?:$|[-:])/i;
 const GEMINI_3_1_FLASH_LITE_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$|[-:])/i;
 const GEMINI_3_5_FLASH_MODEL_PATTERN = /^google\/gemini-3\.5-flash(?:$|[-:])/i;
 
@@ -47,6 +48,10 @@ function resolveOpenRouterReasoningEffort(model: string): OpenRouterReasoningEff
   const trimmedModel = model.trim();
 
   if (OPENAI_GPT_5_5_MODEL_PATTERN.test(trimmedModel)) {
+    return "medium";
+  }
+
+  if (OPENAI_GPT_5_6_LUNA_PRO_MODEL_PATTERN.test(trimmedModel)) {
     return "medium";
   }
 

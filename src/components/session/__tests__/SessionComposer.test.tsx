@@ -25,8 +25,9 @@ describe("SessionComposer keyboard submit shortcut", () => {
     expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ ctrlKey: true }), "Linux x86_64")).toBe(true);
   });
 
-  it("submits with Cmd+Enter on macOS platforms", () => {
+  it("submits with Cmd+Enter and Ctrl+Enter on macOS platforms", () => {
     expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ metaKey: true }), "MacIntel")).toBe(true);
+    expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ ctrlKey: true }), "MacIntel")).toBe(true);
   });
 
   it("keeps plain Enter and Shift+Enter as textarea input", () => {
@@ -34,9 +35,8 @@ describe("SessionComposer keyboard submit shortcut", () => {
     expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ shiftKey: true }), "MacIntel")).toBe(false);
   });
 
-  it("does not swap platform-specific modifiers", () => {
+  it("does not submit with the Windows key on non-mac platforms", () => {
     expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ metaKey: true }), "Win32")).toBe(false);
-    expect(shouldSubmitSessionComposerFromKeyboard(keyboardEvent({ ctrlKey: true }), "MacIntel")).toBe(false);
   });
 });
 

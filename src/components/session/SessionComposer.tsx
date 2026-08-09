@@ -36,7 +36,7 @@ export function shouldSubmitSessionComposerFromKeyboard(
   }
 
   if (isMacPlatform(platform)) {
-    return event.metaKey && !event.ctrlKey;
+    return event.metaKey || event.ctrlKey;
   }
 
   return event.ctrlKey && !event.metaKey;

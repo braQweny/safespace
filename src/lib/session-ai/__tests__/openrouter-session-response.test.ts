@@ -215,6 +215,20 @@ describe("buildOpenRouterSessionRequest", () => {
     });
     expect(request.provider.requireParameters).toBe(true);
   });
+
+  it("uses medium reasoning for OpenAI GPT-5.6 Luna Pro session responses, including the batch variant", () => {
+    const request = buildOpenRouterSessionRequest(input, "openai/gpt-5.6-luna-pro:batch");
+
+    expect(request.model).toBe("openai/gpt-5.6-luna-pro:batch");
+    expect(request).not.toHaveProperty("temperature");
+    expect(request.stream).toBe(false);
+    expect(request.maxCompletionTokens).toBe(800);
+    expect(request).not.toHaveProperty("maxTokens");
+    expect(request.reasoning).toEqual({
+      effort: "medium",
+    });
+    expect(request.provider.requireParameters).toBe(true);
+  });
 });
 
 describe("generateSessionResponseWithOpenRouter", () => {
