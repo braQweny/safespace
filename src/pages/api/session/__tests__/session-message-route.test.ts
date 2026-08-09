@@ -265,7 +265,7 @@ describe("POST /api/session/message", () => {
     ];
 
     expect(generationInput.modality).toMatchObject({
-      modalityName: "Podejscie poznawczo-behawioralne",
+      modalityName: "Podejście poznawczo-behawioralne",
       avatarName: "Marek, praktyczny przewodnik",
     });
     expect(generationInput.modality.sessionStyleHint).toContain("Avatar: Marek");

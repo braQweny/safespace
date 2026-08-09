@@ -5,8 +5,8 @@ import type { GenerateSessionSummaryInput } from "../types";
 const input = {
   locale: "pl",
   modality: {
-    modalityName: "Podejscie integracyjne",
-    avatarName: "Iga, przewodniczka laczaca watki",
+    modalityName: "Podejście integracyjne",
+    avatarName: "Iga, przewodniczka łącząca wątki",
     sessionStyleHint: "Avatar pomaga wybrac jeden czytelny punkt zaczepienia.",
   },
   messages: [
@@ -40,7 +40,7 @@ describe("buildSessionSummaryMessages", () => {
     const finalMessage = messages.at(-1);
     expect(finalMessage?.role).toBe("user");
     expect(finalMessage?.content).toContain("Chce wrocic do rozmowy");
-    expect(finalMessage?.content).toContain("Iga, przewodniczka laczaca watki");
+    expect(finalMessage?.content).toContain("Iga, przewodniczka łącząca wątki");
   });
 
   it("bounds source messages before provider input", () => {

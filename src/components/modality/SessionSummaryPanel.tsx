@@ -45,7 +45,7 @@ export default function SessionSummaryPanel({
           {summaryState.kind === "none" ? (
             <p className="mt-1 text-[#52645f]">
               Brak zatwierdzonego podsumowania dla tej rozmowy. Kontekst kolejnej sesji powstanie dopiero po
-              wygenerowaniu preview i świadomym zatwierdzeniu.
+              wygenerowaniu wersji roboczej i jej świadomym zatwierdzeniu.
             </p>
           ) : null}
           {summaryState.kind !== "none" ? (
@@ -55,7 +55,7 @@ export default function SessionSummaryPanel({
                   ? "Zatwierdzone"
                   : summaryState.kind === "stale"
                     ? "Nieaktualne"
-                    : "Preview do zatwierdzenia"}
+                    : "Wersja robocza do zatwierdzenia"}
               </p>
               <p className="mt-2 whitespace-pre-wrap text-[#10231f]">{summaryState.summary.summaryText}</p>
               {summaryState.kind === "approved" ? (
@@ -65,12 +65,12 @@ export default function SessionSummaryPanel({
               ) : null}
               {summaryState.kind === "preview" ? (
                 <p className="mt-2 text-[#52645f]">
-                  Zobacz treść przed użyciem. Dopiero przycisk „Użyj w kolejnej sesji” pozwoli użyć tej rewizji jako
+                  Zobacz treść przed użyciem. Dopiero przycisk „Użyj w kolejnej sesji” pozwoli użyć tej wersji jako
                   kontekstu.
                 </p>
               ) : null}
               {summaryState.kind === "stale" ? (
-                <p className="mt-2 text-[#52645f]">Ta rewizja nie będzie używana jako kontekst kolejnej sesji.</p>
+                <p className="mt-2 text-[#52645f]">Ta wersja nie będzie używana jako kontekst kolejnej sesji.</p>
               ) : null}
             </div>
           ) : null}

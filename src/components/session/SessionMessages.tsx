@@ -5,6 +5,7 @@ import type { SelectedModalityAvatar } from "@/lib/modalities";
 interface SessionMessagesProps {
   messages: readonly UiSessionMessage[];
   isPending?: boolean;
+  pendingUserText?: string | null;
   assistantAvatar: SelectedModalityAvatar;
   emptyCopy?: string;
 }
@@ -131,9 +132,12 @@ function PendingAssistantStatus({ assistantAvatar }: { assistantAvatar: Selected
 export default function SessionMessages({
   messages,
   isPending = false,
+  pendingUserText = null,
   assistantAvatar,
   emptyCopy = "Pierwsza wiadomość może być krótka. Opisz sytuację, którą chcesz spokojnie uporządkować.",
 }: SessionMessagesProps) {
+  const hasContent = messages.length > 0 || Boolean(pendingUserText);
+
   return (
     <div
       role="log"
@@ -141,7 +145,7 @@ export default function SessionMessages({
       aria-label="Przebieg rozmowy"
       className="min-h-[280px] rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4"
     >
-      {messages.length === 0 ? (
+      {!hasContent ? (
         <div className="flex min-h-56 items-center justify-center text-center text-sm leading-6 text-[#52645f]">
           {emptyCopy}
         </div>
@@ -156,6 +160,14 @@ export default function SessionMessages({
               <MessageContent content={message.content} />
             </li>
           ))}
+          {pendingUserText ? (
+            <li
+              className={`max-w-[min(680px,92%)] rounded-lg border p-4 text-sm leading-6 ${getMessageClasses("user")}`}
+            >
+              <p className="text-xs font-semibold text-[#1f6f65]">Ty</p>
+              <MessageContent content={pendingUserText} />
+            </li>
+          ) : null}
         </ol>
       )}
 

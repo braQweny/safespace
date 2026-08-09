@@ -1,4 +1,5 @@
-import { CircleStop, FileText, PlayCircle, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { CircleStop, FileText, History, PlayCircle, ShieldCheck } from "lucide-react";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import type { SessionStartPageState, SessionStartPageStateKind } from "@/lib/session-flow/session-state";
 import SessionComposer from "./SessionComposer";
@@ -25,19 +26,19 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
   completed: {
     title: "Sesja została zakończona",
-    body: "Pierwsza sesja jest zapisana w prywatnej granicy danych. Pełna historia pozostaje poza zakresem tego widoku.",
+    body: "Rozmowa została prywatnie zapisana. Pełny zapis znajdziesz w historii w panelu — tam możesz też przejrzeć i zatwierdzić podsumowanie do kolejnej sesji.",
   },
   interrupted: {
     title: "Sesja została przerwana",
     body: "Rozmowa została zatrzymana w bezpiecznym stanie. Zwykła symulacja nie będzie kontynuowana w tej sesji.",
   },
   followup_ready: {
-    title: "Przygotowanie do kolejnej sesji MVP",
-    body: "Możesz rozpocząć kolejną timed sesję. Przed startem widzisz, czy rozmowa dostanie zatwierdzone podsumowania jako kontekst.",
+    title: "Przygotowanie do kolejnej sesji",
+    body: "Możesz rozpocząć kolejną sesję z limitem czasu. Przed startem widzisz, czy rozmowa otrzyma zatwierdzone podsumowania jako kontekst.",
   },
   trial_already_claimed: {
     title: "Darmowa próba została już wykorzystana",
-    body: "Nie można rozpocząć drugiej darmowej sesji przez odświeżenie, ponowne kliknięcie ani bezpośredni POST.",
+    body: "Darmowa próba obejmuje jedną sesję i została już użyta na tym koncie. Zapis rozmowy znajdziesz w historii w panelu.",
   },
   unavailable: {
     title: "Stan sesji jest chwilowo niedostępny",
@@ -48,8 +49,10 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
 export default function TimedSession({ initialState }: TimedSessionProps) {
   const { state, composerAvailable, handleExpired, setDraft, startSession, sendMessage, endSession } =
     useTimedSession(initialState);
-  const { kind, session, messages, draft, isStarting, isEnding, isMessagePending, notice } = state;
+  const { kind, session, messages, draft, isStarting, isEnding, isMessagePending, pendingUserText, notice } = state;
+  const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const canEndSession = kind === "active" && session?.status === "active";
+  const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
 
   return (
     <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -71,9 +74,9 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
               <button
                 type="button"
                 onClick={() => {
-                  void endSession();
+                  setIsConfirmingEnd(true);
                 }}
-                disabled={isEnding || isMessagePending}
+                disabled={isEnding || isMessagePending || isConfirmingEnd}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d6aaa7] bg-white px-4 text-sm font-semibold text-[#7d2d2d] transition-colors hover:bg-[#fff8f8] focus:ring-2 focus:ring-[#b85c58] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <CircleStop aria-hidden="true" className="h-4 w-4" />
@@ -83,7 +86,50 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           ) : null}
         </div>
 
+        {canEndSession && isConfirmingEnd ? (
+          <div
+            role="alertdialog"
+            aria-label="Potwierdź zakończenie sesji"
+            className="mt-4 rounded-lg border border-[#d6aaa7] bg-[#fff8f8] p-4 text-sm leading-6 text-[#7d2d2d]"
+          >
+            <p className="font-semibold">Na pewno zakończyć sesję?</p>
+            <p className="mt-1">Zakończonej rozmowy nie da się wznowić, ale jej zapis pozostanie w historii.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmingEnd(false);
+                  void endSession();
+                }}
+                disabled={isEnding || isMessagePending}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#a03d3a] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#8a3330] focus:ring-2 focus:ring-[#b85c58] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Zakończ teraz
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmingEnd(false);
+                }}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#c8ddd7] bg-white px-4 text-sm font-medium text-[#38524b] transition-colors hover:bg-[#f8fcfa] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+              >
+                Wróć do rozmowy
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <p className="mt-4 text-sm leading-6 text-[#52645f]">{stateCopy[kind].body}</p>
+
+        {showHistoryCta ? (
+          <a
+            href="/dashboard"
+            className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-4 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+          >
+            <History aria-hidden="true" className="h-4 w-4" />
+            Przejdź do historii i podsumowania
+          </a>
+        ) : null}
 
         {notice ? (
           <div className="mt-5">
@@ -147,17 +193,20 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
             <SessionMessages
               messages={messages}
               isPending={isMessagePending}
+              pendingUserText={pendingUserText}
               assistantAvatar={initialState.avatar.selected}
             />
-            <SessionComposer
-              value={draft}
-              isDisabled={!composerAvailable}
-              isPending={isMessagePending}
-              onChange={setDraft}
-              onSubmit={() => {
-                void sendMessage();
-              }}
-            />
+            {kind === "active" ? (
+              <SessionComposer
+                value={draft}
+                isDisabled={!composerAvailable}
+                isPending={isMessagePending}
+                onChange={setDraft}
+                onSubmit={() => {
+                  void sendMessage();
+                }}
+              />
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -172,8 +221,8 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           loading="lazy"
         />
         <p className="mt-4 text-sm leading-6 text-[#52645f]">
-          Wybrana perspektywa zostaje zapisana w metadanych aktywnej sesji. Kolejna sesja korzysta wyłącznie z
-          zatwierdzonych podsumowań pokazanych przed startem albo z jawnego startu bez kontekstu.
+          Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które sam
+          zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.
         </p>
         <div className="mt-5 border-t border-[#d7e5e0] pt-4 text-sm leading-6 text-[#52645f]">
           <div className="flex items-start gap-3">

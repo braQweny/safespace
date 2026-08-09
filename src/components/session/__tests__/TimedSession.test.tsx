@@ -7,10 +7,10 @@ const avatar = {
   modality: {
     modalityId: "cbt",
     avatarId: "cbt-guide",
-    modalityName: "Podejscie poznawczo-behawioralne",
+    modalityName: "Podejście poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
-    explanation: "Pomaga zauwazac powiazania miedzy myslami, emocjami, reakcjami ciala i codziennymi dzialaniami.",
-    focus: "Porzadkuje sytuacje krok po kroku i szuka konkretnych obserwacji, ktore da sie nazwac.",
+    explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
+    focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
     sessionStyleHint: "Uzywa jasnej struktury.",
     assetPath: "/avatars/cbt-guide.png",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
@@ -18,7 +18,7 @@ const avatar = {
   selected: {
     modalityId: "cbt",
     avatarId: "cbt-guide",
-    modalityName: "Podejscie poznawczo-behawioralne",
+    modalityName: "Podejście poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
     assetPath: "/avatars/cbt-guide.png",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
@@ -99,6 +99,8 @@ describe("TimedSession", () => {
     expect(html).toContain("Sesja została zakończona");
     expect(html).not.toContain("Zakończ sesję");
     expect(html).not.toContain("Pozostały czas sesji");
+    expect(html).toContain("Przejdź do historii i podsumowania");
+    expect(html).not.toContain("Wyślij");
   });
 
   it("renders approved summary context before follow-up start", () => {
@@ -122,7 +124,7 @@ describe("TimedSession", () => {
       canStartWithoutContext: false,
     });
 
-    expect(html).toContain("Przygotowanie do kolejnej sesji MVP");
+    expect(html).toContain("Przygotowanie do kolejnej sesji");
     expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
     expect(html).toContain("Rozpocznij kolejną sesję z kontekstem");
   });

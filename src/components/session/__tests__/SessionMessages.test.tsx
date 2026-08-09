@@ -6,7 +6,7 @@ import SessionMessages from "../SessionMessages";
 const assistantAvatar: SelectedModalityAvatar = {
   modalityId: "cbt",
   avatarId: "cbt-guide",
-  modalityName: "Podejscie poznawczo-behawioralne",
+  modalityName: "Podejście poznawczo-behawioralne",
   avatarName: "Marek, praktyczny przewodnik",
   assetPath: "/avatars/cbt-guide.png",
   altText: "Awatar Marka",
@@ -35,6 +35,21 @@ describe("SessionMessages", () => {
     expect(html).not.toContain("**");
     expect(html).toContain("<ol");
     expect(html).toContain("<strong");
+  });
+
+  it("renders the optimistic user bubble instead of the empty state while a message is pending", () => {
+    const html = renderToStaticMarkup(
+      <SessionMessages
+        assistantAvatar={assistantAvatar}
+        isPending
+        pendingUserText="Wiadomość wysłana przed odpowiedzią."
+        messages={[]}
+      />,
+    );
+
+    expect(html).toContain("Wiadomość wysłana przed odpowiedzią.");
+    expect(html).toContain(">Ty<");
+    expect(html).not.toContain("Pierwsza wiadomość może być krótka");
   });
 
   it("renders a short pulsing thinking state while waiting for a response", () => {

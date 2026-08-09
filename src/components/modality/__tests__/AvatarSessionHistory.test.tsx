@@ -93,7 +93,7 @@ describe("AvatarSessionHistory", () => {
     });
 
     expect(html).toContain("Marek, praktyczny przewodnik");
-    expect(html).toContain("Podejscie poznawczo-behawioralne");
+    expect(html).toContain("Podejście poznawczo-behawioralne");
     expect(html).toContain("Poprzednia");
     expect(html).toContain("Następna");
     expect(html).toContain("Podgląd tylko do odczytu");
@@ -167,7 +167,7 @@ describe("AvatarSessionHistory", () => {
       },
     });
 
-    expect(html).toContain("Preview do zatwierdzenia");
+    expect(html).toContain("Wersja robocza do zatwierdzenia");
     expect(html).toContain("Widoczne podsumowanie do sprawdzenia przed uzyciem.");
     expect(html).toContain("Użyj w kolejnej sesji");
     expect(html).not.toContain("Edytuj");

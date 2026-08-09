@@ -66,11 +66,6 @@ export default function SessionHistoryDetailPanel({
 
       {detail && selectedAvatar ? (
         <div className="mt-4 space-y-4">
-          <SessionMessages
-            messages={detailMessages}
-            assistantAvatar={selectedAvatar}
-            emptyCopy="Ta rozmowa nie ma zapisanych wiadomości."
-          />
           <SessionSummaryPanel
             summaryState={summaryState}
             summaryStatus={summaryStatus}
@@ -79,6 +74,13 @@ export default function SessionHistoryDetailPanel({
             onGenerate={onGenerateSummary}
             onApprove={onApproveSummary}
           />
+          <div className="max-h-[70vh] overflow-y-auto">
+            <SessionMessages
+              messages={detailMessages}
+              assistantAvatar={selectedAvatar}
+              emptyCopy="Ta rozmowa nie ma zapisanych wiadomości."
+            />
+          </div>
         </div>
       ) : detailStatus === "idle" ? (
         <div className="mt-4 rounded-lg border border-[#d7e5e0] bg-white p-4 text-sm leading-6 text-[#52645f]">

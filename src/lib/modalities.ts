@@ -2,11 +2,11 @@ export const MVP_MODALITIES = [
   {
     modalityId: "psychodynamic",
     avatarId: "psychodynamic-listener",
-    modalityName: "Podejscie psychoanalityczno-psychodynamiczne",
-    avatarName: "Lena, uwazna sluchaczka",
+    modalityName: "Podejście psychoanalityczno-psychodynamiczne",
+    avatarName: "Lena, uważna słuchaczka",
     explanation:
-      "Pomaga przygladac sie temu, jak wczesniejsze doswiadczenia, relacje i powtarzajace sie wzorce moga wplywac na obecne przezycia.",
-    focus: "Zwraca uwage na znaczenia, emocje i powracajace motywy w opowiadanej historii.",
+      "Pomaga przyglądać się temu, jak wcześniejsze doświadczenia, relacje i powtarzające się wzorce mogą wpływać na obecne przeżycia.",
+    focus: "Zwraca uwagę na znaczenia, emocje i powracające motywy w opowiadanej historii.",
     sessionStyleHint: [
       "Avatar: Lena, uważna słuchaczka.",
       "Modality: psychoanalytic / psychodynamic (podejście psychoanalityczno-psychodynamiczne).",
@@ -35,10 +35,10 @@ export const MVP_MODALITIES = [
   {
     modalityId: "cbt",
     avatarId: "cbt-guide",
-    modalityName: "Podejscie poznawczo-behawioralne",
+    modalityName: "Podejście poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
-    explanation: "Pomaga zauwazac powiazania miedzy myslami, emocjami, reakcjami ciala i codziennymi dzialaniami.",
-    focus: "Porzadkuje sytuacje krok po kroku i szuka konkretnych obserwacji, ktore da sie nazwac.",
+    explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
+    focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
     sessionStyleHint: [
       "Avatar: Marek, praktyczny przewodnik.",
       "Modality: cognitive-behavioral (podejście poznawczo-behawioralne).",
@@ -67,11 +67,11 @@ export const MVP_MODALITIES = [
   {
     modalityId: "humanistic_experiential",
     avatarId: "experiential-companion",
-    modalityName: "Podejscie humanistyczno-doswiadczeniowe",
-    avatarName: "Nadia, wspierajaca towarzyszka",
+    modalityName: "Podejście humanistyczno-doświadczeniowe",
+    avatarName: "Nadia, wspierająca towarzyszka",
     explanation:
-      "Pomaga zatrzymac sie przy aktualnym przezyciu, potrzebach, wartosciach i tym, co jest wazne w danym momencie.",
-    focus: "Wzmacnia jezyk emocji, samoobserwacje i lagodne nazywanie tego, co pojawia sie tu i teraz.",
+      "Pomaga zatrzymać się przy aktualnym przeżyciu, potrzebach, wartościach i tym, co jest ważne w danym momencie.",
+    focus: "Wzmacnia język emocji, samoobserwację i łagodne nazywanie tego, co pojawia się tu i teraz.",
     sessionStyleHint: [
       "Avatar: Nadia, wspierająca towarzyszka.",
       "Modality: humanistic / experiential (podejście humanistyczno-doświadczeniowe).",
@@ -95,16 +95,16 @@ export const MVP_MODALITIES = [
       "Avoid: analysis from a distance, cognitive disputing, advice-giving, productivity language, stacking questions, and pressuring the user to feel more, cry, forgive, confront someone, or make a big decision.",
     ].join("\n"),
     assetPath: "/avatars/experiential-companion.png",
-    altText: "Ilustracyjny portret neutralnej awatarki Nadii w cieplych kolorach",
+    altText: "Ilustracyjny portret neutralnej awatarki Nadii w ciepłych kolorach",
   },
   {
     modalityId: "systemic",
     avatarId: "systemic-connector",
-    modalityName: "Podejscie systemowe",
-    avatarName: "Olek, lacznik perspektyw",
+    modalityName: "Podejście systemowe",
+    avatarName: "Olek, łącznik perspektyw",
     explanation:
-      "Pomaga patrzec na trudnosc w kontekscie relacji, ról, komunikacji i ukladow, w ktorych dana osoba funkcjonuje.",
-    focus: "Zauwaza zaleznosci miedzy osobami, oczekiwaniami i sposobami reagowania w waznych relacjach.",
+      "Pomaga patrzeć na trudność w kontekście relacji, ról, komunikacji i układów, w których dana osoba funkcjonuje.",
+    focus: "Zauważa zależności między osobami, oczekiwaniami i sposobami reagowania w ważnych relacjach.",
     sessionStyleHint: [
       "Avatar: Olek, łącznik perspektyw.",
       "Modality: systemic (podejście systemowe).",
@@ -128,16 +128,16 @@ export const MVP_MODALITIES = [
       "Avoid: taking sides, diagnosing other people, calling someone toxic or manipulative unless the user uses those words (and even then handle carefully), pressuring the user toward confrontation, reconciliation, or cutting contact, and reducing the issue to only the user's thoughts or emotions.",
     ].join("\n"),
     assetPath: "/avatars/systemic-connector.png",
-    altText: "Ilustracyjny portret neutralnego awatara Olka z motywem polaczonych ksztaltow",
+    altText: "Ilustracyjny portret neutralnego awatara Olka z motywem połączonych kształtów",
   },
   {
     modalityId: "integrative",
     avatarId: "integrative-guide",
-    modalityName: "Podejscie integracyjne",
-    avatarName: "Iga, przewodniczka laczaca watki",
+    modalityName: "Podejście integracyjne",
+    avatarName: "Iga, przewodniczka łącząca wątki",
     explanation:
-      "Laczy kilka sposobow patrzenia na sytuacje, zeby dopasowac rozmowe do tematu, tempa i potrzeb uzytkownika.",
-    focus: "Pomaga wybrac najczytelniejszy sposob rozmowy: emocje, mysli, relacje albo konkretna sytuacje.",
+      "Łączy kilka sposobów patrzenia na sytuację, żeby dopasować rozmowę do tematu, tempa i potrzeb użytkownika.",
+    focus: "Pomaga wybrać najczytelniejszy sposób rozmowy: emocje, myśli, relacje albo konkretną sytuację.",
     sessionStyleHint: [
       "Avatar: Iga, przewodniczka łącząca wątki.",
       "Modality: integrative (podejście integracyjne).",

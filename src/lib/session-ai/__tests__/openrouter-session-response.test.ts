@@ -20,8 +20,8 @@ vi.mock("../env", () => ({
 const input = {
   currentUserMessage: "Potrzebuje uporzadkowac mysli.",
   modality: {
-    modalityName: "Podejscie integracyjne",
-    avatarName: "Iga, przewodniczka laczaca watki",
+    modalityName: "Podejście integracyjne",
+    avatarName: "Iga, przewodniczka łącząca wątki",
     sessionStyleHint:
       "Elastycznie dobiera pytania do tematu, jasno nazywa wybrana perspektywe i nie miesza kilku kierunkow naraz bez potrzeby.",
   },

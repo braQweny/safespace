@@ -32,6 +32,7 @@ const baseState: TimedSessionUiState = {
   isMessagePending: false,
   isClientExpired: false,
   isHardStopped: false,
+  pendingUserText: null,
   notice: null,
 };
 
@@ -145,6 +146,38 @@ describe("timedSessionReducer", () => {
     expect(state.isClientExpired).toBe(false);
     expect(state.isHardStopped).toBe(false);
     expect(state.notice).toBeNull();
+  });
+
+  it("shows the sent text optimistically while the message is pending and clears it after the turn", () => {
+    const pending = timedSessionReducer(
+      { ...baseState, kind: "active", session: activeSession, draft: "wysyłana wiadomość" },
+      { type: "message_requested", text: "wysyłana wiadomość" },
+    );
+
+    expect(pending.isMessagePending).toBe(true);
+    expect(pending.draft).toBe("");
+    expect(pending.pendingUserText).toBe("wysyłana wiadomość");
+
+    const settled = timedSessionReducer(pending, { type: "message_settled" });
+
+    expect(settled.isMessagePending).toBe(false);
+    expect(settled.pendingUserText).toBeNull();
+  });
+
+  it("restores the draft and drops the optimistic text when a message fails", () => {
+    const failed = timedSessionReducer(
+      {
+        ...baseState,
+        kind: "active",
+        session: activeSession,
+        isMessagePending: true,
+        pendingUserText: "utracona wiadomość",
+      },
+      { type: "message_failed", draft: "utracona wiadomość", notice: infoNotice },
+    );
+
+    expect(failed.draft).toBe("utracona wiadomość");
+    expect(failed.pendingUserText).toBeNull();
   });
 
   it("restores the draft when a message fails and keeps kind on start failure without kind", () => {

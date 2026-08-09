@@ -210,7 +210,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
       ]);
       expect(JSON.stringify(result.data.messages)).not.toContain("System boundary");
       expect(result.data.modality).toMatchObject({
-        modalityName: "Podejscie poznawczo-behawioralne",
+        modalityName: "Podejście poznawczo-behawioralne",
         avatarName: "Marek, praktyczny przewodnik",
       });
       expect(result.data.locale).toBe("pl");

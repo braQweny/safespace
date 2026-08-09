@@ -31,6 +31,7 @@ export interface TimedSessionUiState {
   isMessagePending: boolean;
   isClientExpired: boolean;
   isHardStopped: boolean;
+  pendingUserText: string | null;
   notice: SafetyNoticeState | null;
 }
 
@@ -45,7 +46,7 @@ export type TimedSessionAction =
   | { type: "end_succeeded"; session: SessionView }
   | { type: "end_failed"; notice: SafetyNoticeState }
   | { type: "end_settled" }
-  | { type: "message_requested" }
+  | { type: "message_requested"; text: string }
   | { type: "turn_succeeded"; turn: SendSessionMessageSuccessResponse["messages"]; session: SessionView }
   | { type: "hard_stopped"; notice: SafetyNoticeState }
   | { type: "session_expired"; session: SessionView; notice: SafetyNoticeState }
@@ -97,6 +98,7 @@ export function getInitialTimedSessionState(initialState: SessionStartPageState)
     isMessagePending: false,
     isClientExpired: initialState.session?.remainingSeconds === 0,
     isHardStopped: initialState.kind === "interrupted",
+    pendingUserText: null,
     notice: null,
   };
 }
@@ -140,7 +142,7 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
     case "end_settled":
       return { ...state, isEnding: false };
     case "message_requested":
-      return { ...state, isMessagePending: true, notice: null };
+      return { ...state, isMessagePending: true, draft: "", pendingUserText: action.text, notice: null };
     case "turn_succeeded":
       return {
         ...state,
@@ -148,16 +150,24 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
         session: action.session,
         kind: toSessionStartPageStateKind(action.session.status),
         draft: "",
+        pendingUserText: null,
         notice: null,
       };
     case "hard_stopped":
-      return { ...state, kind: "interrupted", isHardStopped: true, notice: action.notice };
+      return { ...state, kind: "interrupted", isHardStopped: true, pendingUserText: null, notice: action.notice };
     case "session_expired":
-      return { ...state, kind: "expired", session: action.session, isClientExpired: true, notice: action.notice };
+      return {
+        ...state,
+        kind: "expired",
+        session: action.session,
+        isClientExpired: true,
+        pendingUserText: null,
+        notice: action.notice,
+      };
     case "message_failed":
-      return { ...state, draft: action.draft, notice: action.notice };
+      return { ...state, draft: action.draft, pendingUserText: null, notice: action.notice };
     case "message_settled":
-      return { ...state, isMessagePending: false };
+      return { ...state, isMessagePending: false, pendingUserText: null };
   }
 }
 
@@ -261,7 +271,7 @@ export function useTimedSession(initialState: SessionStartPageState) {
       return;
     }
 
-    dispatch({ type: "message_requested" });
+    dispatch({ type: "message_requested", text: trimmedDraft });
 
     try {
       const result = await requestApiJson("/api/session/message", {

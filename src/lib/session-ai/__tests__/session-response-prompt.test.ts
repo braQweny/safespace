@@ -6,7 +6,7 @@ import type { GenerateSessionResponseInput } from "../types";
 const input = {
   currentUserMessage: "Chce spokojnie uporzadkowac trudna rozmowe z bliska osoba.",
   modality: {
-    modalityName: "Podejscie poznawczo-behawioralne",
+    modalityName: "Podejście poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
     sessionStyleHint:
       "Uzywa jasnej struktury, pomaga odroznic fakty od interpretacji i zaprasza do spokojnego sprawdzania perspektyw.",
