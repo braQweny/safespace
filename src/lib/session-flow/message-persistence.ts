@@ -1,4 +1,4 @@
-import { appendSessionMessages, listOwnedSessionMessages } from "@/lib/session-data/repository";
+import { appendSessionMessages, getNextSessionMessageSequenceIndex } from "@/lib/session-data/repository";
 import type { SessionDataResult } from "@/lib/session-data/errors";
 import type { SessionDataContext, SessionMessageRecord } from "@/lib/session-data/types";
 import type { SessionMessageViewModel } from "./message-contract";
@@ -15,12 +15,12 @@ export interface PersistedMessageTurn {
 }
 
 export interface MessagePersistenceRepository {
-  listOwnedSessionMessages: typeof listOwnedSessionMessages;
+  getNextSessionMessageSequenceIndex: typeof getNextSessionMessageSequenceIndex;
   appendSessionMessages: typeof appendSessionMessages;
 }
 
 const defaultMessagePersistenceRepository: MessagePersistenceRepository = {
-  listOwnedSessionMessages,
+  getNextSessionMessageSequenceIndex,
   appendSessionMessages,
 };
 
@@ -38,14 +38,6 @@ export function toSessionMessageViewModel(message: SessionMessageRecord): Sessio
   };
 }
 
-function getNextSequenceIndex(messages: readonly SessionMessageRecord[]) {
-  if (messages.length === 0) {
-    return 0;
-  }
-
-  return Math.max(...messages.map((message) => message.sequenceIndex)) + 1;
-}
-
 const SEQUENCE_CONFLICT_MAX_ATTEMPTS = 3;
 
 export async function persistSuccessfulMessageTurn(
@@ -59,13 +51,13 @@ export async function persistSuccessfulMessageTurn(
   // indexes were taken by a concurrent request; re-read and retry instead of
   // failing the whole turn.
   for (let attempt = 0; attempt < SEQUENCE_CONFLICT_MAX_ATTEMPTS; attempt += 1) {
-    const existingMessages = await repository.listOwnedSessionMessages(context, input.sessionId);
+    const nextSequenceIndex = await repository.getNextSessionMessageSequenceIndex(context, input.sessionId);
 
-    if (!existingMessages.ok) {
-      return existingMessages;
+    if (!nextSequenceIndex.ok) {
+      return nextSequenceIndex;
     }
 
-    const userSequenceIndex = getNextSequenceIndex(existingMessages.data);
+    const userSequenceIndex = nextSequenceIndex.data;
     const assistantSequenceIndex = userSequenceIndex + 1;
     insertedMessages = await repository.appendSessionMessages(context, [
       {

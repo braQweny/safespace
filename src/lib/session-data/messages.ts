@@ -91,6 +91,78 @@ export async function listOwnedSessionMessages(
   return ok(coerceMessageRows(data).map(mapMessage));
 }
 
+/**
+ * Bounded tail of a conversation, for the model context window. A turn only
+ * ever needs the last few messages, so the full transcript must not travel out
+ * of the database for it — that is both a cost and a privacy-exposure concern.
+ * Ownership is enforced by RLS plus the `user_id` filter; callers that need to
+ * tell "not found" from "not owner" apart resolve the session metadata first.
+ */
+export async function listRecentOwnedSessionMessages(
+  context: SessionDataContext,
+  sessionId: SessionId,
+  limit: number,
+): Promise<SessionDataResult<SessionMessageRecord[]>> {
+  if (limit <= 0) {
+    return ok([]);
+  }
+
+  const { data, error } = await context.supabase
+    .from("session_messages")
+    .select(MESSAGE_SELECT)
+    .eq("session_id", sessionId)
+    .eq("user_id", context.user.id)
+    .order("sequence_index", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  return ok(
+    coerceMessageRows(data)
+      .map(mapMessage)
+      .sort((left, right) => left.sequenceIndex - right.sequenceIndex),
+  );
+}
+
+/**
+ * Next free `sequence_index` for a session, read without pulling any message
+ * content. The unique (session_id, sequence_index) constraint remains the
+ * authority — this only avoids a guaranteed-conflicting first attempt.
+ */
+export async function getNextSessionMessageSequenceIndex(
+  context: SessionDataContext,
+  sessionId: SessionId,
+): Promise<SessionDataResult<number>> {
+  const { data, error } = await context.supabase
+    .from("session_messages")
+    .select("sequence_index")
+    .eq("session_id", sessionId)
+    .eq("user_id", context.user.id)
+    .order("sequence_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  const highestIndex = coerceSequenceIndex(data);
+
+  return ok(highestIndex === null ? 0 : highestIndex + 1);
+}
+
+function coerceSequenceIndex(value: unknown): number | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const sequenceIndex = (value as { sequence_index?: unknown }).sequence_index;
+
+  return typeof sequenceIndex === "number" && Number.isFinite(sequenceIndex) ? sequenceIndex : null;
+}
+
 export async function getOwnedSessionHistoryDetail(
   context: SessionDataContext,
   sessionId: SessionId,

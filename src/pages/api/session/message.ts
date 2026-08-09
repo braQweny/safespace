@@ -8,7 +8,7 @@ import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import {
   getOwnedSessionMetadata,
   listNewestApprovedSessionSummaryContexts,
-  listOwnedSessionMessages,
+  listRecentOwnedSessionMessages,
   transitionSessionLifecycle,
 } from "@/lib/session-data/repository";
 import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
@@ -60,7 +60,6 @@ function toRecentSessionAiMessages(messages: readonly SessionMessageRecord[]) {
       (message): message is SessionMessageRecord & { role: "user" | "assistant" } =>
         message.role === "user" || message.role === "assistant",
     )
-    .slice(-RECENT_MESSAGE_CONTEXT_LIMIT)
     .map((message) => ({
       role: message.role,
       content: message.content,
@@ -164,7 +163,14 @@ export const POST: APIRoute = async (context) => {
     return jsonResponse(unavailableResponse(), 503);
   }
 
-  const recentMessages = await listOwnedSessionMessages(sessionContext.data, session.id);
+  // Ownership was already resolved through `getOwnedSessionMetadata` above, so
+  // this reads only the bounded tail the model context needs instead of the
+  // whole transcript.
+  const recentMessages = await listRecentOwnedSessionMessages(
+    sessionContext.data,
+    session.id,
+    RECENT_MESSAGE_CONTEXT_LIMIT,
+  );
 
   if (!recentMessages.ok) {
     return jsonResponse(unavailableResponse(), 503);

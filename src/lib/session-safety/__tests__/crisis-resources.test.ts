@@ -47,8 +47,8 @@ describe("crisis resources", () => {
 
     expect(decision.action).toBe("hard_stop");
     expect(decision.crisisResources.map((resource) => resource.id)).toEqual(["pl", "us", "local_fallback"]);
-    expect(decision.copy?.body).toContain("nie kontaktuje sluzb");
+    expect(decision.copy?.body).toContain("nie kontaktuje służb");
     expect(combinedText).not.toMatch(/SafeSpace (kontaktuje|powiadamia|wzywa)/i);
-    expect(combinedText).not.toMatch(/(wezwalismy|powiadomilismy|skontaktowalismy)/i);
+    expect(combinedText).not.toMatch(/(wezwali|powiadomili|skontaktowali)(smy|śmy)/i);
   });
 });

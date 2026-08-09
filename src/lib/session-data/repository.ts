@@ -22,8 +22,10 @@ export {
 export {
   appendSessionMessage,
   appendSessionMessages,
+  getNextSessionMessageSequenceIndex,
   getOwnedSessionHistoryDetail,
   listOwnedSessionMessages,
+  listRecentOwnedSessionMessages,
   purgeOwnedSessionMessages,
 } from "./messages";
 export {

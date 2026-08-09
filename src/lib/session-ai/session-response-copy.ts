@@ -1,32 +1,32 @@
 import type { SessionAiErrorCategory } from "./errors";
 import type { SessionAiFailureCopy } from "./types";
 
-const RETRY_LABEL = "Sprobuj ponownie";
+const RETRY_LABEL = "Spróbuj ponownie";
 
 const SESSION_AI_FAILURE_COPY = {
   missing_configuration: {
-    title: "Nie mozemy teraz przygotowac odpowiedzi",
-    body: "Konfiguracja AI dla sesji nie jest dostepna. SafeSpace nie bedzie udawac odpowiedzi, gdy zwykly model nie moze zostac bezpiecznie wywolany.",
+    title: "Nie możemy teraz przygotować odpowiedzi",
+    body: "Konfiguracja AI dla sesji nie jest dostępna. SafeSpace nie będzie udawać odpowiedzi, gdy zwykły model nie może zostać bezpiecznie wywołany.",
     retryLabel: RETRY_LABEL,
   },
   provider_timeout: {
-    title: "Odpowiedz trwa zbyt dlugo",
-    body: "Model nie zdazyl odpowiedziec w bezpiecznym czasie dla aktywnej sesji. Mozesz sprobowac ponownie, jesli timer nadal pozwala na rozmowe.",
+    title: "Odpowiedź trwa zbyt długo",
+    body: "Model nie zdążył odpowiedzieć w bezpiecznym czasie dla aktywnej sesji. Możesz spróbować ponownie, jeśli timer nadal pozwala na rozmowę.",
     retryLabel: RETRY_LABEL,
   },
   provider_rate_limited: {
     title: "Model jest chwilowo ograniczony",
-    body: "Dostawca AI odrzucil teraz zbyt wiele prob. Sprobuj ponownie za chwile, bez utraty tresci w polu wiadomosci.",
+    body: "Dostawca AI odrzucił teraz zbyt wiele prób. Spróbuj ponownie za chwilę, bez utraty treści w polu wiadomości.",
     retryLabel: RETRY_LABEL,
   },
   provider_unavailable: {
-    title: "Model jest chwilowo niedostepny",
-    body: "Nie udalo sie uzyskac odpowiedzi od dostawcy AI. SafeSpace nie zapisze sztucznej odpowiedzi i pozwoli ponowic probe, jesli sesja nadal trwa.",
+    title: "Model jest chwilowo niedostępny",
+    body: "Nie udało się uzyskać odpowiedzi od dostawcy AI. SafeSpace nie zapisze sztucznej odpowiedzi i pozwoli ponowić próbę, jeśli sesja nadal trwa.",
     retryLabel: RETRY_LABEL,
   },
   invalid_provider_response: {
-    title: "Nie mozemy pokazac tej odpowiedzi",
-    body: "Dostawca AI zwrocil odpowiedz w nieoczekiwanym formacie. SafeSpace zatrzymuje ten krok zamiast zapisywac niepewny wynik.",
+    title: "Nie możemy pokazać tej odpowiedzi",
+    body: "Dostawca AI zwrócił odpowiedź w nieoczekiwanym formacie. SafeSpace zatrzymuje ten krok zamiast zapisywać niepewny wynik.",
     retryLabel: RETRY_LABEL,
   },
 } as const satisfies Record<SessionAiErrorCategory, SessionAiFailureCopy>;

@@ -37,6 +37,17 @@ const baseConfig = tseslint.config({
   },
 });
 
+// Build-time config files run in Node before any bundling, so they may read
+// `process.env` even though nothing in `src/` is allowed to.
+const buildConfigFilesConfig = tseslint.config({
+  files: ["*.config.{js,mjs,ts}"],
+  languageOptions: {
+    globals: {
+      process: "readonly",
+    },
+  },
+});
+
 const reactConfig = tseslint.config({
   files: ["**/*.{js,jsx,ts,tsx}"],
   extends: [pluginReact.configs.flat.recommended],
@@ -71,6 +82,7 @@ const astroConfig = tseslint.config({
 export default tseslint.config(
   includeIgnoreFile(gitignorePath),
   baseConfig,
+  buildConfigFilesConfig,
   reactConfig,
   eslintPluginAstro.configs["flat/recommended"],
   ...eslintPluginAstro.configs["flat/jsx-a11y-recommended"],

@@ -9,7 +9,7 @@ describe("getSessionAiFailureCopy", () => {
 
       expect(copy.title).not.toContain("OpenRouter");
       expect(copy.body).not.toContain("payload");
-      expect(copy.retryLabel).toBe("Sprobuj ponownie");
+      expect(copy.retryLabel).toBe("Spróbuj ponownie");
     }
   });
 });

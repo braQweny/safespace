@@ -52,7 +52,7 @@ function createInsertedTurn(userSequenceIndex: number): SessionMessageRecord[] {
 
 function createRepository(overrides: Partial<MessagePersistenceRepository> = {}): MessagePersistenceRepository {
   return {
-    listOwnedSessionMessages: vi.fn(() => Promise.resolve(ok([] as SessionMessageRecord[]))),
+    getNextSessionMessageSequenceIndex: vi.fn(() => Promise.resolve(ok(0))),
     appendSessionMessages: vi.fn(() => Promise.resolve(ok(createInsertedTurn(0)))),
     ...overrides,
   };
@@ -77,14 +77,7 @@ describe("toSessionMessageViewModel", () => {
 describe("persistSuccessfulMessageTurn", () => {
   it("appends the turn after the highest existing sequence index", async () => {
     const repository = createRepository({
-      listOwnedSessionMessages: vi.fn(() =>
-        Promise.resolve(
-          ok([
-            createMessageRecord({ sequenceIndex: 0 }),
-            createMessageRecord({ id: "message-1", role: "assistant", sequenceIndex: 4 }),
-          ]),
-        ),
-      ),
+      getNextSessionMessageSequenceIndex: vi.fn(() => Promise.resolve(ok(5))),
       appendSessionMessages: vi.fn(() => Promise.resolve(ok(createInsertedTurn(5)))),
     });
 
@@ -132,20 +125,17 @@ describe("persistSuccessfulMessageTurn", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("re-reads messages and retries once after a sequence conflict", async () => {
-    const listOwnedSessionMessages = vi
-      .fn()
-      .mockResolvedValueOnce(ok([]))
-      .mockResolvedValueOnce(ok([createMessageRecord({ sequenceIndex: 1 })]));
+  it("re-reads the sequence index and retries once after a sequence conflict", async () => {
+    const getNextSessionMessageSequenceIndex = vi.fn().mockResolvedValueOnce(ok(0)).mockResolvedValueOnce(ok(2));
     const appendSessionMessages = vi
       .fn()
       .mockResolvedValueOnce(sessionDataError("sequence_conflict"))
       .mockResolvedValueOnce(ok(createInsertedTurn(2)));
-    const repository = createRepository({ listOwnedSessionMessages, appendSessionMessages });
+    const repository = createRepository({ getNextSessionMessageSequenceIndex, appendSessionMessages });
 
     const result = await persistSuccessfulMessageTurn(context, input, repository);
 
-    expect(listOwnedSessionMessages).toHaveBeenCalledTimes(2);
+    expect(getNextSessionMessageSequenceIndex).toHaveBeenCalledTimes(2);
     expect(appendSessionMessages).toHaveBeenCalledTimes(2);
     expect(appendSessionMessages).toHaveBeenLastCalledWith(context, [
       expect.objectContaining({ role: "user", sequenceIndex: 2 }),
@@ -172,7 +162,7 @@ describe("persistSuccessfulMessageTurn", () => {
     const result = await persistSuccessfulMessageTurn(context, input, repository);
 
     expect(repository.appendSessionMessages).toHaveBeenCalledTimes(3);
-    expect(repository.listOwnedSessionMessages).toHaveBeenCalledTimes(3);
+    expect(repository.getNextSessionMessageSequenceIndex).toHaveBeenCalledTimes(3);
     expect(result).toEqual({
       ok: false,
       error: {
@@ -197,9 +187,9 @@ describe("persistSuccessfulMessageTurn", () => {
     });
   });
 
-  it("stops before appending when the message read fails", async () => {
+  it("stops before appending when the sequence index read fails", async () => {
     const repository = createRepository({
-      listOwnedSessionMessages: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
+      getNextSessionMessageSequenceIndex: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
     });
 
     const result = await persistSuccessfulMessageTurn(context, input, repository);

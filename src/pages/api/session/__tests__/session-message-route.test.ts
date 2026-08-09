@@ -9,7 +9,7 @@ import type { PersistedMessageTurn } from "@/lib/session-flow/message-persistenc
 const getSessionDataContext = vi.fn();
 const requireActiveAccountAccess = vi.fn();
 const getOwnedSessionMetadata = vi.fn();
-const listOwnedSessionMessages = vi.fn();
+const listRecentOwnedSessionMessages = vi.fn();
 const listNewestApprovedSessionSummaryContexts = vi.fn();
 const transitionSessionLifecycle = vi.fn();
 const evaluateSessionSafety = vi.fn();
@@ -29,7 +29,8 @@ vi.mock("@/lib/admin/account-access", () => ({
 vi.mock("@/lib/session-data/repository", () => ({
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata: vi.fn(),
-  listOwnedSessionMessages,
+  listOwnedSessionMessages: vi.fn(),
+  listRecentOwnedSessionMessages,
   listNewestApprovedSessionSummaryContexts,
   transitionSessionLifecycle,
   appendSessionMessages: vi.fn(),
@@ -216,7 +217,7 @@ describe("POST /api/session/message", () => {
       },
     });
     getOwnedSessionMetadata.mockResolvedValue(ok(activeSession));
-    listOwnedSessionMessages.mockResolvedValue(ok([existingMessage]));
+    listRecentOwnedSessionMessages.mockResolvedValue(ok([existingMessage]));
     listNewestApprovedSessionSummaryContexts.mockResolvedValue(
       ok([
         {

@@ -1,4 +1,10 @@
-@import "tailwindcss";
+/*
+ * `source("..")` ogranicza wykrywanie klas do `src/`. Bez tego Tailwind skanuje
+ * cały katalog projektu i wyciąga "klasy" z tekstu dokumentacji
+ * (`context/`, `.agents/`) — stąd brały się w bundlu reguły `[file:line]`
+ * i `[tool:pytest]` razem z ostrzeżeniem esbuilda o nieznanej właściwości CSS.
+ */
+@import "tailwindcss" source("..");
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));

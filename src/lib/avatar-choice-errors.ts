@@ -1,11 +1,11 @@
 export const AVATAR_CHOICE_ERROR_PARAM = "avatarError";
 
 const AVATAR_CHOICE_ERROR_MESSAGES = {
-  missing_auth: "Zaloguj sie, zeby wybrac awatara.",
-  invalid_choice: "Ten wybor awatara jest niedostepny. Wybierz jedna z widocznych opcji.",
-  config_unavailable: "Zapisywanie wyboru jest chwilowo niedostepne. Sprobuj ponownie pozniej.",
-  fetch_failed: "Nie udalo sie pobrac zapisanego wyboru. Mozesz sprobowac ponownie za chwile.",
-  save_failed: "Nie udalo sie zapisac wyboru. Sprobuj ponownie za chwile.",
+  missing_auth: "Zaloguj się, żeby wybrać awatara.",
+  invalid_choice: "Ten wybór awatara jest niedostępny. Wybierz jedną z widocznych opcji.",
+  config_unavailable: "Zapisywanie wyboru jest chwilowo niedostępne. Spróbuj ponownie później.",
+  fetch_failed: "Nie udało się pobrać zapisanego wyboru. Możesz spróbować ponownie za chwilę.",
+  save_failed: "Nie udało się zapisać wyboru. Spróbuj ponownie za chwilę.",
 } as const;
 
 export type AvatarChoiceErrorCode = keyof typeof AVATAR_CHOICE_ERROR_MESSAGES;
