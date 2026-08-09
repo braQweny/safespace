@@ -23,6 +23,14 @@ const statusLabels: Record<SessionHistoryListItem["status"], string> = {
   interrupted: "Przerwana",
 };
 
+const statusBadgeClasses: Record<SessionHistoryListItem["status"], string> = {
+  created: "border-line-strong bg-surface-soft text-ink-muted",
+  active: "border-brand-soft bg-surface-hover text-brand",
+  completed: "border-line-accent bg-surface-hover text-brand-deep",
+  expired: "border-line-strong bg-surface-soft text-ink-muted",
+  interrupted: "border-warn-line bg-warn-soft text-warn",
+};
+
 function formatDateTime(timestamp: string | null) {
   if (!timestamp) {
     return "Brak daty";
@@ -113,30 +121,38 @@ function SessionHistoryListItemRow({
       data-history-item={item.id}
       className={cn(
         "rounded-lg border p-4 text-sm leading-6 transition-colors",
-        isSelected ? "border-[#1f6f65] bg-[#f4faf7]" : "border-[#d7e5e0] bg-white",
+        isSelected ? "border-brand bg-canvas" : "border-line bg-surface hover:border-line-accent",
       )}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="font-semibold text-[#10231f]">{formatDateTime(item.startedAt ?? item.createdAt)}</p>
-          <p className="mt-1 text-[#52645f]">
-            {statusLabels[effectiveStatus]} · {getDurationLabel(item)}
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold",
+                statusBadgeClasses[effectiveStatus],
+              )}
+            >
+              {statusLabels[effectiveStatus]}
+            </span>
+            <span className="text-ink-faint text-xs">{getDurationLabel(item)}</span>
+          </div>
+          <p className="text-ink mt-1.5 font-semibold">{formatDateTime(item.startedAt ?? item.createdAt)}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {isActive ? (
             <>
               <div
                 role="timer"
                 aria-label="Pozostały czas sesji"
-                className="inline-flex h-9 min-w-36 items-center justify-center gap-2 rounded-lg border border-[#bfd8d1] bg-[#f8fcfa] px-3 text-sm font-semibold text-[#173f39]"
+                className="border-brand-soft bg-surface-soft text-brand-deep inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold tabular-nums"
               >
-                <Clock aria-hidden="true" className="h-4 w-4 text-[#1f6f65]" />
+                <Clock aria-hidden="true" className="text-brand h-4 w-4" />
                 Pozostało {formatRemainingTime(remainingSeconds)}
               </div>
               <a
                 href={getActiveSessionHref(item.id)}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-3 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+                className="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
               >
                 <PlayCircle aria-hidden="true" className="h-4 w-4" />
                 Wróć do sesji
@@ -148,26 +164,27 @@ function SessionHistoryListItemRow({
             onClick={() => {
               onOpenDetail(item.id);
             }}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-3 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+            className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
           >
             <MessageSquareText aria-hidden="true" className="h-4 w-4" />
             Otwórz
           </button>
           <button
             type="button"
+            aria-label="Usuń rozmowę"
+            title="Usuń rozmowę"
             onClick={() => {
               onRequestDelete(item.id);
             }}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#e2b8b8] bg-white px-3 text-sm font-medium text-[#7d2d2d] transition-colors hover:bg-[#fff8f8] focus:ring-2 focus:ring-[#c46d6d] focus:outline-none"
+            className="text-ink-faint hover:border-danger-line hover:bg-danger-soft hover:text-danger focus:ring-danger-strong inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition-colors focus:ring-2 focus:outline-none"
           >
             <Trash2 aria-hidden="true" className="h-4 w-4" />
-            Usuń
           </button>
         </div>
       </div>
 
       {isConfirming ? (
-        <div className="mt-4 rounded-lg border border-[#edd3a1] bg-[#fffaf0] p-4 text-sm leading-6 text-[#654b16]">
+        <div className="border-warn-line bg-warn-soft text-warn mt-4 rounded-lg border p-4 text-sm leading-6">
           <p className="font-semibold">Potwierdź usunięcie rozmowy</p>
           <p className="mt-1">
             Usunięcie jest nieodwracalne. Treść rozmowy zostanie usunięta i nie przywraca darmowej próby.
@@ -178,7 +195,7 @@ function SessionHistoryListItemRow({
               onClick={() => {
                 onCancelDelete();
               }}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d7c38d] bg-white px-3 text-sm font-medium text-[#654b16] transition-colors hover:bg-[#fff6df] focus:ring-2 focus:ring-[#d6af53] focus:outline-none"
+              className="border-warn-line text-warn hover:bg-warn-soft focus:ring-warn-strong inline-flex h-9 items-center justify-center rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
             >
               Anuluj
             </button>
@@ -188,7 +205,7 @@ function SessionHistoryListItemRow({
               onClick={() => {
                 onConfirmDelete(item.id);
               }}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#7d2d2d] px-3 text-sm font-medium text-white transition-colors hover:bg-[#6b2424] focus:ring-2 focus:ring-[#c46d6d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#caa0a0]"
+              className="bg-danger hover:bg-danger focus:ring-danger-strong disabled:bg-danger-line inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
             >
               {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
               Potwierdź usunięcie

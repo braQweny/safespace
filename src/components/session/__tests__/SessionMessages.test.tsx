@@ -48,7 +48,9 @@ describe("SessionMessages", () => {
     );
 
     expect(html).toContain("Wiadomość wysłana przed odpowiedzią.");
-    expect(html).toContain(">Ty<");
+    // Dymek użytkownika jest rozpoznawalny wizualnie po stronie i kolorze, a dla
+    // czytników ekranu po ukrytej etykiecie autora.
+    expect(html).toContain('class="sr-only">Ty: <');
     expect(html).not.toContain("Pierwsza wiadomość może być krótka");
   });
 

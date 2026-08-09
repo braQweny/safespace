@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { CircleStop, FileText, History, PlayCircle, ShieldCheck } from "lucide-react";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
-import type { SessionStartPageState, SessionStartPageStateKind } from "@/lib/session-flow/session-state";
+import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
+import { cn } from "@/lib/utils";
 import SessionComposer from "./SessionComposer";
 import SessionMessages from "./SessionMessages";
 import SessionSafetyNotice from "./SessionSafetyNotice";
@@ -46,6 +47,27 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
 };
 
+const BOUNDARIES_COPY =
+  "SafeSpace jest symulacją rozmowy edukacyjnej. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.";
+
+const PERSPECTIVE_COPY =
+  "Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które sam zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.";
+
+function getSessionTotalSeconds(session: SessionView | null) {
+  if (!session?.startedAt || !session.expiresAt) {
+    return null;
+  }
+
+  const startedAtMs = Date.parse(session.startedAt);
+  const expiresAtMs = Date.parse(session.expiresAt);
+
+  if (!Number.isFinite(startedAtMs) || !Number.isFinite(expiresAtMs) || expiresAtMs <= startedAtMs) {
+    return null;
+  }
+
+  return Math.round((expiresAtMs - startedAtMs) / 1000);
+}
+
 export default function TimedSession({ initialState }: TimedSessionProps) {
   const { state, composerAvailable, handleExpired, setDraft, startSession, sendMessage, endSession } =
     useTimedSession(initialState);
@@ -53,192 +75,243 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const canEndSession = kind === "active" && session?.status === "active";
   const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
+  const avatar = initialState.avatar.selected;
+  // Gdy istnieje sesja, strona zachowuje się jak komunikator: nagłówek i pole
+  // wpisywania są przypięte, a przewija się wyłącznie zapis rozmowy.
+  const isChatLayout = Boolean(session);
+
+  const startAction =
+    kind === "ready" || kind === "followup_ready" ? (
+      <button
+        type="button"
+        onClick={() => {
+          void startSession();
+        }}
+        disabled={isStarting}
+        className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
+      >
+        <PlayCircle aria-hidden="true" className="h-4 w-4" />
+        {isStarting
+          ? "Start..."
+          : kind === "followup_ready"
+            ? initialState.approvedSummaries.length > 0
+              ? "Rozpocznij kolejną sesję z kontekstem"
+              : "Rozpocznij kolejną sesję bez kontekstu"
+            : "Rozpocznij pierwszą darmową sesję"}
+      </button>
+    ) : null;
+
+  const contextPanel =
+    kind === "followup_ready" ? (
+      <div className="border-line-strong bg-surface-soft text-ink-soft rounded-lg border p-4 text-sm leading-6">
+        <div className="flex items-start gap-3">
+          <FileText aria-hidden="true" className="text-brand mt-1 h-4 w-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-ink font-semibold">Kontekst pokazany przed startem</p>
+            {initialState.approvedSummaries.length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {initialState.approvedSummaries.slice(0, 3).map((summary, index) => (
+                  <div key={summary.id} className="border-line bg-surface rounded-lg border p-3">
+                    <p className="text-brand text-xs font-semibold tracking-wide uppercase">Podsumowanie {index + 1}</p>
+                    <p className="text-ink mt-2 whitespace-pre-wrap">{summary.summaryText}</p>
+                  </div>
+                ))}
+                <p className="text-ink-muted">
+                  Tylko te zatwierdzone, widoczne podsumowania mogą zostać przekazane do kolejnej rozmowy.
+                </p>
+              </div>
+            ) : (
+              <p className="text-ink-muted mt-2">
+                Nie ma zatwierdzonych podsumowań. Start bez kontekstu jest możliwy tylko przez poniższy jawny przycisk.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   return (
-    <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <section className="rounded-lg border border-[#c8ddd7] bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)]">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[#1f6f65]">{stateCopy[kind].title}</p>
-            <h2 className="mt-2 text-2xl font-semibold text-[#10231f]">{initialState.avatar.selected.avatarName}</h2>
-            <p className="mt-1 text-base font-medium text-[#1f6f65]">{initialState.avatar.selected.modalityName}</p>
-          </div>
-          {canEndSession ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <SessionTimer
-                key={session.id}
-                expiresAt={session.expiresAt}
-                initialRemainingSeconds={session.remainingSeconds}
-                onExpired={handleExpired}
+    <div
+      className={cn(
+        "mx-auto flex h-full w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8",
+        // W trybie rozmowy wiersz siatki nie może rosnąć ponad ekran — inaczej wysoka
+        // kolumna boczna wypycha pole wpisywania poza widok.
+        isChatLayout ? "lg:grid-rows-[minmax(0,1fr)]" : "overflow-y-auto",
+      )}
+    >
+      <section
+        className={cn(
+          "border-line-strong bg-surface shadow-card flex min-h-0 flex-col overflow-hidden rounded-lg border",
+          // Rozmowa wypełnia ekran; ekrany startowe i podsumowania rosną z treścią.
+          isChatLayout ? "flex-1 lg:h-full" : "lg:self-start",
+        )}
+      >
+        <header className="border-line shrink-0 border-b px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <img
+                src={avatar.assetPath}
+                alt=""
+                width="96"
+                height="96"
+                className="h-11 w-11 shrink-0 rounded-full object-cover lg:hidden"
+                loading="lazy"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  setIsConfirmingEnd(true);
-                }}
-                disabled={isEnding || isMessagePending || isConfirmingEnd}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#d6aaa7] bg-white px-4 text-sm font-semibold text-[#7d2d2d] transition-colors hover:bg-[#fff8f8] focus:ring-2 focus:ring-[#b85c58] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <CircleStop aria-hidden="true" className="h-4 w-4" />
-                {isEnding ? "Kończenie..." : "Zakończ sesję"}
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        {canEndSession && isConfirmingEnd ? (
-          <div
-            role="alertdialog"
-            aria-label="Potwierdź zakończenie sesji"
-            className="mt-4 rounded-lg border border-[#d6aaa7] bg-[#fff8f8] p-4 text-sm leading-6 text-[#7d2d2d]"
-          >
-            <p className="font-semibold">Na pewno zakończyć sesję?</p>
-            <p className="mt-1">Zakończonej rozmowy nie da się wznowić, ale jej zapis pozostanie w historii.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsConfirmingEnd(false);
-                  void endSession();
-                }}
-                disabled={isEnding || isMessagePending}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#a03d3a] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#8a3330] focus:ring-2 focus:ring-[#b85c58] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Zakończ teraz
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsConfirmingEnd(false);
-                }}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#c8ddd7] bg-white px-4 text-sm font-medium text-[#38524b] transition-colors hover:bg-[#f8fcfa] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-              >
-                Wróć do rozmowy
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <p className="mt-4 text-sm leading-6 text-[#52645f]">{stateCopy[kind].body}</p>
-
-        {showHistoryCta ? (
-          <a
-            href="/dashboard"
-            className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-4 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-          >
-            <History aria-hidden="true" className="h-4 w-4" />
-            Przejdź do historii i podsumowania
-          </a>
-        ) : null}
-
-        {notice ? (
-          <div className="mt-5">
-            <SessionSafetyNotice variant={notice.variant} copy={notice.copy} crisisResources={notice.crisisResources} />
-          </div>
-        ) : null}
-
-        {kind === "followup_ready" ? (
-          <div className="mt-5 rounded-lg border border-[#c8ddd7] bg-[#f8fcfa] p-4 text-sm leading-6 text-[#38524b]">
-            <div className="flex items-start gap-3">
-              <FileText aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[#1f6f65]" />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[#10231f]">Kontekst pokazany przed startem</p>
-                {initialState.approvedSummaries.length > 0 ? (
-                  <div className="mt-3 space-y-3">
-                    {initialState.approvedSummaries.slice(0, 3).map((summary, index) => (
-                      <div key={summary.id} className="rounded-lg border border-[#d7e5e0] bg-white p-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#1f6f65] uppercase">
-                          Podsumowanie {index + 1}
-                        </p>
-                        <p className="mt-2 whitespace-pre-wrap text-[#10231f]">{summary.summaryText}</p>
-                      </div>
-                    ))}
-                    <p className="text-[#52645f]">
-                      Tylko te zatwierdzone, widoczne podsumowania mogą zostać przekazane do kolejnej rozmowy.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-[#52645f]">
-                    Nie ma zatwierdzonych podsumowań. Start bez kontekstu jest możliwy tylko przez poniższy jawny
-                    przycisk.
-                  </p>
-                )}
+              <div className="min-w-0">
+                <p className="text-brand text-xs font-medium">{stateCopy[kind].title}</p>
+                <h2 className="text-ink mt-0.5 truncate text-lg font-semibold">{avatar.avatarName}</h2>
+                <p className="text-brand truncate text-sm">{avatar.modalityName}</p>
               </div>
             </div>
+            {canEndSession ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <SessionTimer
+                  key={session.id}
+                  expiresAt={session.expiresAt}
+                  initialRemainingSeconds={session.remainingSeconds}
+                  totalSeconds={getSessionTotalSeconds(session)}
+                  onExpired={handleExpired}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsConfirmingEnd(true);
+                  }}
+                  disabled={isEnding || isMessagePending || isConfirmingEnd}
+                  className="border-danger-line bg-surface text-danger hover:bg-danger-soft focus:ring-danger-strong inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CircleStop aria-hidden="true" className="h-4 w-4" />
+                  {isEnding ? "Kończenie..." : "Zakończ sesję"}
+                </button>
+              </div>
+            ) : null}
           </div>
-        ) : null}
 
-        {kind === "ready" || kind === "followup_ready" ? (
-          <button
-            type="button"
-            onClick={() => {
-              void startSession();
-            }}
-            disabled={isStarting}
-            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9abbb4]"
-          >
-            <PlayCircle aria-hidden="true" className="h-4 w-4" />
-            {isStarting
-              ? "Start..."
-              : kind === "followup_ready"
-                ? initialState.approvedSummaries.length > 0
-                  ? "Rozpocznij kolejną sesję z kontekstem"
-                  : "Rozpocznij kolejną sesję bez kontekstu"
-                : "Rozpocznij pierwszą darmową sesję"}
-          </button>
-        ) : null}
+          {canEndSession && isConfirmingEnd ? (
+            <div
+              role="alertdialog"
+              aria-label="Potwierdź zakończenie sesji"
+              className="border-danger-line bg-danger-soft text-danger mt-4 rounded-lg border p-4 text-sm leading-6"
+            >
+              <p className="font-semibold">Na pewno zakończyć sesję?</p>
+              <p className="mt-1">Zakończonej rozmowy nie da się wznowić, ale jej zapis pozostanie w historii.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsConfirmingEnd(false);
+                    void endSession();
+                  }}
+                  disabled={isEnding || isMessagePending}
+                  className="bg-danger-strong hover:bg-danger focus:ring-danger-strong inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Zakończ teraz
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsConfirmingEnd(false);
+                  }}
+                  className="border-line-strong bg-surface text-ink-soft hover:bg-surface-soft focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                >
+                  Wróć do rozmowy
+                </button>
+              </div>
+            </div>
+          ) : null}
 
-        {session ? (
-          <div className="mt-6">
+          <details className="mt-3 lg:hidden">
+            <summary className="text-brand cursor-pointer list-none text-xs font-medium">
+              Granice rozmowy i perspektywa
+            </summary>
+            <p className="text-ink-muted mt-2 text-xs leading-5">{BOUNDARIES_COPY}</p>
+            <a href="/dashboard/avatar" className="text-brand mt-2 inline-block text-xs font-medium underline">
+              Zmień awatara
+            </a>
+          </details>
+        </header>
+
+        <div className={cn("flex flex-col gap-4 px-5", isChatLayout ? "min-h-0 flex-1 py-4" : "py-5")}>
+          {(!isChatLayout || messages.length === 0) && !notice ? (
+            <p className="text-ink-muted shrink-0 text-sm leading-6">{stateCopy[kind].body}</p>
+          ) : null}
+
+          {notice ? (
+            <div className="max-h-[45%] shrink-0 overflow-y-auto">
+              <SessionSafetyNotice
+                variant={notice.variant}
+                copy={notice.copy}
+                crisisResources={notice.crisisResources}
+              />
+            </div>
+          ) : null}
+
+          {showHistoryCta ? (
+            <a
+              href="/dashboard"
+              className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+            >
+              <History aria-hidden="true" className="h-4 w-4" />
+              Przejdź do historii i podsumowania
+            </a>
+          ) : null}
+
+          {contextPanel}
+          {startAction}
+
+          {session ? (
             <SessionMessages
+              variant="live"
               messages={messages}
               isPending={isMessagePending}
               pendingUserText={pendingUserText}
-              assistantAvatar={initialState.avatar.selected}
+              assistantAvatar={avatar}
             />
-            {kind === "active" ? (
-              <SessionComposer
-                value={draft}
-                isDisabled={!composerAvailable}
-                isPending={isMessagePending}
-                onChange={setDraft}
-                onSubmit={() => {
-                  void sendMessage();
-                }}
-              />
-            ) : null}
+          ) : null}
+        </div>
+
+        {session && kind === "active" ? (
+          <div className="border-line shrink-0 border-t px-5 py-4">
+            <SessionComposer
+              value={draft}
+              isDisabled={!composerAvailable}
+              isPending={isMessagePending}
+              onChange={setDraft}
+              onSubmit={() => {
+                void sendMessage();
+              }}
+            />
           </div>
         ) : null}
       </section>
 
-      <aside className="rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-5">
+      <aside
+        className={cn(
+          "border-line bg-surface-soft hidden rounded-lg border p-5 lg:block",
+          isChatLayout ? "lg:max-h-full lg:overflow-y-auto" : "lg:sticky lg:top-0 lg:self-start",
+        )}
+      >
         <img
-          src={initialState.avatar.selected.assetPath}
-          alt={initialState.avatar.selected.altText}
+          src={avatar.assetPath}
+          alt={avatar.altText}
           width="384"
           height="384"
           className="aspect-square w-full rounded-lg object-cover"
           loading="lazy"
         />
-        <p className="mt-4 text-sm leading-6 text-[#52645f]">
-          Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które sam
-          zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.
-        </p>
-        <div className="mt-5 border-t border-[#d7e5e0] pt-4 text-sm leading-6 text-[#52645f]">
+        <p className="text-ink-muted mt-4 text-sm leading-6">{PERSPECTIVE_COPY}</p>
+        <div className="border-line text-ink-muted mt-5 border-t pt-4 text-sm leading-6">
           <div className="flex items-start gap-3">
-            <ShieldCheck aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[#1f6f65]" />
+            <ShieldCheck aria-hidden="true" className="text-brand mt-1 h-4 w-4 shrink-0" />
             <div>
-              <p className="font-semibold text-[#10231f]">Granice rozmowy</p>
-              <p className="mt-1">
-                SafeSpace jest symulacją rozmowy edukacyjnej. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim
-                zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.
-              </p>
+              <p className="text-ink font-semibold">Granice rozmowy</p>
+              <p className="mt-1">{BOUNDARIES_COPY}</p>
             </div>
           </div>
         </div>
         <a
           href="/dashboard/avatar"
-          className="mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-4 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+          className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring mt-4 inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
         >
           Zmień awatara
         </a>

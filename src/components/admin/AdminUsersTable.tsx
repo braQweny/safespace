@@ -47,7 +47,7 @@ function getStatusLabel(user: AdminUserListItem) {
 
 function ErrorNotice({ code }: { code: AdminApiFailureCode }) {
   return (
-    <div className="rounded-lg border border-[#f0c7c7] bg-[#fff8f8] p-4 text-sm text-[#7d2d2d]">
+    <div className="border-danger-line bg-danger-soft text-danger rounded-lg border p-4 text-sm">
       Nie udało się pobrać danych admina. Kod: {code}
     </div>
   );
@@ -73,13 +73,13 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
   return (
     <section className="space-y-4">
       <form
-        className="grid gap-3 rounded-lg border border-[#d7e2df] bg-white p-4 lg:grid-cols-[minmax(0,1fr)_180px_220px_auto]"
+        className="border-line grid gap-3 rounded-lg border bg-white p-4 lg:grid-cols-[minmax(0,1fr)_180px_220px_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           void refreshUsers(1);
         }}
       >
-        <label className="text-sm font-medium text-[#344f48]">
+        <label className="text-ink-soft text-sm font-medium">
           Email
           <input
             type="search"
@@ -88,10 +88,10 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onChange={(event) => {
               setEmailSearch(event.target.value);
             }}
-            className="mt-1 h-10 w-full rounded-md border border-[#b8c9c5] bg-white px-3 text-sm text-[#10231f] outline-none focus:border-[#235d54] focus:ring-2 focus:ring-[#8fbdb4]"
+            className="border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2"
           />
         </label>
-        <label className="text-sm font-medium text-[#344f48]">
+        <label className="text-ink-soft text-sm font-medium">
           Status
           <select
             name="status"
@@ -99,7 +99,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onChange={(event) => {
               setStatus(event.target.value as AdminUserStatusFilter);
             }}
-            className="mt-1 h-10 w-full rounded-md border border-[#b8c9c5] bg-white px-3 text-sm text-[#10231f] outline-none focus:border-[#235d54] focus:ring-2 focus:ring-[#8fbdb4]"
+            className="border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2"
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -108,7 +108,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             ))}
           </select>
         </label>
-        <label className="text-sm font-medium text-[#344f48]">
+        <label className="text-ink-soft text-sm font-medium">
           Sortowanie
           <select
             name="sort"
@@ -116,7 +116,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onChange={(event) => {
               setSort(event.target.value as AdminUserSort);
             }}
-            className="mt-1 h-10 w-full rounded-md border border-[#b8c9c5] bg-white px-3 text-sm text-[#10231f] outline-none focus:border-[#235d54] focus:ring-2 focus:ring-[#8fbdb4]"
+            className="border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2"
           >
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -127,7 +127,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
         </label>
         <button
           type="submit"
-          className="inline-flex h-10 items-center justify-center gap-2 self-end rounded-md bg-[#235d54] px-4 text-sm font-medium text-white transition-colors hover:bg-[#1a4b44] focus:ring-2 focus:ring-[#8fbdb4] focus:outline-none"
+          className="bg-brand-strong focus:ring-line-accent inline-flex h-10 items-center justify-center gap-2 self-end rounded-md px-4 text-sm font-medium text-white transition-colors hover:bg-[#1a4b44] focus:ring-2 focus:outline-none"
         >
           <Search aria-hidden="true" className="size-4" />
           Szukaj
@@ -136,9 +136,9 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
 
       {errorCode ? <ErrorNotice code={errorCode} /> : null}
 
-      <div className="overflow-hidden rounded-lg border border-[#d7e2df] bg-white">
+      <div className="border-line overflow-hidden rounded-lg border bg-white">
         <table className="w-full min-w-[900px] border-collapse text-left text-sm">
-          <thead className="bg-[#edf3f1] text-[#344f48]">
+          <thead className="text-ink-soft bg-[#edf3f1]">
             <tr>
               <th className="px-4 py-3 font-semibold">Email</th>
               <th className="px-4 py-3 font-semibold">Status</th>
@@ -152,7 +152,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
           <tbody>
             {result.users.length === 0 ? (
               <tr>
-                <td className="px-4 py-5 text-[#52645f]" colSpan={7}>
+                <td className="text-ink-muted px-4 py-5" colSpan={7}>
                   Brak użytkowników dla wybranych filtrów.
                 </td>
               </tr>
@@ -162,25 +162,25 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                 const isSelf = user.profile.userId === currentAdminUserId;
 
                 return (
-                  <tr key={user.profile.userId} className="border-t border-[#edf2f0]" data-admin-user-row>
-                    <td className="px-4 py-3 font-medium text-[#10231f]">{user.profile.email}</td>
+                  <tr key={user.profile.userId} className="border-surface-hover border-t" data-admin-user-row>
+                    <td className="text-ink px-4 py-3 font-medium">{user.profile.email}</td>
                     <td className="px-4 py-3">
                       <span
                         className={
                           isBlocked
                             ? "inline-flex rounded-md bg-[#f8e7e7] px-2 py-1 text-xs font-medium text-[#8a3434]"
-                            : "inline-flex rounded-md bg-[#e5f3ee] px-2 py-1 text-xs font-medium text-[#235d54]"
+                            : "text-brand-strong inline-flex rounded-md bg-[#e5f3ee] px-2 py-1 text-xs font-medium"
                         }
                       >
                         {getStatusLabel(user)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#52645f]">{formatDate(user.profile.accountCreatedAt)}</td>
-                    <td className="px-4 py-3 text-[#52645f]">{formatDate(user.profile.lastActivityAt)}</td>
-                    <td className="px-4 py-3 text-[#52645f]">
+                    <td className="text-ink-muted px-4 py-3">{formatDate(user.profile.accountCreatedAt)}</td>
+                    <td className="text-ink-muted px-4 py-3">{formatDate(user.profile.lastActivityAt)}</td>
+                    <td className="text-ink-muted px-4 py-3">
                       {user.counters.totalSessions} razem, {user.counters.activeSessions} aktywne
                     </td>
-                    <td className="px-4 py-3 text-[#52645f]">{user.counters.approvedSummaries}</td>
+                    <td className="text-ink-muted px-4 py-3">{user.counters.approvedSummaries}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {!isBlocked ? (
@@ -189,7 +189,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                             onChange={(event) => {
                               setReason(user.profile.userId, event.target.value as AdminBlockReasonCode);
                             }}
-                            className="h-9 rounded-md border border-[#b8c9c5] bg-white px-2 text-xs text-[#10231f]"
+                            className="border-brand-soft text-ink h-9 rounded-md border bg-white px-2 text-xs"
                           >
                             {REASON_OPTIONS.map((option) => (
                               <option key={option.value} value={option.value}>
@@ -204,7 +204,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                           onClick={() => {
                             void toggleBlock(user);
                           }}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#b8c9c5] bg-white px-3 text-xs font-medium text-[#235d54] transition-colors hover:bg-[#eef4f2] disabled:opacity-50"
+                          className="border-brand-soft text-brand-strong hover:bg-surface-hover inline-flex h-9 items-center justify-center gap-2 rounded-md border bg-white px-3 text-xs font-medium transition-colors disabled:opacity-50"
                         >
                           {isBlocked ? (
                             <RotateCcw aria-hidden="true" className="size-4" />
@@ -223,7 +223,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
         </table>
       </div>
 
-      <div className="flex flex-col gap-3 text-sm text-[#52645f] sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-ink-muted flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span>
           Strona {result.pagination.page}, użytkowników: {result.pagination.totalCount}
         </span>
@@ -234,7 +234,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onClick={() => {
               void refreshUsers(result.pagination.page - 1);
             }}
-            className="h-9 rounded-md border border-[#b8c9c5] bg-white px-3 text-sm font-medium text-[#235d54] disabled:opacity-50"
+            className="border-brand-soft text-brand-strong h-9 rounded-md border bg-white px-3 text-sm font-medium disabled:opacity-50"
           >
             Poprzednia
           </button>
@@ -244,7 +244,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onClick={() => {
               void refreshUsers(result.pagination.page + 1);
             }}
-            className="h-9 rounded-md border border-[#b8c9c5] bg-white px-3 text-sm font-medium text-[#235d54] disabled:opacity-50"
+            className="border-brand-soft text-brand-strong h-9 rounded-md border bg-white px-3 text-sm font-medium disabled:opacity-50"
           >
             Następna
           </button>

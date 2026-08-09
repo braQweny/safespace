@@ -55,7 +55,7 @@ export default function SignUpForm({ serverError }: Props) {
 
   const passwordHint =
     !errors.password && password.length > 0 && password.length < MIN_PASSWORD_LENGTH ? (
-      <p className="mt-1 text-xs text-[#52645f]">Brakuje znaków: {MIN_PASSWORD_LENGTH - password.length}</p>
+      <p className="text-ink-muted mt-1 text-xs">Brakuje znaków: {MIN_PASSWORD_LENGTH - password.length}</p>
     ) : undefined;
 
   return (

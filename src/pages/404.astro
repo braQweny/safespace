@@ -3,14 +3,14 @@ import Layout from "@/layouts/Layout.astro";
 ---
 
 <Layout title="Nie znaleziono strony - SafeSpace" lang="pl">
-  <main class="min-h-screen bg-[#f4faf7] px-4 py-8 text-[#12201d] sm:px-6 lg:px-8">
+  <main class="bg-canvas text-ink min-h-screen px-4 py-8 sm:px-6 lg:px-8">
     <section class="mx-auto flex min-h-[calc(100vh-64px)] max-w-2xl items-center">
       <div
-        class="w-full rounded-lg border border-[#c8ddd7] bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
+        class="border-line-strong w-full rounded-lg border bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
       >
-        <p class="text-sm font-medium text-[#1f6f65]">SafeSpace</p>
-        <h1 class="mt-3 text-2xl font-semibold text-[#10231f]">Nie znaleźliśmy tej strony</h1>
-        <p class="mt-4 text-sm leading-6 text-[#52645f]">
+        <p class="text-brand text-sm font-medium">SafeSpace</p>
+        <h1 class="text-ink mt-3 text-2xl font-semibold">Nie znaleźliśmy tej strony</h1>
+        <p class="text-ink-muted mt-4 text-sm leading-6">
           Adres, który próbujesz otworzyć, nie istnieje albo został przeniesiony. Sprawdź link lub wróć na stronę
           główną.
         </p>
@@ -18,13 +18,13 @@ import Layout from "@/layouts/Layout.astro";
         <div class="mt-6 flex flex-wrap gap-3">
           <a
             href="/"
-            class="inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+            class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
           >
             Wróć na stronę główną
           </a>
           <a
             href="/dashboard"
-            class="inline-flex h-11 items-center justify-center rounded-lg border border-[#c8ddd7] bg-white px-5 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef7f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+            class="border-line-strong text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg border bg-white px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
           >
             Przejdź do panelu
           </a>

@@ -45,21 +45,21 @@ export default function SessionHistoryDetailPanel({
   const detailMessages = useMemo(() => (detail ? toUiMessages(detail) : []), [detail]);
 
   return (
-    <aside className="rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4">
-      <p className="text-sm font-semibold text-[#10231f]">Podgląd tylko do odczytu</p>
-      <p className="mt-1 text-sm leading-6 text-[#52645f]">
+    <aside className="border-line bg-surface-soft rounded-lg border p-4">
+      <p className="text-ink text-sm font-semibold">Podgląd tylko do odczytu</p>
+      <p className="text-ink-muted mt-1 text-sm leading-6">
         Ten widok nie pozwala wysyłać wiadomości, ponawiać odpowiedzi ani restartować czasu sesji.
       </p>
 
       {detailStatus === "loading" ? (
-        <div className="mt-4 flex min-h-32 items-center justify-center rounded-lg border border-[#d7e5e0] bg-white text-sm text-[#52645f]">
+        <div className="border-line text-ink-muted mt-4 flex min-h-32 items-center justify-center rounded-lg border bg-white text-sm">
           <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
           Ładowanie rozmowy
         </div>
       ) : null}
 
       {detailStatus === "error" ? (
-        <div className="mt-4 rounded-lg border border-[#f0c7c7] bg-[#fff8f8] p-4 text-sm leading-6 text-[#7d2d2d]">
+        <div className="border-danger-line bg-danger-soft text-danger mt-4 rounded-lg border p-4 text-sm leading-6">
           Nie udało się otworzyć tej rozmowy.
         </div>
       ) : null}
@@ -83,7 +83,7 @@ export default function SessionHistoryDetailPanel({
           </div>
         </div>
       ) : detailStatus === "idle" ? (
-        <div className="mt-4 rounded-lg border border-[#d7e5e0] bg-white p-4 text-sm leading-6 text-[#52645f]">
+        <div className="border-line text-ink-muted mt-4 rounded-lg border bg-white p-4 text-sm leading-6">
           Otwórz rozmowę z listy, żeby zobaczyć pełny zapis tylko do odczytu.
         </div>
       ) : null}

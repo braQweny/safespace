@@ -245,7 +245,6 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
 
   return (
     <form
-      className="mt-4"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
@@ -271,11 +270,13 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
           onSubmit();
         }}
         placeholder="Napisz, od czego chcesz zacząć..."
-        className="min-h-28 w-full resize-y rounded-lg border border-[#bfd8d1] bg-white px-4 py-3 text-sm leading-6 text-[#12201d] transition-colors outline-none placeholder:text-[#84958f] focus:border-[#2d8a7d] focus:ring-2 focus:ring-[#2d8a7d]/25 disabled:cursor-not-allowed disabled:bg-[#edf4f1]"
+        className="border-brand-soft bg-surface text-ink placeholder:text-ink-faint focus:border-brand-ring focus:ring-brand-ring/25 disabled:bg-surface-hover min-h-24 w-full resize-y rounded-lg border px-4 py-3 text-sm leading-6 transition-colors outline-none focus:ring-2 disabled:cursor-not-allowed"
       />
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-[#62756f]">
-          {trimmedValue.length}/{SESSION_MESSAGE_MAX_CHARS}
+        <p className="text-ink-faint text-xs">
+          {trimmedValue.length > SESSION_MESSAGE_MAX_CHARS * 0.8
+            ? `${trimmedValue.length}/${SESSION_MESSAGE_MAX_CHARS}`
+            : "Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła."}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -290,7 +291,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
 
               void startRecording();
             }}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#9cc9c0] bg-white px-4 text-sm font-medium text-[#1f6f65] transition-colors hover:border-[#2d8a7d] hover:bg-[#edf8f5] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:border-[#c8d9d5] disabled:text-[#8ba39d]"
+            className="border-line-accent text-brand hover:border-brand-ring hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-lg border bg-white px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:border-[#c8d9d5] disabled:text-[#8ba39d]"
           >
             {dictationStatus === "recording" ? (
               <Square aria-hidden="true" className="h-4 w-4 fill-current" />
@@ -304,7 +305,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
           <button
             type="submit"
             disabled={!canSubmit}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9abbb4]"
+            className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
           >
             {isPending ? (
               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -316,7 +317,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
         </div>
       </div>
       {(dictationStatusCopy !== null || dictationError !== null) && (
-        <p className="mt-2 text-xs text-[#62756f]" role={dictationError ? "alert" : "status"}>
+        <p className="text-ink-faint mt-2 text-xs" role={dictationError ? "alert" : "status"}>
           {dictationError ?? dictationStatusCopy}
         </p>
       )}

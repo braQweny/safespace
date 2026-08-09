@@ -12,14 +12,14 @@ interface SessionSafetyNoticeProps {
 
 function getVariantClasses(variant: NoticeVariant) {
   if (variant === "hard_stop") {
-    return "border-[#f0c7c7] bg-[#fff8f8] text-[#7d2d2d]";
+    return "border-danger-line bg-danger-soft text-danger";
   }
 
   if (variant === "retry") {
-    return "border-[#edd3a1] bg-[#fffaf0] text-[#654b16]";
+    return "border-warn-line bg-warn-soft text-warn";
   }
 
-  return "border-[#bfd8d1] bg-[#f8fcfa] text-[#38524b]";
+  return "border-brand-soft bg-surface-soft text-ink-soft";
 }
 
 function NoticeIcon({ variant }: { variant: NoticeVariant }) {

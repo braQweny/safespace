@@ -19,9 +19,9 @@ function formatCount(count: PrivacySafeCount | number) {
 
 function StatTile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <section className="rounded-lg border border-[#d7e2df] bg-white p-4">
+    <section className="border-line rounded-lg border bg-white p-4">
       <p className="text-sm font-medium text-[#5a6d68]">{label}</p>
-      <p className="mt-2 text-3xl font-semibold text-[#10231f]">{value}</p>
+      <p className="text-ink mt-2 text-3xl font-semibold">{value}</p>
       {note ? <p className="mt-2 text-sm leading-5 text-[#6a7b76]">{note}</p> : null}
     </section>
   );
@@ -44,32 +44,32 @@ export default function AdminOverview({ metrics }: AdminOverviewProps) {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="rounded-lg border border-[#d7e2df] bg-white p-4">
-          <h2 className="text-base font-semibold text-[#10231f]">Statusy sesji</h2>
+        <div className="border-line rounded-lg border bg-white p-4">
+          <h2 className="text-ink text-base font-semibold">Statusy sesji</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {lifecycleEntries.map(([status, count]) => (
-              <div key={status} className="flex items-center justify-between border-b border-[#edf2f0] py-2">
-                <span className="text-sm text-[#52645f]">{LIFECYCLE_LABELS[status] ?? status}</span>
-                <span className="text-sm font-semibold text-[#10231f]">{formatCount(count)}</span>
+              <div key={status} className="border-surface-hover flex items-center justify-between border-b py-2">
+                <span className="text-ink-muted text-sm">{LIFECYCLE_LABELS[status] ?? status}</span>
+                <span className="text-ink text-sm font-semibold">{formatCount(count)}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="rounded-lg border border-[#d7e2df] bg-white p-4">
-          <h2 className="text-base font-semibold text-[#10231f]">Pozostałe liczniki</h2>
+        <div className="border-line rounded-lg border bg-white p-4">
+          <h2 className="text-ink text-base font-semibold">Pozostałe liczniki</h2>
           <dl className="mt-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-sm text-[#52645f]">Sesje trial</dt>
-              <dd className="text-sm font-semibold text-[#10231f]">{formatCount(metrics.trialSessions)}</dd>
+              <dt className="text-ink-muted text-sm">Sesje trial</dt>
+              <dd className="text-ink text-sm font-semibold">{formatCount(metrics.trialSessions)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-sm text-[#52645f]">Kolejne sesje</dt>
-              <dd className="text-sm font-semibold text-[#10231f]">{formatCount(metrics.followUpSessions)}</dd>
+              <dt className="text-ink-muted text-sm">Kolejne sesje</dt>
+              <dd className="text-ink text-sm font-semibold">{formatCount(metrics.followUpSessions)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-sm text-[#52645f]">Zatwierdzone podsumowania</dt>
-              <dd className="text-sm font-semibold text-[#10231f]">{formatCount(metrics.approvedSummaries)}</dd>
+              <dt className="text-ink-muted text-sm">Zatwierdzone podsumowania</dt>
+              <dd className="text-ink text-sm font-semibold">{formatCount(metrics.approvedSummaries)}</dd>
             </div>
           </dl>
         </div>

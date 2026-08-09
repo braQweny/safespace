@@ -3,6 +3,51 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Paleta SafeSpace. Wcześniej te same wartości były wpisywane jako surowe hexy
+ * w klasach arbitralnych (kilkadziesiąt wariantów tej samej zieleni). Tokeny
+ * trzymają je w jednym miejscu i dają klasy `bg-surface`, `text-ink`, `border-line` itd.
+ */
+@theme {
+  --color-canvas: #f4faf7;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f8fcfa;
+  --color-surface-hover: #eef8f4;
+
+  --color-line: #d7e5e0;
+  --color-line-strong: #c8ddd7;
+  --color-line-accent: #9cc8bc;
+
+  --color-brand: #1f6f65;
+  --color-brand-strong: #185950;
+  --color-brand-deep: #173f39;
+  --color-brand-ring: #2d8a7d;
+  --color-brand-soft: #bfd8d1;
+  --color-brand-disabled: #9abbb4;
+
+  --color-ink: #10231f;
+  --color-ink-soft: #38524b;
+  --color-ink-muted: #52645f;
+  --color-ink-faint: #62756f;
+
+  --color-danger: #7d2d2d;
+  --color-danger-strong: #a03d3a;
+  --color-danger-line: #e2b8b8;
+  --color-danger-soft: #fff8f8;
+
+  --color-warn: #654b16;
+  --color-warn-strong: #a97d1c;
+  --color-warn-line: #edd3a1;
+  --color-warn-soft: #fffaf0;
+
+  --color-speaker: #263952;
+  --color-speaker-line: #c8d4ee;
+  --color-speaker-soft: #f5f8ff;
+
+  --shadow-card: 0 22px 60px rgba(24, 78, 70, 0.12);
+  --shadow-rail: 0 8px 24px rgba(24, 78, 70, 0.08);
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

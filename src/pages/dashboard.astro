@@ -1,15 +1,17 @@
 ---
+import AppHeader from "@/components/AppHeader.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
 import Layout from "@/layouts/Layout.astro";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
+import { listOwnedActiveSessionMetadata } from "@/lib/session-data/repository";
+import type { SessionMetadata } from "@/lib/session-data/types";
 import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-flow/session-history";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 
-const { user } = Astro.locals;
 const avatarUpdated = Astro.url.searchParams.get("avatar") === "updated";
 const queryPage = parseSessionHistoryPage(Astro.url.searchParams.get("page"));
 const initialHistoryPage = queryPage.ok ? queryPage.page : 1;
@@ -76,127 +78,156 @@ if (!initialHistory && sessionContext.ok && currentSelection) {
     page: String(initialHistoryPage),
   });
 }
+
+// Historia celowo pomija rozmowy bez wiadomości, więc trwająca sesja czytana jest osobno.
+let activeSession: SessionMetadata | null = null;
+
+if (sessionContext.ok && currentSelection) {
+  const activeSessions = await listOwnedActiveSessionMetadata(sessionContext.data, {
+    avatarId: currentSelection.avatarId,
+    limit: 1,
+  });
+
+  if (activeSessions.ok) {
+    const nowMs = Date.now();
+    activeSession =
+      activeSessions.data.find((session) => {
+        const expiresAtMs = session.expiresAt ? Date.parse(session.expiresAt) : Number.NaN;
+        return Number.isFinite(expiresAtMs) && expiresAtMs > nowMs;
+      }) ?? null;
+  }
+}
+
+const activeRemainingMinutes = activeSession?.expiresAt
+  ? Math.max(1, Math.ceil((Date.parse(activeSession.expiresAt) - Date.now()) / 60_000))
+  : null;
 ---
 
 <Layout title="Panel - SafeSpace" lang="pl">
-  <main class="min-h-screen bg-[#f4faf7] px-4 py-8 text-[#12201d] sm:px-6 lg:px-8">
-    <section class="mx-auto max-w-5xl">
-      <p class="text-sm font-medium text-[#1f6f65]">SafeSpace</p>
-      <h1 class="mt-3 text-3xl font-semibold text-[#10231f]">Twój panel</h1>
-      <p class="mt-4 max-w-3xl text-base leading-7 text-[#38524b]">
-        Jesteś zalogowany jako <span class="font-semibold text-[#10231f]">{user?.email}</span>. Stąd rozpoczniesz sesję
-        i wrócisz do zapisanych rozmów.
-      </p>
+  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+    <AppHeader current="dashboard" />
 
-      {
-        avatarUpdated ? (
-          <div class="mt-6 rounded-lg border border-[#b9d7cf] bg-white p-4 text-sm leading-6 text-[#1f6f65]">
-            Wybór awatara został zapisany.
-          </div>
-        ) : null
-      }
+    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <section class="mx-auto max-w-6xl">
+        <h1 class="text-ink text-3xl font-semibold">Twój panel</h1>
+        <p class="text-ink-soft mt-3 max-w-3xl text-base leading-7">
+          Stąd rozpoczniesz sesję i wrócisz do zapisanych rozmów.
+        </p>
 
-      {
-        choiceFetchFailed ? (
-          <div class="mt-6 rounded-lg border border-[#f0c7c7] bg-[#fff8f8] p-4 text-sm leading-6 text-[#7d2d2d]">
-            Nie udało się pobrać zapisanego wyboru. Możesz wrócić do wyboru awatara albo spróbować ponownie za chwilę.
-          </div>
-        ) : null
-      }
+        {
+          avatarUpdated ? (
+            <div class="border-line-accent bg-surface text-brand mt-6 rounded-lg border p-4 text-sm leading-6">
+              Wybór awatara został zapisany.
+            </div>
+          ) : null
+        }
 
-      <div class="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section class="rounded-lg border border-[#c8ddd7] bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)]">
-          {
-            currentSelection ? (
-              <div class="grid gap-5 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-center">
-                <img
-                  src={currentSelection.assetPath}
-                  alt={currentSelection.altText}
-                  width="384"
-                  height="384"
-                  class="aspect-square w-full max-w-40 rounded-lg object-cover"
-                  loading="lazy"
-                />
-                <div>
-                  <p class="text-sm font-medium text-[#1f6f65]">Wybrany awatar</p>
-                  <h2 class="mt-2 text-2xl font-semibold text-[#10231f]">{currentSelection.avatarName}</h2>
-                  <p class="mt-2 text-base font-medium text-[#1f6f65]">{currentSelection.modalityName}</p>
-                  <p class="mt-4 text-sm leading-6 text-[#52645f]">
-                    Ten wybór będzie zapisany przy pierwszej 15-minutowej sesji. Samo wejście na stronę sesji nie zużywa
-                    darmowej próby.
-                  </p>
-                  <div class="mt-5 flex flex-col gap-3 sm:flex-row">
-                    <a
-                      href="/dashboard/session"
-                      class="inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-                    >
-                      Przejdź do sesji
-                    </a>
-                    <a
-                      href="/dashboard/avatar"
-                      class="inline-flex h-11 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-5 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-                    >
-                      Zmień awatara
-                    </a>
+        {
+          choiceFetchFailed ? (
+            <div class="border-danger-line bg-danger-soft text-danger mt-6 rounded-lg border p-4 text-sm leading-6">
+              Nie udało się pobrać zapisanego wyboru. Możesz wrócić do wyboru awatara albo spróbować ponownie za chwilę.
+            </div>
+          ) : null
+        }
+
+        <div class="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <section class="border-line-strong bg-surface shadow-card rounded-lg border p-6">
+            {
+              currentSelection ? (
+                <div class="grid gap-5 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-center">
+                  <img
+                    src={currentSelection.assetPath}
+                    alt={currentSelection.altText}
+                    width="384"
+                    height="384"
+                    class="aspect-square w-full max-w-40 rounded-lg object-cover"
+                    loading="lazy"
+                  />
+                  <div>
+                    <p class="text-brand text-sm font-medium">Wybrany awatar</p>
+                    <h2 class="text-ink mt-2 text-2xl font-semibold">{currentSelection.avatarName}</h2>
+                    <p class="text-brand mt-2 text-base font-medium">{currentSelection.modalityName}</p>
+                    <p class="text-ink-muted mt-4 text-sm leading-6">
+                      Ten wybór będzie zapisany przy pierwszej 15-minutowej sesji. Samo wejście na stronę sesji nie
+                      zużywa darmowej próby.
+                    </p>
+                    <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+                      <a
+                        href="/dashboard/session"
+                        class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                      >
+                        Przejdź do sesji
+                      </a>
+                      <a
+                        href="/dashboard/avatar"
+                        class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg border px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                      >
+                        Zmień awatara
+                      </a>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <p class="text-sm font-medium text-[#1f6f65]">Następny krok</p>
-                <h2 class="mt-2 text-2xl font-semibold text-[#10231f]">Wybierz awatara przed pierwszą sesją</h2>
-                <p class="mt-4 text-sm leading-6 text-[#52645f]">
-                  Awatar reprezentuje edukacyjną perspektywę przyszłej symulacji rozmowy. Wybór nie uruchamia jeszcze
-                  sesji ani nie zastępuje konsultacji ze specjalistą.
+              ) : (
+                <div>
+                  <p class="text-brand text-sm font-medium">Następny krok</p>
+                  <h2 class="text-ink mt-2 text-2xl font-semibold">Wybierz awatara przed pierwszą sesją</h2>
+                  <p class="text-ink-muted mt-4 text-sm leading-6">
+                    Awatar reprezentuje edukacyjną perspektywę przyszłej symulacji rozmowy. Wybór nie uruchamia jeszcze
+                    sesji ani nie zastępuje konsultacji ze specjalistą.
+                  </p>
+                  <a
+                    href="/dashboard/avatar"
+                    class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                  >
+                    Wybierz awatara
+                  </a>
+                </div>
+              )
+            }
+          </section>
+
+          {
+            activeSession ? (
+              <aside class="border-brand-soft bg-surface-soft rounded-lg border p-5">
+                <p class="text-brand flex items-center gap-2 text-sm font-semibold">
+                  <span aria-hidden="true" class="bg-brand h-2 w-2 rounded-full" />
+                  Rozmowa w toku
+                </p>
+                <p class="text-ink-muted mt-2 text-sm leading-6">
+                  {activeRemainingMinutes
+                    ? `Masz otwartą sesję — zostało jeszcze około ${activeRemainingMinutes} min.`
+                    : "Masz otwartą sesję z limitem czasu. Wróć do niej, zanim czas się skończy."}
                 </p>
                 <a
-                  href="/dashboard/avatar"
-                  class="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
+                  href={`/dashboard/session?sessionId=${encodeURIComponent(activeSession.id)}`}
+                  class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-4 inline-flex h-11 w-full items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
                 >
-                  Wybierz awatara
+                  Wróć do rozmowy
                 </a>
-              </div>
+              </aside>
+            ) : (
+              <aside class="border-line bg-surface-soft rounded-lg border p-5">
+                <h2 class="text-brand-deep text-base font-semibold">Co dalej</h2>
+                <p class="text-ink-muted mt-2 text-sm leading-6">
+                  Jeśli awatar jest zapisany, możesz przejść do strony sesji i rozpocząć jedną darmową 15-minutową próbę
+                  świadomym kliknięciem startu.
+                </p>
+              </aside>
             )
           }
-        </section>
+        </div>
 
-        <aside class="rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-5">
-          <h2 class="text-base font-semibold text-[#173f39]">Co dalej</h2>
-          <p class="mt-2 text-sm leading-6 text-[#52645f]">
-            Jeśli awatar jest zapisany, możesz przejść do strony sesji i rozpocząć jedną darmową 15-minutową próbę
-            świadomym kliknięciem startu.
-          </p>
-        </aside>
-      </div>
-
-      {
-        currentSelection ? (
-          <DashboardSessionHistory
-            client:load
-            selectedAvatar={currentSelection}
-            initialHistoryPage={initialHistoryPage}
-            initialHistory={initialHistory}
-          />
-        ) : null
-      }
-
-      <div class="mt-6 flex flex-col gap-3 sm:flex-row">
-        <a
-          href="/account/security"
-          class="inline-flex h-11 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-5 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-        >
-          Ustaw hasło
-        </a>
-
-        <form method="POST" action="/api/auth/signout">
-          <button
-            type="submit"
-            class="inline-flex h-11 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white px-5 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none"
-          >
-            Wyloguj się
-          </button>
-        </form>
-      </div>
-    </section>
-  </main>
+        {
+          currentSelection ? (
+            <DashboardSessionHistory
+              client:load
+              selectedAvatar={currentSelection}
+              initialHistoryPage={initialHistoryPage}
+              initialHistory={initialHistory}
+            />
+          ) : null
+        }
+      </section>
+    </main>
+  </div>
 </Layout>

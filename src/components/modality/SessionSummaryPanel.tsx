@@ -37,51 +37,51 @@ export default function SessionSummaryPanel({
   const summaryIsBusy = summaryStatus !== "idle";
 
   return (
-    <div className="rounded-lg border border-[#c8ddd7] bg-white p-4 text-sm leading-6 text-[#38524b]">
+    <div className="border-line-strong text-ink-soft rounded-lg border bg-white p-4 text-sm leading-6">
       <div className="flex items-start gap-3">
-        <FileText aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[#1f6f65]" />
+        <FileText aria-hidden="true" className="text-brand mt-1 h-4 w-4 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-[#10231f]">Podsumowanie do kolejnej sesji</p>
+          <p className="text-ink font-semibold">Podsumowanie do kolejnej sesji</p>
           {summaryState.kind === "none" ? (
-            <p className="mt-1 text-[#52645f]">
+            <p className="text-ink-muted mt-1">
               Brak zatwierdzonego podsumowania dla tej rozmowy. Kontekst kolejnej sesji powstanie dopiero po
               wygenerowaniu wersji roboczej i jej świadomym zatwierdzeniu.
             </p>
           ) : null}
           {summaryState.kind !== "none" ? (
-            <div className="mt-3 rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-3">
-              <p className="text-xs font-semibold tracking-wide text-[#1f6f65] uppercase">
+            <div className="border-line bg-surface-soft mt-3 rounded-lg border p-3">
+              <p className="text-brand text-xs font-semibold tracking-wide uppercase">
                 {summaryState.kind === "approved"
                   ? "Zatwierdzone"
                   : summaryState.kind === "stale"
                     ? "Nieaktualne"
                     : "Wersja robocza do zatwierdzenia"}
               </p>
-              <p className="mt-2 whitespace-pre-wrap text-[#10231f]">{summaryState.summary.summaryText}</p>
+              <p className="text-ink mt-2 whitespace-pre-wrap">{summaryState.summary.summaryText}</p>
               {summaryState.kind === "approved" ? (
-                <p className="mt-2 text-[#52645f]">
+                <p className="text-ink-muted mt-2">
                   To podsumowanie może zostać użyte jako jawny kontekst późniejszej rozmowy.
                 </p>
               ) : null}
               {summaryState.kind === "preview" ? (
-                <p className="mt-2 text-[#52645f]">
+                <p className="text-ink-muted mt-2">
                   Zobacz treść przed użyciem. Dopiero przycisk „Użyj w kolejnej sesji” pozwoli użyć tej wersji jako
                   kontekstu.
                 </p>
               ) : null}
               {summaryState.kind === "stale" ? (
-                <p className="mt-2 text-[#52645f]">Ta wersja nie będzie używana jako kontekst kolejnej sesji.</p>
+                <p className="text-ink-muted mt-2">Ta wersja nie będzie używana jako kontekst kolejnej sesji.</p>
               ) : null}
             </div>
           ) : null}
           {summaryErrorCode ? (
-            <div className="mt-3 flex gap-2 rounded-lg border border-[#f0c7c7] bg-[#fff8f8] p-3 text-[#7d2d2d]">
+            <div className="border-danger-line bg-danger-soft text-danger mt-3 flex gap-2 rounded-lg border p-3">
               <AlertCircle aria-hidden="true" className="mt-1 h-4 w-4 shrink-0" />
               <p>{summaryErrorCopy[summaryErrorCode]}</p>
             </div>
           ) : null}
           {!canSummarize ? (
-            <p className="mt-3 text-[#52645f]">Aktywne albo puste rozmowy nie mogą zostać podsumowane.</p>
+            <p className="text-ink-muted mt-3">Aktywne albo puste rozmowy nie mogą zostać podsumowane.</p>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -90,7 +90,7 @@ export default function SessionSummaryPanel({
               onClick={() => {
                 onGenerate();
               }}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-3 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
               {summaryStatus === "generating" ? (
                 <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -105,7 +105,7 @@ export default function SessionSummaryPanel({
               onClick={() => {
                 onApprove();
               }}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-3 text-sm font-medium text-white transition-colors hover:bg-[#185a52] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9bb9b3]"
+              className="bg-brand focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-white transition-colors hover:bg-[#185a52] focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9bb9b3]"
             >
               {summaryStatus === "approving" ? (
                 <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />

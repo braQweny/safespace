@@ -5,21 +5,21 @@ const { user } = Astro.locals;
 ---
 
 <div
-  class="mb-4 flex flex-col gap-3 rounded-lg border border-[#d3e7e1] bg-white/80 px-4 py-3 text-sm text-[#344f48] shadow-sm sm:flex-row sm:items-center sm:justify-between"
+  class="text-ink-soft mb-4 flex flex-col gap-3 rounded-lg border border-[#d3e7e1] bg-white/80 px-4 py-3 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between"
 >
   {
     user ? (
       <>
-        <span class="break-all text-[#52645f]">Zalogowano w SafeSpace: {user.email}</span>
+        <span class="text-ink-muted break-all">Zalogowano w SafeSpace: {user.email}</span>
         <div class="flex flex-wrap items-center gap-3">
           <a
             href={AUTHENTICATED_REDIRECT_PATH}
-            class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline"
+            class="text-brand hover:text-brand-strong transition-colors hover:underline"
           >
             Przejdź do panelu
           </a>
           <form method="POST" action="/api/auth/signout">
-            <button type="submit" class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline">
+            <button type="submit" class="text-brand hover:text-brand-strong transition-colors hover:underline">
               Wyloguj się
             </button>
           </form>
@@ -27,12 +27,12 @@ const { user } = Astro.locals;
       </>
     ) : (
       <>
-        <span class="text-[#52645f]">Gość - konto będzie wymagane przed darmową sesją</span>
+        <span class="text-ink-muted">Gość - konto będzie wymagane przed darmową sesją</span>
         <div class="flex flex-wrap gap-3">
-          <a href="/auth/signin" class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline">
+          <a href="/auth/signin" class="text-brand hover:text-brand-strong transition-colors hover:underline">
             Zaloguj się
           </a>
-          <a href="/auth/signup" class="text-[#1f6f65] transition-colors hover:text-[#164e47] hover:underline">
+          <a href="/auth/signup" class="text-brand hover:text-brand-strong transition-colors hover:underline">
             Utwórz konto
           </a>
         </div>

@@ -18,8 +18,8 @@ interface AvatarChoiceFormProps {
 }
 
 const cardAccentClasses: Record<ModalityId, string> = {
-  psychodynamic: "border-[#b9d7cf] bg-[#f7fbfa]",
-  cbt: "border-[#c8d4ee] bg-[#f8faff]",
+  psychodynamic: "border-line-accent bg-[#f7fbfa]",
+  cbt: "border-speaker-line bg-speaker-soft",
   humanistic_experiential: "border-[#edcbd1] bg-[#fff9f8]",
   systemic: "border-[#c5dfe5] bg-[#f7fcfd]",
   integrative: "border-[#d8cfea] bg-[#fbf9ff]",
@@ -65,7 +65,7 @@ export default function AvatarChoiceForm({
   return (
     <div className="mt-8">
       <form method="POST" action="/api/profile/avatar">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {modalities.map((modality) => {
             const isSelected = modality.modalityId === selectedModalityId;
 
@@ -73,9 +73,11 @@ export default function AvatarChoiceForm({
               <label
                 key={modality.modalityId}
                 className={cn(
-                  "relative flex min-h-[530px] cursor-pointer flex-col rounded-lg border-2 p-4 transition-colors focus-within:ring-2 focus-within:ring-[#2d8a7d] focus-within:outline-none has-[:checked]:border-[#1f6f65] has-[:checked]:shadow-[0_16px_36px_rgba(31,111,101,0.18)]",
+                  "focus-within:ring-brand-ring relative flex h-full cursor-pointer flex-col rounded-lg border-2 p-4 transition-all focus-within:ring-2 focus-within:outline-none",
                   cardAccentClasses[modality.modalityId],
-                  isSelected ? "border-[#1f6f65] shadow-[0_16px_36px_rgba(31,111,101,0.18)]" : "hover:border-[#7fb7ad]",
+                  isSelected
+                    ? "border-brand ring-brand/20 shadow-[0_16px_36px_rgba(31,111,101,0.18)] ring-2"
+                    : "hover:border-line-accent hover:shadow-rail hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
                 )}
               >
                 <input
@@ -89,26 +91,30 @@ export default function AvatarChoiceForm({
                   }}
                   className="peer sr-only"
                 />
-                <span className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1f6f65] opacity-0 shadow-sm transition-opacity peer-checked:opacity-100">
+                <span className="bg-surface text-brand absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full opacity-0 shadow-sm transition-opacity peer-checked:opacity-100">
                   <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
                 </span>
 
-                <img
-                  src={modality.assetPath}
-                  alt={modality.altText}
-                  width="384"
-                  height="384"
-                  loading="lazy"
-                  className="mx-auto aspect-square w-full max-w-40 rounded-lg object-cover"
-                />
+                <div className="flex items-start gap-4">
+                  <img
+                    src={modality.assetPath}
+                    alt={modality.altText}
+                    width="384"
+                    height="384"
+                    loading="lazy"
+                    className="aspect-square w-24 shrink-0 rounded-lg object-cover"
+                  />
+                  <div className="min-w-0 pr-8">
+                    <p className="text-ink text-base font-semibold">{modality.avatarName}</p>
+                    <p className="text-brand mt-1 text-sm leading-5 font-medium">{modality.modalityName}</p>
+                  </div>
+                </div>
 
                 <div className="mt-4 flex flex-1 flex-col">
-                  <p className="text-base font-semibold text-[#10231f]">{modality.avatarName}</p>
-                  <p className="mt-1 min-h-12 text-sm leading-5 font-medium text-[#1f6f65]">{modality.modalityName}</p>
-                  <p className="mt-3 text-sm leading-6 text-[#38524b]">{modality.explanation}</p>
+                  <p className="text-ink-soft text-sm leading-6">{modality.explanation}</p>
                   <div className="mt-auto pt-4">
-                    <p className="text-xs font-semibold tracking-wide text-[#62756f] uppercase">Na czym skupia uwagę</p>
-                    <p className="mt-2 text-sm leading-6 text-[#52645f]">{modality.focus}</p>
+                    <p className="text-ink-faint text-xs font-semibold tracking-wide uppercase">Na czym skupia uwagę</p>
+                    <p className="text-ink-muted mt-2 text-sm leading-6">{modality.focus}</p>
                   </div>
                 </div>
               </label>
@@ -116,25 +122,32 @@ export default function AvatarChoiceForm({
           })}
         </div>
 
-        {selectedModality ? (
-          <div className="mt-5 rounded-lg border border-[#d7e5e0] bg-white p-4 text-sm leading-6 text-[#38524b]">
-            <p className="font-semibold text-[#10231f]">Wybrany awatar: {selectedModality.avatarName}</p>
-            <p className="mt-1">
-              Zapisanie wyboru ustawi perspektywę dla kolejnej sesji. Historia poniżej reaguje już na samo zaznaczenie
-              karty.
+        <div className="border-line-accent bg-surface/95 shadow-rail sticky bottom-4 z-10 mt-5 rounded-lg border p-3 backdrop-blur">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-ink-muted text-sm leading-6">
+              {selectedModality ? (
+                <>
+                  <span className="text-ink font-semibold">Wybrany awatar: {selectedModality.avatarName}</span>
+                  <span className="block text-xs">
+                    Zapisanie wyboru ustawi perspektywę dla kolejnej sesji. Historia poniżej reaguje już na samo
+                    zaznaczenie karty.
+                  </span>
+                </>
+              ) : (
+                "Zaznacz kartę, żeby wybrać perspektywę kolejnej rozmowy."
+              )}
             </p>
+            <button
+              type="submit"
+              disabled={isBrowser && !selectedModality}
+              suppressHydrationWarning
+              className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
+            >
+              <Save aria-hidden="true" className="h-4 w-4" />
+              Zapisz wybór
+            </button>
           </div>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={isBrowser && !selectedModality}
-          suppressHydrationWarning
-          className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1f6f65] px-5 text-sm font-medium text-white transition-colors hover:bg-[#185950] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:bg-[#9abbb4]"
-        >
-          <Save aria-hidden="true" className="h-4 w-4" />
-          Zapisz wybór
-        </button>
+        </div>
       </form>
 
       <AvatarSessionHistory

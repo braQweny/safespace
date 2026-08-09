@@ -12,13 +12,13 @@ const navItems = [
 ] as const;
 ---
 
-<main class="min-h-screen bg-[#f5f7f7] text-[#17211f]">
+<main class="text-ink min-h-screen bg-[#f5f7f7]">
   <header class="border-b border-[#d8e1df] bg-white">
     <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p class="text-sm font-medium text-[#37685f]">SafeSpace Admin</p>
-          <h1 class="mt-1 text-2xl font-semibold text-[#10231f]">{title}</h1>
+          <h1 class="text-ink mt-1 text-2xl font-semibold">{title}</h1>
         </div>
         {adminEmail ? <p class="text-sm break-all text-[#5a6d68]">{adminEmail}</p> : null}
       </div>
@@ -31,8 +31,8 @@ const navItems = [
               class:list={[
                 "inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium transition-colors",
                 active === item.id
-                  ? "border-[#235d54] bg-[#235d54] text-white"
-                  : "border-[#b8c9c5] bg-white text-[#2f6259] hover:bg-[#eef4f2]",
+                  ? "border-brand-strong bg-brand-strong text-white"
+                  : "border-brand-soft hover:bg-surface-hover bg-white text-[#2f6259]",
               ]}
             >
               {item.label}

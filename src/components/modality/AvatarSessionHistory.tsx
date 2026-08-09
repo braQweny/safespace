@@ -10,6 +10,7 @@ import { useSessionDeletion } from "@/components/hooks/useSessionDeletion";
 import { useSessionHistoryDetail } from "@/components/hooks/useSessionHistoryDetail";
 import { useSessionHistoryList } from "@/components/hooks/useSessionHistoryList";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
+import { cn } from "@/lib/utils";
 import SessionHistoryDetailPanel from "./SessionHistoryDetail";
 import SessionHistoryList from "./SessionHistoryList";
 
@@ -121,6 +122,10 @@ export default function AvatarSessionHistory({
   const activePage = history.pagination?.page ?? page;
   const canGoBack = history.pagination?.hasPreviousPage ?? activePage > 1;
   const canGoForward = history.pagination?.hasNextPage ?? false;
+  // Panel podglądu pojawia się dopiero po otwarciu rozmowy — pusta kolumna obok listy
+  // tylko zabierała miejsce.
+  const showDetailPanel = detail !== null || detailStatus === "loading";
+  const showPagination = canGoBack || canGoForward;
   const canSummarizeDetail =
     detail !== null &&
     detail.messages.length > 0 &&
@@ -129,16 +134,14 @@ export default function AvatarSessionHistory({
       detail.session.status === "interrupted");
 
   return (
-    <section className="mt-8 rounded-lg border border-[#c8ddd7] bg-white p-5 shadow-[0_18px_46px_rgba(24,78,70,0.10)]">
+    <section className="border-line-strong mt-8 rounded-lg border bg-white p-5 shadow-[0_18px_46px_rgba(24,78,70,0.10)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-[#1f6f65]">Historia rozmów</p>
-          <h2 className="mt-1 text-xl font-semibold text-[#10231f]">
+          <p className="text-brand text-sm font-medium">Historia rozmów</p>
+          <h2 className="text-ink mt-1 text-xl font-semibold">
             {selectedAvatar ? selectedAvatar.avatarName : "Wybierz awatara"}
           </h2>
-          {selectedAvatar ? (
-            <p className="mt-1 text-sm font-medium text-[#1f6f65]">{selectedAvatar.modalityName}</p>
-          ) : null}
+          {selectedAvatar ? <p className="text-brand mt-1 text-sm font-medium">{selectedAvatar.modalityName}</p> : null}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -147,7 +150,7 @@ export default function AvatarSessionHistory({
               void refreshHistory();
             }}
             disabled={!selectedAvatar || history.status === "loading"}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#9cc8bc] bg-white text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 w-10 items-center justify-center rounded-lg border bg-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Odśwież historię"
             title="Odśwież historię"
           >
@@ -160,43 +163,43 @@ export default function AvatarSessionHistory({
         </div>
       </div>
 
-      <p className="mt-3 text-sm leading-6 text-[#52645f]">
+      <p className="text-ink-muted mt-3 text-sm leading-6">
         Lista pokazuje tylko datę, status i czas trwania. Treść rozmowy pojawia się dopiero po otwarciu szczegółów.
       </p>
 
       {!selectedAvatar ? (
-        <div className="mt-5 rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4 text-sm leading-6 text-[#52645f]">
+        <div className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6">
           Wybierz awatara, żeby zobaczyć zapisane rozmowy dla tej perspektywy.
         </div>
       ) : null}
 
       {notice ? (
-        <div className="mt-5 rounded-lg border border-[#c8ddd7] bg-[#f8fcfa] p-4 text-sm leading-6 text-[#38524b]">
+        <div className="border-line-strong bg-surface-soft text-ink-soft mt-5 rounded-lg border p-4 text-sm leading-6">
           {notice}
         </div>
       ) : null}
 
       {history.status === "error" && history.errorCode ? (
-        <div className="mt-5 rounded-lg border border-[#f0c7c7] bg-[#fff8f8] p-4 text-sm leading-6 text-[#7d2d2d]">
+        <div className="border-danger-line bg-danger-soft text-danger mt-5 rounded-lg border p-4 text-sm leading-6">
           {errorCopy[history.errorCode]}
         </div>
       ) : null}
 
       {history.status === "loading" && history.items.length === 0 && selectedAvatar ? (
-        <div className="mt-5 flex min-h-32 items-center justify-center rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] text-sm text-[#52645f]">
+        <div className="border-line bg-surface-soft text-ink-muted mt-5 flex min-h-32 items-center justify-center rounded-lg border text-sm">
           <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
           Ładowanie historii
         </div>
       ) : null}
 
       {history.status === "ready" && history.items.length === 0 ? (
-        <div className="mt-5 rounded-lg border border-[#d7e5e0] bg-[#f8fcfa] p-4 text-sm leading-6 text-[#52645f]">
+        <div className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6">
           Brak zapisanych rozmów dla tego awatara.
         </div>
       ) : null}
 
       {history.items.length > 0 ? (
-        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
+        <div className={cn("mt-5 grid gap-3", showDetailPanel && "lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]")}>
           <SessionHistoryList
             items={history.items.slice(0, 20)}
             selectedSessionId={detail?.session.id ?? null}
@@ -208,23 +211,25 @@ export default function AvatarSessionHistory({
             onConfirmDelete={handleConfirmDelete}
           />
 
-          <SessionHistoryDetailPanel
-            detail={detail}
-            detailStatus={detailStatus}
-            selectedAvatar={selectedAvatar}
-            summaryState={summaryState}
-            summaryStatus={summaryStatus}
-            summaryErrorCode={summaryErrorCode}
-            canSummarize={canSummarizeDetail}
-            onGenerateSummary={handleGenerateSummary}
-            onApproveSummary={handleApproveSummary}
-          />
+          {showDetailPanel ? (
+            <SessionHistoryDetailPanel
+              detail={detail}
+              detailStatus={detailStatus}
+              selectedAvatar={selectedAvatar}
+              summaryState={summaryState}
+              summaryStatus={summaryStatus}
+              summaryErrorCode={summaryErrorCode}
+              canSummarize={canSummarizeDetail}
+              onGenerateSummary={handleGenerateSummary}
+              onApproveSummary={handleApproveSummary}
+            />
+          ) : null}
         </div>
       ) : null}
 
-      {selectedAvatar ? (
-        <div className="mt-5 flex flex-col gap-3 border-t border-[#e3eeea] pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#52645f]">Strona {activePage}</p>
+      {selectedAvatar && showPagination ? (
+        <div className="border-line mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-ink-muted text-sm">Strona {activePage}</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -232,7 +237,7 @@ export default function AvatarSessionHistory({
               onClick={() => {
                 changePage(activePage - 1);
               }}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-3 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ChevronLeft aria-hidden="true" className="h-4 w-4" />
               Poprzednia
@@ -243,7 +248,7 @@ export default function AvatarSessionHistory({
               onClick={() => {
                 changePage(activePage + 1);
               }}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#9cc8bc] bg-white px-3 text-sm font-medium text-[#1f6f65] transition-colors hover:bg-[#eef8f4] focus:ring-2 focus:ring-[#2d8a7d] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
               Następna
               <ChevronRight aria-hidden="true" className="h-4 w-4" />
