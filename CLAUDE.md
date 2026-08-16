@@ -24,7 +24,7 @@ Pre-commit (husky + lint-staged): `eslint --fix` on `*.{ts,tsx,astro}`, `prettie
 
 ## CI / deploy (`.github/workflows/ci.yml`)
 
-On push/PR to **`main`** the `ci` job runs `npm run test` → `npx astro sync` → `npm run typecheck` → `npm run lint` → `npm run build` (needs `SUPABASE_URL`, `SUPABASE_KEY` secrets). On push to `main` only, `migrate` (`supabase db push` via Session Pooler URL) then `deploy` (Cloudflare) run after `ci`. Adding a test is mandatory CI coverage now, not optional.
+On push/PR to **`main`** the `ci` job runs `npm run test` → `npx astro sync` → `npm run lint` → `npm run typecheck` → `npm run build` (needs `SUPABASE_URL`, `SUPABASE_KEY` secrets). On push to `main` only, `migrate` (`supabase db push` via Session Pooler URL — the direct `db.*.supabase.co` host is rejected, it needs IPv6) then `deploy` (`wrangler deploy --secrets-file`) run after `ci`. Adding a test is mandatory CI coverage now, not optional.
 
 ## Architecture
 
@@ -39,6 +39,7 @@ Astro 6 SSR (`output: "server"`) + React 19 islands + Tailwind 4 + Supabase auth
 3. Resolves the Supabase user via `createClient()` → `context.locals.user`.
 4. Rate-limits AI-backed session endpoints (POST `/api/session/message`, `start`, `start-next`, `transcribe`, and `summary/*` by prefix) per user via the Cloudflare `SESSION_RATE_LIMITER` binding (`src/lib/rate-limit.ts`, wrangler.jsonc). Fail-open when the binding is absent (local dev, tests); over-limit → 429 `{ code: "rate_limited" }`.
 5. For `PROTECTED_ROUTES` (`/dashboard`, `/account`, `/admin`): redirects unauthenticated users to `/auth/signin`, then checks **account access** (`readAccountAccessState`) and redirects blocked/unavailable accounts to `/account/blocked`. Result lands in `context.locals.accountAccess`.
+6. Stamps baseline security headers on every response (X-Frame-Options, HSTS, Referrer-Policy, Permissions-Policy…). A full CSP is **intentionally absent** — Astro islands need inline hydration scripts, so a real CSP requires nonce plumbing; don't add a blanket header.
 
 CSRF: `security.checkOrigin: true` in `astro.config.mjs` (explicit, do not remove) makes Astro reject form-content-type POST/PATCH/PUT/DELETE with a mismatched `Origin` header; JSON requests are covered by the CORS preflight model.
 
@@ -69,12 +70,12 @@ Several directories carry a `README.md` that is the **authoritative contract** �
 - **`session-transcription/`** — voice-message transcription via OpenRouter (`transcribeSessionAudio()`, provider abstraction like `session-ai`); backs `POST /api/session/transcribe`. Audio is conversation content — same privacy rules apply.
 - **`session-flow/`** — pure-ish state machines, request/response contracts, persistence, markdown rendering, time-limit math (the orchestration glue used by routes).
 - **`operational-visibility/`** — **the only sanctioned logging path.** Emit via `logOperationalEvent()` + builders in `session-events.ts`; never `console.log`. Allowlist-driven sanitizer. Permitted fields only: `requestId`, `outcome`, `durationMs`, `provider`, `riskState`, `action`, `reasonCode`, optional `userHash`. **Never** log message/prompt/content/summary/email/token/provider payloads/`modalityId`/`avatarId`/raw `user.id`. Read hosted logs with `npx wrangler tail --name safespace`.
-- **`admin/`** — admin auth, account access/block, and **content-free aggregates only** (status, duration bucket, trial marker, dates — never conversation text). Surfaces: `src/pages/admin/`, `src/pages/api/admin/`.
+- **`admin/`** — admin auth, account access/block, and **content-free aggregates only** (status, duration bucket, trial marker, dates — never conversation text). Surfaces: `src/pages/admin/`, `src/pages/api/admin/`. Admin identity lives in the `admin_users` table; there is no runtime service-role key and no endpoint to create the first admin — it's provisioned by owner-run SQL (snippet in README "Admin setup").
 - **`modalities.ts`** — modality + avatar catalog; `getValidAvatarChoice()` validates a stored choice.
 
 ### OpenRouter
 
-AI is OpenRouter via `@openrouter/sdk` (`src/lib/openrouter/sdk-chat.ts`). Three models, set by env: `OPENROUTER_SAFETY_MODEL` (classifier), `OPENROUTER_SESSION_MODEL` (responses, incl. reasoning-model support), `OPENROUTER_TRANSCRIPTION_MODEL` (voice input). Token-limit handling is unified across summary + session requests.
+AI is OpenRouter via `@openrouter/sdk` (`src/lib/openrouter/sdk-chat.ts`). Three models, set by env: `OPENROUTER_SAFETY_MODEL` (classifier), `OPENROUTER_SESSION_MODEL` (responses, incl. reasoning-model support), `OPENROUTER_TRANSCRIPTION_MODEL` (voice input); all optional — in-code defaults live in `src/lib/openrouter/env.ts` and the safety classifier. Token-limit handling is unified across summary + session requests.
 
 ## Conventions
 
@@ -95,6 +96,6 @@ CI applies migrations _before_ deploying code (`migrate` → `deploy`), so every
 ## Environment
 
 - Node v22.14.0 (`.nvmrc`).
-- Required secrets: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY`. Public/optional: `OPENROUTER_SAFETY_MODEL`, `OPENROUTER_SESSION_MODEL`, `OPENROUTER_TRANSCRIPTION_MODEL`, `OPERATIONAL_LOG_HASH_SECRET` (enables stable `userHash` correlation; absence does not block requests or fall back to raw `user.id`). All declared in `astro.config.mjs` `env.schema`.
+- Required secrets: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY`. Public/optional: `OPENROUTER_SAFETY_MODEL`, `OPENROUTER_SESSION_MODEL`, `OPENROUTER_TRANSCRIPTION_MODEL`, `OPERATIONAL_LOG_HASH_SECRET` (enables stable `userHash` correlation; absence does not block requests or fall back to raw `user.id`). All declared in `astro.config.mjs` `env.schema`. Build-time only: `SITE_URL` — when set, enables Astro `site` + the sitemap integration (deliberately off until the final domain is chosen).
 - Local: `.env` (Node tooling) / `.dev.vars` (Cloudflare local dev, gitignored). Copy from `.env.example`.
 - Product/architecture docs in `context/foundation/` (`prd.md` holds the privacy guardrails) and `context/deployment/deploy-plan.md`.
