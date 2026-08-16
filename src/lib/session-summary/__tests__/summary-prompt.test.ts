@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MVP_MODALITIES } from "../../modalities";
 import { buildSessionSummaryMessages, SESSION_SUMMARY_SYSTEM_PROMPT } from "../summary-prompt";
 import type { GenerateSessionSummaryInput } from "../types";
 
@@ -7,7 +8,7 @@ const input = {
   modality: {
     modalityName: "Podejście integracyjne",
     avatarName: "Iga, przewodniczka łącząca wątki",
-    sessionStyleHint: "Avatar pomaga wybrac jeden czytelny punkt zaczepienia.",
+    summaryLensHint: "Podsumuj przez soczewke integracyjna: glowny watek rozmowy i to, co zostalo otwarte.",
   },
   messages: [
     {
@@ -41,6 +42,23 @@ describe("buildSessionSummaryMessages", () => {
     expect(finalMessage?.role).toBe("user");
     expect(finalMessage?.content).toContain("Chce wrocic do rozmowy");
     expect(finalMessage?.content).toContain("Iga, przewodniczka łącząca wątki");
+  });
+
+  it("sends the narrow summary lens instead of the full conversational style hint", () => {
+    const messages = buildSessionSummaryMessages(input);
+    const payload = JSON.parse(messages.at(-1)?.content ?? "{}") as {
+      selectedModality?: Record<string, unknown>;
+    };
+
+    expect(payload.selectedModality?.summaryLensHint).toBe(input.modality.summaryLensHint);
+    expect(payload.selectedModality).not.toHaveProperty("sessionStyleHint");
+  });
+
+  it("keeps every catalog summary lens inside the prompt budget so its tail is never truncated", () => {
+    for (const modality of MVP_MODALITIES) {
+      expect(modality.summaryLensHint.trim().length).toBeGreaterThan(0);
+      expect(modality.summaryLensHint.length).toBeLessThanOrEqual(600);
+    }
   });
 
   it("bounds source messages before provider input", () => {

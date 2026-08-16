@@ -2,7 +2,7 @@ import type { GenerateSessionSummaryInput, SessionSummaryPromptMessage } from ".
 
 const MAX_SUMMARY_SOURCE_MESSAGES = 40;
 const MAX_SUMMARY_SOURCE_MESSAGE_CHARS = 1_200;
-const MAX_SESSION_STYLE_HINT_CHARS = 3_000;
+const MAX_SUMMARY_LENS_HINT_CHARS = 600;
 
 type SummarySourceMessage = GenerateSessionSummaryInput["messages"][number];
 
@@ -44,7 +44,7 @@ function buildSessionSummaryUserContent(input: GenerateSessionSummaryInput) {
       ? {
           modalityName: trimAndLimit(input.modality.modalityName, 240),
           avatarName: trimAndLimit(input.modality.avatarName, 180),
-          sessionStyleHint: trimAndLimit(input.modality.sessionStyleHint, MAX_SESSION_STYLE_HINT_CHARS),
+          summaryLensHint: trimAndLimit(input.modality.summaryLensHint, MAX_SUMMARY_LENS_HINT_CHARS),
         }
       : null,
     conversationMessages: buildBoundedSummaryMessages(input.messages),

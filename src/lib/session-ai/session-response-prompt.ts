@@ -1,12 +1,24 @@
-import type { GenerateSessionResponseInput, SessionResponsePromptMessage } from "./types";
+import type { GenerateSessionResponseInput, SessionAiSessionPhase, SessionResponsePromptMessage } from "./types";
 
 const MAX_RECENT_CONTEXT_MESSAGES = 8;
 const MAX_RECENT_MESSAGE_CHARS = 1_200;
 const MAX_APPROVED_SUMMARIES = 3;
 const MAX_APPROVED_SUMMARY_CHARS = 900;
 const MAX_CURRENT_USER_MESSAGE_CHARS = 3_000;
-const MAX_SESSION_STYLE_HINT_CHARS = 4_000;
+// Style hints end with their `Avoid:` section, so an overflow here would silently
+// drop the most protective part of the avatar guidance. Kept well above the
+// catalog's own budget (asserted in the prompt tests) so it never truncates.
+const MAX_SESSION_STYLE_HINT_CHARS = 5_000;
 const MAX_CONSTRAINTS = 8;
+
+const SESSION_PHASE_GUIDANCE = {
+  opening:
+    "The session has just begun. Help the user arrive and say what they bring today before going deep, and stay with the one thing they lead with instead of opening several threads at once.",
+  middle:
+    "The session is underway. This is the working part: stay with one thread and let it deepen rather than restarting the conversation or surveying new topics.",
+  closing:
+    "The session is close to its end. Start settling rather than opening anything new: gather what came up, let the user name what they take away, and leave them steady. Do not introduce a new topic, a new exercise, or a question that would need a long answer.",
+} as const satisfies Record<SessionAiSessionPhase, string>;
 
 type RecentSessionAiMessage = NonNullable<GenerateSessionResponseInput["recentMessages"]>[number];
 type ApprovedSummaryContext = NonNullable<GenerateSessionResponseInput["approvedSummaries"]>[number];
@@ -74,6 +86,7 @@ function buildSessionResponseSystemContent(input: GenerateSessionResponseInput) 
   const sections = [
     SESSION_RESPONSE_SYSTEM_PROMPT,
     buildModalitySection(input.modality),
+    buildSessionPhaseSection(input.sessionPhase),
     buildConstraintsSection(input.cautionConstraints ?? []),
     buildApprovedSummariesSection(input.approvedSummaries ?? []),
     buildLocaleSection(input.locale),
@@ -89,6 +102,20 @@ function buildModalitySection(modality: GenerateSessionResponseInput["modality"]
     `Avatar: ${trimAndLimit(modality.avatarName, 180)}`,
     "Avatar style guide:",
     trimAndLimit(modality.sessionStyleHint, MAX_SESSION_STYLE_HINT_CHARS),
+  ].join("\n");
+}
+
+function buildSessionPhaseSection(phase: SessionAiSessionPhase | undefined) {
+  if (!phase) {
+    return undefined;
+  }
+
+  return [
+    "## Session phase",
+    `Current phase: ${phase}`,
+    SESSION_PHASE_GUIDANCE[phase],
+    "Follow the matching line of the avatar's session arc in the style guide above.",
+    "Never mention minutes, timers, the clock, or how much time is left, and never count down — the interface already shows the remaining time. Let the phase shape the reply, not its subject.",
   ].join("\n");
 }
 

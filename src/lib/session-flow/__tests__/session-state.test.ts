@@ -30,6 +30,7 @@ const avatar: CurrentAvatarChoice = {
     explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
     focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
     sessionStyleHint: "Uzywa jasnej struktury.",
+    summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
     assetPath: "/avatars/cbt-guide.png",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },

@@ -271,6 +271,7 @@ describe("POST /api/session/message", () => {
       avatarName: "Marek, praktyczny przewodnik",
     });
     expect(generationInput.modality.sessionStyleHint).toContain("Avatar: Marek");
+    expect(generationInput.sessionPhase).toBe("opening");
     expect(generationInput.approvedSummaries).toEqual([
       {
         summaryText: "Uzytkownik zatwierdzil kontekst o napieciu przed rozmowa w pracy.",
@@ -288,6 +289,17 @@ describe("POST /api/session/message", () => {
       userMessage: "Chce uporzadkowac mysli.",
       assistantMessage: "Mozemy zaczac od nazwania najwazniejszych faktow.",
     });
+  });
+
+  it("hands the model the closing phase once the session's own budget is nearly spent", async () => {
+    vi.setSystemTime(new Date("2026-06-07T10:13:00.000Z"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    const [generationInput] = generateSessionResponse.mock.calls[0] as unknown as [GenerateSessionResponseInput];
+
+    expect(generationInput.sessionPhase).toBe("closing");
   });
 
   it("carries no approved summaries for a session started without context", async () => {

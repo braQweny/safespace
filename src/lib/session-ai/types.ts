@@ -28,9 +28,18 @@ export interface SessionAiConstraint {
   instruction: string;
 }
 
+/**
+ * Relative position in the session's arc, resolved by
+ * `session-flow/session-phase`. Deliberately a label rather than a remaining-time
+ * value: the model shapes the reply around the phase without ever learning — or
+ * being able to quote — the clock.
+ */
+export type SessionAiSessionPhase = "opening" | "middle" | "closing";
+
 export interface GenerateSessionResponseInput {
   currentUserMessage: string;
   modality: SessionAiModalityContext;
+  sessionPhase?: SessionAiSessionPhase;
   cautionConstraints?: readonly SessionAiConstraint[];
   recentMessages?: readonly SessionAiRecentMessage[];
   approvedSummaries?: readonly SessionAiApprovedSummaryContext[];

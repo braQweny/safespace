@@ -10,7 +10,12 @@ export interface SessionSummaryConversationMessage {
 export interface SessionSummaryModalityContext {
   modalityName: string;
   avatarName: string;
-  sessionStyleHint: string;
+  /**
+   * Deliberately not the full `sessionStyleHint`: a summary needs the modality
+   * lens, not the avatar's conversational rules. Sending the whole style hint
+   * here used to overflow the prompt budget and silently truncate its tail.
+   */
+  summaryLensHint: string;
 }
 
 export interface GenerateSessionSummaryInput {

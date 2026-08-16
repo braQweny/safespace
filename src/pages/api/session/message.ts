@@ -32,6 +32,7 @@ import {
 } from "@/lib/session-flow/message-contract";
 import { persistSuccessfulMessageTurn } from "@/lib/session-flow/message-persistence";
 import { expireOwnedSession, getProviderTimeoutWithinSessionMs, isSessionExpired } from "@/lib/session-flow/time-limit";
+import { resolveSessionPhase } from "@/lib/session-flow/session-phase";
 import { toSessionView } from "@/lib/session-flow/session-state";
 
 export const prerender = false;
@@ -258,6 +259,13 @@ export const POST: APIRoute = async (context) => {
     return jsonResponse(unavailableResponse(), 503);
   }
 
+  // Resolved from this session's own budget, so the arc holds for a short trial
+  // session and for a longer one alike.
+  const sessionPhase = resolveSessionPhase(session, {
+    now: new Date(),
+    priorMessageCount: recentMessages.data.length,
+  });
+
   let assistantText: string;
 
   try {
@@ -269,6 +277,7 @@ export const POST: APIRoute = async (context) => {
           avatarName: modality.avatarName,
           sessionStyleHint: modality.sessionStyleHint,
         },
+        ...(sessionPhase ? { sessionPhase } : {}),
         cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
         recentMessages: toRecentSessionAiMessages(recentMessages.data),
         approvedSummaries: approvedSummaries.data.map((summary) => ({

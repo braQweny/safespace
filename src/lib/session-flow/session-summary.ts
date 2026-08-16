@@ -139,7 +139,7 @@ export async function buildOwnedSessionSummaryGenerationInput(
             modality: {
               modalityName: modality.modalityName,
               avatarName: modality.avatarName,
-              sessionStyleHint: modality.sessionStyleHint,
+              summaryLensHint: modality.summaryLensHint,
             },
           }
         : {}),

@@ -207,9 +207,64 @@ describe("MVP_MODALITIES session style hints", () => {
     }
   });
 
-  it("keeps every style hint within the prompt budget", () => {
+  it("gives every avatar its own session arc, advice stance, and low-input stance", () => {
     for (const modality of MVP_MODALITIES) {
-      expect(modality.sessionStyleHint.length).toBeLessThanOrEqual(4_000);
+      expect(modality.sessionStyleHint).toContain("Session arc");
+      expect(modality.sessionStyleHint).toContain("- opening:");
+      expect(modality.sessionStyleHint).toContain("- middle:");
+      expect(modality.sessionStyleHint).toContain("- closing:");
+      expect(modality.sessionStyleHint).toMatch(/What (?:she|he) listens for first:/);
+      expect(modality.sessionStyleHint).toContain("Returning to approved summaries:");
+      expect(modality.sessionStyleHint).toMatch(/When the user asks/);
+      expect(modality.sessionStyleHint).toContain("nie wiem");
     }
+  });
+
+  // The hint ends with its `Avoid:` section, so overflowing the prompt cap would
+  // silently strip the most protective guidance. The editorial budget sits below
+  // the prompt cap so this test fails before truncation can happen.
+  it("keeps every style hint inside the editorial budget below the prompt cap", () => {
+    for (const modality of MVP_MODALITIES) {
+      expect(modality.sessionStyleHint.length).toBeLessThanOrEqual(4_500);
+
+      const messages = buildSessionResponseMessages({
+        ...input,
+        modality: {
+          modalityName: modality.modalityName,
+          avatarName: modality.avatarName,
+          sessionStyleHint: modality.sessionStyleHint,
+        },
+      });
+
+      expect(messages[0]?.content).toContain(modality.sessionStyleHint);
+    }
+  });
+});
+
+describe("session phase section", () => {
+  it("omits the phase section when no phase is resolved", () => {
+    const messages = buildSessionResponseMessages(input);
+
+    expect(messages[0]?.content).not.toContain("## Session phase");
+  });
+
+  it("tells the model to settle the conversation in the closing phase without naming the clock", () => {
+    const messages = buildSessionResponseMessages({ ...input, sessionPhase: "closing" });
+    const systemContent = messages[0]?.content ?? "";
+
+    expect(systemContent).toContain("## Session phase");
+    expect(systemContent).toContain("Current phase: closing");
+    expect(systemContent).toContain("Start settling rather than opening anything new");
+    expect(systemContent).toContain("Never mention minutes, timers, the clock");
+  });
+
+  it("carries a distinct instruction for each phase", () => {
+    const openingContent = buildSessionResponseMessages({ ...input, sessionPhase: "opening" })[0]?.content ?? "";
+    const middleContent = buildSessionResponseMessages({ ...input, sessionPhase: "middle" })[0]?.content ?? "";
+
+    expect(openingContent).toContain("Current phase: opening");
+    expect(openingContent).toContain("Help the user arrive");
+    expect(middleContent).toContain("Current phase: middle");
+    expect(middleContent).toContain("This is the working part");
   });
 });
