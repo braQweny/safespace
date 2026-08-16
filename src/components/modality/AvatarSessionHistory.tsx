@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, RotateCw } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
@@ -21,6 +21,8 @@ interface AvatarSessionHistoryProps {
   initialHistory?: SessionHistoryListResponse | null;
   initialDetail?: SessionHistoryDetail | null;
   initialConfirmSessionId?: string | null;
+  /** Session to open on mount, so a link from a finished session lands on its summary. */
+  autoOpenSessionId?: string | null;
 }
 
 const errorCopy: Record<SessionHistoryFailureCode, string> = {
@@ -42,8 +44,11 @@ export default function AvatarSessionHistory({
   initialHistory = null,
   initialDetail = null,
   initialConfirmSessionId = null,
+  autoOpenSessionId = null,
 }: AvatarSessionHistoryProps) {
   const [notice, setNotice] = useState<string | null>(null);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
+  const autoOpenedRef = useRef(false);
 
   const { history, refreshHistory, removeHistoryItem } = useSessionHistoryList({
     selectedAvatar,
@@ -89,6 +94,35 @@ export default function AvatarSessionHistory({
     setNotice(null);
     void openDetail(sessionId);
   }
+
+  // A session that just ended links straight here; opening it by hand again
+  // would defeat the point of the link.
+  useEffect(() => {
+    if (autoOpenedRef.current || !autoOpenSessionId || !selectedAvatar) {
+      return;
+    }
+
+    // `openDetail` is a fresh reference each render, so this effect re-runs; the
+    // ref guard is what keeps it to a single fetch.
+    autoOpenedRef.current = true;
+    void openDetail(autoOpenSessionId);
+  }, [autoOpenSessionId, selectedAvatar, openDetail]);
+
+  // On narrow screens the detail panel renders below a list that can be taller
+  // than the viewport, so opening a conversation looked like nothing happened.
+  useEffect(() => {
+    if (!detail) {
+      return;
+    }
+
+    detailPanelRef.current?.scrollIntoView({
+      block: "nearest",
+      behavior:
+        typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+    });
+  }, [detail]);
 
   function handleConfirmDelete(sessionId: string) {
     setNotice(null);
@@ -212,17 +246,19 @@ export default function AvatarSessionHistory({
           />
 
           {showDetailPanel ? (
-            <SessionHistoryDetailPanel
-              detail={detail}
-              detailStatus={detailStatus}
-              selectedAvatar={selectedAvatar}
-              summaryState={summaryState}
-              summaryStatus={summaryStatus}
-              summaryErrorCode={summaryErrorCode}
-              canSummarize={canSummarizeDetail}
-              onGenerateSummary={handleGenerateSummary}
-              onApproveSummary={handleApproveSummary}
-            />
+            <div ref={detailPanelRef}>
+              <SessionHistoryDetailPanel
+                detail={detail}
+                detailStatus={detailStatus}
+                selectedAvatar={selectedAvatar}
+                summaryState={summaryState}
+                summaryStatus={summaryStatus}
+                summaryErrorCode={summaryErrorCode}
+                canSummarize={canSummarizeDetail}
+                onGenerateSummary={handleGenerateSummary}
+                onApproveSummary={handleApproveSummary}
+              />
+            </div>
           ) : null}
         </div>
       ) : null}

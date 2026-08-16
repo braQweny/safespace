@@ -1,8 +1,8 @@
 import { getOpenRouterEnv, OPENROUTER_DEFAULT_MODEL, resolveOpenRouterModel } from "@/lib/openrouter/env";
 
 // Session-summary owns its provider configuration instead of importing it
-// from session-ai: both currently point at the same session model, but the
-// subsystems stay independently configurable.
+// from session-ai. `OPENROUTER_SUMMARY_MODEL` overrides the model for summaries
+// alone; without it summaries follow the session model.
 
 export const OPENROUTER_SUMMARY_DEFAULT_MODEL = OPENROUTER_DEFAULT_MODEL;
 
@@ -20,6 +20,6 @@ export function getOpenRouterSummaryConfig(): OpenRouterSummaryConfig {
 
   return {
     apiKey: env.apiKey,
-    model: env.sessionModel,
+    model: env.summaryModel,
   };
 }

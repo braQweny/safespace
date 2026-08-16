@@ -5,6 +5,7 @@ import {
   buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
+  isOpenRouterGemini37FlashModel,
   supportsOpenRouterTemperature,
 } from "@/lib/session-ai/openrouter-request-params";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
@@ -23,6 +24,7 @@ import type {
 const OPENROUTER_SUMMARY_TIMEOUT_MS = 12_000;
 const OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS = 320;
 const OPENROUTER_GEMINI_3_5_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 800;
+const OPENROUTER_GEMINI_3_7_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 1_600;
 const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
 
 interface OpenRouterSummaryOptions {
@@ -99,7 +101,18 @@ export function buildOpenRouterSummaryRequest(
   };
 }
 
+/**
+ * Reasoning models bill hidden thinking against the same completion budget as
+ * the visible answer, and they think *before* writing. Gemini 3.7 Flash spent
+ * 304 of 320 tokens reasoning and came back with `finish_reason: "length"`,
+ * which `assertCompleteSummaryResponse` rejects — every summary failed. Keep
+ * this branch in step with `resolveSessionMaxCompletionTokens` in session-ai.
+ */
 function resolveSummaryMaxCompletionTokens(model: string) {
+  if (isOpenRouterGemini37FlashModel(model)) {
+    return OPENROUTER_GEMINI_3_7_FLASH_SUMMARY_MAX_COMPLETION_TOKENS;
+  }
+
   if (isOpenRouterGemini35FlashModel(model)) {
     return OPENROUTER_GEMINI_3_5_FLASH_SUMMARY_MAX_COMPLETION_TOKENS;
   }

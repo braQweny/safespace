@@ -99,7 +99,10 @@ describe("TimedSession", () => {
     expect(html).toContain("Sesja została zakończona");
     expect(html).not.toContain("Zakończ sesję");
     expect(html).not.toContain("Pozostały czas sesji");
-    expect(html).toContain("Przejdź do historii i podsumowania");
+    expect(html).toContain("Zobacz zapis i podsumowanie");
+    // The closing CTA must deep-link at the conversation that just ended, not at
+    // a dashboard list where the user has to find it again.
+    expect(html).toContain("/dashboard?session=5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a");
     expect(html).not.toContain("Wyślij");
   });
 

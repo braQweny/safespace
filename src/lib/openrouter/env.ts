@@ -2,6 +2,7 @@ import {
   OPENROUTER_API_KEY,
   OPENROUTER_SAFETY_MODEL,
   OPENROUTER_SESSION_MODEL,
+  OPENROUTER_SUMMARY_MODEL,
   OPENROUTER_TRANSCRIPTION_MODEL,
 } from "astro:env/server";
 
@@ -17,6 +18,7 @@ export interface OpenRouterEnv {
   apiKey?: string;
   sessionModel: string;
   safetyModel: string;
+  summaryModel: string;
   transcriptionModel: string;
 }
 
@@ -30,10 +32,15 @@ export function resolveOpenRouterModel(
 }
 
 export function getOpenRouterEnv(): OpenRouterEnv {
+  const sessionModel = resolveOpenRouterModel(OPENROUTER_SESSION_MODEL);
+
   return {
     apiKey: OPENROUTER_API_KEY,
-    sessionModel: resolveOpenRouterModel(OPENROUTER_SESSION_MODEL),
+    sessionModel,
     safetyModel: resolveOpenRouterModel(OPENROUTER_SAFETY_MODEL),
+    // Summaries are a separate, much shorter generation than a session turn, so
+    // they get their own override and only fall back to the session model.
+    summaryModel: resolveOpenRouterModel(OPENROUTER_SUMMARY_MODEL, sessionModel),
     transcriptionModel: resolveOpenRouterModel(OPENROUTER_TRANSCRIPTION_MODEL, OPENROUTER_TRANSCRIPTION_DEFAULT_MODEL),
   };
 }

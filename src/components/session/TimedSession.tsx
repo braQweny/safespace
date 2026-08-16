@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CircleStop, FileText, History, PlayCircle, ShieldCheck } from "lucide-react";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
+import { CrisisHelpPanel, CrisisHelpTrigger } from "./CrisisHelpPanel";
 import SessionComposer from "./SessionComposer";
 import SessionMessages from "./SessionMessages";
 import SessionSafetyNotice from "./SessionSafetyNotice";
+import SessionStarterPrompts from "./SessionStarterPrompts";
 import SessionTimer from "./SessionTimer";
 
 interface TimedSessionProps {
@@ -27,7 +29,7 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
   completed: {
     title: "Sesja została zakończona",
-    body: "Rozmowa została prywatnie zapisana. Pełny zapis znajdziesz w historii w panelu — tam możesz też przejrzeć i zatwierdzić podsumowanie do kolejnej sesji.",
+    body: "Rozmowa została prywatnie zapisana. Nic z niej nie przechodzi dalej samo z siebie — podsumowanie do kolejnej sesji powstaje dopiero wtedy, gdy je wygenerujesz i zatwierdzisz.",
   },
   interrupted: {
     title: "Sesja została przerwana",
@@ -85,6 +87,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
     useTimedSession(initialState);
   const { kind, session, messages, draft, isStarting, isEnding, isMessagePending, pendingUserText, notice } = state;
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
+  const [isCrisisHelpOpen, setIsCrisisHelpOpen] = useState(false);
   const [skipContext, setSkipContext] = useState(false);
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
@@ -96,6 +99,9 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
       confirmEndRef.current?.focus();
     }
   }, [isConfirmingEnd]);
+  const closeCrisisHelp = useCallback(() => {
+    setIsCrisisHelpOpen(false);
+  }, []);
   const hasApprovedSummaries = initialState.approvedSummaries.length > 0;
   // Without approved summaries there is nothing to carry over, so the start is
   // context-free either way; the checkbox only matters when context exists.
@@ -103,6 +109,9 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
     initialState.canStartWithoutContext && (skipContext || !hasApprovedSummaries) && kind === "followup_ready";
   const canEndSession = kind === "active" && session?.status === "active";
   const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
+  // Link straight at the conversation that just ended: landing on a list of
+  // same-day entries and hunting for the right one is the wrong last step.
+  const historyHref = session ? `/dashboard?session=${encodeURIComponent(session.id)}` : "/dashboard";
   const avatar = initialState.avatar.selected;
   // Gdy istnieje sesja, strona zachowuje się jak komunikator: nagłówek i pole
   // wpisywania są przypięte, a przewija się wyłącznie zapis rozmowy.
@@ -220,29 +229,39 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
                 <p className="text-brand truncate text-sm">{avatar.modalityName}</p>
               </div>
             </div>
-            {canEndSession ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <SessionTimer
-                  key={session.id}
-                  expiresAt={session.expiresAt}
-                  initialRemainingSeconds={session.remainingSeconds}
-                  totalSeconds={getSessionTotalSeconds(session)}
-                  onExpired={handleExpired}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsConfirmingEnd(true);
-                  }}
-                  disabled={isEnding || isMessagePending || isConfirmingEnd}
-                  className="border-danger-line bg-surface text-danger hover:bg-danger-soft focus:ring-danger-strong inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <CircleStop aria-hidden="true" className="h-4 w-4" />
-                  {isEnding ? "Kończenie…" : "Zakończ sesję"}
-                </button>
-              </div>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              {canEndSession ? (
+                <>
+                  <SessionTimer
+                    key={session.id}
+                    expiresAt={session.expiresAt}
+                    initialRemainingSeconds={session.remainingSeconds}
+                    totalSeconds={getSessionTotalSeconds(session)}
+                    onExpired={handleExpired}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsConfirmingEnd(true);
+                    }}
+                    disabled={isEnding || isMessagePending || isConfirmingEnd}
+                    className="border-danger-line bg-surface text-danger hover:bg-danger-soft focus:ring-danger-strong inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <CircleStop aria-hidden="true" className="h-4 w-4" />
+                    {isEnding ? "Kończenie…" : "Zakończ sesję"}
+                  </button>
+                </>
+              ) : null}
+              <CrisisHelpTrigger
+                isOpen={isCrisisHelpOpen}
+                onToggle={() => {
+                  setIsCrisisHelpOpen((open) => !open);
+                }}
+              />
+            </div>
           </div>
+
+          {isCrisisHelpOpen ? <CrisisHelpPanel onClose={closeCrisisHelp} /> : null}
 
           {canEndSession && isConfirmingEnd ? (
             <div
@@ -291,7 +310,8 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         </header>
 
         <div className={cn("flex flex-col gap-4 px-5", isChatLayout ? "min-h-0 flex-1 py-4" : "py-5")}>
-          {(!isChatLayout || messages.length === 0) && !notice ? (
+          {/* The closing card below repeats this copy verbatim for finished sessions. */}
+          {(!isChatLayout || messages.length === 0) && !notice && !showHistoryCta ? (
             <p className="text-ink-muted shrink-0 text-sm leading-6">{stateCopy[kind].body}</p>
           ) : null}
 
@@ -306,13 +326,25 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           ) : null}
 
           {showHistoryCta ? (
-            <a
-              href="/dashboard"
-              className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
-            >
-              <History aria-hidden="true" className="h-4 w-4" />
-              Przejdź do historii i podsumowania
-            </a>
+            <div className="border-line-strong bg-surface-soft shrink-0 rounded-lg border p-4">
+              <p className="text-ink font-semibold">{stateCopy[kind].title}</p>
+              <p className="text-ink-muted mt-1 text-sm leading-6">{stateCopy[kind].body}</p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <a
+                  href={historyHref}
+                  className="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                >
+                  <History aria-hidden="true" className="h-4 w-4" />
+                  Zobacz zapis i podsumowanie
+                </a>
+                <a
+                  href="/dashboard"
+                  className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                >
+                  Wróć do panelu
+                </a>
+              </div>
+            </div>
           ) : null}
 
           {contextPanel}
@@ -330,7 +362,10 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         </div>
 
         {session && kind === "active" ? (
-          <div className="border-line shrink-0 border-t px-5 py-4">
+          <div className="border-line shrink-0 space-y-3 border-t px-5 py-4">
+            {messages.length === 0 && !pendingUserText && draft.length === 0 ? (
+              <SessionStarterPrompts isDisabled={!composerAvailable || isMessagePending} onSelect={setDraft} />
+            ) : null}
             <SessionComposer
               value={draft}
               isDisabled={!composerAvailable}

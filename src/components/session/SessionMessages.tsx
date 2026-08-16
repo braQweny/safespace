@@ -199,7 +199,9 @@ export default function SessionMessages({
           {emptyCopy}
         </div>
       ) : (
-        <ol className="space-y-2">
+        // Chat convention: the conversation sits at the bottom, next to the
+        // composer, instead of floating at the top of a tall empty box.
+        <ol className={cn("space-y-2", isLive && "flex min-h-full flex-col justify-end")}>
           {messages.map((message, index) => {
             const previousRole = index > 0 ? messages[index - 1]?.role : null;
             const showHeader = message.role !== "user" && message.role !== previousRole;

@@ -1,7 +1,8 @@
 import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
-import type { CrisisResourceContact, CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
+import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
+import { CrisisContactValue } from "./crisis-contact";
 
 type NoticeVariant = "caution" | "hard_stop" | "retry" | "info";
 
@@ -33,35 +34,6 @@ function NoticeIcon({ variant }: { variant: NoticeVariant }) {
   }
 
   return <ShieldCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />;
-}
-
-/**
- * Only real dialable numbers become `tel:` links. `local_guidance` entries carry
- * a textual placeholder ("lokalny numer alarmowy") instead of a number, so linking
- * them would hand the user a dead dialer entry in the one moment that must not fail.
- */
-function getDialableNumber(contact: CrisisResourceContact) {
-  if (contact.kind === "local_guidance") {
-    return null;
-  }
-
-  const digits = contact.value.replace(/[\s-]/g, "");
-
-  return /^\+?\d{3,15}$/.test(digits) ? digits : null;
-}
-
-function CrisisContactValue({ contact }: { contact: CrisisResourceContact }) {
-  const dialableNumber = getDialableNumber(contact);
-
-  if (!dialableNumber) {
-    return <span>{contact.value}</span>;
-  }
-
-  return (
-    <a className="font-semibold underline underline-offset-2" href={`tel:${dialableNumber}`}>
-      {contact.value}
-    </a>
-  );
 }
 
 export default function SessionSafetyNotice({ variant, copy, crisisResources = [] }: SessionSafetyNoticeProps) {

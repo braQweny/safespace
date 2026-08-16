@@ -83,6 +83,7 @@ export default function SessionTimer({
   const level = getTimerLevel(remainingSeconds);
   const progressRatio = getProgressRatio(remainingSeconds, totalSeconds);
   const styles = levelStyles[level];
+  const totalMinutes = totalSeconds && totalSeconds > 0 ? Math.round(totalSeconds / 60) : null;
 
   return (
     <div
@@ -99,7 +100,12 @@ export default function SessionTimer({
       <div className="inline-flex items-center gap-2 text-sm font-semibold tabular-nums">
         <Clock aria-hidden="true" className={cn("h-4 w-4 shrink-0", styles.icon)} />
         <span>{formatRemainingTime(remainingSeconds)}</span>
-        {level === "critical" ? <span className="text-xs font-medium">kończy się czas</span> : null}
+        {level === "critical" ? (
+          <span className="text-xs font-medium">kończy się czas</span>
+        ) : totalMinutes ? (
+          // Without the total, a bare "14:56" gives no sense of how much is left.
+          <span className="text-xs font-normal opacity-75">z {totalMinutes} min</span>
+        ) : null}
       </div>
       {/* Zmiana progu ogłaszana czytnikowi ekranu raz, bez odczytywania każdej sekundy. */}
       <span role="status" className="sr-only">

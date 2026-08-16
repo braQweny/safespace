@@ -9,6 +9,16 @@ interface DashboardSessionHistoryProps {
   initialHistory: SessionHistoryListResponse | null;
 }
 
+function readRequestedSessionId() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const requestedSessionId = new URL(window.location.href).searchParams.get("session");
+
+  return requestedSessionId && requestedSessionId.length > 0 ? requestedSessionId : null;
+}
+
 function updateHistoryPageUrl(page: number) {
   if (typeof window === "undefined") {
     return;
@@ -31,6 +41,8 @@ export default function DashboardSessionHistory({
   initialHistory,
 }: DashboardSessionHistoryProps) {
   const [historyPage, setHistoryPage] = useState(initialHistoryPage);
+  // Read once: the id is only meaningful for the first render after the link.
+  const [requestedSessionId] = useState(readRequestedSessionId);
 
   function changeHistoryPage(page: number) {
     setHistoryPage(page);
@@ -44,6 +56,7 @@ export default function DashboardSessionHistory({
       page={historyPage}
       onPageChange={changeHistoryPage}
       initialHistory={historyPage === initialHistoryPage ? initialHistory : null}
+      autoOpenSessionId={historyPage === initialHistoryPage ? requestedSessionId : null}
     />
   );
 }

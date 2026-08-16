@@ -31,7 +31,24 @@ const statusBadgeClasses: Record<SessionHistoryListItem["status"], string> = {
   interrupted: "border-warn-line bg-warn-soft text-warn",
 };
 
-function formatDateTime(timestamp: string | null) {
+const SESSION_TIME_ZONE = "Europe/Warsaw";
+
+const dayFormatter = new Intl.DateTimeFormat("pl-PL", {
+  dateStyle: "medium",
+  timeZone: SESSION_TIME_ZONE,
+});
+
+const timeFormatter = new Intl.DateTimeFormat("pl-PL", {
+  timeStyle: "short",
+  timeZone: SESSION_TIME_ZONE,
+});
+
+/**
+ * The list deliberately shows no conversation content, so the date is the only
+ * thing telling two entries apart. "Dzisiaj"/"Wczoraj" reads faster than three
+ * identical medium dates.
+ */
+export function formatDateTime(timestamp: string | null, now = new Date()) {
   if (!timestamp) {
     return "Brak daty";
   }
@@ -42,25 +59,39 @@ function formatDateTime(timestamp: string | null) {
     return "Brak daty";
   }
 
-  return new Intl.DateTimeFormat("pl-PL", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Warsaw",
-  }).format(date);
-}
+  const day = dayFormatter.format(date);
+  const time = timeFormatter.format(date);
 
-function getDurationLabel(item: SessionHistoryListItem) {
-  if (typeof item.durationBucketSeconds === "number" && item.durationBucketSeconds > 0) {
-    return `${Math.round(item.durationBucketSeconds / 60)} min`;
+  if (day === dayFormatter.format(now)) {
+    return `Dzisiaj, ${time}`;
   }
 
+  if (day === dayFormatter.format(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
+    return `Wczoraj, ${time}`;
+  }
+
+  return `${day}, ${time}`;
+}
+
+/**
+ * `durationBucketSeconds` is a privacy bucket (0/300/900/1800/3600), not the real
+ * length — every trial session carries 900, so the list showed "15 min" next to a
+ * two-minute conversation. Prefer the actual span and mark the bucket as a bound.
+ */
+export function getDurationLabel(item: SessionHistoryListItem) {
   if (item.startedAt && item.endedAt) {
     const started = Date.parse(item.startedAt);
     const ended = Date.parse(item.endedAt);
 
     if (Number.isFinite(started) && Number.isFinite(ended) && ended >= started) {
-      return `${Math.max(1, Math.round((ended - started) / 60_000))} min`;
+      const minutes = Math.round((ended - started) / 60_000);
+
+      return minutes < 1 ? "krócej niż minutę" : `${minutes} min rozmowy`;
     }
+  }
+
+  if (typeof item.durationBucketSeconds === "number" && item.durationBucketSeconds > 0) {
+    return `do ${Math.round(item.durationBucketSeconds / 60)} min`;
   }
 
   return "Czas nieustalony";

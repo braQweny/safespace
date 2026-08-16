@@ -96,8 +96,18 @@ export default function AvatarChoiceForm({
                   }}
                   className="peer sr-only"
                 />
-                <span className="bg-surface text-brand absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full opacity-0 shadow-sm transition-opacity peer-checked:opacity-100">
-                  <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+                {/* The radio itself is sr-only, so an always-visible marker is the
+                    only thing telling a sighted user these cards are a choice. */}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "bg-surface text-brand absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-sm transition-colors",
+                    isSelected ? "border-brand" : "border-line-accent",
+                  )}
+                >
+                  <CheckCircle2
+                    className={cn("h-5 w-5 transition-opacity", isSelected ? "opacity-100" : "opacity-0")}
+                  />
                 </span>
 
                 <div className="flex items-start gap-4">
@@ -132,10 +142,10 @@ export default function AvatarChoiceForm({
             <p className="text-ink-muted text-sm leading-6">
               {selectedModality ? (
                 <>
-                  <span className="text-ink font-semibold">Wybrany awatar: {selectedModality.avatarName}</span>
+                  <span className="text-ink font-semibold">Zaznaczony awatar: {selectedModality.avatarName}</span>
                   <span className="block text-xs">
-                    Zapisanie wyboru ustawi perspektywę dla kolejnej sesji. Historia poniżej reaguje już na samo
-                    zaznaczenie karty.
+                    Podgląd historii poniżej już się przełączył, ale wybór nie jest jeszcze zapisany — kolejna sesja
+                    użyje tej perspektywy dopiero po kliknięciu „Zapisz wybór”.
                   </span>
                 </>
               ) : (

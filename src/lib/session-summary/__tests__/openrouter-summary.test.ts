@@ -150,6 +150,22 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.provider.requireParameters).toBe(true);
   });
 
+  it("gives Gemini 3.7 Flash summaries room for hidden reasoning plus the summary itself", () => {
+    // Regression: at 320 tokens the model spent the whole budget thinking and
+    // returned finish_reason "length", so every summary was rejected.
+    for (const model of ["google/gemini-3.7-flash", "google/gemini-3.7-flash:batch"]) {
+      const request = buildOpenRouterSummaryRequest(input, model);
+
+      expect(request.model).toBe(model);
+      expect(request.maxTokens).toBe(1600);
+      expect(request).not.toHaveProperty("maxCompletionTokens");
+      expect(request.reasoning).toEqual({
+        effort: "medium",
+      });
+      expect(request.provider.requireParameters).toBe(true);
+    }
+  });
+
   it("omits temperature for OpenAI GPT-5 summary models that reject sampling parameters", () => {
     const request = buildOpenRouterSummaryRequest(input, "openai/gpt-5.4-mini");
 

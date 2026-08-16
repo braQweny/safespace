@@ -75,7 +75,9 @@ Several directories carry a `README.md` that is the **authoritative contract** �
 
 ### OpenRouter
 
-AI is OpenRouter via `@openrouter/sdk` (`src/lib/openrouter/sdk-chat.ts`). Three models, set by env: `OPENROUTER_SAFETY_MODEL` (classifier), `OPENROUTER_SESSION_MODEL` (responses, incl. reasoning-model support), `OPENROUTER_TRANSCRIPTION_MODEL` (voice input); all optional — in-code defaults live in `src/lib/openrouter/env.ts` and the safety classifier. Token-limit handling is unified across summary + session requests.
+AI is OpenRouter via `@openrouter/sdk` (`src/lib/openrouter/sdk-chat.ts`). Four models, set by env: `OPENROUTER_SAFETY_MODEL` (classifier), `OPENROUTER_SESSION_MODEL` (responses, incl. reasoning-model support), `OPENROUTER_SUMMARY_MODEL` (summaries; falls back to the session model), `OPENROUTER_TRANSCRIPTION_MODEL` (voice input); all optional — in-code defaults live in `src/lib/openrouter/env.ts` and the safety classifier.
+
+**Token budgets and reasoning models.** Reasoning models bill hidden thinking against the same completion budget as the visible answer, and they think before writing — too small a budget returns `finish_reason: "length"`, which both session and summary parsers reject as `invalid_provider_response`. `resolveSummaryMaxCompletionTokens` (`session-summary/openrouter-summary.ts`) and `resolveSessionMaxCompletionTokens` (`session-ai/openrouter-session-response.ts`) list these models per-branch and **must be updated together** — a model added to one but not the other silently breaks that path (this is exactly how Gemini 3.7 Flash summaries failed).
 
 ## Conventions
 
@@ -96,6 +98,6 @@ CI applies migrations _before_ deploying code (`migrate` → `deploy`), so every
 ## Environment
 
 - Node v22.14.0 (`.nvmrc`).
-- Required secrets: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY`. Public/optional: `OPENROUTER_SAFETY_MODEL`, `OPENROUTER_SESSION_MODEL`, `OPENROUTER_TRANSCRIPTION_MODEL`, `OPERATIONAL_LOG_HASH_SECRET` (enables stable `userHash` correlation; absence does not block requests or fall back to raw `user.id`). All declared in `astro.config.mjs` `env.schema`. Build-time only: `SITE_URL` — when set, enables Astro `site` + the sitemap integration (deliberately off until the final domain is chosen).
+- Required secrets: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY`. Public/optional: `OPENROUTER_SAFETY_MODEL`, `OPENROUTER_SESSION_MODEL`, `OPENROUTER_SUMMARY_MODEL`, `OPENROUTER_TRANSCRIPTION_MODEL`, `OPERATIONAL_LOG_HASH_SECRET` (enables stable `userHash` correlation; absence does not block requests or fall back to raw `user.id`). All declared in `astro.config.mjs` `env.schema`. Build-time only: `SITE_URL` — when set, enables Astro `site` + the sitemap integration (deliberately off until the final domain is chosen).
 - Local: `.env` (Node tooling) / `.dev.vars` (Cloudflare local dev, gitignored). Copy from `.env.example`.
 - Product/architecture docs in `context/foundation/` (`prd.md` holds the privacy guardrails) and `context/deployment/deploy-plan.md`.

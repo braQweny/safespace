@@ -273,10 +273,15 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
         className="border-brand-soft bg-surface text-ink placeholder:text-ink-faint focus:border-brand-ring focus:ring-brand-ring/25 disabled:bg-surface-hover min-h-24 w-full resize-y rounded-lg border px-4 py-3 text-sm leading-6 transition-colors outline-none focus:ring-2 disabled:cursor-not-allowed"
       />
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* The hint used to be *replaced* by the counter, so it disappeared exactly
+            when a long message made "how do I send this?" pressing. Show both. */}
         <p className="text-ink-faint text-xs">
-          {trimmedValue.length > SESSION_MESSAGE_MAX_CHARS * 0.8
-            ? `${trimmedValue.length}/${SESSION_MESSAGE_MAX_CHARS}`
-            : "Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła."}
+          <span>Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.</span>
+          {trimmedValue.length > SESSION_MESSAGE_MAX_CHARS * 0.8 ? (
+            <span className="text-ink-muted ml-2 font-medium tabular-nums">
+              {trimmedValue.length}/{SESSION_MESSAGE_MAX_CHARS}
+            </span>
+          ) : null}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
