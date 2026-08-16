@@ -82,8 +82,11 @@ describe("Polish user-facing copy", () => {
     for (const [label, value] of [
       ...collectStrings("crisisSafetyCopy", getCrisisSafetyCopy()),
       ...collectStrings("safetyUnavailableCopy", getSafetyUnavailableCopy()),
-      ...collectStrings("crisisResources", CRISIS_RESOURCE_CATALOG.pl),
-      ...collectStrings("crisisResources", CRISIS_RESOURCE_CATALOG.local_fallback),
+      // Every region renders inside the Polish crisis screen, so the whole
+      // catalog (including "us") must be written in Polish.
+      ...Object.entries(CRISIS_RESOURCE_CATALOG).flatMap(([regionId, region]) =>
+        collectStrings(`crisisResources.${regionId}`, region),
+      ),
     ]) {
       expectProperPolish(label, value);
     }

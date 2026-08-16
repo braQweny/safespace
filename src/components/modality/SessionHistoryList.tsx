@@ -155,7 +155,7 @@ function SessionHistoryListItemRow({
                 className="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
               >
                 <PlayCircle aria-hidden="true" className="h-4 w-4" />
-                Wróć do sesji
+                Wróć do rozmowy
               </a>
             </>
           ) : null}
@@ -187,7 +187,7 @@ function SessionHistoryListItemRow({
         <div className="border-warn-line bg-warn-soft text-warn mt-4 rounded-lg border p-4 text-sm leading-6">
           <p className="font-semibold">Potwierdź usunięcie rozmowy</p>
           <p className="mt-1">
-            Usunięcie jest nieodwracalne. Treść rozmowy zostanie usunięta i nie przywraca darmowej próby.
+            Usunięcie jest nieodwracalne i nie przywraca darmowej próby. Treść rozmowy zostanie trwale usunięta.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button

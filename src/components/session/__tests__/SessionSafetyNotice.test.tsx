@@ -30,7 +30,7 @@ const fallbackRegion: CrisisResourceRegion = {
     {
       kind: "local_guidance",
       label: "Lokalny numer alarmowy",
-      value: "local emergency number",
+      value: "lokalny numer alarmowy",
       description: "Skontaktuj się z lokalnym numerem alarmowym.",
     },
   ],
@@ -87,7 +87,7 @@ describe("SessionSafetyNotice", () => {
       <SessionSafetyNotice variant="hard_stop" copy={hardStopCopy} crisisResources={[fallbackRegion]} />,
     );
 
-    expect(html).toContain("local emergency number");
+    expect(html).toContain("lokalny numer alarmowy");
     expect(html).not.toContain("tel:");
   });
 

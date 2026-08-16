@@ -37,8 +37,8 @@ function NoticeIcon({ variant }: { variant: NoticeVariant }) {
 
 /**
  * Only real dialable numbers become `tel:` links. `local_guidance` entries carry
- * a placeholder ("local emergency number") instead of a number, so linking them
- * would hand the user a dead dialer entry in the one moment that must not fail.
+ * a textual placeholder ("lokalny numer alarmowy") instead of a number, so linking
+ * them would hand the user a dead dialer entry in the one moment that must not fail.
  */
 function getDialableNumber(contact: CrisisResourceContact) {
   if (contact.kind === "local_guidance") {

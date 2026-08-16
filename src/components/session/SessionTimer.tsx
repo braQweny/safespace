@@ -101,6 +101,14 @@ export default function SessionTimer({
         <span>{formatRemainingTime(remainingSeconds)}</span>
         {level === "critical" ? <span className="text-xs font-medium">kończy się czas</span> : null}
       </div>
+      {/* Zmiana progu ogłaszana czytnikowi ekranu raz, bez odczytywania każdej sekundy. */}
+      <span role="status" className="sr-only">
+        {level === "critical"
+          ? "Zostało mniej niż 2 minuty sesji."
+          : level === "warning"
+            ? "Zostało mniej niż 5 minut sesji."
+            : null}
+      </span>
       {progressRatio === null ? null : (
         <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-black/10">
           <div

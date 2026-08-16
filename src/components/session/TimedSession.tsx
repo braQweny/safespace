@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CircleStop, FileText, History, PlayCircle, ShieldCheck } from "lucide-react";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
@@ -19,11 +19,11 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
   active: {
     title: "Sesja jest aktywna",
-    body: "Możesz pisać wiadomości, dopóki serwerowy limit czasu pozwala na rozmowę.",
+    body: "Możesz pisać wiadomości, dopóki trwa czas sesji.",
   },
   expired: {
     title: "Limit czasu został osiągnięty",
-    body: "Pierwsza 15-minutowa sesja jest już po czasie. Nowe wiadomości są blokowane po stronie serwera.",
+    body: "Pierwsza 15-minutowa sesja jest już po czasie. Nie można już wysyłać nowych wiadomości.",
   },
   completed: {
     title: "Sesja została zakończona",
@@ -51,7 +51,19 @@ const BOUNDARIES_COPY =
   "SafeSpace jest symulacją rozmowy edukacyjnej. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.";
 
 const PERSPECTIVE_COPY =
-  "Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które sam zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.";
+  "Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które samodzielnie zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.";
+
+const emptySubscribe = () => () => {
+  // Stan hydratacji nigdy się nie zmienia po pierwszym renderze klienta.
+};
+
+function useIsHydrated() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
 
 function getSessionTotalSeconds(session: SessionView | null) {
   if (!session?.startedAt || !session.expiresAt) {
@@ -74,6 +86,16 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
   const { kind, session, messages, draft, isStarting, isEnding, isMessagePending, pendingUserText, notice } = state;
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const [skipContext, setSkipContext] = useState(false);
+  // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
+  // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
+  const isHydrated = useIsHydrated();
+  const confirmEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (isConfirmingEnd) {
+      confirmEndRef.current?.focus();
+    }
+  }, [isConfirmingEnd]);
   const hasApprovedSummaries = initialState.approvedSummaries.length > 0;
   // Without approved summaries there is nothing to carry over, so the start is
   // context-free either way; the checkbox only matters when context exists.
@@ -93,12 +115,12 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         onClick={() => {
           void startSession({ withoutContext: startsWithoutContext });
         }}
-        disabled={isStarting}
+        disabled={!isHydrated || isStarting}
         className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
       >
         <PlayCircle aria-hidden="true" className="h-4 w-4" />
         {isStarting
-          ? "Start..."
+          ? "Rozpoczynanie…"
           : kind === "followup_ready"
             ? startsWithoutContext
               ? "Rozpocznij kolejną sesję bez kontekstu"
@@ -157,7 +179,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
               </div>
             ) : (
               <p className="text-ink-muted mt-2">
-                Nie ma zatwierdzonych podsumowań. Start bez kontekstu jest możliwy tylko przez poniższy jawny przycisk.
+                Nie ma zatwierdzonych podsumowań. Sesję bez kontekstu rozpoczniesz osobnym przyciskiem poniżej.
               </p>
             )}
           </div>
@@ -216,7 +238,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
                   className="border-danger-line bg-surface text-danger hover:bg-danger-soft focus:ring-danger-strong inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <CircleStop aria-hidden="true" className="h-4 w-4" />
-                  {isEnding ? "Kończenie..." : "Zakończ sesję"}
+                  {isEnding ? "Kończenie…" : "Zakończ sesję"}
                 </button>
               </div>
             ) : null}
@@ -224,9 +246,11 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
 
           {canEndSession && isConfirmingEnd ? (
             <div
+              ref={confirmEndRef}
               role="alertdialog"
               aria-label="Potwierdź zakończenie sesji"
-              className="border-danger-line bg-danger-soft text-danger mt-4 rounded-lg border p-4 text-sm leading-6"
+              tabIndex={-1}
+              className="border-danger-line bg-danger-soft text-danger mt-4 rounded-lg border p-4 text-sm leading-6 focus:outline-none"
             >
               <p className="font-semibold">Na pewno zakończyć sesję?</p>
               <p className="mt-1">Zakończonej rozmowy nie da się wznowić, ale jej zapis pozostanie w historii.</p>

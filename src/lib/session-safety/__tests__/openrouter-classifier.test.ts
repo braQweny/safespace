@@ -102,6 +102,28 @@ describe("buildOpenRouterSafetyRequest", () => {
     ]);
     expect(request.messages[0].role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain(input.currentUserMessage);
+    expect(request).not.toHaveProperty("reasoning");
+  });
+
+  it("uses minimal reasoning, no temperature and a larger token cap for GPT-5.6 Luna variants", () => {
+    for (const model of ["openai/gpt-5.6-luna", "openai/gpt-5.6-luna:batch", "openai/gpt-5.6-luna-pro"]) {
+      const request = buildOpenRouterSafetyRequest(input, model);
+
+      expect(request.model).toBe(model);
+      expect(request).not.toHaveProperty("temperature");
+      expect(request.reasoning).toEqual({
+        effort: "minimal",
+      });
+      expect(request.maxCompletionTokens).toBe(256);
+    }
+  });
+
+  it("omits temperature for other OpenAI gpt-5/o-series safety models without forcing reasoning", () => {
+    const request = buildOpenRouterSafetyRequest(input, "openai/gpt-5.6-terra");
+
+    expect(request).not.toHaveProperty("temperature");
+    expect(request).not.toHaveProperty("reasoning");
+    expect(request.maxCompletionTokens).toBe(64);
   });
 });
 
@@ -151,6 +173,38 @@ describe("classifySessionSafetyWithOpenRouter", () => {
         },
       },
     });
+  });
+
+  it("sends the minimal-reasoning Luna request shape over the wire", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve(
+        createJsonResponse(
+          createChatCompletionResponse(
+            JSON.stringify({
+              risk: "normal",
+              action: "allow",
+              reasonCode: "none_detected",
+            }),
+          ),
+        ),
+      ),
+    );
+
+    await classifySessionSafetyWithOpenRouter(input, {
+      apiKey: "test-openrouter-key",
+      model: "openai/gpt-5.6-luna",
+      fetcher: fetcher as unknown as Fetcher,
+    });
+
+    const { body } = await readOpenRouterRequest(fetcher);
+    expect(body).toMatchObject({
+      model: "openai/gpt-5.6-luna",
+      max_completion_tokens: 256,
+      reasoning: {
+        effort: "minimal",
+      },
+    });
+    expect(body).not.toHaveProperty("temperature");
   });
 
   it("requires server-side OpenRouter configuration", async () => {

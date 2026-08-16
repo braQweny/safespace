@@ -65,7 +65,12 @@ export default function AvatarChoiceForm({
   return (
     <div className="mt-8">
       <form method="POST" action="/api/profile/avatar">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {/* role="radiogroup" zamiast fieldset: grid na fieldsetcie bywa ignorowany przez starsze WebKity. */}
+        <div
+          role="radiogroup"
+          aria-label="Wybór awatara i perspektywy rozmowy"
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
           {modalities.map((modality) => {
             const isSelected = modality.modalityId === selectedModalityId;
 

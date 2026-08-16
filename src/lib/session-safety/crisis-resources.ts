@@ -22,22 +22,22 @@ export const CRISIS_RESOURCE_CATALOG = {
   },
   us: {
     id: "us",
-    label: "United States",
+    label: "Stany Zjednoczone",
     contacts: [
       {
         kind: "crisis_line",
-        label: "988 Suicide & Crisis Lifeline",
+        label: "Linia kryzysowa 988 (Suicide & Crisis Lifeline)",
         value: "988",
-        description: "Crisis and suicide support line for people in the United States.",
+        description: "Linia wsparcia dla osób w kryzysie psychicznym i samobójczym w Stanach Zjednoczonych.",
       },
       {
         kind: "emergency_number",
-        label: "Emergency services",
+        label: "Numer alarmowy 911",
         value: "911",
-        description: "For immediate danger to life or health, contact emergency services.",
+        description: "W sytuacji bezpośredniego zagrożenia życia lub zdrowia skontaktuj się ze służbami ratunkowymi.",
       },
     ],
-    note: "These resources are informational. If there is immediate danger, use emergency services.",
+    note: "Te zasoby są informacyjne. W pilnym zagrożeniu wybierz numer alarmowy.",
   },
   local_fallback: {
     id: "local_fallback",
@@ -46,7 +46,7 @@ export const CRISIS_RESOURCE_CATALOG = {
       {
         kind: "local_guidance",
         label: "Lokalny numer alarmowy lub lokalna linia kryzysowa",
-        value: "local emergency number",
+        value: "lokalny numer alarmowy",
         description:
           "Jeśli jesteś poza Polską i Stanami Zjednoczonymi, skontaktuj się z lokalnym numerem alarmowym albo lokalną linią pomocy kryzysowej.",
       },

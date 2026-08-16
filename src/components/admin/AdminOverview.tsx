@@ -8,7 +8,7 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   created: "Utworzone",
   active: "Aktywne",
   completed: "Zakończone",
-  expired: "Wygasłe",
+  expired: "Po czasie",
   interrupted: "Przerwane",
   deleted: "Usunięte",
 };
@@ -60,7 +60,7 @@ export default function AdminOverview({ metrics }: AdminOverviewProps) {
           <h2 className="text-ink text-base font-semibold">Pozostałe liczniki</h2>
           <dl className="mt-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-ink-muted text-sm">Sesje trial</dt>
+              <dt className="text-ink-muted text-sm">Sesje próbne</dt>
               <dd className="text-ink text-sm font-semibold">{formatCount(metrics.trialSessions)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">

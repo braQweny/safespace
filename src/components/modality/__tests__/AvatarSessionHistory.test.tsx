@@ -117,7 +117,7 @@ describe("AvatarSessionHistory", () => {
     expect(html).toContain("Aktywna");
     expect(html).toContain("Pozostało");
     expect(html).toContain('role="timer"');
-    expect(html).toContain("Wróć do sesji");
+    expect(html).toContain("Wróć do rozmowy");
     expect(html).toContain('href="/dashboard/session?sessionId=session-1"');
   });
 
@@ -135,7 +135,7 @@ describe("AvatarSessionHistory", () => {
 
     expect(html).toContain("Po czasie");
     expect(html).not.toContain("Pozostało");
-    expect(html).not.toContain("Wróć do sesji");
+    expect(html).not.toContain("Wróć do rozmowy");
   });
 
   it("renders summary preview only in detail and requires explicit approval", () => {

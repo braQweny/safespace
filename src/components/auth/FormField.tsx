@@ -48,6 +48,8 @@ export function FormField({
             onChange(e.target.value);
           }}
           placeholder={placeholder}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
           className={cn(
             inputBase,
             error ? "border-red-400 focus:ring-red-200" : "border-brand-soft focus:ring-line-accent",
@@ -56,8 +58,8 @@ export function FormField({
         {endContent}
       </div>
       {error ? (
-        <p className="mt-1 flex items-center gap-1 text-xs text-red-700">
-          <CircleAlert className="size-3" />
+        <p id={`${id}-error`} className="mt-1 flex items-center gap-1 text-xs text-red-700">
+          <CircleAlert aria-hidden="true" className="size-3" />
           {error}
         </p>
       ) : (

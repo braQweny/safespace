@@ -11,6 +11,19 @@ import type { SessionSafetyInput } from "./types";
 const OPENROUTER_SAFETY_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_SAFETY_TIMEOUT_MS = 8_000;
 const OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS = 64;
+// Reasoning models spend hidden reasoning tokens from the same completion
+// budget; with the 64-token cap that risks finish_reason "length" and a
+// fail-closed hard_stop on every message, so they get extra headroom.
+const OPENROUTER_SAFETY_REASONING_MAX_COMPLETION_TOKENS = 256;
+const OPENROUTER_SAFETY_TEMPERATURE = 0;
+
+// Mirrors session-ai/openrouter-request-params.ts: OpenAI gpt-5/o-series
+// models reject a non-default temperature, and with requireParameters such a
+// request would not route at all.
+const OPENAI_NO_TEMPERATURE_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|o\d(?:[.-]|$))/i;
+// GPT-5.6 Luna family (base, -pro, :batch). Classification is a simple
+// structured-output task, so the classifier always asks for minimal effort.
+const OPENAI_GPT_5_6_LUNA_MODEL_PATTERN = /^openai\/gpt-5\.6-luna(?:$|[-:])/i;
 
 const OPENROUTER_SAFETY_RESPONSE_SCHEMA = {
   name: "safespace_session_safety_decision",
@@ -60,8 +73,11 @@ interface OpenRouterSafetyChatMessage {
 type OpenRouterSafetyRequestBody = OpenRouterNonStreamingChatRequest & {
   model: string;
   messages: OpenRouterSafetyChatMessage[];
-  temperature: number;
+  temperature?: number;
   maxCompletionTokens: number;
+  reasoning?: {
+    effort: "minimal";
+  };
   stream: false;
   provider: {
     requireParameters: true;
@@ -122,8 +138,9 @@ export function buildOpenRouterSafetyRequest(
         content: buildSessionSafetyClassifierUserContent(input),
       },
     ],
-    temperature: 0,
-    maxCompletionTokens: OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS,
+    ...buildSafetyTemperatureParameter(model),
+    ...buildSafetyReasoningParameter(model),
+    maxCompletionTokens: resolveSafetyMaxCompletionTokens(model),
     stream: false,
     provider: {
       requireParameters: true,
@@ -137,6 +154,38 @@ export function buildOpenRouterSafetyRequest(
 
 function resolveSafetyModel(modelOverride?: string) {
   return resolveOpenRouterModel(modelOverride ?? getOpenRouterEnv().safetyModel, OPENROUTER_SAFETY_DEFAULT_MODEL);
+}
+
+function buildSafetyTemperatureParameter(model: string): Pick<OpenRouterSafetyRequestBody, "temperature"> {
+  if (OPENAI_NO_TEMPERATURE_MODEL_PATTERN.test(model.trim())) {
+    return {};
+  }
+
+  return {
+    temperature: OPENROUTER_SAFETY_TEMPERATURE,
+  };
+}
+
+function buildSafetyReasoningParameter(model: string): Pick<OpenRouterSafetyRequestBody, "reasoning"> {
+  if (!usesSafetyMinimalReasoning(model)) {
+    return {};
+  }
+
+  return {
+    reasoning: {
+      effort: "minimal",
+    },
+  };
+}
+
+function resolveSafetyMaxCompletionTokens(model: string) {
+  return usesSafetyMinimalReasoning(model)
+    ? OPENROUTER_SAFETY_REASONING_MAX_COMPLETION_TOKENS
+    : OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS;
+}
+
+function usesSafetyMinimalReasoning(model: string) {
+  return OPENAI_GPT_5_6_LUNA_MODEL_PATTERN.test(model.trim());
 }
 
 function resolveTimeoutMs(timeoutMs: number | undefined) {

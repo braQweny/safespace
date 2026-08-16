@@ -6,27 +6,27 @@ const RETRY_LABEL = "Spróbuj ponownie";
 const SESSION_AI_FAILURE_COPY = {
   missing_configuration: {
     title: "Nie możemy teraz przygotować odpowiedzi",
-    body: "Konfiguracja AI dla sesji nie jest dostępna. SafeSpace nie będzie udawać odpowiedzi, gdy zwykły model nie może zostać bezpiecznie wywołany.",
+    body: "Odpowiedzi są chwilowo niedostępne. SafeSpace nie pokaże udawanej odpowiedzi, gdy nie może bezpiecznie przygotować prawdziwej.",
     retryLabel: RETRY_LABEL,
   },
   provider_timeout: {
     title: "Odpowiedź trwa zbyt długo",
-    body: "Model nie zdążył odpowiedzieć w bezpiecznym czasie dla aktywnej sesji. Możesz spróbować ponownie, jeśli timer nadal pozwala na rozmowę.",
+    body: "Przygotowanie odpowiedzi zajęło zbyt dużo czasu. Możesz spróbować ponownie, jeśli czas sesji jeszcze trwa.",
     retryLabel: RETRY_LABEL,
   },
   provider_rate_limited: {
-    title: "Model jest chwilowo ograniczony",
-    body: "Dostawca AI odrzucił teraz zbyt wiele prób. Spróbuj ponownie za chwilę, bez utraty treści w polu wiadomości.",
+    title: "Za dużo prób w krótkim czasie",
+    body: "Odpowiedzi są chwilowo ograniczone. Spróbuj ponownie za chwilę — treść w polu wiadomości nie zniknie.",
     retryLabel: RETRY_LABEL,
   },
   provider_unavailable: {
-    title: "Model jest chwilowo niedostępny",
-    body: "Nie udało się uzyskać odpowiedzi od dostawcy AI. SafeSpace nie zapisze sztucznej odpowiedzi i pozwoli ponowić próbę, jeśli sesja nadal trwa.",
+    title: "Odpowiedź jest chwilowo niedostępna",
+    body: "Nie udało się uzyskać odpowiedzi. SafeSpace nie zapisze udawanej odpowiedzi — możesz ponowić próbę, jeśli sesja nadal trwa.",
     retryLabel: RETRY_LABEL,
   },
   invalid_provider_response: {
     title: "Nie możemy pokazać tej odpowiedzi",
-    body: "Dostawca AI zwrócił odpowiedź w nieoczekiwanym formacie. SafeSpace zatrzymuje ten krok zamiast zapisywać niepewny wynik.",
+    body: "Odpowiedź dotarła w nieoczekiwanej formie. SafeSpace zatrzymuje ten krok zamiast zapisywać niepewny wynik.",
     retryLabel: RETRY_LABEL,
   },
 } as const satisfies Record<SessionAiErrorCategory, SessionAiFailureCopy>;

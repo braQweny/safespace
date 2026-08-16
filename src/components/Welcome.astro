@@ -30,13 +30,13 @@ const steps = [
   },
   {
     title: "Przechodzisz do rozmowy",
-    body: "Pierwsza sesja ma być limitowana do 15 minut, z widocznym czasem i jasną informacją, że to symulacja edukacyjna.",
+    body: "Pierwsza sesja jest limitowana do 15 minut, z widocznym czasem i jasną informacją, że to symulacja edukacyjna.",
   },
 ];
 
 const boundaries = [
   "SafeSpace nie zastępuje psychoterapeuty, lekarza ani konsultacji ze specjalistą.",
-  "Produkt nie stawia diagnozy i nie dobiera leczenia ani nurtu terapii za użytkownika.",
+  "Produkt nie stawia diagnozy i nie dobiera leczenia ani nurtu terapii za Ciebie.",
   "Treść rozmowy ma charakter symulacji i wsparcia edukacyjnego, a nie porady medycznej.",
   "W sytuacji bezpośredniego zagrożenia potrzebny jest kontakt z realną pomocą, nie z aplikacją.",
 ];
@@ -87,7 +87,7 @@ const boundaries = [
         <p class="text-ink-muted mt-5 max-w-xl text-sm leading-6">
           {
             user
-              ? "Jesteś zalogowany. Kolejny krok — wybór awatara i sesja — czeka w Twoim panelu."
+              ? "Zalogowano. Kolejny krok — wybór awatara i sesja — czeka w Twoim panelu."
               : "Darmowa, 15-minutowa sesja wymaga konta, żeby rozmowa pozostała prywatna. Ta strona niczego nie uruchamia ani nie zapisuje."
           }
         </p>
@@ -112,7 +112,7 @@ const boundaries = [
     <section class="border-y border-[#d6e6e1] bg-white">
       <div class="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-12">
         <div class="lg:col-span-1">
-          <p class="text-brand text-sm font-medium">Jak to ma działać</p>
+          <p class="text-brand text-sm font-medium">Jak to działa</p>
           <h2 class="text-ink mt-3 text-2xl leading-tight font-semibold">Krótka ścieżka przed pierwszą sesją</h2>
           <p class="text-ink-muted mt-3 text-sm leading-6">
             Trzy kroki dzielą Cię od rozmowy. Żaden z nich nie uruchamia sesji przypadkiem — czas zaczyna biec dopiero
@@ -144,9 +144,8 @@ const boundaries = [
           15 minut, konto użytkownika i jasne granice przed rozmową
         </h2>
         <p class="text-ink-soft mt-4 max-w-3xl text-base leading-7">
-          SafeSpace przygotowuje dostęp do pierwszej, limitowanej sesji w przeglądarce. Konto jest potrzebne, żeby
-          prowadzić prywatny przepływ użytkownika, a wybór awatara pomoże opisać edukacyjną perspektywę przyszłej
-          rozmowy.
+          SafeSpace udostępnia pierwszą, limitowaną sesję w przeglądarce. Konto jest potrzebne, żeby rozmowa i jej
+          historia pozostały prywatne, a wybór awatara opisuje edukacyjną perspektywę przyszłej rozmowy.
         </p>
         <p class="text-ink-soft mt-4 max-w-3xl text-base leading-7">
           Po sesji możesz wrócić do zapisu rozmowy w prywatnej historii i zatwierdzić podsumowanie, które posłuży jako
@@ -167,7 +166,7 @@ const boundaries = [
       <div class="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8 lg:py-12">
         <div>
           <p class="text-sm font-medium text-[#9ed8cc]">Granice bezpieczeństwa</p>
-          <h2 class="mt-3 text-3xl leading-tight font-semibold">Zanim zaczniesz, wiedz czego produkt nie robi</h2>
+          <h2 class="mt-3 text-3xl leading-tight font-semibold">Zanim zaczniesz, wiedz, czego produkt nie robi</h2>
           <p class="mt-4 text-base leading-7 text-[#d8e8e3]">
             SafeSpace ma pomagać w przygotowaniu do realnej rozmowy i edukacyjnie pokazywać możliwe sposoby pracy. Nie
             ma zastępować kontaktu z wykwalifikowaną osobą.
@@ -199,7 +198,7 @@ const boundaries = [
       >
         <div>
           <p class="text-brand text-sm font-medium">
-            {user ? "Wróć do swoich rozmów" : "Gotowy na pierwszy krok?"}
+            {user ? "Wróć do swoich rozmów" : "Czas na pierwszy krok?"}
           </p>
           <h2 class="text-ink mt-2 text-2xl font-semibold">
             {user ? "Przejdź do swojego panelu" : "Załóż konto i przygotuj pierwszą sesję"}
@@ -207,7 +206,7 @@ const boundaries = [
           <p class="text-ink-muted mt-3 max-w-3xl text-sm leading-6">
             {
               user
-                ? "W panelu wybierzesz awatara, rozpoczniesz sesję i wrócisz do zapisanych rozmów. Rozmowa nigdy nie startuje z tej publicznej strony."
+                ? "W panelu wybierzesz awatara, rozpoczniesz sesję i wrócisz do zapisanych rozmów. Rozmowa nigdy nie zaczyna się na tej publicznej stronie."
                 : "Rejestracja zajmuje chwilę i niczego nie uruchamia automatycznie — sesję zaczynasz świadomie, osobnym przyciskiem w panelu."
             }
           </p>

@@ -148,6 +148,21 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.provider.requireParameters).toBe(true);
   });
 
+  it("uses medium reasoning, temperature and a larger token limit for Gemini 3.7 Flash, including the batch variant", () => {
+    for (const model of ["google/gemini-3.7-flash", "google/gemini-3.7-flash:batch"]) {
+      const request = buildOpenRouterSessionRequest(input, model);
+
+      expect(request.model).toBe(model);
+      expect(request.temperature).toBe(0.7);
+      expect(request.maxTokens).toBe(1600);
+      expect(request).not.toHaveProperty("maxCompletionTokens");
+      expect(request.reasoning).toEqual({
+        effort: "medium",
+      });
+      expect(request.provider.requireParameters).toBe(true);
+    }
+  });
+
   it("includes the selected catalog sessionStyleHint in the system message and keeps the user turn plain", () => {
     const modality = MVP_MODALITIES.find((item) => item.avatarId === "integrative-guide");
 

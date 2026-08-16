@@ -8,6 +8,7 @@ import {
   buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
+  isOpenRouterGemini37FlashModel,
   supportsOpenRouterTemperature,
 } from "./openrouter-request-params";
 import { buildSessionResponseMessages } from "./session-response-prompt";
@@ -22,7 +23,9 @@ import type {
 
 const OPENROUTER_SESSION_TIMEOUT_MS = 12_000;
 const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 800;
-const OPENROUTER_GEMINI_3_5_FLASH_SESSION_MAX_COMPLETION_TOKENS = 1_600;
+// Gemini Flash thinking models spend hidden reasoning tokens from the same
+// output budget, so they get a larger cap than plain chat models.
+const OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS = 1_600;
 const OPENROUTER_SESSION_TEMPERATURE = 0.7;
 
 interface OpenRouterSessionResponseOptions {
@@ -98,8 +101,8 @@ export function buildOpenRouterSessionRequest(
 }
 
 function resolveSessionMaxCompletionTokens(model: string) {
-  if (isOpenRouterGemini35FlashModel(model)) {
-    return OPENROUTER_GEMINI_3_5_FLASH_SESSION_MAX_COMPLETION_TOKENS;
+  if (isOpenRouterGemini35FlashModel(model) || isOpenRouterGemini37FlashModel(model)) {
+    return OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS;
   }
 
   return OPENROUTER_SESSION_MAX_COMPLETION_TOKENS;

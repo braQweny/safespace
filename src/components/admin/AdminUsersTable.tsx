@@ -12,7 +12,7 @@ const REASON_OPTIONS: { value: AdminBlockReasonCode; label: string }[] = [
   { value: "policy_violation", label: "Naruszenie zasad" },
   { value: "safety_risk", label: "Ryzyko bezpieczeństwa" },
   { value: "abuse_prevention", label: "Ochrona przed nadużyciem" },
-  { value: "owner_request", label: "Decyzja ownera" },
+  { value: "owner_request", label: "Decyzja właściciela" },
   { value: "other", label: "Inny powód" },
 ];
 
@@ -48,7 +48,7 @@ function getStatusLabel(user: AdminUserListItem) {
 function ErrorNotice({ code }: { code: AdminApiFailureCode }) {
   return (
     <div className="border-danger-line bg-danger-soft text-danger rounded-lg border p-4 text-sm">
-      Nie udało się pobrać danych admina. Kod: {code}
+      Nie udało się pobrać danych administracyjnych (kod: {code}). Spróbuj ponownie za chwilę.
     </div>
   );
 }
@@ -80,7 +80,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
         }}
       >
         <label className="text-ink-soft text-sm font-medium">
-          Email
+          E-mail
           <input
             type="search"
             name="q"
@@ -137,10 +137,10 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
       {errorCode ? <ErrorNotice code={errorCode} /> : null}
 
       <div className="border-line overflow-hidden rounded-lg border bg-white">
-        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <table aria-label="Lista użytkowników" className="w-full min-w-[900px] border-collapse text-left text-sm">
           <thead className="text-ink-soft bg-[#edf3f1]">
             <tr>
-              <th className="px-4 py-3 font-semibold">Email</th>
+              <th className="px-4 py-3 font-semibold">E-mail</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold">Utworzone</th>
               <th className="px-4 py-3 font-semibold">Aktywność</th>
@@ -186,6 +186,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                         {!isBlocked ? (
                           <select
                             value={getReason(user.profile.userId)}
+                            aria-label="Powód blokady"
                             onChange={(event) => {
                               setReason(user.profile.userId, event.target.value as AdminBlockReasonCode);
                             }}

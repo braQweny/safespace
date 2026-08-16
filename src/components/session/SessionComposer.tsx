@@ -241,7 +241,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
   }, [cleanupRecordingStream, clearRecordingTimeout]);
 
   const dictationStatusCopy =
-    dictationStatus === "recording" ? "Nagrywanie..." : dictationStatus === "transcribing" ? "Przepisywanie..." : null;
+    dictationStatus === "recording" ? "Nagrywanie…" : dictationStatus === "transcribing" ? "Przepisywanie…" : null;
 
   return (
     <form
@@ -251,7 +251,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
       }}
     >
       <label htmlFor="session-message" className="sr-only">
-        Wiadomość do SafeSpace
+        Treść wiadomości
       </label>
       <textarea
         id="session-message"
@@ -269,7 +269,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
           event.preventDefault();
           onSubmit();
         }}
-        placeholder="Napisz, od czego chcesz zacząć..."
+        placeholder="Napisz, od czego chcesz zacząć…"
         className="border-brand-soft bg-surface text-ink placeholder:text-ink-faint focus:border-brand-ring focus:ring-brand-ring/25 disabled:bg-surface-hover min-h-24 w-full resize-y rounded-lg border px-4 py-3 text-sm leading-6 transition-colors outline-none focus:ring-2 disabled:cursor-not-allowed"
       />
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -300,7 +300,11 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
             ) : (
               <Mic aria-hidden="true" className="h-4 w-4" />
             )}
-            {dictationStatus === "recording" ? "Stop" : dictationStatus === "transcribing" ? "Przepisuję" : "Dyktuj"}
+            {dictationStatus === "recording"
+              ? "Zatrzymaj"
+              : dictationStatus === "transcribing"
+                ? "Przepisywanie…"
+                : "Dyktuj"}
           </button>
           <button
             type="submit"

@@ -24,7 +24,7 @@ interface AvatarSessionHistoryProps {
 }
 
 const errorCopy: Record<SessionHistoryFailureCode, string> = {
-  missing_auth: "Musisz być zalogowany, żeby zobaczyć historię rozmów.",
+  missing_auth: "Zaloguj się, żeby zobaczyć historię rozmów.",
   invalid_avatar: "Nie udało się rozpoznać wybranego awatara.",
   invalid_page: "Nieprawidłowy numer strony historii.",
   session_not_found: "Nie znaleziono tej rozmowy albo została już usunięta.",

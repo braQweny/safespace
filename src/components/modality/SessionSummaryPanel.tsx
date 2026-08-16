@@ -13,7 +13,7 @@ interface SessionSummaryPanelProps {
 }
 
 const summaryErrorCopy: Record<SessionSummaryFailureCode, string> = {
-  missing_auth: "Musisz być zalogowany, żeby zarządzać podsumowaniem.",
+  missing_auth: "Zaloguj się, żeby zarządzać podsumowaniem.",
   session_data_unavailable: "Podsumowania są chwilowo niedostępne.",
   session_not_found: "Nie znaleziono tej rozmowy albo została już usunięta.",
   session_not_summarizable: "Tę rozmowę można podsumować dopiero po zakończeniu, przerwaniu albo wygaśnięciu.",
@@ -97,7 +97,7 @@ export default function SessionSummaryPanel({
               ) : (
                 <Sparkles aria-hidden="true" className="h-4 w-4" />
               )}
-              {summaryState.kind === "none" ? "Generuj podsumowanie" : "Wygeneruj ponownie"}
+              {summaryState.kind === "none" ? "Wygeneruj podsumowanie" : "Wygeneruj ponownie"}
             </button>
             <button
               type="button"

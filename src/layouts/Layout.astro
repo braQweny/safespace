@@ -11,9 +11,13 @@ interface Props {
 
 const {
   title = "SafeSpace",
-  lang = "en",
+  lang = "pl",
   description = "SafeSpace pomaga spokojnie przygotować się do pierwszej rozmowy w symulacji psychoterapeutycznej.",
 } = Astro.props;
+
+// Komunikaty o brakującej konfiguracji są przeznaczone dla osoby rozwijającej
+// projekt (nazwy zmiennych środowiskowych) — nie mogą trafić do użytkownika.
+const showConfigBanners = import.meta.env.DEV;
 ---
 
 <!doctype html>
@@ -30,20 +34,21 @@ const {
   </head>
   <body>
     {
-      missingConfigs.map((cfg) => (
-        <Banner variant="error">
-          <strong>Uwaga:</strong> {cfg.message}
-          {cfg.docsUrl && (
-            <>
-              {" "}
-              <a href={cfg.docsUrl} target="_blank" rel="noopener noreferrer">
-                {cfg.docsLabel ?? "Dokumentacja"}
-              </a>
-              .
-            </>
-          )}
-        </Banner>
-      ))
+      showConfigBanners &&
+        missingConfigs.map((cfg) => (
+          <Banner variant="error">
+            <strong>Uwaga:</strong> {cfg.message}
+            {cfg.docsUrl && (
+              <>
+                {" "}
+                <a href={cfg.docsUrl} target="_blank" rel="noopener noreferrer">
+                  {cfg.docsLabel ?? "Dokumentacja"}
+                </a>
+                .
+              </>
+            )}
+          </Banner>
+        ))
     }
     <slot />
   </body>

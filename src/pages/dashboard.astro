@@ -148,7 +148,7 @@ const activeRemainingMinutes = activeSession?.expiresAt
                     <h2 class="text-ink mt-2 text-2xl font-semibold">{currentSelection.avatarName}</h2>
                     <p class="text-brand mt-2 text-base font-medium">{currentSelection.modalityName}</p>
                     <p class="text-ink-muted mt-4 text-sm leading-6">
-                      Ten wybór będzie zapisany przy pierwszej 15-minutowej sesji. Samo wejście na stronę sesji nie
+                      Ten wybór obowiązuje w kolejnej sesji. Samo wejście na stronę sesji nie rozpoczyna rozmowy ani nie
                       zużywa darmowej próby.
                     </p>
                     <div class="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -209,8 +209,8 @@ const activeRemainingMinutes = activeSession?.expiresAt
               <aside class="border-line bg-surface-soft rounded-lg border p-5">
                 <h2 class="text-brand-deep text-base font-semibold">Co dalej</h2>
                 <p class="text-ink-muted mt-2 text-sm leading-6">
-                  Jeśli awatar jest zapisany, możesz przejść do strony sesji i rozpocząć jedną darmową 15-minutową próbę
-                  świadomym kliknięciem startu.
+                  Sesję rozpoczynasz na stronie sesji świadomym kliknięciem startu — samo wejście tam niczego nie
+                  uruchamia.
                 </p>
               </aside>
             )

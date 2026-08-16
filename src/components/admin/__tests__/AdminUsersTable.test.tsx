@@ -76,7 +76,7 @@ describe("AdminUsersTable", () => {
   it("renders search/filter UI, active and blocked states, and explicit controls", () => {
     const html = renderUsers();
 
-    expect(html).toContain("Email");
+    expect(html).toContain("E-mail");
     expect(html).toContain("Status");
     expect(html).toContain("Sortowanie");
     expect(html).toContain("admin@example.com");
@@ -118,7 +118,7 @@ describe("AdminUsersTable", () => {
       },
     });
 
-    expect(errorHtml).toContain("Kod: not_admin");
+    expect(errorHtml).toContain("kod: not_admin");
     expect(emptyHtml).toContain("Brak użytkowników dla wybranych filtrów");
   });
 });

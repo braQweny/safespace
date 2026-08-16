@@ -17,8 +17,8 @@ let avatarRequired = false;
 if (!sessionContext.ok) {
   pageError =
     sessionContext.error.code === "missing_auth"
-      ? "Musisz być zalogowany, żeby przygotować pierwszą sesję."
-      : "Konfiguracja prywatnej sesji jest chwilowo niedostępna. Spróbuj ponownie za chwilę.";
+      ? "Zaloguj się, żeby przygotować pierwszą sesję."
+      : "Prywatna sesja jest chwilowo niedostępna. Spróbuj ponownie za chwilę.";
 } else {
   const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
 
