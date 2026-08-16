@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleStop, FileText, History, PlayCircle, ShieldCheck } from "lucide-react";
+import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
   followup_ready: {
     title: "Przygotowanie do kolejnej sesji",
-    body: "Możesz rozpocząć kolejną sesję z limitem czasu. Przed startem widzisz, czy rozmowa otrzyma zatwierdzone podsumowania jako kontekst.",
+    body: "Rozmowa ma limit czasu i zaczyna się dopiero po kliknięciu startu.",
   },
   trial_already_claimed: {
     title: "Darmowa próba została już wykorzystana",
@@ -54,18 +55,6 @@ const BOUNDARIES_COPY =
 
 const PERSPECTIVE_COPY =
   "Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które samodzielnie zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.";
-
-const emptySubscribe = () => () => {
-  // Stan hydratacji nigdy się nie zmienia po pierwszym renderze klienta.
-};
-
-function useIsHydrated() {
-  return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  );
-}
 
 function getSessionTotalSeconds(session: SessionView | null) {
   if (!session?.startedAt || !session.expiresAt) {
@@ -128,13 +117,13 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
       >
         <PlayCircle aria-hidden="true" className="h-4 w-4" />
+        {/* The panel right above already states whether context carries over, so
+            the button says what it does instead of restating the checkbox. */}
         {isStarting
           ? "Rozpoczynanie…"
           : kind === "followup_ready"
-            ? startsWithoutContext
-              ? "Rozpocznij kolejną sesję bez kontekstu"
-              : "Rozpocznij kolejną sesję z kontekstem"
-            : "Rozpocznij pierwszą darmową sesję"}
+            ? "Rozpocznij rozmowę"
+            : "Rozpocznij pierwszą darmową rozmowę"}
       </button>
     ) : null;
 
@@ -144,7 +133,7 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
         <div className="flex items-start gap-3">
           <FileText aria-hidden="true" className="text-brand mt-1 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-ink font-semibold">Kontekst pokazany przed startem</p>
+            <p className="text-ink font-semibold">Z czym zacznie się ta rozmowa</p>
             {hasApprovedSummaries ? (
               <div className="mt-3 space-y-3">
                 {initialState.approvedSummaries.slice(0, 3).map((summary, index) => (
@@ -188,7 +177,8 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
               </div>
             ) : (
               <p className="text-ink-muted mt-2">
-                Nie ma zatwierdzonych podsumowań. Sesję bez kontekstu rozpoczniesz osobnym przyciskiem poniżej.
+                Nie masz jeszcze zatwierdzonego podsumowania, więc ta rozmowa zacznie się od zera. Podsumowanie
+                poprzedniej rozmowy możesz przygotować w panelu, w jej historii.
               </p>
             )}
           </div>
@@ -212,7 +202,10 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           isChatLayout ? "flex-1 lg:h-full" : "lg:self-start",
         )}
       >
-        <header className="border-line shrink-0 border-b px-5 py-4">
+        {/* During a conversation the header competed with the messages for a small
+            phone screen, so identity shrinks to one line and the modality — which
+            the user already chose and cannot change here — drops out. */}
+        <header className={cn("border-line shrink-0 border-b px-5", isChatLayout ? "py-3 lg:py-4" : "py-4")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <img
@@ -220,13 +213,17 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
                 alt=""
                 width="96"
                 height="96"
-                className="h-11 w-11 shrink-0 rounded-full object-cover lg:hidden"
+                className={cn("shrink-0 rounded-full object-cover lg:hidden", isChatLayout ? "h-9 w-9" : "h-11 w-11")}
                 loading="lazy"
               />
               <div className="min-w-0">
                 <p className="text-brand text-xs font-medium">{stateCopy[kind].title}</p>
-                <h2 className="text-ink mt-0.5 truncate text-lg font-semibold">{avatar.avatarName}</h2>
-                <p className="text-brand truncate text-sm">{avatar.modalityName}</p>
+                <h2 className={cn("text-ink truncate font-semibold", isChatLayout ? "text-base" : "mt-0.5 text-lg")}>
+                  {avatar.avatarName}
+                </h2>
+                <p className={cn("text-brand truncate text-sm", isChatLayout && "hidden lg:block")}>
+                  {avatar.modalityName}
+                </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">

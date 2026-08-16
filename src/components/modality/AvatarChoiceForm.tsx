@@ -7,6 +7,7 @@ import {
   type SelectedModalityAvatar,
 } from "@/lib/modalities";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
+import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { cn } from "@/lib/utils";
 import AvatarSessionHistory from "./AvatarSessionHistory";
 
@@ -44,9 +45,13 @@ export default function AvatarChoiceForm({
 }: AvatarChoiceFormProps) {
   const [selectedModalityId, setSelectedModalityId] = useState<ModalityId | "">(currentSelection?.modalityId ?? "");
   const [historyPage, setHistoryPage] = useState(initialHistoryPage);
-  const isBrowser = typeof window !== "undefined";
+  const isHydrated = useIsHydrated();
   const selectedModality = modalities.find((modality) => modality.modalityId === selectedModalityId) ?? null;
   const selectedAvatar = selectedModality ? toSelectedModalityAvatar(selectedModality) : null;
+  // Without JavaScript the radios still work but React never re-renders, so the
+  // save bar has to stay in the server-rendered markup or the form is unusable.
+  const hasUnsavedChoice =
+    !isHydrated || (selectedModality !== null && selectedModality.modalityId !== currentSelection?.modalityId);
 
   function selectModality(modality: ModalityAvatar) {
     setSelectedModalityId(modality.modalityId);
@@ -137,32 +142,33 @@ export default function AvatarChoiceForm({
           })}
         </div>
 
-        <div className="border-line-accent bg-surface/95 shadow-rail sticky bottom-4 z-10 mt-5 rounded-lg border p-3 backdrop-blur">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-ink-muted text-sm leading-6">
-              {selectedModality ? (
-                <>
-                  <span className="text-ink font-semibold">Zaznaczony awatar: {selectedModality.avatarName}</span>
-                  <span className="block text-xs">
-                    Podgląd historii poniżej już się przełączył, ale wybór nie jest jeszcze zapisany — kolejna sesja
-                    użyje tej perspektywy dopiero po kliknięciu „Zapisz wybór”.
-                  </span>
-                </>
-              ) : (
-                "Zaznacz kartę, żeby wybrać perspektywę kolejnej rozmowy."
-              )}
-            </p>
-            <button
-              type="submit"
-              disabled={isBrowser && !selectedModality}
-              suppressHydrationWarning
-              className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
-            >
-              <Save aria-hidden="true" className="h-4 w-4" />
-              Zapisz wybór
-            </button>
+        {/* The bar only appears once the selection actually differs from what is
+            saved. Floating a permanent "Zapisz wybór" over the cards implied
+            there was always something pending, and covered a card to say it. */}
+        {hasUnsavedChoice ? (
+          <div className="border-line-accent bg-surface shadow-rail sticky bottom-4 z-10 mt-5 rounded-lg border p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-ink-muted text-sm leading-6">
+                {selectedModality ? (
+                  <>
+                    <span className="text-ink font-semibold">Zaznaczono: {selectedModality.avatarName}</span>
+                    <span className="block text-xs">Wybór zacznie obowiązywać po zapisaniu.</span>
+                  </>
+                ) : (
+                  "Zaznacz kartę, żeby wybrać perspektywę kolejnej rozmowy."
+                )}
+              </p>
+              <button
+                type="submit"
+                suppressHydrationWarning
+                className="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+              >
+                <Save aria-hidden="true" className="h-4 w-4" />
+                Zapisz wybór
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
       </form>
 
       <AvatarSessionHistory

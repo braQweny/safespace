@@ -167,7 +167,7 @@ describe("AvatarSessionHistory", () => {
       },
     });
 
-    expect(html).toContain("Wersja robocza do zatwierdzenia");
+    expect(html).toContain("Propozycja — jeszcze nieużywana");
     expect(html).toContain("Widoczne podsumowanie do sprawdzenia przed uzyciem.");
     expect(html).toContain("Użyj w kolejnej sesji");
     expect(html).not.toContain("Edytuj");
@@ -241,10 +241,10 @@ describe("AvatarSessionHistory", () => {
       },
     });
 
-    expect(approvedHtml).toContain("Zatwierdzone");
-    expect(approvedHtml).toContain("może zostać użyte jako jawny kontekst");
+    expect(approvedHtml).toContain("Przekazywane kolejnej sesji");
+    expect(approvedHtml).toContain("Kolejna rozmowa zacznie się z tą wiedzą");
     expect(staleHtml).toContain("Nieaktualne");
-    expect(staleHtml).toContain("nie będzie używana jako kontekst");
+    expect(staleHtml).toContain("nie zostanie przekazana kolejnej rozmowie");
     expect(nonSummarizableHtml).toContain("Aktywne albo puste rozmowy nie mogą zostać podsumowane");
     expect(renderHistory()).not.toContain("Zatwierdzone podsumowanie widoczne tylko w detail.");
   });

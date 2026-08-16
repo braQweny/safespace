@@ -7,6 +7,7 @@ import {
   SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES,
   SESSION_TRANSCRIPTION_MAX_RECORDING_MS,
 } from "@/lib/session-flow/session-transcription-contract";
+import { cn } from "@/lib/utils";
 
 interface SessionComposerProps {
   value: string;
@@ -81,6 +82,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trimmedValue = value.trim();
+  const isNearCharLimit = trimmedValue.length > SESSION_MESSAGE_MAX_CHARS * 0.8;
   const canSubmit = !isDisabled && !isPending && dictationStatus === "idle" && trimmedValue.length > 0;
   const canUseDictation = !isDisabled && !isPending && dictationStatus !== "transcribing";
 
@@ -270,15 +272,16 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
           onSubmit();
         }}
         placeholder="Napisz, od czego chcesz zacząć…"
-        className="border-brand-soft bg-surface text-ink placeholder:text-ink-faint focus:border-brand-ring focus:ring-brand-ring/25 disabled:bg-surface-hover min-h-24 w-full resize-y rounded-lg border px-4 py-3 text-sm leading-6 transition-colors outline-none focus:ring-2 disabled:cursor-not-allowed"
+        className="border-brand-soft bg-surface text-ink placeholder:text-ink-faint focus:border-brand-ring focus:ring-brand-ring/25 disabled:bg-surface-hover min-h-16 w-full resize-y rounded-lg border px-4 py-3 text-sm leading-6 transition-colors outline-none focus:ring-2 disabled:cursor-not-allowed sm:min-h-24"
       />
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* The hint used to be *replaced* by the counter, so it disappeared exactly
-            when a long message made "how do I send this?" pressing. Show both. */}
-        <p className="text-ink-faint text-xs">
-          <span>Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.</span>
-          {trimmedValue.length > SESSION_MESSAGE_MAX_CHARS * 0.8 ? (
-            <span className="text-ink-muted ml-2 font-medium tabular-nums">
+            when a long message made "how do I send this?" pressing. Show both —
+            but not the keyboard shortcut on phones, where there is no Cmd key. */}
+        <p className={cn("text-ink-faint text-xs", !isNearCharLimit && "hidden sm:block")}>
+          <span className="hidden sm:inline">Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.</span>
+          {isNearCharLimit ? (
+            <span className="text-ink-muted font-medium tabular-nums sm:ml-2">
               {trimmedValue.length}/{SESSION_MESSAGE_MAX_CHARS}
             </span>
           ) : null}

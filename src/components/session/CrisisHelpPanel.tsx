@@ -28,7 +28,10 @@ export function CrisisHelpTrigger({ isOpen, onToggle }: CrisisHelpTriggerProps) 
       className="border-warn-line bg-warn-soft text-warn hover:bg-warn-soft/70 focus:ring-warn-strong inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none"
     >
       <LifeBuoy aria-hidden="true" className="h-4 w-4" />
-      Potrzebuję pomocy teraz
+      {/* Shortened on phones so the header controls stay on one row, but never
+          reduced to a bare icon — this is the one button that must read clearly. */}
+      <span className="sm:hidden">Pomoc teraz</span>
+      <span className="hidden sm:inline">Potrzebuję pomocy teraz</span>
     </button>
   );
 }

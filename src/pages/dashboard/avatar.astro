@@ -125,27 +125,35 @@ if (!pageError && currentSelection) {
 
     <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto max-w-6xl">
-        <h1 class="text-ink max-w-4xl text-3xl font-semibold">Wybierz awatara psychoterapeutycznego</h1>
+        {
+          /* Two long paragraphs plus a privacy card used to fill the entire first
+            mobile screen, so the actual choice started below the fold. The detail
+            stays available, just folded away until someone wants it. */
+        }
+        <h1 class="text-ink max-w-4xl text-3xl font-semibold">Wybierz perspektywę rozmowy</h1>
+        <p class="text-ink-soft mt-3 max-w-3xl text-base leading-7">
+          Każdy awatar prowadzi rozmowę w innym stylu. Wybór dotyczy kolejnej sesji i możesz go później zmienić.
+        </p>
 
-        <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-          <div>
-            <p class="text-ink-soft max-w-3xl text-base leading-7">
+        <details class="group mt-3 max-w-3xl">
+          <summary
+            class="text-brand focus:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:ring-2 focus:outline-none"
+          >
+            Co to znaczy i co widać w historii
+            <span aria-hidden="true" class="transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div class="text-ink-muted mt-3 space-y-2 text-sm leading-6">
+            <p>
               To edukacyjny wybór perspektywy do przyszłej symulacji rozmowy. SafeSpace nie zastępuje specjalisty i nie
               dobiera nurtu za Ciebie; decyzje dotyczące realnej terapii warto omawiać z wykwalifikowaną osobą.
             </p>
-            <p class="text-ink-muted mt-3 max-w-3xl text-sm leading-6">
+            <p>
               Możesz przełączać awatary, żeby sprawdzić zapisane rozmowy dla danej perspektywy, zanim zapiszesz nowy
-              wybór.
+              wybór. Lista historii nie pokazuje fragmentów rozmowy — pełna treść jest dostępna dopiero po otwarciu
+              zapisu tylko do odczytu.
             </p>
           </div>
-          <aside class="border-line bg-surface text-ink-muted rounded-lg border p-4 text-sm leading-6">
-            <p class="text-brand-deep font-semibold">Prywatność historii</p>
-            <p class="mt-2">
-              Lista historii nie pokazuje fragmentów rozmowy. Pełna treść jest dostępna dopiero po otwarciu zapisu tylko
-              do odczytu.
-            </p>
-          </aside>
-        </div>
+        </details>
 
         {
           pageError ? (

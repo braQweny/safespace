@@ -23,6 +23,12 @@ interface AvatarSessionHistoryProps {
   initialConfirmSessionId?: string | null;
   /** Session to open on mount, so a link from a finished session lands on its summary. */
   autoOpenSessionId?: string | null;
+  /**
+   * The avatar picker switches history per card, so it needs the name in the
+   * heading. The dashboard already shows the same name right above and would
+   * just repeat it.
+   */
+  showAvatarHeading?: boolean;
 }
 
 const errorCopy: Record<SessionHistoryFailureCode, string> = {
@@ -45,6 +51,7 @@ export default function AvatarSessionHistory({
   initialDetail = null,
   initialConfirmSessionId = null,
   autoOpenSessionId = null,
+  showAvatarHeading = true,
 }: AvatarSessionHistoryProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
@@ -171,11 +178,19 @@ export default function AvatarSessionHistory({
     <section className="border-line-strong mt-8 rounded-lg border bg-white p-5 shadow-[0_18px_46px_rgba(24,78,70,0.10)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-brand text-sm font-medium">Historia rozmów</p>
-          <h2 className="text-ink mt-1 text-xl font-semibold">
-            {selectedAvatar ? selectedAvatar.avatarName : "Wybierz awatara"}
-          </h2>
-          {selectedAvatar ? <p className="text-brand mt-1 text-sm font-medium">{selectedAvatar.modalityName}</p> : null}
+          {showAvatarHeading ? (
+            <>
+              <p className="text-brand text-sm font-medium">Historia rozmów</p>
+              <h2 className="text-ink mt-1 text-xl font-semibold">
+                {selectedAvatar ? selectedAvatar.avatarName : "Wybierz awatara"}
+              </h2>
+              {selectedAvatar ? (
+                <p className="text-brand mt-1 text-sm font-medium">{selectedAvatar.modalityName}</p>
+              ) : null}
+            </>
+          ) : (
+            <h2 className="text-ink text-xl font-semibold">Historia rozmów</h2>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button

@@ -57,6 +57,7 @@ export default function DashboardSessionHistory({
       onPageChange={changeHistoryPage}
       initialHistory={historyPage === initialHistoryPage ? initialHistory : null}
       autoOpenSessionId={historyPage === initialHistoryPage ? requestedSessionId : null}
+      showAvatarHeading={false}
     />
   );
 }

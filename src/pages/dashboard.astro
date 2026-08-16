@@ -148,15 +148,20 @@ const activeRemainingMinutes = activeSession?.expiresAt
                     <h2 class="text-ink mt-2 text-2xl font-semibold">{currentSelection.avatarName}</h2>
                     <p class="text-brand mt-2 text-base font-medium">{currentSelection.modalityName}</p>
                     <p class="text-ink-muted mt-4 text-sm leading-6">
-                      Ten wybór obowiązuje w kolejnej sesji. Samo wejście na stronę sesji nie rozpoczyna rozmowy ani nie
-                      zużywa darmowej próby.
+                      {activeSession
+                        ? "Rozmowa z tą perspektywą jest w toku. Zmiana awatara zadziała dopiero od następnej sesji."
+                        : "Ten wybór obowiązuje w kolejnej sesji. Samo wejście na stronę sesji nie rozpoczyna rozmowy ani nie zużywa darmowej próby."}
                     </p>
                     <div class="mt-5 flex flex-col gap-3 sm:flex-row">
                       <a
-                        href="/dashboard/session"
+                        href={
+                          activeSession
+                            ? `/dashboard/session?sessionId=${encodeURIComponent(activeSession.id)}`
+                            : "/dashboard/session"
+                        }
                         class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
                       >
-                        Przejdź do sesji
+                        {activeSession ? "Wróć do rozmowy" : "Przejdź do sesji"}
                       </a>
                       <a
                         href="/dashboard/avatar"
@@ -193,17 +198,14 @@ const activeRemainingMinutes = activeSession?.expiresAt
                   <span aria-hidden="true" class="bg-brand h-2 w-2 rounded-full" />
                   Rozmowa w toku
                 </p>
+                {/* Deliberately no button here: the card above already owns the
+                    single primary action, and two green buttons side by side made
+                    it unclear which one was the way back. */}
                 <p class="text-ink-muted mt-2 text-sm leading-6">
                   {activeRemainingMinutes
-                    ? `Masz otwartą sesję — zostało jeszcze około ${activeRemainingMinutes} min.`
-                    : "Masz otwartą sesję z limitem czasu. Wróć do niej, zanim czas się skończy."}
+                    ? `Zostało jeszcze około ${activeRemainingMinutes} min.`
+                    : "Masz otwartą sesję z limitem czasu."}
                 </p>
-                <a
-                  href={`/dashboard/session?sessionId=${encodeURIComponent(activeSession.id)}`}
-                  class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-4 inline-flex h-11 w-full items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-                >
-                  Wróć do rozmowy
-                </a>
               </aside>
             ) : (
               <aside class="border-line bg-surface-soft rounded-lg border p-5">

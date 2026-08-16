@@ -43,10 +43,10 @@ describe("TimedSession", () => {
     });
 
     expect(html).toContain("Przygotowanie do pierwszej sesji");
-    expect(html).toContain("Rozpocznij pierwszą darmową sesję");
+    expect(html).toContain("Rozpocznij pierwszą darmową rozmowę");
     expect(html).toContain("Granice rozmowy");
     expect(html).toContain("SafeSpace jest symulacją rozmowy edukacyjnej");
-    expect(html).not.toContain("Kontekst pokazany przed startem");
+    expect(html).not.toContain("Z czym zacznie się ta rozmowa");
   });
 
   it("renders an explicit end action only while the session is active", () => {
@@ -128,8 +128,10 @@ describe("TimedSession", () => {
     });
 
     expect(html).toContain("Przygotowanie do kolejnej sesji");
+    // The button no longer spells out the context state, so what carries over
+    // has to be visible in the panel itself.
     expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
-    expect(html).toContain("Rozpocznij kolejną sesję z kontekstem");
+    expect(html).toContain("Rozpocznij rozmowę");
     // The opt-out has to be reachable next to the context it opts out of.
     expect(html).toContain("Zacznij bez przekazywania kontekstu");
     expect(html).toContain('id="skip-approved-context"');
@@ -157,7 +159,8 @@ describe("TimedSession", () => {
     });
 
     expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
-    expect(html).toContain("Rozpocznij kolejną sesję z kontekstem");
+    expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
+    expect(html).toContain("Rozpocznij rozmowę");
   });
 
   it("renders explicit no-context fallback for follow-up sessions without approved summaries", () => {
@@ -172,7 +175,8 @@ describe("TimedSession", () => {
       canStartWithoutContext: true,
     });
 
-    expect(html).toContain("Nie ma zatwierdzonych podsumowań");
-    expect(html).toContain("Rozpocznij kolejną sesję bez kontekstu");
+    // With nothing approved the user must still be told the session starts fresh.
+    expect(html).toContain("zacznie się od zera");
+    expect(html).toContain("Rozpocznij rozmowę");
   });
 });

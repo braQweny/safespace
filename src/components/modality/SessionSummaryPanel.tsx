@@ -44,33 +44,30 @@ export default function SessionSummaryPanel({
           <p className="text-ink font-semibold">Podsumowanie do kolejnej sesji</p>
           {summaryState.kind === "none" ? (
             <p className="text-ink-muted mt-1">
-              Brak zatwierdzonego podsumowania dla tej rozmowy. Kontekst kolejnej sesji powstanie dopiero po
-              wygenerowaniu wersji roboczej i jej świadomym zatwierdzeniu.
+              Możesz streścić tę rozmowę i przekazać streszczenie kolejnej sesji, żeby nie zaczynać od zera. Zobaczysz
+              je przed użyciem — nic nie przechodzi dalej bez Twojej zgody.
             </p>
           ) : null}
           {summaryState.kind !== "none" ? (
             <div className="border-line bg-surface-soft mt-3 rounded-lg border p-3">
               <p className="text-brand text-xs font-semibold tracking-wide uppercase">
                 {summaryState.kind === "approved"
-                  ? "Zatwierdzone"
+                  ? "Przekazywane kolejnej sesji"
                   : summaryState.kind === "stale"
                     ? "Nieaktualne"
-                    : "Wersja robocza do zatwierdzenia"}
+                    : "Propozycja — jeszcze nieużywana"}
               </p>
               <p className="text-ink mt-2 whitespace-pre-wrap">{summaryState.summary.summaryText}</p>
               {summaryState.kind === "approved" ? (
-                <p className="text-ink-muted mt-2">
-                  To podsumowanie może zostać użyte jako jawny kontekst późniejszej rozmowy.
-                </p>
+                <p className="text-ink-muted mt-2">Kolejna rozmowa zacznie się z tą wiedzą.</p>
               ) : null}
               {summaryState.kind === "preview" ? (
                 <p className="text-ink-muted mt-2">
-                  Zobacz treść przed użyciem. Dopiero przycisk „Użyj w kolejnej sesji” pozwoli użyć tej wersji jako
-                  kontekstu.
+                  Przeczytaj i zdecyduj. Kolejna rozmowa pozna tę treść dopiero po kliknięciu „Użyj w kolejnej sesji”.
                 </p>
               ) : null}
               {summaryState.kind === "stale" ? (
-                <p className="text-ink-muted mt-2">Ta wersja nie będzie używana jako kontekst kolejnej sesji.</p>
+                <p className="text-ink-muted mt-2">Ta wersja nie zostanie przekazana kolejnej rozmowie.</p>
               ) : null}
             </div>
           ) : null}
