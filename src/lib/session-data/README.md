@@ -55,6 +55,14 @@ S-04 `first-safe-timed-session` implementuje pierwszy realny start sesji przez `
 
 Nie sprawdzaj limitu darmowej sesji tylko w UI. Odczyt dostepnosci moze sluzyc do komunikatu, ale claim musi przejsc przez `claimFreeTrialSession()` i DB unique constraint.
 
+## Plan konta i limit sesji planu bezplatnego
+
+Konto ma plan `free` albo `premium` (`AccountPlan`); znacznikiem premium jest `admin_user_profiles.premium_granted_at`. Konto `free` moze posiadac lacznie najwyzej `FREE_PLAN_SESSION_LIMIT` (3) sesji — liczy sie kazdy wiersz `therapy_sessions` wlasciciela, niezaleznie od statusu, tombstone po usunieciu tez. Konto `premium` nie ma limitu. Nie ma integracji platnosci: premium nadaje aktywny admin (audytowane) albo owner-run SQL.
+
+- Prawdziwa bramka to trigger BEFORE INSERT `therapy_sessions_enforce_free_plan_limit` (advisory lock per uzytkownik + count). Dziala dla `claim_free_trial_session()` i dla bezposredniego insertu wlasciciela, wiec klient gadajacy wprost z PostgREST tez go nie ominie. Odrzucenie to SQLSTATE `P0005` / `free_plan_session_limit_reached`, mapowane w `errors.ts` na stabilny kod `session_limit_reached`.
+- `readSessionQuota()` w `quota.ts` (wlasny wiersz planu + `countOwnedSessions()`) to odczyt pre-flight: zasila stan startu (`session_limit_reached`, licznik pozostalych rozmow) i wczesne 403 w `/api/session/start` oraz `/api/session/start-next`. Nie implementuj limitu ponownie w UI ani per trasa — follow-upy licza sie do tej samej puli co pierwsza sesja.
+- `schema-drift.test.ts` przypina `FREE_PLAN_SESSION_LIMIT` i SQLSTATE do migracji limitu; zmieniaj obie strony razem.
+
 ## Usuwanie sesji
 
 Przyszly S-05 ma uzywac `deleteOwnedSession()` z `deletion.ts`. Ten helper usuwa rekordy `session_messages` i `session_summaries`, a nastepnie oznacza `therapy_sessions` jako `deleted`. Zwracany tombstone nie zawiera prywatnej tresci ani wyboru nurtu/awatara.

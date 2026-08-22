@@ -56,6 +56,7 @@ export function mapAdminOverviewMetrics(value: unknown): AdminResult<AdminOvervi
   return adminOk({
     totalUsers: toCount(value.totalUsers),
     blockedUsers: toCount(value.blockedUsers),
+    premiumUsers: toCount(value.premiumUsers),
     sessionsByLifecycle: mapLifecycleCounts(value.sessionsByLifecycle),
     activeSessions: segmentPrivacyCount(toCount(value.activeSessions)),
     completedSessions: segmentPrivacyCount(toCount(value.completedSessions)),

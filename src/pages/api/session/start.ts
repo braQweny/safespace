@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
 import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
 import { FREE_TRIAL_DURATION_SECONDS, toSessionView } from "@/lib/session-flow/session-state";
-import { claimFreeTrialSession, readTrialAvailability } from "@/lib/session-data/quota";
+import { claimFreeTrialSession, readSessionQuota, readTrialAvailability } from "@/lib/session-data/quota";
 import { transitionSessionLifecycle } from "@/lib/session-data/repository";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
@@ -10,6 +10,7 @@ import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/
 import {
   buildSessionOpeningFailedEvent,
   buildSessionStartAttemptedEvent,
+  type SessionStartReasonCode,
 } from "@/lib/operational-visibility/session-events";
 import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
@@ -22,7 +23,10 @@ type StartFailureCode =
   | "account_access_unavailable"
   | CurrentAvatarChoiceErrorCode
   | "trial_unavailable"
+  | "session_quota_unavailable"
   | "session_start_failed";
+
+const SESSION_LIMIT_REDIRECT = "/dashboard?start=limit_reached";
 
 function wantsJson(request: Request) {
   return request.headers.get("Accept")?.toLowerCase().includes("application/json") ?? false;
@@ -45,12 +49,13 @@ function logStartAttempt(
   status: number,
   startedAtMs: number,
   operationalContext: Awaited<ReturnType<typeof buildOperationalRequestContext>>,
+  reasonCode: SessionStartReasonCode = "session_start_failed",
 ) {
   logOperationalEvent(
     {
       ...buildSessionStartAttemptedEvent({
         outcome,
-        reasonCode: outcome === "success" ? undefined : "session_start_failed",
+        reasonCode: outcome === "success" ? undefined : reasonCode,
         durationMs: getOperationalDurationMs(startedAtMs),
       }),
       status,
@@ -100,6 +105,22 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, avatarChoice.error.code, status, "/dashboard/avatar");
   }
 
+  // Pre-flight only: the insert trigger on therapy_sessions is the real gate,
+  // this keeps the response honest without a round trip that is bound to fail.
+  const quota = await readSessionQuota(sessionContext.data);
+
+  if (!quota.ok) {
+    logStartAttempt("failure", 503, startedAtMs, operationalContext);
+
+    return failureResponse(context, "session_quota_unavailable", 503, "/dashboard/session?start=unavailable");
+  }
+
+  if (!quota.data.canStartSession) {
+    logStartAttempt("blocked", 403, startedAtMs, operationalContext, "session_limit_reached");
+
+    return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
+  }
+
   const availability = await readTrialAvailability(sessionContext.data);
 
   if (!availability.ok) {
@@ -126,6 +147,14 @@ export const POST: APIRoute = async (context) => {
   });
 
   if (!claim.ok) {
+    // Race-time outcome of the database gate: another request of the same
+    // owner used the last free slot between the pre-flight and the claim.
+    if (claim.error.code === "session_limit_reached") {
+      logStartAttempt("blocked", 403, startedAtMs, operationalContext, "session_limit_reached");
+
+      return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
+    }
+
     const status = claim.error.code === "trial_already_claimed" ? 409 : 500;
     logStartAttempt(status === 409 ? "blocked" : "failure", status, startedAtMs, operationalContext);
 

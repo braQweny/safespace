@@ -1,5 +1,5 @@
 import { adminError, adminOk, type AdminResult } from "./errors";
-import type { AdminAuditEvent, AdminAuditEventType, AdminBlockReasonCode, AdminContext, AdminUserId } from "./types";
+import type { AdminAuditEvent, AdminAuditEventType, AdminAuditReasonCode, AdminContext, AdminUserId } from "./types";
 import { isRecord } from "@/lib/type-guards";
 
 const AUDIT_EVENT_SELECT = "id,admin_user_id,target_user_id,action,reason_code,created_at";
@@ -9,14 +9,14 @@ interface AdminAuditEventRow {
   admin_user_id: AdminUserId;
   target_user_id: AdminUserId;
   action: AdminAuditEventType;
-  reason_code: AdminBlockReasonCode;
+  reason_code: AdminAuditReasonCode;
   created_at: string;
 }
 
 export interface WriteAdminAuditEventInput {
   targetUserId: AdminUserId;
   action: AdminAuditEventType;
-  reasonCode: AdminBlockReasonCode;
+  reasonCode: AdminAuditReasonCode;
 }
 
 function coerceAuditEventRow(value: unknown): AdminAuditEventRow | null {

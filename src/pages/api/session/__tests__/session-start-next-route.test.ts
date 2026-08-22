@@ -9,8 +9,15 @@ const readCurrentAvatarChoice = vi.fn();
 const createPendingSession = vi.fn();
 const listNewestApprovedSessionSummaryContexts = vi.fn();
 const transitionSessionLifecycle = vi.fn();
+const readSessionQuota = vi.fn();
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
+
+vi.mock("@/lib/session-data/quota", () => ({
+  readSessionQuota,
+  readTrialAvailability: vi.fn(),
+  claimFreeTrialSession: vi.fn(),
+}));
 
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
@@ -174,9 +181,20 @@ describe("POST /api/session/start-next", () => {
         status: "active",
         blockedAt: null,
         blockReasonCode: null,
+        plan: "free",
+        premiumGrantedAt: null,
       },
     });
     readCurrentAvatarChoice.mockResolvedValue(ok(avatar));
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "free",
+        sessionLimit: 3,
+        usedSessions: 1,
+        remainingSessions: 2,
+        canStartSession: true,
+      }),
+    );
     listNewestApprovedSessionSummaryContexts.mockResolvedValue(ok(approvedSummaries));
     createPendingSession.mockResolvedValue(ok(createdSession));
     transitionSessionLifecycle.mockResolvedValue(ok(activeSession));
@@ -287,6 +305,76 @@ describe("POST /api/session/start-next", () => {
     });
     expect(readCurrentAvatarChoice).not.toHaveBeenCalled();
     expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+  });
+
+  it("counts follow-ups against the free-plan allowance and refuses with 403 when it is used up", async () => {
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "free",
+        sessionLimit: 3,
+        usedSessions: 3,
+        remainingSessions: 0,
+        canStartSession: false,
+      }),
+    );
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "session_limit_reached",
+      redirectTo: "/dashboard?start=limit_reached",
+    });
+    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+    expect(createPendingSession).not.toHaveBeenCalled();
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "blocked", status: 403, reasonCode: "session_limit_reached" }),
+      expect.anything(),
+    );
+  });
+
+  it("maps a race-time database limit rejection on insert to the same 403", async () => {
+    createPendingSession.mockResolvedValue(sessionDataError("session_limit_reached"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "session_limit_reached",
+    });
+    expect(transitionSessionLifecycle).not.toHaveBeenCalled();
+  });
+
+  it("maps a quota read failure to a stable unavailable response", async () => {
+    readSessionQuota.mockResolvedValue(sessionDataError("read_failed"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(503);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "session_quota_unavailable",
+    });
+    expect(createPendingSession).not.toHaveBeenCalled();
+  });
+
+  it("starts follow-ups for premium accounts regardless of how many sessions they own", async () => {
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "premium",
+        sessionLimit: null,
+        usedSessions: 25,
+        remainingSessions: null,
+        canStartSession: true,
+      }),
+    );
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    expect(createPendingSession).toHaveBeenCalledOnce();
   });
 
   it("does not create trial claims or reset trial state", async () => {

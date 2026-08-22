@@ -166,6 +166,24 @@ set is_active = true, deactivated_at = null;
 
 The admin MVP has no CSV/JSON exports, no user deletion, no password reset, no trial reset, no legal/safety break-glass content access, and no admin-readable private conversation content.
 
+### Account plans (free vs premium)
+
+Every account is either `free` or `premium`. A free account may own at most **3 sessions in total** (every session row counts — any status, deleted ones included); premium accounts are not capped. The cap is enforced by a database trigger on `therapy_sessions` inserts, so it cannot be bypassed from the client.
+
+There is no payment integration yet. Premium is granted or revoked by an active admin in `/admin/users` ("Nadaj premium" / "Odbierz premium", audited as `premium_granted` / `premium_revoked`), or with owner-controlled SQL:
+
+```sql
+-- grant
+update public.admin_user_profiles
+set premium_granted_at = now(), premium_granted_by = null
+where user_id = '<auth.users.id>';
+
+-- revoke
+update public.admin_user_profiles
+set premium_granted_at = null, premium_granted_by = null
+where user_id = '<auth.users.id>';
+```
+
 ## AI Runtime Configuration
 
 F-02 adds a server-only safety boundary for AI sessions. `evaluateSessionSafety()` calls OpenRouter before any ordinary AI generation and fails closed when the key is missing or the provider response is invalid.

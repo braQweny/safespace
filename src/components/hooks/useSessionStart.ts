@@ -66,9 +66,14 @@ export function isStartSessionFailure(body: unknown): body is StartSessionFailur
 
 /**
  * Awaria startu nie zawsze znaczy to samo: wykorzystana próba wraca do ekranu
- * kolejnej rozmowy, każdy inny błąd oznacza stan nieznany.
+ * kolejnej rozmowy, wyczerpany limit planu bezpłatnego pokazuje jego stan,
+ * a każdy inny błąd oznacza stan nieznany.
  */
 export function resolveFailedStartKind(failureCode: string | null): SessionStartPageStateKind {
+  if (failureCode === "session_limit_reached") {
+    return "session_limit_reached";
+  }
+
   return failureCode === "trial_already_claimed" || failureCode === "no_context_not_confirmed"
     ? "followup_ready"
     : "unavailable";

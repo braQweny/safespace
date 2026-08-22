@@ -3,12 +3,13 @@ import { adminError, adminOk, type AdminResult } from "./errors";
 import type { AccountAccessState, AdminBlockReasonCode, AdminRouteContext, AdminSupabaseClient } from "./types";
 import { isRecord } from "@/lib/type-guards";
 
-const ACCOUNT_ACCESS_SELECT = "user_id,blocked_at,block_reason_code";
+const ACCOUNT_ACCESS_SELECT = "user_id,blocked_at,block_reason_code,premium_granted_at";
 
 interface AccountAccessRow {
   user_id: string;
   blocked_at: string | null;
   block_reason_code: AdminBlockReasonCode | null;
+  premium_granted_at?: string | null;
 }
 
 function coerceAccountAccessRow(value: unknown): AccountAccessRow | null {
@@ -18,21 +19,30 @@ function coerceAccountAccessRow(value: unknown): AccountAccessRow | null {
 
   const blockedAt = typeof value.blocked_at === "string" ? value.blocked_at : null;
   const blockReasonCode = typeof value.block_reason_code === "string" ? value.block_reason_code : null;
+  const premiumGrantedAt = typeof value.premium_granted_at === "string" ? value.premium_granted_at : null;
 
   return {
     user_id: value.user_id,
     blocked_at: blockedAt,
     block_reason_code: blockReasonCode as AdminBlockReasonCode | null,
+    premium_granted_at: premiumGrantedAt,
   };
 }
 
 export function toAccountAccessState(userId: string, row: AccountAccessRow | null): AccountAccessState {
+  const premiumGrantedAt = row?.premium_granted_at ?? null;
+  const planState = {
+    plan: premiumGrantedAt ? ("premium" as const) : ("free" as const),
+    premiumGrantedAt,
+  };
+
   if (!row?.blocked_at) {
     return {
       userId,
       status: "active",
       blockedAt: null,
       blockReasonCode: null,
+      ...planState,
     };
   }
 
@@ -41,6 +51,7 @@ export function toAccountAccessState(userId: string, row: AccountAccessRow | nul
     status: "blocked",
     blockedAt: row.blocked_at,
     blockReasonCode: row.block_reason_code,
+    ...planState,
   };
 }
 

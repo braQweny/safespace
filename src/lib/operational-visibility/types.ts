@@ -51,6 +51,7 @@ export type OperationalDiagnosticReasonCode = "private_field_denied" | "invalid_
 export type OperationalSessionReasonCode =
   | SessionSafetyReasonCode
   | "session_start_failed"
+  | "session_limit_reached"
   | "provider_timeout"
   | "provider_rate_limited"
   | "provider_unavailable"

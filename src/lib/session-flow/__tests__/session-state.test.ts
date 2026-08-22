@@ -10,9 +10,34 @@ import type {
   SessionDataContext,
   SessionMessageRecord,
   SessionMetadata,
+  SessionQuota,
   SessionTrialClaimState,
 } from "@/lib/session-data/types";
 import type { CurrentAvatarChoice } from "../avatar-choice";
+
+const freeQuota: SessionQuota = {
+  plan: "free",
+  sessionLimit: 3,
+  usedSessions: 1,
+  remainingSessions: 2,
+  canStartSession: true,
+};
+
+const exhaustedQuota: SessionQuota = {
+  plan: "free",
+  sessionLimit: 3,
+  usedSessions: 3,
+  remainingSessions: 0,
+  canStartSession: false,
+};
+
+const premiumQuota: SessionQuota = {
+  plan: "premium",
+  sessionLimit: null,
+  usedSessions: 12,
+  remainingSessions: null,
+  canStartSession: true,
+};
 
 const now = new Date("2026-06-07T10:00:00.000Z");
 const context = {
@@ -92,6 +117,7 @@ function createRepository(overrides: Partial<SessionStateRepository> = {}): Sess
         }),
       ),
     ),
+    readSessionQuota: vi.fn(() => Promise.resolve(ok(freeQuota))),
     getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(activeSession))),
     listOwnedActiveSessionMetadata: vi.fn(() => Promise.resolve(ok([]))),
     listOwnedSessionMessages: vi.fn(() => Promise.resolve(ok([message]))),
@@ -114,7 +140,7 @@ describe("session time helpers", () => {
 });
 
 describe("readSessionStartPageState", () => {
-  it("returns ready state when the trial has not been claimed", async () => {
+  it("returns ready state with the free-plan quota when the trial has not been claimed", async () => {
     const result = await readSessionStartPageState(context, { avatar, now }, createRepository());
 
     expect(result).toMatchObject({
@@ -125,8 +151,78 @@ describe("readSessionStartPageState", () => {
         session: null,
         approvedSummaries: [],
         canStartWithoutContext: false,
+        sessionQuota: freeQuota,
       },
     });
+  });
+
+  it("returns the limit-reached state and offers no start once the free allowance is used up", async () => {
+    const repository = createRepository({
+      readSessionQuota: vi.fn(() => Promise.resolve(ok(exhaustedQuota))),
+    });
+
+    const result = await readSessionStartPageState(context, { avatar, now }, repository);
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        kind: "session_limit_reached",
+        trialAvailable: false,
+        avatar,
+        session: null,
+        messages: [],
+        messageFetchFailed: false,
+        approvedSummaries: [],
+        canStartWithoutContext: false,
+        sessionQuota: exhaustedQuota,
+      },
+    });
+    // Nothing to carry context into, so neither the trial nor the summaries are read.
+    expect(repository.readTrialAvailability).not.toHaveBeenCalled();
+    expect(repository.listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+  });
+
+  it("keeps offering starts to premium accounts regardless of how many sessions they own", async () => {
+    const repository = createRepository({
+      readSessionQuota: vi.fn(() => Promise.resolve(ok(premiumQuota))),
+      readTrialAvailability: vi.fn(() =>
+        Promise.resolve(
+          ok({
+            isAvailable: false,
+            existingClaim: claim,
+          }),
+        ),
+      ),
+      getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok({ ...activeSession, status: "completed" as const }))),
+    });
+
+    const result = await readSessionStartPageState(context, { avatar, now }, repository);
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        kind: "followup_ready",
+        canStartWithoutContext: true,
+        sessionQuota: premiumQuota,
+      },
+    });
+  });
+
+  it("reports an unavailable state when the quota cannot be read", async () => {
+    const repository = createRepository({
+      readSessionQuota: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
+    });
+
+    const result = await readSessionStartPageState(context, { avatar, now }, repository);
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        kind: "unavailable",
+        sessionQuota: null,
+      },
+    });
+    expect(repository.readTrialAvailability).not.toHaveBeenCalled();
   });
 
   it("returns active state and owned messages for an active claimed trial", async () => {
@@ -318,6 +414,7 @@ describe("readSessionStartPageState", () => {
           status: "active",
           isTrial: false,
         },
+        sessionQuota: null,
       },
     });
     expect(repository.listOwnedActiveSessionMetadata).toHaveBeenCalledWith(context, {
@@ -325,6 +422,8 @@ describe("readSessionStartPageState", () => {
       limit: 5,
     });
     expect(repository.readTrialAvailability).not.toHaveBeenCalled();
+    // An ongoing conversation is shown as is; the allowance only matters for a start.
+    expect(repository.readSessionQuota).not.toHaveBeenCalled();
   });
 
   it("returns follow-up preparation when the claimed active session is past the server expiry", async () => {
@@ -376,6 +475,7 @@ describe("readSessionStartPageState", () => {
         ],
         // The opt-out stays available even when there is context to carry over.
         canStartWithoutContext: true,
+        sessionQuota: freeQuota,
       },
     });
   });

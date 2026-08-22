@@ -52,6 +52,8 @@ const activeState = {
   status: "active",
   blockedAt: null,
   blockReasonCode: null,
+  plan: "free",
+  premiumGrantedAt: null,
 };
 
 describe("toAccountAccessState", () => {
@@ -81,6 +83,34 @@ describe("toAccountAccessState", () => {
       status: "blocked",
       blockedAt: "2026-06-07T10:00:00.000Z",
       blockReasonCode: "policy_violation",
+      plan: "free",
+      premiumGrantedAt: null,
+    });
+  });
+
+  it("derives the premium plan from the grant timestamp, independent of the block state", () => {
+    expect(
+      toAccountAccessState("user-1", {
+        user_id: "user-1",
+        blocked_at: null,
+        block_reason_code: null,
+        premium_granted_at: "2026-08-01T10:00:00.000Z",
+      }),
+    ).toEqual({
+      ...activeState,
+      plan: "premium",
+      premiumGrantedAt: "2026-08-01T10:00:00.000Z",
+    });
+    expect(
+      toAccountAccessState("user-1", {
+        user_id: "user-1",
+        blocked_at: "2026-06-07T10:00:00.000Z",
+        block_reason_code: "policy_violation",
+        premium_granted_at: "2026-08-01T10:00:00.000Z",
+      }),
+    ).toMatchObject({
+      status: "blocked",
+      plan: "premium",
     });
   });
 
@@ -120,7 +150,7 @@ describe("readAccountAccessState", () => {
       data: activeState,
     });
     expect(client.from).toHaveBeenCalledWith("admin_user_profiles");
-    expect(client.select).toHaveBeenCalledWith("user_id,blocked_at,block_reason_code");
+    expect(client.select).toHaveBeenCalledWith("user_id,blocked_at,block_reason_code,premium_granted_at");
     expect(client.eq).toHaveBeenCalledWith("user_id", "user-1");
   });
 
@@ -143,6 +173,31 @@ describe("readAccountAccessState", () => {
         status: "blocked",
         blockedAt: "2026-06-07T10:00:00.000Z",
         blockReasonCode: "safety_risk",
+        plan: "free",
+        premiumGrantedAt: null,
+      },
+    });
+  });
+
+  it("returns the premium plan for a granted profile row", async () => {
+    const client = createAccountClient({
+      data: {
+        user_id: "user-1",
+        blocked_at: null,
+        block_reason_code: null,
+        premium_granted_at: "2026-08-01T10:00:00.000Z",
+      },
+      error: null,
+    });
+
+    const result = await readAccountAccessState(createContext(), client as unknown as AdminSupabaseClient);
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        ...activeState,
+        plan: "premium",
+        premiumGrantedAt: "2026-08-01T10:00:00.000Z",
       },
     });
   });
@@ -164,6 +219,7 @@ describe("readAccountAccessState", () => {
         user_id: "user-1",
         blocked_at: 1765100000000,
         block_reason_code: { raw: "object" },
+        premium_granted_at: true,
       },
       error: null,
     });

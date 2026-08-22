@@ -3,24 +3,39 @@ import { requestApiJson } from "@/lib/api-client";
 import {
   isAdminApiFailure,
   isAdminUserBlockSuccess,
+  isAdminUserPlanSuccess,
   isAdminUsersSuccess,
   type AdminApiFailureCode,
   type AdminUsersResponse,
 } from "@/lib/admin/contracts";
 import type {
   AdminBlockReasonCode,
+  AdminPlanReasonCode,
   AdminUserListItem,
   AdminUserListResult,
+  AdminUserPlanFilter,
   AdminUserSort,
   AdminUserStatusFilter,
 } from "@/lib/admin/types";
 
 export const DEFAULT_BLOCK_REASON: AdminBlockReasonCode = "policy_violation";
 
+/**
+ * Plan changes carry a fixed reason per direction: premium is granted because
+ * a subscription was paid and revoked because it ended. Other reasons stay
+ * available to the API for owner-driven changes, but the table does not ask
+ * the admin to pick one on every click.
+ */
+export const PLAN_REASON_BY_ACTION: Record<"grant" | "revoke", AdminPlanReasonCode> = {
+  grant: "subscription_paid",
+  revoke: "subscription_ended",
+};
+
 const DEFAULT_RESULT: AdminUserListResult = {
   filters: {
     emailSearch: "",
     status: "all",
+    plan: "all",
     sort: "created_desc",
     page: 1,
     pageSize: 20,
@@ -46,6 +61,7 @@ export function getInitialAdminUsersError(response: AdminUsersResponse) {
 export function buildAdminUsersQuery(filters: {
   emailSearch: string;
   status: AdminUserStatusFilter;
+  plan: AdminUserPlanFilter;
   sort: AdminUserSort;
   page: number;
   pageSize: number;
@@ -53,6 +69,7 @@ export function buildAdminUsersQuery(filters: {
   return new URLSearchParams({
     q: filters.emailSearch,
     status: filters.status,
+    plan: filters.plan,
     sort: filters.sort,
     page: String(filters.page),
     pageSize: String(filters.pageSize),
@@ -63,6 +80,7 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
   const [result, setResult] = useState(() => getInitialAdminUsersResult(initialResponse));
   const [emailSearch, setEmailSearch] = useState(result.filters.emailSearch);
   const [status, setStatus] = useState<AdminUserStatusFilter>(result.filters.status);
+  const [plan, setPlan] = useState<AdminUserPlanFilter>(result.filters.plan);
   const [sort, setSort] = useState<AdminUserSort>(result.filters.sort);
   const [reasonByUser, setReasonByUser] = useState<Record<string, AdminBlockReasonCode>>({});
   const [errorCode, setErrorCode] = useState<AdminApiFailureCode | null>(() =>
@@ -70,14 +88,14 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
   );
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const listAbortRef = useRef<AbortController | null>(null);
-  // Block/unblock is a server-side effect, so it is aborted only on unmount —
-  // never by a newer list refresh.
-  const blockAbortRef = useRef<AbortController | null>(null);
+  // Block/unblock and plan changes are server-side effects, so they are
+  // aborted only on unmount — never by a newer list refresh.
+  const mutationAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
       listAbortRef.current?.abort();
-      blockAbortRef.current?.abort();
+      mutationAbortRef.current?.abort();
     };
   }, []);
 
@@ -100,6 +118,7 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
     const params = buildAdminUsersQuery({
       emailSearch,
       status,
+      plan,
       sort,
       page: nextPage,
       pageSize: result.filters.pageSize,
@@ -123,20 +142,20 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
     setErrorCode(isAdminApiFailure(body) ? body.code : "admin_data_unavailable");
   }
 
-  async function toggleBlock(user: AdminUserListItem) {
-    const action = user.accountStatus === "blocked" ? "unblock" : "block";
-    const reasonCode = getReason(user.profile.userId);
+  async function runUserMutation(
+    userId: string,
+    path: string,
+    payload: Record<string, string>,
+    isSuccess: (body: unknown) => boolean,
+  ) {
     const controller = new AbortController();
-    blockAbortRef.current = controller;
-    setPendingUserId(user.profile.userId);
+    mutationAbortRef.current = controller;
+    setPendingUserId(userId);
 
     try {
-      const response = await requestApiJson(`/api/admin/users/${user.profile.userId}/block`, {
+      const response = await requestApiJson(`/api/admin/users/${userId}/${path}`, {
         method: "POST",
-        body: JSON.stringify({
-          action,
-          reasonCode,
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
 
@@ -146,7 +165,7 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
 
       const body = response.body;
 
-      if (!isAdminUserBlockSuccess(body)) {
+      if (!isSuccess(body)) {
         setErrorCode(isAdminApiFailure(body) ? body.code : "write_failed");
         return;
       }
@@ -157,12 +176,42 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
     }
   }
 
+  async function toggleBlock(user: AdminUserListItem) {
+    const action = user.accountStatus === "blocked" ? "unblock" : "block";
+
+    await runUserMutation(
+      user.profile.userId,
+      "block",
+      {
+        action,
+        reasonCode: getReason(user.profile.userId),
+      },
+      isAdminUserBlockSuccess,
+    );
+  }
+
+  async function togglePlan(user: AdminUserListItem) {
+    const action = user.plan === "premium" ? "revoke" : "grant";
+
+    await runUserMutation(
+      user.profile.userId,
+      "plan",
+      {
+        action,
+        reasonCode: PLAN_REASON_BY_ACTION[action],
+      },
+      isAdminUserPlanSuccess,
+    );
+  }
+
   return {
     result,
     emailSearch,
     setEmailSearch,
     status,
     setStatus,
+    plan,
+    setPlan,
     sort,
     setSort,
     errorCode,
@@ -171,5 +220,6 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
     setReason,
     refreshUsers,
     toggleBlock,
+    togglePlan,
   };
 }

@@ -51,8 +51,12 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
     body: "Kolejną rozmowę rozpoczniesz w panelu — tam zdecydujesz też, czy przekazać do niej zatwierdzone podsumowanie.",
   },
   trial_already_claimed: {
-    title: "Darmowa próba została już wykorzystana",
-    body: "Darmowa próba obejmuje jedną sesję i została już użyta na tym koncie. Zapis rozmowy znajdziesz w historii w panelu.",
+    title: "Pierwsza darmowa rozmowa została już wykorzystana",
+    body: "Pierwsza darmowa sesja została już użyta na tym koncie. Kolejną rozmowę rozpoczniesz w panelu, a zapis tej znajdziesz w historii.",
+  },
+  session_limit_reached: {
+    title: "Limit bezpłatnych rozmów został wykorzystany",
+    body: "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już użyte na tym koncie. Dalsze rozmowy są dostępne w planie premium; zapisy znajdziesz w historii w panelu.",
   },
   unavailable: {
     title: "Stan sesji jest chwilowo niedostępny",

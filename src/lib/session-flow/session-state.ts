@@ -1,4 +1,4 @@
-import { readTrialAvailability } from "@/lib/session-data/quota";
+import { readSessionQuota, readTrialAvailability } from "@/lib/session-data/quota";
 import {
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata,
@@ -14,6 +14,7 @@ import type {
   SessionMessageRecord,
   SessionMessageRole,
   SessionMetadata,
+  SessionQuota,
   TrialAvailability,
 } from "@/lib/session-data/types";
 import type { CurrentAvatarChoice } from "./avatar-choice";
@@ -31,6 +32,7 @@ export type SessionStartPageStateKind =
   | "interrupted"
   | "followup_ready"
   | "trial_already_claimed"
+  | "session_limit_reached"
   | "unavailable";
 
 export interface SessionView {
@@ -66,10 +68,18 @@ export interface SessionStartPageState {
    * opt-out the user can pick before starting.
    */
   canStartWithoutContext: boolean;
+  /**
+   * The owner's session allowance, read only for start states (`ready`,
+   * `followup_ready`, `session_limit_reached`); null while a session is shown
+   * or when the state is unavailable. Free accounts see how many of their
+   * sessions remain, premium accounts have no cap.
+   */
+  sessionQuota: SessionQuota | null;
 }
 
 export interface SessionStateRepository {
   readTrialAvailability: typeof readTrialAvailability;
+  readSessionQuota: typeof readSessionQuota;
   getOwnedSessionMetadata: typeof getOwnedSessionMetadata;
   listOwnedActiveSessionMetadata: typeof listOwnedActiveSessionMetadata;
   listOwnedSessionMessages: typeof listOwnedSessionMessages;
@@ -85,6 +95,7 @@ export interface ReadSessionStartPageStateOptions {
 
 const defaultSessionStateRepository: SessionStateRepository = {
   readTrialAvailability,
+  readSessionQuota,
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata,
   listOwnedSessionMessages,
@@ -197,10 +208,11 @@ function unavailableState(avatar: CurrentAvatarChoice): SessionStartPageState {
     messageFetchFailed: false,
     approvedSummaries: [],
     canStartWithoutContext: false,
+    sessionQuota: null,
   };
 }
 
-function readyState(avatar: CurrentAvatarChoice): SessionStartPageState {
+function readyState(avatar: CurrentAvatarChoice, sessionQuota: SessionQuota): SessionStartPageState {
   return {
     kind: "ready",
     trialAvailable: true,
@@ -210,11 +222,13 @@ function readyState(avatar: CurrentAvatarChoice): SessionStartPageState {
     messageFetchFailed: false,
     approvedSummaries: [],
     canStartWithoutContext: false,
+    sessionQuota,
   };
 }
 
 function claimedState(
   avatar: CurrentAvatarChoice,
+  sessionQuota: SessionQuota,
   approvedSummaries: ApprovedSessionSummaryContext[] = [],
 ): SessionStartPageState {
   return {
@@ -226,6 +240,23 @@ function claimedState(
     messageFetchFailed: false,
     approvedSummaries,
     canStartWithoutContext: true,
+    sessionQuota,
+  };
+}
+
+// The allowance is exhausted: no start is offered at all. Approved summaries
+// are not loaded — there is nothing to carry them into.
+function sessionLimitReachedState(avatar: CurrentAvatarChoice, sessionQuota: SessionQuota): SessionStartPageState {
+  return {
+    kind: "session_limit_reached",
+    trialAvailable: false,
+    avatar,
+    session: null,
+    messages: [],
+    messageFetchFailed: false,
+    approvedSummaries: [],
+    canStartWithoutContext: false,
+    sessionQuota,
   };
 }
 
@@ -274,6 +305,7 @@ async function pageStateFromSessionView(
     session,
     approvedSummaries: [],
     canStartWithoutContext: false,
+    sessionQuota: null,
     ...messageState,
   };
 }
@@ -392,6 +424,24 @@ export async function readSessionStartPageState(
     };
   }
 
+  // The allowance is checked before any start state is offered; the database
+  // trigger remains the real gate, this only keeps the start button honest.
+  const quota = await repository.readSessionQuota(context);
+
+  if (!quota.ok) {
+    return {
+      ok: true,
+      data: unavailableState(options.avatar),
+    };
+  }
+
+  if (!quota.data.canStartSession) {
+    return {
+      ok: true,
+      data: sessionLimitReachedState(options.avatar, quota.data),
+    };
+  }
+
   const availability = await repository.readTrialAvailability(context);
 
   if (!availability.ok) {
@@ -401,19 +451,20 @@ export async function readSessionStartPageState(
     };
   }
 
-  return okSessionStartPageState(context, availability.data, options, repository);
+  return okSessionStartPageState(context, availability.data, quota.data, options, repository);
 }
 
 async function okSessionStartPageState(
   context: SessionDataContext,
   availability: TrialAvailability,
+  sessionQuota: SessionQuota,
   options: ReadSessionStartPageStateOptions,
   repository: SessionStateRepository,
 ): Promise<SessionDataResult<SessionStartPageState>> {
   if (availability.isAvailable || !availability.existingClaim) {
     return {
       ok: true,
-      data: readyState(options.avatar),
+      data: readyState(options.avatar, sessionQuota),
     };
   }
 
@@ -424,7 +475,7 @@ async function okSessionStartPageState(
 
     return {
       ok: true,
-      data: claimedState(options.avatar, approvedSummaries),
+      data: claimedState(options.avatar, sessionQuota, approvedSummaries),
     };
   }
 
@@ -436,7 +487,7 @@ async function okSessionStartPageState(
 
     return {
       ok: true,
-      data: claimedState(options.avatar, approvedSummaries),
+      data: claimedState(options.avatar, sessionQuota, approvedSummaries),
     };
   }
 
@@ -454,6 +505,7 @@ async function okSessionStartPageState(
       session,
       approvedSummaries: [],
       canStartWithoutContext: false,
+      sessionQuota,
       ...messageState,
     },
   };

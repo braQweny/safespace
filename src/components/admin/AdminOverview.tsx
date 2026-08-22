@@ -32,8 +32,9 @@ export default function AdminOverview({ metrics }: AdminOverviewProps) {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Główne statystyki">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5" aria-label="Główne statystyki">
         <StatTile label="Użytkownicy" value={formatCount(metrics.totalUsers)} />
+        <StatTile label="Konta premium" value={formatCount(metrics.premiumUsers)} note="Bez limitu sesji." />
         <StatTile label="Zablokowane konta" value={formatCount(metrics.blockedUsers)} />
         <StatTile label="Aktywne sesje" value={formatCount(metrics.activeSessions)} note="Małe kohorty są ukrywane." />
         <StatTile

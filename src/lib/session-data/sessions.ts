@@ -75,6 +75,23 @@ export async function createPendingSession(
   return row ? ok(mapSession(row)) : sessionDataError("write_failed");
 }
 
+/**
+ * Counts every session row the owner has — any lifecycle status, deleted
+ * tombstones included — which is exactly what the free-plan cap trigger counts.
+ */
+export async function countOwnedSessions(context: SessionDataContext): Promise<SessionDataResult<number>> {
+  const { count, error } = await context.supabase
+    .from("therapy_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", context.user.id);
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  return ok(typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : 0);
+}
+
 export async function listOwnedSessionMetadata(
   context: SessionDataContext,
   options: ListSessionMetadataOptions = {},

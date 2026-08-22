@@ -34,6 +34,8 @@ const activeAccess: AccountAccessState = {
   status: "active",
   blockedAt: null,
   blockReasonCode: null,
+  plan: "free",
+  premiumGrantedAt: null,
 };
 
 function createDependencies(overrides: Partial<SessionRouteAccessDependencies> = {}): SessionRouteAccessDependencies {

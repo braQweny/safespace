@@ -6,6 +6,7 @@ import AdminOverview from "../AdminOverview";
 const metrics: AdminOverviewMetrics = {
   totalUsers: 18,
   blockedUsers: 2,
+  premiumUsers: 4,
   sessionsByLifecycle: {
     active: {
       value: null,
@@ -50,6 +51,7 @@ describe("AdminOverview", () => {
     const html = renderToStaticMarkup(<AdminOverview metrics={metrics} />);
 
     expect(html).toContain("Użytkownicy");
+    expect(html).toContain("Konta premium");
     expect(html).toContain("Zablokowane konta");
     expect(html).toContain("&lt;5");
     expect(html).toContain("Statusy sesji");

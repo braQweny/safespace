@@ -17,6 +17,8 @@ const SESSION_AI_PROVIDER_VALUES = ["openrouter"] as const satisfies readonly Op
 
 const SESSION_START_REASON_CODES = [
   "session_start_failed",
+  // Free-plan allowance exhausted: a conversion signal, not an incident.
+  "session_limit_reached",
   "interrupted",
 ] as const satisfies readonly OperationalSessionReasonCode[];
 

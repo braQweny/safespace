@@ -38,6 +38,7 @@ vi.mock("@/lib/session-data/repository", () => ({
 
 vi.mock("@/lib/session-data/quota", () => ({
   readTrialAvailability: vi.fn(),
+  readSessionQuota: vi.fn(),
 }));
 
 vi.mock("@/lib/session-safety/evaluate-session-safety", () => ({

@@ -1,5 +1,5 @@
 import type { AdminErrorCode } from "./errors";
-import type { AdminOverviewMetrics, AdminUserBlockResult, AdminUserListResult } from "./types";
+import type { AdminOverviewMetrics, AdminUserBlockResult, AdminUserListResult, AdminUserPlanResult } from "./types";
 
 export type AdminApiFailureCode =
   | AdminErrorCode
@@ -35,10 +35,21 @@ export interface AdminUserBlockSuccessResponse {
   result: AdminUserBlockResult;
 }
 
+export interface AdminUserPlanSuccessResponse {
+  ok: true;
+  type: "admin_user_plan";
+  result: AdminUserPlanResult;
+}
+
 export type AdminOverviewResponse = AdminOverviewSuccessResponse | AdminApiFailureResponse;
 export type AdminUsersResponse = AdminUsersSuccessResponse | AdminApiFailureResponse;
 export type AdminUserBlockResponse = AdminUserBlockSuccessResponse | AdminApiFailureResponse;
-export type AdminApiResponse = AdminOverviewResponse | AdminUsersResponse | AdminUserBlockResponse;
+export type AdminUserPlanResponse = AdminUserPlanSuccessResponse | AdminApiFailureResponse;
+export type AdminApiResponse =
+  | AdminOverviewResponse
+  | AdminUsersResponse
+  | AdminUserBlockResponse
+  | AdminUserPlanResponse;
 
 export function adminApiFailure(code: AdminApiFailureCode): AdminApiFailureResponse {
   return {
@@ -58,6 +69,10 @@ export function isAdminUsersSuccess(value: unknown): value is AdminUsersSuccessR
 
 export function isAdminUserBlockSuccess(value: unknown): value is AdminUserBlockSuccessResponse {
   return isResponseRecord(value) && value.ok === true && value.type === "admin_user_block";
+}
+
+export function isAdminUserPlanSuccess(value: unknown): value is AdminUserPlanSuccessResponse {
+  return isResponseRecord(value) && value.ok === true && value.type === "admin_user_plan";
 }
 
 export function isAdminApiFailure(value: unknown): value is AdminApiFailureResponse {

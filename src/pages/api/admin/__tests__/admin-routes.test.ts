@@ -8,6 +8,8 @@ const listAdminUsers = vi.fn();
 const parseAdminUserListFilters = vi.fn();
 const parseAdminUserBlockInput = vi.fn();
 const setAdminUserBlockState = vi.fn();
+const parseAdminUserPlanInput = vi.fn();
+const setAdminUserPlanState = vi.fn();
 
 vi.mock("@/lib/admin/auth", () => ({
   getAdminContext,
@@ -26,13 +28,16 @@ vi.mock("@/lib/admin/users", async () => {
     parseAdminUserListFilters,
     parseAdminUserBlockInput,
     setAdminUserBlockState,
+    parseAdminUserPlanInput,
+    setAdminUserPlanState,
   };
 });
 
-const [{ GET: GET_OVERVIEW }, { GET: GET_USERS }, { POST: POST_BLOCK }] = await Promise.all([
+const [{ GET: GET_OVERVIEW }, { GET: GET_USERS }, { POST: POST_BLOCK }, { POST: POST_PLAN }] = await Promise.all([
   import("@/pages/api/admin/overview"),
   import("@/pages/api/admin/users/index"),
   import("@/pages/api/admin/users/[userId]/block"),
+  import("@/pages/api/admin/users/[userId]/plan"),
 ]);
 
 const adminContext = {
@@ -45,6 +50,8 @@ const adminContext = {
     status: "active",
     blockedAt: null,
     blockReasonCode: null,
+    plan: "free",
+    premiumGrantedAt: null,
   },
   supabase: {},
 } as AdminContext;
@@ -52,6 +59,7 @@ const adminContext = {
 const overviewMetrics: AdminOverviewMetrics = {
   totalUsers: 10,
   blockedUsers: 1,
+  premiumUsers: 2,
   sessionsByLifecycle: {},
   activeSessions: {
     value: null,
@@ -84,6 +92,7 @@ const userListResult: AdminUserListResult = {
   filters: {
     emailSearch: "",
     status: "all",
+    plan: "all",
     sort: "created_desc",
     page: 1,
     pageSize: 20,
@@ -99,10 +108,13 @@ const userListResult: AdminUserListResult = {
         blockedAt: null,
         blockedBy: null,
         blockReasonCode: null,
+        premiumGrantedAt: null,
+        premiumGrantedBy: null,
         createdAt: "2026-06-01T10:00:00.000Z",
         updatedAt: "2026-06-01T10:00:00.000Z",
       },
       accountStatus: "active",
+      plan: "free",
       counters: {
         totalSessions: 1,
         activeSessions: 0,
@@ -178,6 +190,97 @@ describe("admin API routes", () => {
         },
       }),
     );
+    parseAdminUserPlanInput.mockReturnValue(
+      adminOk({
+        targetUserId: "user-1",
+        action: "grant",
+        reasonCode: "subscription_paid",
+      }),
+    );
+    setAdminUserPlanState.mockResolvedValue(
+      adminOk({
+        user: {
+          ...userListResult.users[0],
+          plan: "premium",
+          profile: {
+            ...userListResult.users[0].profile,
+            premiumGrantedAt: "2026-08-22T10:00:00.000Z",
+            premiumGrantedBy: "admin-1",
+          },
+        },
+        auditEvent: {
+          id: "audit-2",
+          adminUserId: "admin-1",
+          targetUserId: "user-1",
+          action: "premium_granted",
+          reasonCode: "subscription_paid",
+          createdAt: "2026-08-22T10:00:00.000Z",
+        },
+      }),
+    );
+  });
+
+  it("grants premium through an explicit plan action", async () => {
+    const response = await POST_PLAN(
+      createContext("https://safespace.local/api/admin/users/user-1/plan", {
+        action: "grant",
+        reasonCode: "subscription_paid",
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(parseAdminUserPlanInput).toHaveBeenCalledWith("user-1", {
+      action: "grant",
+      reasonCode: "subscription_paid",
+    });
+    expect(setAdminUserPlanState).toHaveBeenCalledWith(adminContext, {
+      targetUserId: "user-1",
+      action: "grant",
+      reasonCode: "subscription_paid",
+    });
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: true,
+      type: "admin_user_plan",
+      result: {
+        user: {
+          plan: "premium",
+        },
+        auditEvent: {
+          action: "premium_granted",
+        },
+      },
+    });
+  });
+
+  it("rejects plan changes from non-admins and maps invalid payloads", async () => {
+    getAdminContext.mockResolvedValueOnce(adminError("not_admin"));
+
+    const forbidden = await POST_PLAN(
+      createContext("https://safespace.local/api/admin/users/user-1/plan", {
+        action: "grant",
+        reasonCode: "subscription_paid",
+      }) as never,
+    );
+
+    expect(forbidden.status).toBe(403);
+    expect(setAdminUserPlanState).not.toHaveBeenCalled();
+
+    parseAdminUserPlanInput.mockReturnValueOnce(adminError("invalid_filter"));
+
+    const invalid = await POST_PLAN(
+      createContext("https://safespace.local/api/admin/users/user-1/plan", {
+        action: "grant",
+        reasonCode: "policy_violation",
+      }) as never,
+    );
+
+    expect(invalid.status).toBe(400);
+    await expect(readJson(invalid)).resolves.toEqual({
+      ok: false,
+      type: "admin_error",
+      code: "invalid_filter",
+    });
+    expect(setAdminUserPlanState).not.toHaveBeenCalled();
   });
 
   it("rejects non-admin overview reads", async () => {

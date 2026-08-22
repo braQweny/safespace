@@ -6,8 +6,10 @@
  * place.
  */
 export { toDeletedSessionTombstone } from "./rows";
+export { getOwnedAccountPlan, toOwnedAccountPlan } from "./account-plan";
 export {
   canTransitionSessionLifecycle,
+  countOwnedSessions,
   createPendingSession,
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata,

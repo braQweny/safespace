@@ -21,6 +21,31 @@ export type SessionDurationBucketSeconds = 0 | 300 | 900 | 1800 | 3600;
 export const SESSION_HISTORY_PAGE_SIZE = 20 as const;
 export const APPROVED_SESSION_SUMMARY_CONTEXT_LIMIT = 3 as const;
 
+/**
+ * Account plan. `free` accounts may own at most `FREE_PLAN_SESSION_LIMIT`
+ * sessions in total; `premium` accounts are not capped. There is no payment
+ * integration yet — premium is granted by an admin or by owner-run SQL.
+ */
+export type AccountPlan = "free" | "premium";
+
+export interface OwnedAccountPlan {
+  plan: AccountPlan;
+  premiumGrantedAt: string | null;
+}
+
+/**
+ * What the owner may still start. `sessionLimit` and `remainingSessions` are
+ * null for premium accounts (no cap). `usedSessions` counts every owned
+ * session row, deleted tombstones included — deleting never frees a slot.
+ */
+export interface SessionQuota {
+  plan: AccountPlan;
+  sessionLimit: number | null;
+  usedSessions: number;
+  remainingSessions: number | null;
+  canStartSession: boolean;
+}
+
 export type SessionModalityId = "psychodynamic" | "cbt" | "humanistic_experiential" | "systemic" | "integrative";
 
 export type SessionAvatarId =

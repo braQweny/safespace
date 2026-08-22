@@ -14,6 +14,8 @@ vi.mock("@/lib/session-flow/route-access", () => ({
 
 vi.mock("@/lib/session-data/repository", () => ({
   claimFreeTrialSessionAtomic: vi.fn(),
+  countOwnedSessions: vi.fn(),
+  getOwnedAccountPlan: vi.fn(),
   getOwnedSessionMetadata,
   getTrialAvailability: vi.fn(),
   listNewestApprovedSessionSummaryContexts: vi.fn(),

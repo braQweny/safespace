@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
+import { FREE_PLAN_SESSION_LIMIT } from "../quota";
 import type {
   SessionAvatarId,
   SessionDeletionReasonCode,
@@ -19,6 +21,11 @@ import type {
 const BOUNDARY_MIGRATION_PATH = resolve(
   __dirname,
   "../../../../supabase/migrations/20260606120000_create_private_session_data_boundary.sql",
+);
+
+const FREE_PLAN_LIMIT_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260822120000_add_account_plans_and_free_session_limit.sql",
 );
 
 const TS_LIFECYCLE_STATUSES = [
@@ -141,5 +148,28 @@ describe("session-data domain types vs boundary migration constraints", () => {
     const body = extractConstraintBody(sql, "therapy_sessions_avatar_id_check");
     expect(new Set(extractQuotedValues(body))).toEqual(new Set(TS_AVATAR_IDS));
     expect(avatarsCovered).toBe(true);
+  });
+});
+
+describe("free-plan session limit vs limit migration", () => {
+  const sql = readFileSync(FREE_PLAN_LIMIT_MIGRATION_PATH, "utf8");
+
+  it("keeps the TypeScript pre-flight limit equal to the database trigger's limit", () => {
+    const limitMatch = /v_limit constant integer := (\d+);/.exec(sql);
+
+    expect(limitMatch, "v_limit constant not found in free-plan limit migration").not.toBeNull();
+    expect(Number(limitMatch?.[1])).toBe(FREE_PLAN_SESSION_LIMIT);
+  });
+
+  it("keeps the SQLSTATE the trigger raises equal to the one the error mapper recognises", () => {
+    const errcodeMatch = /errcode = '([A-Z0-9]{5})',\s*message = 'free_plan_session_limit_reached'/.exec(sql);
+
+    expect(errcodeMatch, "free_plan_session_limit_reached errcode not found in migration").not.toBeNull();
+    expect(errcodeMatch?.[1]).toBe(FREE_PLAN_SESSION_LIMIT_SQLSTATE);
+  });
+
+  it("enforces the limit on every session insert, not only on the trial claim", () => {
+    expect(sql).toContain("create trigger therapy_sessions_enforce_free_plan_limit");
+    expect(sql).toMatch(/before insert on public\.therapy_sessions/);
   });
 });

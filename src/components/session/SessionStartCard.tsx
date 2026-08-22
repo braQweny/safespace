@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileText, PlayCircle } from "lucide-react";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
+import type { SessionQuota } from "@/lib/session-data/types";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 
@@ -9,13 +10,47 @@ interface SessionStartCardProps {
   initialState: SessionStartPageState;
 }
 
-const READY_COPY =
-  "Pierwsza rozmowa jest darmowa i ma limit czasu. Zaczyna się dopiero po kliknięciu — samo otwarcie panelu nie zużywa próby.";
+const READY_FREE_COPY =
+  "Plan bezpłatny obejmuje trzy rozmowy próbne z limitem czasu. Rozmowa zaczyna się dopiero po kliknięciu — samo otwarcie panelu nie zużywa próby.";
+
+const READY_PREMIUM_COPY =
+  "Rozmowa ma limit czasu i zaczyna się dopiero po kliknięciu — samo otwarcie panelu nie zużywa próby.";
 
 const FOLLOWUP_COPY = "Rozmowa ma limit czasu i zaczyna się dopiero po kliknięciu startu.";
 
+const LIMIT_REACHED_COPY =
+  "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już wykorzystane na tym koncie. Dalsze rozmowy są dostępne w planie premium. Zapisy dotychczasowych rozmów znajdziesz w historii poniżej.";
+
 export function buildSessionHref(sessionId: string) {
   return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
+}
+
+/**
+ * Free accounts see how much of the allowance is left before they commit to a
+ * start; premium accounts have no cap, so nothing is shown for them.
+ */
+export function formatRemainingFreeSessions(quota: SessionQuota | null) {
+  if (quota?.plan !== "free" || quota.sessionLimit === null || quota.remainingSessions === null) {
+    return null;
+  }
+
+  if (quota.remainingSessions <= 0) {
+    return null;
+  }
+
+  if (quota.remainingSessions === 1) {
+    return `To ostatnia z ${quota.sessionLimit} bezpłatnych rozmów na tym koncie.`;
+  }
+
+  return `Pozostały ${quota.remainingSessions} z ${quota.sessionLimit} bezpłatnych rozmów na tym koncie.`;
+}
+
+function getStartCopy(kind: SessionStartPageState["kind"], quota: SessionQuota | null) {
+  if (kind === "ready") {
+    return quota?.plan === "premium" ? READY_PREMIUM_COPY : READY_FREE_COPY;
+  }
+
+  return FOLLOWUP_COPY;
 }
 
 export default function SessionStartCard({ initialState }: SessionStartCardProps) {
@@ -36,20 +71,29 @@ export default function SessionStartCard({ initialState }: SessionStartCardProps
   const startsWithoutContext =
     initialState.canStartWithoutContext && (skipContext || !hasApprovedSummaries) && kind === "followup_ready";
   const canStart = kind === "ready" || kind === "followup_ready";
+  const remainingCopy = formatRemainingFreeSessions(initialState.sessionQuota);
 
   if (!canStart) {
     return (
       <div className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6">
-        {kind === "trial_already_claimed"
-          ? "Darmowa próba obejmuje jedną rozmowę i została już wykorzystana na tym koncie. Zapisy znajdziesz w historii poniżej."
-          : "Nie udało się potwierdzić dostępności rozmowy. Odśwież panel za chwilę."}
+        {kind === "session_limit_reached"
+          ? LIMIT_REACHED_COPY
+          : kind === "trial_already_claimed"
+            ? "Pierwsza darmowa rozmowa została już wykorzystana na tym koncie. Zapisy znajdziesz w historii poniżej."
+            : "Nie udało się potwierdzić dostępności rozmowy. Odśwież panel za chwilę."}
       </div>
     );
   }
 
   return (
     <div className="mt-5 flex flex-col gap-4">
-      <p className="text-ink-muted text-sm leading-6">{kind === "ready" ? READY_COPY : FOLLOWUP_COPY}</p>
+      <p className="text-ink-muted text-sm leading-6">{getStartCopy(kind, initialState.sessionQuota)}</p>
+
+      {remainingCopy ? (
+        <p className="text-brand text-sm font-medium" data-session-quota>
+          {remainingCopy}
+        </p>
+      ) : null}
 
       {kind === "followup_ready" ? (
         <div className="border-line-strong bg-surface-soft text-ink-soft rounded-lg border p-4 text-sm leading-6">
@@ -130,7 +174,9 @@ export default function SessionStartCard({ initialState }: SessionStartCardProps
         {isStarting
           ? "Rozpoczynanie…"
           : kind === "ready"
-            ? "Rozpocznij pierwszą darmową rozmowę"
+            ? initialState.sessionQuota?.plan === "premium"
+              ? "Rozpocznij pierwszą rozmowę"
+              : "Rozpocznij pierwszą darmową rozmowę"
             : "Rozpocznij rozmowę"}
       </button>
     </div>

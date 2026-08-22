@@ -83,10 +83,12 @@ describe("admin account access", () => {
         status: "active",
         blockedAt: null,
         blockReasonCode: null,
+        plan: "free",
+        premiumGrantedAt: null,
       },
     });
     expect(client.from).toHaveBeenCalledWith("admin_user_profiles");
-    expect(client.select).toHaveBeenCalledWith("user_id,blocked_at,block_reason_code");
+    expect(client.select).toHaveBeenCalledWith("user_id,blocked_at,block_reason_code,premium_granted_at");
   });
 
   it("returns blocked account state without raw profile data", async () => {
@@ -104,6 +106,8 @@ describe("admin account access", () => {
         status: "blocked",
         blockedAt: "2026-06-07T10:00:00.000Z",
         blockReasonCode: "policy_violation",
+        plan: "free",
+        premiumGrantedAt: null,
       },
     });
     expect(JSON.stringify(result)).not.toContain("email");

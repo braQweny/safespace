@@ -10,6 +10,7 @@ const usersResponse: AdminUsersResponse = {
     filters: {
       emailSearch: "",
       status: "all",
+      plan: "all",
       sort: "created_desc",
       page: 1,
       pageSize: 20,
@@ -25,10 +26,13 @@ const usersResponse: AdminUsersResponse = {
           blockedAt: null,
           blockedBy: null,
           blockReasonCode: null,
+          premiumGrantedAt: "2026-08-01T10:00:00.000Z",
+          premiumGrantedBy: "admin-1",
           createdAt: "2026-06-01T10:00:00.000Z",
           updatedAt: "2026-06-01T10:00:00.000Z",
         },
         accountStatus: "active",
+        plan: "premium",
         counters: {
           totalSessions: 3,
           activeSessions: 1,
@@ -46,10 +50,13 @@ const usersResponse: AdminUsersResponse = {
           blockedAt: "2026-06-07T10:00:00.000Z",
           blockedBy: "admin-1",
           blockReasonCode: "policy_violation",
+          premiumGrantedAt: null,
+          premiumGrantedBy: null,
           createdAt: "2026-06-02T10:00:00.000Z",
           updatedAt: "2026-06-07T10:00:00.000Z",
         },
         accountStatus: "blocked",
+        plan: "free",
         counters: {
           totalSessions: 0,
           activeSessions: 0,
@@ -86,6 +93,19 @@ describe("AdminUsersTable", () => {
     expect(html).toContain("Zablokuj");
     expect(html).toContain("Odblokuj");
     expect(html).toContain("Naruszenie zasad");
+  });
+
+  it("distinguishes premium from free accounts and offers the plan actions", () => {
+    const html = renderUsers();
+
+    // The plan filter sits next to the status filter.
+    expect(html).toContain('name="plan"');
+    expect(html).toContain("Bezpłatny");
+    expect(html).toContain('data-admin-user-plan="premium"');
+    expect(html).toContain('data-admin-user-plan="free"');
+    // Premium account → revoke; free account → grant.
+    expect(html).toContain("Odbierz premium");
+    expect(html).toContain("Nadaj premium");
   });
 
   it("does not render export/download controls or private content fields", () => {

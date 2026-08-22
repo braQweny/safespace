@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AdminUsersResponse } from "@/lib/admin/contracts";
 import {
   DEFAULT_BLOCK_REASON,
+  PLAN_REASON_BY_ACTION,
   buildAdminUsersQuery,
   getInitialAdminUsersError,
   getInitialAdminUsersResult,
@@ -14,6 +15,7 @@ const successResponse = {
     filters: {
       emailSearch: "kowalski",
       status: "blocked",
+      plan: "all",
       sort: "last_activity_desc",
       page: 2,
       pageSize: 20,
@@ -45,6 +47,7 @@ describe("useAdminUsers helpers", () => {
     const result = getInitialAdminUsersResult(failureResponse);
 
     expect(result.users).toEqual([]);
+    expect(result.filters.plan).toBe("all");
     expect(result.pagination.totalCount).toBe(0);
     expect(getInitialAdminUsersError(failureResponse)).toBe("admin_data_unavailable");
   });
@@ -53,6 +56,7 @@ describe("useAdminUsers helpers", () => {
     const params = buildAdminUsersQuery({
       emailSearch: "kowalski",
       status: "blocked",
+      plan: "premium",
       sort: "last_activity_desc",
       page: 3,
       pageSize: 20,
@@ -60,6 +64,7 @@ describe("useAdminUsers helpers", () => {
 
     expect(params.get("q")).toBe("kowalski");
     expect(params.get("status")).toBe("blocked");
+    expect(params.get("plan")).toBe("premium");
     expect(params.get("sort")).toBe("last_activity_desc");
     expect(params.get("page")).toBe("3");
     expect(params.get("pageSize")).toBe("20");
@@ -67,5 +72,10 @@ describe("useAdminUsers helpers", () => {
 
   it("defaults the block reason to policy_violation", () => {
     expect(DEFAULT_BLOCK_REASON).toBe("policy_violation");
+  });
+
+  it("pins one audit reason per plan direction", () => {
+    expect(PLAN_REASON_BY_ACTION.grant).toBe("subscription_paid");
+    expect(PLAN_REASON_BY_ACTION.revoke).toBe("subscription_ended");
   });
 });

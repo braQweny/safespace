@@ -41,6 +41,7 @@ describe("TimedSession", () => {
       messageFetchFailed: false,
       approvedSummaries: [],
       canStartWithoutContext: false,
+      sessionQuota: null,
     });
 
     expect(html).not.toContain("Rozpocznij");
@@ -69,6 +70,7 @@ describe("TimedSession", () => {
       messageFetchFailed: false,
       approvedSummaries: [],
       canStartWithoutContext: false,
+      sessionQuota: null,
     });
 
     expect(html).toContain("Sesja jest aktywna");
@@ -95,6 +97,7 @@ describe("TimedSession", () => {
       messageFetchFailed: false,
       approvedSummaries: [],
       canStartWithoutContext: false,
+      sessionQuota: null,
     });
 
     expect(html).toContain("Sesja została zakończona");

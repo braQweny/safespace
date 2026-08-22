@@ -7,6 +7,7 @@ const getSessionDataContext = vi.fn();
 const requireActiveAccountAccess = vi.fn();
 const readCurrentAvatarChoice = vi.fn();
 const readTrialAvailability = vi.fn();
+const readSessionQuota = vi.fn();
 const claimFreeTrialSession = vi.fn();
 const transitionSessionLifecycle = vi.fn();
 const buildOperationalRequestContext = vi.fn();
@@ -27,6 +28,7 @@ vi.mock("@/lib/session-flow/avatar-choice", () => ({
 
 vi.mock("@/lib/session-data/quota", () => ({
   readTrialAvailability,
+  readSessionQuota,
   claimFreeTrialSession,
 }));
 
@@ -166,9 +168,20 @@ describe("POST /api/session/start", () => {
         status: "active",
         blockedAt: null,
         blockReasonCode: null,
+        plan: "free",
+        premiumGrantedAt: null,
       },
     });
     readCurrentAvatarChoice.mockResolvedValue(ok(avatar));
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "free",
+        sessionLimit: 3,
+        usedSessions: 0,
+        remainingSessions: 3,
+        canStartSession: true,
+      }),
+    );
     readTrialAvailability.mockResolvedValue(
       ok({
         isAvailable: true,
@@ -301,6 +314,77 @@ describe("POST /api/session/start", () => {
     expect(body).toMatchObject({ ok: true });
     expect(body).not.toHaveProperty("openingMessage");
     expect(createSessionOpeningMessage).toHaveBeenCalledWith(contextData, activeSession);
+  });
+
+  it("refuses a start with 403 when the free-plan allowance is used up, before touching the trial", async () => {
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "free",
+        sessionLimit: 3,
+        usedSessions: 3,
+        remainingSessions: 0,
+        canStartSession: false,
+      }),
+    );
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "session_limit_reached",
+      redirectTo: "/dashboard?start=limit_reached",
+    });
+    expect(readTrialAvailability).not.toHaveBeenCalled();
+    expect(claimFreeTrialSession).not.toHaveBeenCalled();
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "blocked", status: 403, reasonCode: "session_limit_reached" }),
+      expect.anything(),
+    );
+  });
+
+  it("maps a quota read failure to a stable unavailable response", async () => {
+    readSessionQuota.mockResolvedValue(sessionDataError("read_failed"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(503);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "session_quota_unavailable",
+    });
+    expect(claimFreeTrialSession).not.toHaveBeenCalled();
+  });
+
+  it("maps a race-time database limit rejection to the same 403", async () => {
+    claimFreeTrialSession.mockResolvedValue(sessionDataError("session_limit_reached"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      code: "session_limit_reached",
+      redirectTo: "/dashboard?start=limit_reached",
+    });
+    expect(transitionSessionLifecycle).not.toHaveBeenCalled();
+  });
+
+  it("lets premium accounts start without consulting the free-plan allowance", async () => {
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "premium",
+        sessionLimit: null,
+        usedSessions: 40,
+        remainingSessions: null,
+        canStartSession: true,
+      }),
+    );
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    expect(claimFreeTrialSession).toHaveBeenCalledOnce();
   });
 
   it("does not call the claim helper when availability already shows a used trial", async () => {

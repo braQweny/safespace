@@ -43,6 +43,10 @@ describe("resolveFailedStartKind", () => {
     expect(resolveFailedStartKind("no_context_not_confirmed")).toBe("followup_ready");
   });
 
+  it("shows the exhausted free-plan allowance instead of an unknown state", () => {
+    expect(resolveFailedStartKind("session_limit_reached")).toBe("session_limit_reached");
+  });
+
   it("treats every other failure as an unknown state", () => {
     expect(resolveFailedStartKind("session_data_unavailable")).toBe("unavailable");
     expect(resolveFailedStartKind(null)).toBe("unavailable");

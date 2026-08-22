@@ -1,7 +1,13 @@
-import { Ban, RotateCcw, Search } from "lucide-react";
+import { Ban, CircleMinus, Crown, RotateCcw, Search } from "lucide-react";
 import { useAdminUsers } from "@/components/hooks/useAdminUsers";
 import type { AdminApiFailureCode, AdminUsersResponse } from "@/lib/admin/contracts";
-import type { AdminBlockReasonCode, AdminUserListItem, AdminUserSort, AdminUserStatusFilter } from "@/lib/admin/types";
+import type {
+  AdminBlockReasonCode,
+  AdminUserListItem,
+  AdminUserPlanFilter,
+  AdminUserSort,
+  AdminUserStatusFilter,
+} from "@/lib/admin/types";
 
 interface AdminUsersTableProps {
   initialResponse: AdminUsersResponse;
@@ -22,12 +28,21 @@ const STATUS_OPTIONS: { value: AdminUserStatusFilter; label: string }[] = [
   { value: "blocked", label: "Zablokowane" },
 ];
 
+const PLAN_OPTIONS: { value: AdminUserPlanFilter; label: string }[] = [
+  { value: "all", label: "Wszystkie" },
+  { value: "free", label: "Bezpłatny" },
+  { value: "premium", label: "Premium" },
+];
+
 const SORT_OPTIONS: { value: AdminUserSort; label: string }[] = [
   { value: "created_desc", label: "Najnowsze konta" },
   { value: "created_asc", label: "Najstarsze konta" },
   { value: "last_activity_desc", label: "Ostatnia aktywność" },
   { value: "last_activity_asc", label: "Najdawniejsza aktywność" },
 ];
+
+const SELECT_CLASS_NAME =
+  "border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2";
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -45,6 +60,10 @@ function getStatusLabel(user: AdminUserListItem) {
   return user.accountStatus === "blocked" ? "Zablokowane" : "Aktywne";
 }
 
+function getPlanLabel(user: AdminUserListItem) {
+  return user.plan === "premium" ? "Premium" : "Bezpłatny";
+}
+
 function ErrorNotice({ code }: { code: AdminApiFailureCode }) {
   return (
     <div className="border-danger-line bg-danger-soft text-danger rounded-lg border p-4 text-sm">
@@ -60,6 +79,8 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
     setEmailSearch,
     status,
     setStatus,
+    plan,
+    setPlan,
     sort,
     setSort,
     errorCode,
@@ -68,12 +89,13 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
     setReason,
     refreshUsers,
     toggleBlock,
+    togglePlan,
   } = useAdminUsers(initialResponse);
 
   return (
     <section className="space-y-4">
       <form
-        className="border-line grid gap-3 rounded-lg border bg-white p-4 lg:grid-cols-[minmax(0,1fr)_180px_220px_auto]"
+        className="border-line grid gap-3 rounded-lg border bg-white p-4 lg:grid-cols-[minmax(0,1fr)_160px_160px_220px_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           void refreshUsers(1);
@@ -88,7 +110,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onChange={(event) => {
               setEmailSearch(event.target.value);
             }}
-            className="border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2"
+            className={SELECT_CLASS_NAME}
           />
         </label>
         <label className="text-ink-soft text-sm font-medium">
@@ -99,9 +121,26 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onChange={(event) => {
               setStatus(event.target.value as AdminUserStatusFilter);
             }}
-            className="border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2"
+            className={SELECT_CLASS_NAME}
           >
             {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-ink-soft text-sm font-medium">
+          Plan
+          <select
+            name="plan"
+            value={plan}
+            onChange={(event) => {
+              setPlan(event.target.value as AdminUserPlanFilter);
+            }}
+            className={SELECT_CLASS_NAME}
+          >
+            {PLAN_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -116,7 +155,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onChange={(event) => {
               setSort(event.target.value as AdminUserSort);
             }}
-            className="border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2"
+            className={SELECT_CLASS_NAME}
           >
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -137,29 +176,32 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
       {errorCode ? <ErrorNotice code={errorCode} /> : null}
 
       <div className="border-line overflow-hidden rounded-lg border bg-white">
-        <table aria-label="Lista użytkowników" className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <table aria-label="Lista użytkowników" className="w-full min-w-[1000px] border-collapse text-left text-sm">
           <thead className="text-ink-soft bg-[#edf3f1]">
             <tr>
               <th className="px-4 py-3 font-semibold">E-mail</th>
               <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Plan</th>
               <th className="px-4 py-3 font-semibold">Utworzone</th>
               <th className="px-4 py-3 font-semibold">Aktywność</th>
               <th className="px-4 py-3 font-semibold">Sesje</th>
               <th className="px-4 py-3 font-semibold">Podsumowania</th>
-              <th className="px-4 py-3 font-semibold">Akcja</th>
+              <th className="px-4 py-3 font-semibold">Akcje</th>
             </tr>
           </thead>
           <tbody>
             {result.users.length === 0 ? (
               <tr>
-                <td className="text-ink-muted px-4 py-5" colSpan={7}>
+                <td className="text-ink-muted px-4 py-5" colSpan={8}>
                   Brak użytkowników dla wybranych filtrów.
                 </td>
               </tr>
             ) : (
               result.users.map((user) => {
                 const isBlocked = user.accountStatus === "blocked";
+                const isPremium = user.plan === "premium";
                 const isSelf = user.profile.userId === currentAdminUserId;
+                const isPending = pendingUserId === user.profile.userId;
 
                 return (
                   <tr key={user.profile.userId} className="border-surface-hover border-t" data-admin-user-row>
@@ -175,6 +217,18 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                         {getStatusLabel(user)}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      <span
+                        data-admin-user-plan={user.plan}
+                        className={
+                          isPremium
+                            ? "inline-flex rounded-md bg-[#fbf1d9] px-2 py-1 text-xs font-medium text-[#7a5a0c]"
+                            : "text-ink-muted inline-flex rounded-md bg-[#eef1f0] px-2 py-1 text-xs font-medium"
+                        }
+                      >
+                        {getPlanLabel(user)}
+                      </span>
+                    </td>
                     <td className="text-ink-muted px-4 py-3">{formatDate(user.profile.accountCreatedAt)}</td>
                     <td className="text-ink-muted px-4 py-3">{formatDate(user.profile.lastActivityAt)}</td>
                     <td className="text-ink-muted px-4 py-3">
@@ -183,6 +237,21 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                     <td className="text-ink-muted px-4 py-3">{user.counters.approvedSummaries}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => {
+                            void togglePlan(user);
+                          }}
+                          className="border-brand-soft text-brand-strong hover:bg-surface-hover inline-flex h-9 items-center justify-center gap-2 rounded-md border bg-white px-3 text-xs font-medium transition-colors disabled:opacity-50"
+                        >
+                          {isPremium ? (
+                            <CircleMinus aria-hidden="true" className="size-4" />
+                          ) : (
+                            <Crown aria-hidden="true" className="size-4" />
+                          )}
+                          {isPremium ? "Odbierz premium" : "Nadaj premium"}
+                        </button>
                         {!isBlocked ? (
                           <select
                             value={getReason(user.profile.userId)}
@@ -201,7 +270,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                         ) : null}
                         <button
                           type="button"
-                          disabled={isSelf || pendingUserId === user.profile.userId}
+                          disabled={isSelf || isPending}
                           onClick={() => {
                             void toggleBlock(user);
                           }}
