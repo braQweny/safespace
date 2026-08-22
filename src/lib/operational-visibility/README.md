@@ -44,6 +44,7 @@ S-04 nie moze tworzyc alternatywnych nazw zdarzen sesyjnych ani recznie skladac 
 - `session.ai_provider_failed`
 - `session.time_limit_reached`
 - `session.completed`
+- `session.opening_failed`
 
 Przyklad:
 

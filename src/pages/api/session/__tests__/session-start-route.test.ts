@@ -11,6 +11,7 @@ const claimFreeTrialSession = vi.fn();
 const transitionSessionLifecycle = vi.fn();
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
+const createSessionOpeningMessage = vi.fn();
 
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
@@ -44,6 +45,10 @@ vi.mock("@/lib/operational-visibility/request-context", () => ({
 
 vi.mock("@/lib/operational-visibility/logger", () => ({
   logOperationalEvent,
+}));
+
+vi.mock("@/lib/session-flow/session-opening", () => ({
+  createSessionOpeningMessage,
 }));
 
 const { POST } = await import("@/pages/api/session/start");
@@ -177,6 +182,7 @@ describe("POST /api/session/start", () => {
       }),
     );
     transitionSessionLifecycle.mockResolvedValue(ok(activeSession));
+    createSessionOpeningMessage.mockResolvedValue({ ok: true, message: null });
   });
 
   it("rejects missing auth before reading avatar or claiming the trial", async () => {
@@ -258,6 +264,43 @@ describe("POST /api/session/start", () => {
       expiresAt: "2026-06-07T10:15:00.000Z",
       durationBucketSeconds: 900,
     });
+  });
+
+  it("includes the avatar's opening message in the success response", async () => {
+    createSessionOpeningMessage.mockResolvedValue({
+      ok: true,
+      message: {
+        id: "message-opening",
+        role: "assistant",
+        sequenceIndex: 0,
+        content: "Cześć, co dziś przynosisz?",
+        createdAt: "2026-06-07T10:00:01.000Z",
+      },
+    });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: true,
+      openingMessage: {
+        role: "assistant",
+        sequenceIndex: 0,
+        content: "Cześć, co dziś przynosisz?",
+      },
+    });
+  });
+
+  it("degrades to a session without an opening when generation fails, and logs the failure", async () => {
+    createSessionOpeningMessage.mockResolvedValue({ ok: false, failure: "opening_provider_failed" });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    const body = await readJson(response);
+    expect(body).toMatchObject({ ok: true });
+    expect(body).not.toHaveProperty("openingMessage");
+    expect(createSessionOpeningMessage).toHaveBeenCalledWith(contextData, activeSession);
   });
 
   it("does not call the claim helper when availability already shows a used trial", async () => {

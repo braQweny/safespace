@@ -7,7 +7,12 @@ import { transitionSessionLifecycle } from "@/lib/session-data/repository";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
-import { buildSessionStartAttemptedEvent } from "@/lib/operational-visibility/session-events";
+import {
+  buildSessionOpeningFailedEvent,
+  buildSessionStartAttemptedEvent,
+} from "@/lib/operational-visibility/session-events";
+import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
+import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
 
 export const prerender = false;
 
@@ -148,6 +153,23 @@ export const POST: APIRoute = async (context) => {
 
   logStartAttempt("success", 201, startedAtMs, operationalContext);
 
+  // Generated and persisted before the response so the composer cannot race the
+  // opening message; any failure here degrades to a session without an opening.
+  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data);
+
+  if (!opening.ok) {
+    logOperationalEvent(
+      buildSessionOpeningFailedEvent({
+        reasonCode: opening.failure,
+        durationMs: getOperationalDurationMs(startedAtMs),
+      }),
+      operationalContext,
+    );
+  }
+
+  const openingMessage: SessionMessageViewModel | undefined =
+    opening.ok && opening.message ? opening.message : undefined;
+
   if (!wantsJson(context.request)) {
     return redirectResponse(context, "/dashboard/session?started=1");
   }
@@ -156,6 +178,7 @@ export const POST: APIRoute = async (context) => {
     {
       ok: true,
       session: toSessionView(activeSession.data, startedAt),
+      ...(openingMessage ? { openingMessage } : {}),
     },
     201,
   );

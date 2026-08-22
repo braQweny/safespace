@@ -5,6 +5,7 @@ import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safe
 import {
   isSendSessionMessageResponse,
   type SendSessionMessageSuccessResponse,
+  type SessionMessageViewModel,
 } from "@/lib/session-flow/message-contract";
 import { appendSuccessfulTurn, isComposerAvailable, type UiSessionMessage } from "@/lib/session-flow/message-state";
 import { isCompleteSessionResponse } from "@/lib/session-flow/session-completion-contract";
@@ -39,7 +40,7 @@ export type TimedSessionAction =
   | { type: "draft_changed"; draft: string }
   | { type: "client_expired" }
   | { type: "start_requested" }
-  | { type: "start_succeeded"; session: SessionView }
+  | { type: "start_succeeded"; session: SessionView; openingMessage?: SessionMessageViewModel }
   | { type: "start_failed"; kind?: SessionStartPageStateKind; notice: SafetyNoticeState }
   | { type: "start_settled" }
   | { type: "end_requested" }
@@ -87,6 +88,7 @@ export function resolveStartWithoutContext({
 interface StartSessionSuccessResponse {
   ok: true;
   session: SessionView;
+  openingMessage?: SessionMessageViewModel;
 }
 
 interface StartSessionFailureResponse {
@@ -99,8 +101,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isOpeningMessage(value: unknown): value is SessionMessageViewModel {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    value.role === "assistant" &&
+    typeof value.sequenceIndex === "number" &&
+    Number.isFinite(value.sequenceIndex) &&
+    typeof value.content === "string" &&
+    typeof value.createdAt === "string"
+  );
+}
+
 function isStartSessionSuccess(body: unknown): body is StartSessionSuccessResponse {
-  return isRecord(body) && body.ok === true && isRecord(body.session);
+  if (!(isRecord(body) && body.ok === true && isRecord(body.session))) {
+    return false;
+  }
+
+  return body.openingMessage === undefined || isOpeningMessage(body.openingMessage);
 }
 
 function isStartSessionFailure(body: unknown): body is StartSessionFailureResponse {
@@ -146,7 +167,7 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
       return {
         ...state,
         session: action.session,
-        messages: [],
+        messages: action.openingMessage ? [action.openingMessage] : [],
         kind: toSessionStartPageStateKind(action.session.status),
         isClientExpired: action.session.remainingSeconds === 0,
         isHardStopped: false,
@@ -276,7 +297,11 @@ export function useTimedSession(initialState: SessionStartPageState) {
       const body = result.body;
 
       if (isStartSessionSuccess(body)) {
-        dispatch({ type: "start_succeeded", session: body.session });
+        dispatch({
+          type: "start_succeeded",
+          session: body.session,
+          openingMessage: body.openingMessage,
+        });
         return;
       }
 

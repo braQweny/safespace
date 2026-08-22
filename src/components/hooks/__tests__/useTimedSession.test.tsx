@@ -62,6 +62,32 @@ describe("timedSessionReducer", () => {
     expect(state.isClientExpired).toBe(false);
   });
 
+  it("seeds the conversation with the avatar's opening message when the start provides one", () => {
+    const openingMessage = {
+      id: "m-opening",
+      role: "assistant" as const,
+      sequenceIndex: 0,
+      content: "Otwarcie avatara",
+      createdAt: "2026-06-12T10:00:05.000Z",
+    };
+    const state = timedSessionReducer(
+      { ...baseState, kind: "ready" },
+      { type: "start_succeeded", session: activeSession, openingMessage },
+    );
+
+    expect(state.messages).toEqual([openingMessage]);
+    expect(state.kind).toBe("active");
+  });
+
+  it("keeps the conversation empty when the start response carries no opening message", () => {
+    const state = timedSessionReducer(
+      { ...baseState, kind: "followup_ready" },
+      { type: "start_succeeded", session: activeSession, openingMessage: undefined },
+    );
+
+    expect(state.messages).toEqual([]);
+  });
+
   it("marks client expiry together with the expired kind", () => {
     const state = timedSessionReducer(
       { ...baseState, kind: "active", session: activeSession },

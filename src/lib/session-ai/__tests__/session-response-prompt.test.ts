@@ -241,6 +241,60 @@ describe("MVP_MODALITIES session style hints", () => {
   });
 });
 
+describe("opening mode (avatar-initiated session start)", () => {
+  const openingInput = {
+    mode: "opening",
+    modality: input.modality,
+    approvedSummaries: [
+      {
+        summaryText: "Zatwierdzone podsumowanie poprzedniej rozmowy.",
+        revision: 1,
+        createdAt: "2026-06-07T09:00:00.000Z",
+      },
+    ],
+    locale: "pl",
+  } satisfies GenerateSessionResponseInput;
+
+  it("builds a system message plus one generation trigger, with no user transcript", () => {
+    const messages = buildSessionResponseMessages(openingInput);
+
+    expect(messages).toHaveLength(2);
+    expect(messages[0]?.role).toBe("system");
+    expect(messages[1]?.role).toBe("user");
+  });
+
+  it("overrides reply-turn instructions and requires a short avatar-spoken opening", () => {
+    const systemContent = buildSessionResponseMessages(openingInput)[0]?.content ?? "";
+
+    expect(systemContent).toContain("## Opening turn overrides");
+    expect(systemContent).toContain("no user message exists yet");
+    expect(systemContent).toContain("## How to open the session");
+    expect(systemContent).toContain("one to three sentences");
+    expect(systemContent).toContain("Ask at most one open question");
+    expect(systemContent).toContain(input.modality.sessionStyleHint);
+    expect(systemContent).toContain("Current phase: opening");
+  });
+
+  it("allows — but does not force — a tentative nod to approved summary continuity", () => {
+    const systemContent = buildSessionResponseMessages(openingInput)[0]?.content ?? "";
+
+    expect(systemContent).toContain("## Approved prior-session summaries");
+    expect(systemContent).toContain("allowed — but not required");
+    expect(systemContent).toContain("Never quote, enumerate, or summarize them back");
+  });
+
+  it("keeps the generation instruction free of conversation content and simulation details", () => {
+    const messages = buildSessionResponseMessages(openingInput);
+    const trigger = messages[1]?.content ?? "";
+
+    expect(trigger).not.toContain(input.modality.avatarName);
+    expect(trigger.length).toBeLessThan(200);
+
+    const systemContent = messages[0]?.content ?? "";
+    expect(systemContent).toContain("Do not mention SafeSpace");
+  });
+});
+
 describe("session phase section", () => {
   it("omits the phase section when no phase is resolved", () => {
     const messages = buildSessionResponseMessages(input);

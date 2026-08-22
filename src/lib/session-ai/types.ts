@@ -37,7 +37,13 @@ export interface SessionAiConstraint {
 export type SessionAiSessionPhase = "opening" | "middle" | "closing";
 
 export interface GenerateSessionResponseInput {
-  currentUserMessage: string;
+  /**
+   * The user's message for a normal reply turn. Required in `"reply"` mode,
+   * absent in `"opening"` mode, where the avatar starts the conversation.
+   */
+  currentUserMessage?: string;
+  /** Defaults to `"reply"` — one avatar answer to the user's message. */
+  mode?: SessionAiGenerationMode;
   modality: SessionAiModalityContext;
   sessionPhase?: SessionAiSessionPhase;
   cautionConstraints?: readonly SessionAiConstraint[];
@@ -45,6 +51,12 @@ export interface GenerateSessionResponseInput {
   approvedSummaries?: readonly SessionAiApprovedSummaryContext[];
   locale?: string;
 }
+
+/**
+ * `"reply"` answers the user's last message; `"opening"` produces the very first
+ * message of a fresh or summary-backed session, spoken by the avatar alone.
+ */
+export type SessionAiGenerationMode = "reply" | "opening";
 
 export interface SessionResponsePromptMessage {
   role: "system" | "user" | "assistant";

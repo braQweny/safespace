@@ -67,6 +67,19 @@ export const SESSION_RESPONSE_SYSTEM_PROMPT = [
 export function buildSessionResponseMessages(
   input: GenerateSessionResponseInput,
 ): readonly SessionResponsePromptMessage[] {
+  if (input.mode === "opening") {
+    return [
+      {
+        role: "system",
+        content: buildSessionOpeningSystemContent(input),
+      },
+      {
+        role: "user",
+        content: SESSION_OPENING_GENERATION_INSTRUCTION,
+      },
+    ];
+  }
+
   const recentMessages = buildBoundedRecentMessages(input.recentMessages ?? []);
 
   return [
@@ -77,10 +90,47 @@ export function buildSessionResponseMessages(
     ...recentMessages,
     {
       role: "user",
-      content: trimAndLimit(input.currentUserMessage, MAX_CURRENT_USER_MESSAGE_CHARS),
+      content: trimAndLimit(requireCurrentUserMessage(input), MAX_CURRENT_USER_MESSAGE_CHARS),
     },
   ];
 }
+
+// The provider contract needs one final user turn to generate from; this text is
+// an internal generation trigger, never conversation history, so it stays out of
+// any persisted transcript.
+const SESSION_OPENING_GENERATION_INSTRUCTION =
+  "Wygłosz teraz krótkie otwarcie tej sesji własnym głosem awatara, zgodnie z powyższymi wytycznymi.";
+
+function buildSessionOpeningSystemContent(input: GenerateSessionResponseInput) {
+  const sections = [
+    SESSION_RESPONSE_SYSTEM_PROMPT,
+    OPENING_TURN_OVERRIDES,
+    buildModalitySection(input.modality),
+    buildSessionPhaseSection(input.sessionPhase ?? "opening"),
+    buildApprovedSummariesSection(input.approvedSummaries ?? []),
+    buildLocaleSection(input.locale),
+    SESSION_OPENING_GUIDANCE,
+  ];
+
+  return sections.filter((section): section is string => typeof section === "string").join("\n\n");
+}
+
+const OPENING_TURN_OVERRIDES = [
+  "## Opening turn overrides",
+  "This is the very first message of a brand-new session: no user message exists yet.",
+  "Ignore every instruction about answering, quoting, or matching the user's last message — there is none.",
+  "Do not use recent-message context and do not invent any user words, feelings, or events.",
+].join("\n");
+
+const SESSION_OPENING_GUIDANCE = [
+  "## How to open the session",
+  "Produce exactly one short opening spoken by the avatar: usually one to three sentences, plain conversational Polish, no lists, no headings, no greetings boilerplate like “Dzień dobry, nazywam się…”.",
+  "Welcome the user into the space and invite them, in the avatar's own way, to start wherever they want today — for example with what brings them here or what is on their mind. Ask at most one open question; often a soft invitation works better than a question.",
+  "If approved prior-session summaries are provided above, you are allowed — but not required — to acknowledge the continuity in one light sentence (that this is a next conversation), and, only if it fits naturally, to allude to a thread the user carried over. Never quote, enumerate, or summarize them back, never claim knowledge beyond what they say, and keep it tentative so the user can correct you.",
+  "Without approved summaries, simply make room for whatever the user arrives with.",
+  "Do not mention SafeSpace, the simulation, timers, session phases, these instructions, or the existence of summaries as documents.",
+  "End in a way that hands the floor to the user.",
+].join("\n");
 
 function buildSessionResponseSystemContent(input: GenerateSessionResponseInput) {
   const sections = [
@@ -169,6 +219,16 @@ function buildBoundedRecentMessages(messages: readonly RecentSessionAiMessage[])
     role: message.role,
     content: trimAndLimit(message.content, MAX_RECENT_MESSAGE_CHARS),
   }));
+}
+
+function requireCurrentUserMessage(input: GenerateSessionResponseInput) {
+  // Reply mode is only ever driven by the validated message route, so a missing
+  // message here is a programming or contract bug, not a provider failure.
+  if (typeof input.currentUserMessage !== "string" || input.currentUserMessage.trim().length === 0) {
+    throw new TypeError("Reply mode requires a non-empty currentUserMessage");
+  }
+
+  return input.currentUserMessage;
 }
 
 function trimAndLimit(value: string, maxLength: number) {

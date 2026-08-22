@@ -20,6 +20,12 @@ const SESSION_START_REASON_CODES = [
   "interrupted",
 ] as const satisfies readonly OperationalSessionReasonCode[];
 
+const SESSION_OPENING_REASON_CODES = [
+  "opening_provider_failed",
+  "opening_persistence_failed",
+  "opening_unavailable",
+] as const satisfies readonly OperationalSessionReasonCode[];
+
 const SESSION_PROVIDER_FAILURE_REASON_CODES = [
   "provider_timeout",
   "provider_rate_limited",
@@ -45,6 +51,8 @@ export type SessionLifecycleOutcome = Exclude<OperationalEventOutcome, "redirect
 export type SessionStartReasonCode = (typeof SESSION_START_REASON_CODES)[number];
 
 export type SessionProviderFailureReasonCode = (typeof SESSION_PROVIDER_FAILURE_REASON_CODES)[number];
+
+export type SessionOpeningFailureReasonCode = (typeof SESSION_OPENING_REASON_CODES)[number];
 
 interface SessionEventBaseMetadata {
   requestId?: string;
@@ -81,6 +89,7 @@ type SessionEventName = Extract<
   | "session.ai_provider_failed"
   | "session.time_limit_reached"
   | "session.completed"
+  | "session.opening_failed"
 >;
 
 interface SafeSessionEventBase {
@@ -261,6 +270,24 @@ export function buildSessionAiProviderFailedEvent(metadata: SessionProviderFaile
       userHash: metadata.userHash,
     }),
     provider,
+    reasonCode,
+  };
+}
+
+export function buildSessionOpeningFailedEvent(
+  metadata: SessionEventBaseMetadata & { reasonCode: SessionOpeningFailureReasonCode },
+): OperationalEvent {
+  const reasonCode = hasAllowedValue(SESSION_OPENING_REASON_CODES, metadata.reasonCode)
+    ? metadata.reasonCode
+    : "opening_unavailable";
+
+  return {
+    ...buildSessionEvent("session.opening_failed", "warn", {
+      requestId: metadata.requestId,
+      outcome: "failure",
+      durationMs: metadata.durationMs,
+      userHash: metadata.userHash,
+    }),
     reasonCode,
   };
 }

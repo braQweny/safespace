@@ -1,5 +1,5 @@
+import { ok, type SessionDataResult } from "@/lib/session-data/errors";
 import { appendSessionMessages, getNextSessionMessageSequenceIndex } from "@/lib/session-data/repository";
-import type { SessionDataResult } from "@/lib/session-data/errors";
 import type { SessionDataContext, SessionMessageRecord } from "@/lib/session-data/types";
 import type { SessionMessageViewModel } from "./message-contract";
 
@@ -7,6 +7,53 @@ export interface PersistSuccessfulMessageTurnInput {
   sessionId: string;
   userMessage: string;
   assistantMessage: string;
+}
+
+export interface PersistOpeningMessageInput {
+  sessionId: string;
+  assistantMessage: string;
+}
+
+// The opening message is persisted before the start route responds, so the
+// composer cannot race it — the sequence index read is a formality kept for the
+// shared conflict-retry path.
+export async function persistOpeningMessage(
+  context: SessionDataContext,
+  input: PersistOpeningMessageInput,
+  repository: MessagePersistenceRepository = defaultMessagePersistenceRepository,
+): Promise<SessionDataResult<SessionMessageViewModel>> {
+  const nextSequenceIndex = await repository.getNextSessionMessageSequenceIndex(context, input.sessionId);
+
+  if (!nextSequenceIndex.ok) {
+    return nextSequenceIndex;
+  }
+
+  const insertedMessage = await repository.appendSessionMessages(context, [
+    {
+      sessionId: input.sessionId,
+      role: "assistant",
+      sequenceIndex: nextSequenceIndex.data,
+      content: input.assistantMessage,
+    },
+  ]);
+
+  if (!insertedMessage.ok) {
+    return insertedMessage;
+  }
+
+  const assistant = insertedMessage.data.find((message) => message.role === "assistant");
+  const assistantView = assistant ? toSessionMessageViewModel(assistant) : null;
+
+  if (!assistantView) {
+    return {
+      ok: false,
+      error: {
+        code: "write_failed",
+      },
+    };
+  }
+
+  return ok(assistantView);
 }
 
 export interface PersistedMessageTurn {

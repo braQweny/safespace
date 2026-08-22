@@ -22,6 +22,7 @@ export const OPERATIONAL_EVENT_NAMES = [
   "session.ai_provider_failed",
   "session.time_limit_reached",
   "session.completed",
+  "session.opening_failed",
 ] as const;
 
 export type OperationalEventName = (typeof OPERATIONAL_EVENT_NAMES)[number];
@@ -55,7 +56,10 @@ export type OperationalSessionReasonCode =
   | "provider_unavailable"
   | "time_limit_reached"
   | "completed"
-  | "interrupted";
+  | "interrupted"
+  | "opening_provider_failed"
+  | "opening_persistence_failed"
+  | "opening_unavailable";
 
 export type OperationalReasonCode =
   | AdminErrorCode

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { SessionDataContext, SessionMessageRecord } from "@/lib/session-data/types";
 import {
+  persistOpeningMessage,
   persistSuccessfulMessageTurn,
   toSessionMessageViewModel,
   type MessagePersistenceRepository,
@@ -71,6 +72,77 @@ describe("toSessionMessageViewModel", () => {
 
   it("hides system boundary records from the conversation view", () => {
     expect(toSessionMessageViewModel(createMessageRecord({ role: "system_boundary" }))).toBeNull();
+  });
+});
+
+describe("persistOpeningMessage", () => {
+  const openingInput = { sessionId: "session-1", assistantMessage: "otwarcie-avatara" };
+
+  it("persists a single assistant message as the first message of the session", async () => {
+    const repository = createRepository({
+      appendSessionMessages: vi.fn(() =>
+        Promise.resolve(
+          ok([
+            createMessageRecord({
+              id: "message-opening",
+              role: "assistant",
+              sequenceIndex: 0,
+              content: "otwarcie-avatara",
+            }),
+          ]),
+        ),
+      ),
+    });
+
+    const result = await persistOpeningMessage(context, openingInput, repository);
+
+    expect(repository.appendSessionMessages).toHaveBeenCalledWith(context, [
+      {
+        sessionId: "session-1",
+        role: "assistant",
+        sequenceIndex: 0,
+        content: "otwarcie-avatara",
+      },
+    ]);
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        role: "assistant",
+        sequenceIndex: 0,
+        content: "otwarcie-avatara",
+      },
+    });
+  });
+
+  it("does not retry when the append fails with a sequence conflict", async () => {
+    const appendSessionMessages = vi.fn(() => Promise.resolve(sessionDataError("sequence_conflict")));
+    const repository = createRepository({ appendSessionMessages });
+
+    const result = await persistOpeningMessage(context, openingInput, repository);
+
+    expect(appendSessionMessages).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "sequence_conflict",
+      },
+    });
+  });
+
+  it("propagates a failed sequence index read without appending", async () => {
+    const repository = createRepository({
+      getNextSessionMessageSequenceIndex: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
+    });
+
+    const result = await persistOpeningMessage(context, openingInput, repository);
+
+    expect(repository.appendSessionMessages).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "read_failed",
+      },
+    });
   });
 });
 

@@ -47,6 +47,12 @@ vi.mock("@/lib/operational-visibility/logger", () => ({
   logOperationalEvent,
 }));
 
+const createSessionOpeningMessage = vi.fn();
+
+vi.mock("@/lib/session-flow/session-opening", () => ({
+  createSessionOpeningMessage,
+}));
+
 const { POST } = await import("@/pages/api/session/start-next");
 
 const contextData = {
@@ -174,6 +180,7 @@ describe("POST /api/session/start-next", () => {
     listNewestApprovedSessionSummaryContexts.mockResolvedValue(ok(approvedSummaries));
     createPendingSession.mockResolvedValue(ok(createdSession));
     transitionSessionLifecycle.mockResolvedValue(ok(activeSession));
+    createSessionOpeningMessage.mockResolvedValue({ ok: true, message: null });
   });
 
   it("starts a non-trial follow-up session with the current avatar and approved context", async () => {
@@ -206,6 +213,60 @@ describe("POST /api/session/start-next", () => {
       expiresAt: "2026-06-07T10:15:00.000Z",
       durationBucketSeconds: 900,
     });
+  });
+
+  it("passes the approved summaries to the opening generation for a context-backed session", async () => {
+    await POST(createContext() as never);
+
+    expect(createSessionOpeningMessage).toHaveBeenCalledWith(contextData, activeSession, { approvedSummaries });
+  });
+
+  it("passes no summaries to the opening generation when the user started without context", async () => {
+    const contextFreeSession = { ...activeSession, usesApprovedContext: false };
+    transitionSessionLifecycle.mockResolvedValue(ok(contextFreeSession));
+
+    await POST(createContext({ startWithoutContext: true }) as never);
+
+    expect(createSessionOpeningMessage).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ usesApprovedContext: false }),
+      { approvedSummaries: [] },
+    );
+  });
+
+  it("includes the avatar's opening message in the success response", async () => {
+    createSessionOpeningMessage.mockResolvedValue({
+      ok: true,
+      message: {
+        id: "message-opening-next",
+        role: "assistant",
+        sequenceIndex: 0,
+        content: "Dobrze Cię znowu widzieć.",
+        createdAt: "2026-06-07T10:00:01.000Z",
+      },
+    });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: true,
+      openingMessage: {
+        role: "assistant",
+        content: "Dobrze Cię znowu widzieć.",
+      },
+    });
+  });
+
+  it("degrades to a session without an opening when generation fails", async () => {
+    createSessionOpeningMessage.mockResolvedValue({ ok: false, failure: "opening_persistence_failed" });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    const body = await readJson(response);
+    expect(body).toMatchObject({ ok: true });
+    expect(body).not.toHaveProperty("openingMessage");
   });
 
   it("rejects blocked accounts before reading avatar or summaries", async () => {

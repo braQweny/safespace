@@ -10,7 +10,12 @@ import {
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
-import { buildSessionStartAttemptedEvent } from "@/lib/operational-visibility/session-events";
+import {
+  buildSessionOpeningFailedEvent,
+  buildSessionStartAttemptedEvent,
+} from "@/lib/operational-visibility/session-events";
+import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
+import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
 
 export const prerender = false;
 
@@ -172,6 +177,28 @@ export const POST: APIRoute = async (context) => {
 
   logStartAttempt("success", 201, startedAtMs, operationalContext);
 
+  // Generated and persisted before the response so the composer cannot race the
+  // opening message; a failed opening degrades to a session without one. The
+  // summaries read before session creation are reused so the greeting sees
+  // exactly the context the user approved for this session.
+  const approvedSummaries = activeSession.data.usesApprovedContext ? approvedContext.data : [];
+  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data, {
+    approvedSummaries,
+  });
+
+  if (!opening.ok) {
+    logOperationalEvent(
+      buildSessionOpeningFailedEvent({
+        reasonCode: opening.failure,
+        durationMs: getOperationalDurationMs(startedAtMs),
+      }),
+      operationalContext,
+    );
+  }
+
+  const openingMessage: SessionMessageViewModel | undefined =
+    opening.ok && opening.message ? opening.message : undefined;
+
   if (!wantsJson(context.request)) {
     return redirectResponse(context, "/dashboard/session?started=next");
   }
@@ -180,6 +207,7 @@ export const POST: APIRoute = async (context) => {
     {
       ok: true,
       session: toSessionView(activeSession.data, startedAt),
+      ...(openingMessage ? { openingMessage } : {}),
     },
     201,
   );
