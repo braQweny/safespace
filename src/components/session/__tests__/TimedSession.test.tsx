@@ -31,7 +31,7 @@ function renderSession(initialState: SessionStartPageState) {
 }
 
 describe("TimedSession", () => {
-  it("renders first-trial copy and start action for a fresh user", () => {
+  it("never offers a start action: conversations begin in the dashboard", () => {
     const html = renderSession({
       kind: "ready",
       trialAvailable: true,
@@ -43,11 +43,11 @@ describe("TimedSession", () => {
       canStartWithoutContext: false,
     });
 
-    expect(html).toContain("Przygotowanie do pierwszej sesji");
-    expect(html).toContain("Rozpocznij pierwszą darmową rozmowę");
+    expect(html).not.toContain("Rozpocznij");
+    expect(html).not.toContain("Z czym zacznie się ta rozmowa");
+    expect(html).toContain("Rozmowę rozpoczniesz w panelu");
     expect(html).toContain("Granice rozmowy");
     expect(html).toContain("SafeSpace jest symulacją rozmowy edukacyjnej");
-    expect(html).not.toContain("Z czym zacznie się ta rozmowa");
   });
 
   it("renders an explicit end action only while the session is active", () => {
@@ -100,84 +100,14 @@ describe("TimedSession", () => {
     expect(html).toContain("Sesja została zakończona");
     expect(html).not.toContain("Zakończ sesję");
     expect(html).not.toContain("Pozostały czas sesji");
-    expect(html).toContain("Zobacz zapis i podsumowanie");
+    // Decyzja o kontekście kolejnej rozmowy zapada tu, nie dopiero w historii.
+    expect(html).toContain("Podsumowanie do kolejnej sesji");
+    expect(html).toContain("Wygeneruj podsumowanie");
+    expect(html).toContain("Użyj w kolejnej sesji");
+    expect(html).toContain("Otwórz w historii");
     // The closing CTA must deep-link at the conversation that just ended, not at
     // a dashboard list where the user has to find it again.
     expect(html).toContain("/dashboard?session=5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a");
     expect(html).not.toContain("Wyślij");
-  });
-
-  it("renders approved summary context before follow-up start", () => {
-    const html = renderSession({
-      kind: "followup_ready",
-      trialAvailable: false,
-      avatar,
-      session: null,
-      messages: [],
-      messageFetchFailed: false,
-      approvedSummaries: [
-        {
-          id: "summary-1",
-          sessionId: "old-session-1",
-          summaryText: "Zatwierdzone podsumowanie widoczne przed startem.",
-          revision: 1,
-          createdAt: "2026-06-07T09:00:00.000Z",
-          updatedAt: "2026-06-07T09:00:00.000Z",
-        },
-      ],
-      canStartWithoutContext: true,
-    });
-
-    expect(html).toContain("Przygotowanie do kolejnej sesji");
-    // The button no longer spells out the context state, so what carries over
-    // has to be visible in the panel itself.
-    expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
-    expect(html).toContain("Rozpocznij rozmowę");
-    // The opt-out has to be reachable next to the context it opts out of.
-    expect(html).toContain("Zacznij bez przekazywania kontekstu");
-    expect(html).toContain('id="skip-approved-context"');
-  });
-
-  it("omits the opt-out when a context-free start is not offered", () => {
-    const html = renderSession({
-      kind: "followup_ready",
-      trialAvailable: false,
-      avatar,
-      session: null,
-      messages: [],
-      messageFetchFailed: false,
-      approvedSummaries: [
-        {
-          id: "summary-1",
-          sessionId: "old-session-1",
-          summaryText: "Zatwierdzone podsumowanie widoczne przed startem.",
-          revision: 1,
-          createdAt: "2026-06-07T09:00:00.000Z",
-          updatedAt: "2026-06-07T09:00:00.000Z",
-        },
-      ],
-      canStartWithoutContext: false,
-    });
-
-    expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
-    expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
-    expect(html).toContain("Rozpocznij rozmowę");
-  });
-
-  it("renders explicit no-context fallback for follow-up sessions without approved summaries", () => {
-    const html = renderSession({
-      kind: "followup_ready",
-      trialAvailable: false,
-      avatar,
-      session: null,
-      messages: [],
-      messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: true,
-    });
-
-    // With nothing approved the user must still be told the session starts fresh.
-    expect(html).toContain("zacznie się od zera");
-    expect(html).toContain("Rozpocznij rozmowę");
   });
 });

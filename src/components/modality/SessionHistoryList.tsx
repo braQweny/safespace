@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils";
 interface SessionHistoryListProps {
   items: SessionHistoryListItem[];
   selectedSessionId: string | null;
+  /**
+   * Wyspa hydratuje się z opóźnieniem, a kliknięcie sprzed hydratacji ginęło bez
+   * żadnej reakcji — do tego czasu akcje wiersza są wyłączone, a nie nieme.
+   */
+  isInteractive?: boolean;
   pendingDeleteId: string | null;
   deletingId: string | null;
   onOpenDetail: (sessionId: string) => void;
@@ -108,6 +113,7 @@ function getInitialActiveRemainingSeconds(item: SessionHistoryListItem) {
 interface SessionHistoryListItemRowProps {
   item: SessionHistoryListItem;
   isSelected: boolean;
+  isInteractive: boolean;
   isConfirming: boolean;
   isDeleting: boolean;
   onOpenDetail: (sessionId: string) => void;
@@ -119,6 +125,7 @@ interface SessionHistoryListItemRowProps {
 function SessionHistoryListItemRow({
   item,
   isSelected,
+  isInteractive,
   isConfirming,
   isDeleting,
   onOpenDetail,
@@ -192,10 +199,11 @@ function SessionHistoryListItemRow({
           ) : null}
           <button
             type="button"
+            disabled={!isInteractive}
             onClick={() => {
               onOpenDetail(item.id);
             }}
-            className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+            className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             <MessageSquareText aria-hidden="true" className="h-4 w-4" />
             Otwórz
@@ -204,10 +212,11 @@ function SessionHistoryListItemRow({
             type="button"
             aria-label="Usuń rozmowę"
             title="Usuń rozmowę"
+            disabled={!isInteractive}
             onClick={() => {
               onRequestDelete(item.id);
             }}
-            className="text-ink-faint hover:border-danger-line hover:bg-danger-soft hover:text-danger focus:ring-danger-strong inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition-colors focus:ring-2 focus:outline-none"
+            className="text-ink-faint hover:border-danger-line hover:bg-danger-soft hover:text-danger focus:ring-danger-strong inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 aria-hidden="true" className="h-4 w-4" />
           </button>
@@ -251,6 +260,7 @@ function SessionHistoryListItemRow({
 export default function SessionHistoryList({
   items,
   selectedSessionId,
+  isInteractive = true,
   pendingDeleteId,
   deletingId,
   onOpenDetail,
@@ -266,6 +276,7 @@ export default function SessionHistoryList({
             key={item.id}
             item={item}
             isSelected={selectedSessionId === item.id}
+            isInteractive={isInteractive}
             isConfirming={pendingDeleteId === item.id}
             isDeleting={deletingId === item.id}
             onOpenDetail={onOpenDetail}

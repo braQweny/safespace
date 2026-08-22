@@ -1,45 +1,44 @@
 ---
+import type { ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+
 interface Props {
-  current?: "dashboard" | "session" | "avatar" | "account";
+  /**
+   * Rozmowa w toku zastępuje dawną zakładkę „Sesja”: wejście do rozmowy
+   * pojawia się w nagłówku tylko wtedy, gdy naprawdę jest dokąd wracać.
+   */
+  activeSession?: ActiveSessionBadge | null;
 }
 
-const { current } = Astro.props;
+const { activeSession = null } = Astro.props;
 const { user } = Astro.locals;
-
-const navItems = [
-  { key: "dashboard", href: "/dashboard", label: "Panel" },
-  { key: "session", href: "/dashboard/session", label: "Sesja" },
-  { key: "avatar", href: "/dashboard/avatar", label: "Awatar" },
-] as const;
+const activeSessionHref = activeSession
+  ? `/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`
+  : null;
 ---
 
 <header class="border-line bg-surface/90 sticky top-0 z-30 shrink-0 border-b backdrop-blur">
-  <div class="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+  <div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-8">
     <a
-      href="/dashboard"
-      class="text-brand-deep hover:text-brand focus:ring-brand-ring shrink-0 text-base font-semibold transition-colors focus:ring-2 focus:outline-none"
+      href={user ? "/dashboard" : "/"}
+      class="text-brand-deep hover:text-brand focus:ring-brand-ring shrink-0 rounded text-base font-semibold transition-colors focus:ring-2 focus:outline-none"
     >
       SafeSpace
     </a>
 
-    <nav aria-label="Nawigacja główna" class="flex min-w-0 items-center gap-1 overflow-x-auto">
-      {
-        navItems.map((item) => (
-          <a
-            href={item.href}
-            aria-current={current === item.key ? "page" : undefined}
-            class:list={[
-              "focus:ring-brand-ring rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors focus:ring-2 focus:outline-none",
-              current === item.key
-                ? "bg-surface-hover text-brand"
-                : "text-ink-muted hover:bg-surface-soft hover:text-brand",
-            ]}
-          >
-            {item.label}
-          </a>
-        ))
-      }
-    </nav>
+    {
+      activeSessionHref ? (
+        <a
+          href={activeSessionHref}
+          class="border-brand-soft bg-surface-soft text-brand hover:bg-surface-hover focus:ring-brand-ring flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+        >
+          <span aria-hidden="true" class="bg-brand h-2 w-2 shrink-0 rounded-full" />
+          <span class="truncate">
+            Rozmowa w toku
+            {activeSession?.remainingMinutes ? ` · ok. ${activeSession.remainingMinutes} min` : null}
+          </span>
+        </a>
+      ) : null
+    }
 
     <div class="ml-auto flex shrink-0 items-center">
       {
@@ -67,7 +66,7 @@ const navItems = [
                 href="/account/security"
                 class="text-ink-soft hover:bg-surface-soft focus:ring-brand-ring flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors focus:ring-2 focus:outline-none"
               >
-                Ustaw hasło
+                Konto
               </a>
               <form method="POST" action="/api/auth/signout">
                 <button

@@ -166,6 +166,19 @@ describe("buildOpenRouterSummaryRequest", () => {
     }
   });
 
+  it("gives Ox Alpha summaries the same reasoning headroom as the session path", () => {
+    // Podsumowania spadają na model sesyjny, gdy nie ma własnego override,
+    // więc oba budżety muszą być aktualizowane razem.
+    const request = buildOpenRouterSummaryRequest(input, "stealth/ox-alpha");
+
+    expect(request.maxTokens).toBe(2400);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
+    expect(request.reasoning).toEqual({
+      effort: "medium",
+    });
+    expect(request.provider.requireParameters).toBe(true);
+  });
+
   it("omits temperature for OpenAI GPT-5 summary models that reject sampling parameters", () => {
     const request = buildOpenRouterSummaryRequest(input, "openai/gpt-5.4-mini");
 

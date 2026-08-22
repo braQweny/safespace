@@ -8,6 +8,7 @@ import {
   buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
+  isOpenRouterOxAlphaModel,
   isOpenRouterGemini37FlashModel,
   supportsOpenRouterTemperature,
 } from "./openrouter-request-params";
@@ -26,6 +27,10 @@ const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 800;
 // Gemini Flash thinking models spend hidden reasoning tokens from the same
 // output budget, so they get a larger cap than plain chat models.
 const OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS = 1_600;
+// Ox Alpha jest strojony pod długie łańcuchy rozumowania, więc na ukryte myślenie
+// zużywa więcej niż Gemini Flash. Zapas jest darmowy (model bez opłat), a za mały
+// budżet wraca jako `finish_reason: "length"` i psuje całą odpowiedź.
+const OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
 const OPENROUTER_SESSION_TEMPERATURE = 0.7;
 
 interface OpenRouterSessionResponseOptions {
@@ -101,6 +106,10 @@ export function buildOpenRouterSessionRequest(
 }
 
 function resolveSessionMaxCompletionTokens(model: string) {
+  if (isOpenRouterOxAlphaModel(model)) {
+    return OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS;
+  }
+
   if (isOpenRouterGemini35FlashModel(model) || isOpenRouterGemini37FlashModel(model)) {
     return OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS;
   }

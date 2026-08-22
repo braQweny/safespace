@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, RotateCw } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import type {
   SessionHistoryFailureCode,
   SessionHistoryListResponse,
 } from "@/lib/session-flow/session-history-contract";
+import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionDeletion } from "@/components/hooks/useSessionDeletion";
 import { useSessionHistoryDetail } from "@/components/hooks/useSessionHistoryDetail";
 import { useSessionHistoryList } from "@/components/hooks/useSessionHistoryList";
@@ -23,12 +24,12 @@ interface AvatarSessionHistoryProps {
   initialConfirmSessionId?: string | null;
   /** Session to open on mount, so a link from a finished session lands on its summary. */
   autoOpenSessionId?: string | null;
-  /**
-   * The avatar picker switches history per card, so it needs the name in the
-   * heading. The dashboard already shows the same name right above and would
-   * just repeat it.
-   */
-  showAvatarHeading?: boolean;
+  /** Sterowanie zakresem listy (np. przełącznik perspektywy) renderowane w nagłówku sekcji. */
+  controls?: ReactNode;
+  /** Stała informacja o zakresie listy, niezależna od komunikatów operacji. */
+  contextNotice?: string | null;
+  /** Pozwala stronie sterować odstępem sekcji, gdy historia stoi w kolumnie obok wyboru awatara. */
+  className?: string;
 }
 
 const errorCopy: Record<SessionHistoryFailureCode, string> = {
@@ -51,9 +52,12 @@ export default function AvatarSessionHistory({
   initialDetail = null,
   initialConfirmSessionId = null,
   autoOpenSessionId = null,
-  showAvatarHeading = true,
+  controls = null,
+  contextNotice = null,
+  className,
 }: AvatarSessionHistoryProps) {
   const [notice, setNotice] = useState<string | null>(null);
+  const isHydrated = useIsHydrated();
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedRef = useRef(false);
 
@@ -175,46 +179,36 @@ export default function AvatarSessionHistory({
       detail.session.status === "interrupted");
 
   return (
-    <section className="border-line-strong mt-8 rounded-lg border bg-white p-5 shadow-[0_18px_46px_rgba(24,78,70,0.10)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section
+      className={cn(
+        // `@container`: podział na listę i podgląd zależy od szerokości samej sekcji,
+        // nie okna — w kolumnie obok wyboru awatara breakpoint `lg:` byłby kłamstwem.
+        "border-line-strong @container mt-8 rounded-lg border bg-white p-5 shadow-[0_18px_46px_rgba(24,78,70,0.10)]",
+        className,
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          {showAvatarHeading ? (
+          <h2 className="text-ink text-xl font-semibold">Historia rozmów</h2>
+          {selectedAvatar ? (
             <>
-              <p className="text-brand text-sm font-medium">Historia rozmów</p>
-              <h2 className="text-ink mt-1 text-xl font-semibold">
-                {selectedAvatar ? selectedAvatar.avatarName : "Wybierz awatara"}
-              </h2>
-              {selectedAvatar ? (
-                <p className="text-brand mt-1 text-sm font-medium">{selectedAvatar.modalityName}</p>
-              ) : null}
+              <p className="text-ink-soft mt-1 text-sm font-medium">{selectedAvatar.avatarName}</p>
+              <p className="text-brand text-sm">{selectedAvatar.modalityName}</p>
             </>
-          ) : (
-            <h2 className="text-ink text-xl font-semibold">Historia rozmów</h2>
-          )}
+          ) : null}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              void refreshHistory();
-            }}
-            disabled={!selectedAvatar || history.status === "loading"}
-            className="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 w-10 items-center justify-center rounded-lg border bg-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Odśwież historię"
-            title="Odśwież historię"
-          >
-            {history.status === "loading" ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCw aria-hidden="true" className="h-4 w-4" />
-            )}
-          </button>
-        </div>
+        {controls}
       </div>
 
       <p className="text-ink-muted mt-3 text-sm leading-6">
         Lista pokazuje tylko datę, status i czas trwania. Treść rozmowy pojawia się dopiero po otwarciu szczegółów.
       </p>
+
+      {contextNotice ? (
+        <div className="border-line-accent bg-surface-hover text-brand-deep mt-4 rounded-lg border p-3 text-sm leading-6">
+          {contextNotice}
+        </div>
+      ) : null}
 
       {!selectedAvatar ? (
         <div className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6">
@@ -248,10 +242,11 @@ export default function AvatarSessionHistory({
       ) : null}
 
       {history.items.length > 0 ? (
-        <div className={cn("mt-5 grid gap-3", showDetailPanel && "lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]")}>
+        <div className={cn("mt-5 grid gap-3", showDetailPanel && "@3xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]")}>
           <SessionHistoryList
             items={history.items.slice(0, 20)}
             selectedSessionId={detail?.session.id ?? null}
+            isInteractive={isHydrated}
             pendingDeleteId={pendingDeleteId}
             deletingId={deletingId}
             onOpenDetail={handleOpenDetail}

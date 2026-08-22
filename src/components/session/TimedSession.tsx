@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleStop, FileText, History, PlayCircle, ShieldCheck } from "lucide-react";
-import { useIsHydrated } from "@/components/hooks/useIsHydrated";
+import { CircleStop, History, ShieldCheck } from "lucide-react";
+import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
+import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
+import type { LatestSessionSummaryState } from "@/lib/session-data/types";
+import { SESSION_BOUNDARIES_COPY, SESSION_PERSPECTIVE_COPY } from "@/lib/session-copy";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 import { CrisisHelpPanel, CrisisHelpTrigger } from "./CrisisHelpPanel";
@@ -13,12 +16,19 @@ import SessionTimer from "./SessionTimer";
 
 interface TimedSessionProps {
   initialState: SessionStartPageState;
+  /**
+   * Podsumowanie zakończonej rozmowy jest częścią jej zakończenia, nie osobnym
+   * zadaniem w historii — dlatego stan przychodzi już z serwera.
+   */
+  initialSummary?: LatestSessionSummaryState | null;
 }
 
+// Rozmowa startuje w panelu, więc strona rozmowy widuje wyłącznie stany z sesją.
+// Pozostałe wpisy zostają dla kompletności typu i wracają użytkownika do panelu.
 const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string }> = {
   ready: {
-    title: "Przygotowanie do pierwszej sesji",
-    body: "Wejście na tę stronę nie zużywa darmowej próby. Sesja startuje dopiero po użyciu przycisku rozpoczęcia.",
+    title: "Rozmowa jeszcze się nie zaczęła",
+    body: "Rozmowę rozpoczniesz w panelu — tam jest przycisk startu i informacja, z czym się zacznie.",
   },
   active: {
     title: "Sesja jest aktywna",
@@ -37,8 +47,8 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
     body: "Rozmowa została zatrzymana w bezpiecznym stanie. Zwykła symulacja nie będzie kontynuowana w tej sesji.",
   },
   followup_ready: {
-    title: "Przygotowanie do kolejnej sesji",
-    body: "Rozmowa ma limit czasu i zaczyna się dopiero po kliknięciu startu.",
+    title: "Rozmowa jeszcze się nie zaczęła",
+    body: "Kolejną rozmowę rozpoczniesz w panelu — tam zdecydujesz też, czy przekazać do niej zatwierdzone podsumowanie.",
   },
   trial_already_claimed: {
     title: "Darmowa próba została już wykorzystana",
@@ -49,12 +59,6 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
     body: "Nie udało się potwierdzić dostępności darmowej próby. Spróbuj ponownie za chwilę.",
   },
 };
-
-const BOUNDARIES_COPY =
-  "SafeSpace jest symulacją rozmowy edukacyjnej. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.";
-
-const PERSPECTIVE_COPY =
-  "Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które samodzielnie zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.";
 
 function getSessionTotalSeconds(session: SessionView | null) {
   if (!session?.startedAt || !session.expiresAt) {
@@ -71,16 +75,13 @@ function getSessionTotalSeconds(session: SessionView | null) {
   return Math.round((expiresAtMs - startedAtMs) / 1000);
 }
 
-export default function TimedSession({ initialState }: TimedSessionProps) {
-  const { state, composerAvailable, handleExpired, setDraft, startSession, sendMessage, endSession } =
-    useTimedSession(initialState);
-  const { kind, session, messages, draft, isStarting, isEnding, isMessagePending, pendingUserText, notice } = state;
+export default function TimedSession({ initialState, initialSummary = null }: TimedSessionProps) {
+  const { state, composerAvailable, handleExpired, setDraft, sendMessage, endSession } = useTimedSession(initialState);
+  const { kind, session, messages, draft, isEnding, isMessagePending, pendingUserText, notice } = state;
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const [isCrisisHelpOpen, setIsCrisisHelpOpen] = useState(false);
-  const [skipContext, setSkipContext] = useState(false);
-  // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
-  // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
-  const isHydrated = useIsHydrated();
+  const { summaryState, summaryStatus, summaryErrorCode, generateSummary, approveSummary } =
+    useSessionSummary(initialSummary);
   const confirmEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -91,13 +92,27 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
   const closeCrisisHelp = useCallback(() => {
     setIsCrisisHelpOpen(false);
   }, []);
-  const hasApprovedSummaries = initialState.approvedSummaries.length > 0;
-  // Without approved summaries there is nothing to carry over, so the start is
-  // context-free either way; the checkbox only matters when context exists.
-  const startsWithoutContext =
-    initialState.canStartWithoutContext && (skipContext || !hasApprovedSummaries) && kind === "followup_ready";
   const canEndSession = kind === "active" && session?.status === "active";
   const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
+  // Pusta rozmowa nie ma czego streszczać, a aktywna wciąż trwa.
+  const canSummarizeSession = showHistoryCta && messages.length > 0;
+
+  function handleGenerateSummary() {
+    if (!session) {
+      return;
+    }
+
+    void generateSummary(session.id);
+  }
+
+  function handleApproveSummary() {
+    if (!session) {
+      return;
+    }
+
+    void approveSummary(session.id);
+  }
+
   // Link straight at the conversation that just ended: landing on a list of
   // same-day entries and hunting for the right one is the wrong last step.
   const historyHref = session ? `/dashboard?session=${encodeURIComponent(session.id)}` : "/dashboard";
@@ -105,86 +120,6 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
   // Gdy istnieje sesja, strona zachowuje się jak komunikator: nagłówek i pole
   // wpisywania są przypięte, a przewija się wyłącznie zapis rozmowy.
   const isChatLayout = Boolean(session);
-
-  const startAction =
-    kind === "ready" || kind === "followup_ready" ? (
-      <button
-        type="button"
-        onClick={() => {
-          void startSession({ withoutContext: startsWithoutContext });
-        }}
-        disabled={!isHydrated || isStarting}
-        className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
-      >
-        <PlayCircle aria-hidden="true" className="h-4 w-4" />
-        {/* The panel right above already states whether context carries over, so
-            the button says what it does instead of restating the checkbox. */}
-        {isStarting
-          ? "Rozpoczynanie…"
-          : kind === "followup_ready"
-            ? "Rozpocznij rozmowę"
-            : "Rozpocznij pierwszą darmową rozmowę"}
-      </button>
-    ) : null;
-
-  const contextPanel =
-    kind === "followup_ready" ? (
-      <div className="border-line-strong bg-surface-soft text-ink-soft rounded-lg border p-4 text-sm leading-6">
-        <div className="flex items-start gap-3">
-          <FileText aria-hidden="true" className="text-brand mt-1 h-4 w-4 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="text-ink font-semibold">Z czym zacznie się ta rozmowa</p>
-            {hasApprovedSummaries ? (
-              <div className="mt-3 space-y-3">
-                {initialState.approvedSummaries.slice(0, 3).map((summary, index) => (
-                  <div
-                    key={summary.id}
-                    className={cn("border-line bg-surface rounded-lg border p-3", skipContext && "opacity-50")}
-                  >
-                    <p className="text-brand text-xs font-semibold tracking-wide uppercase">Podsumowanie {index + 1}</p>
-                    <p className="text-ink mt-2 whitespace-pre-wrap">{summary.summaryText}</p>
-                  </div>
-                ))}
-                <p className="text-ink-muted">
-                  {skipContext
-                    ? "Ta sesja zacznie się od zera. Żadne z powyższych podsumowań nie trafi do rozmowy — zostają w historii i możesz je przekazać przy następnym starcie."
-                    : "Tylko te zatwierdzone, widoczne podsumowania mogą zostać przekazane do kolejnej rozmowy."}
-                </p>
-                {initialState.canStartWithoutContext ? (
-                  <label
-                    htmlFor="skip-approved-context"
-                    className="border-line bg-surface text-ink hover:bg-surface-hover flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
-                  >
-                    <input
-                      id="skip-approved-context"
-                      type="checkbox"
-                      checked={skipContext}
-                      onChange={(event) => {
-                        setSkipContext(event.target.checked);
-                      }}
-                      disabled={isStarting}
-                      className="accent-brand focus:ring-brand-ring mt-1 h-4 w-4 shrink-0 rounded focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
-                    />
-                    <span className="min-w-0">
-                      <span className="font-medium">Zacznij bez przekazywania kontekstu</span>
-                      <span className="text-ink-muted mt-1 block text-xs leading-5">
-                        Wybór obowiązuje przez całą sesję — podsumowanie zatwierdzone w jej trakcie też do niej nie
-                        trafi.
-                      </span>
-                    </span>
-                  </label>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-ink-muted mt-2">
-                Nie masz jeszcze zatwierdzonego podsumowania, więc ta rozmowa zacznie się od zera. Podsumowanie
-                poprzedniej rozmowy możesz przygotować w panelu, w jej historii.
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    ) : null;
 
   return (
     <div
@@ -299,10 +234,16 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
             <summary className="text-brand cursor-pointer list-none text-xs font-medium">
               Granice rozmowy i perspektywa
             </summary>
-            <p className="text-ink-muted mt-2 text-xs leading-5">{BOUNDARIES_COPY}</p>
-            <a href="/dashboard/avatar" className="text-brand mt-2 inline-block text-xs font-medium underline">
-              Zmień awatara
-            </a>
+            <p className="text-ink-muted mt-2 text-xs leading-5">{SESSION_BOUNDARIES_COPY}</p>
+            {canEndSession ? (
+              <p className="text-ink-muted mt-2 text-xs leading-5">
+                Perspektywa obowiązuje do końca tej rozmowy. Zmienisz ją w panelu, przed kolejnym startem.
+              </p>
+            ) : (
+              <a href="/dashboard/avatar" className="text-brand mt-2 inline-block text-xs font-medium underline">
+                Zmień awatara
+              </a>
+            )}
           </details>
         </header>
 
@@ -323,29 +264,39 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           ) : null}
 
           {showHistoryCta ? (
-            <div className="border-line-strong bg-surface-soft shrink-0 rounded-lg border p-4">
-              <p className="text-ink font-semibold">{stateCopy[kind].title}</p>
-              <p className="text-ink-muted mt-1 text-sm leading-6">{stateCopy[kind].body}</p>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <a
-                  href={historyHref}
-                  className="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-                >
-                  <History aria-hidden="true" className="h-4 w-4" />
-                  Zobacz zapis i podsumowanie
-                </a>
-                <a
-                  href="/dashboard"
-                  className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
-                >
-                  Wróć do panelu
-                </a>
+            <div className="shrink-0 space-y-4">
+              <div className="border-line-strong bg-surface-soft rounded-lg border p-4">
+                <p className="text-ink font-semibold">{stateCopy[kind].title}</p>
+                <p className="text-ink-muted mt-1 text-sm leading-6">{stateCopy[kind].body}</p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <a
+                    href="/dashboard"
+                    className="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                  >
+                    Wróć do panelu
+                  </a>
+                  <a
+                    href={historyHref}
+                    className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                  >
+                    <History aria-hidden="true" className="h-4 w-4" />
+                    Otwórz w historii
+                  </a>
+                </div>
               </div>
+
+              {/* Decyzja o tym, co przechodzi dalej, zapada tu — zaraz po rozmowie,
+                  a nie dopiero po odnalezieniu jej w historii. */}
+              <SessionSummaryPanel
+                summaryState={summaryState}
+                summaryStatus={summaryStatus}
+                summaryErrorCode={summaryErrorCode}
+                canSummarize={canSummarizeSession}
+                onGenerate={handleGenerateSummary}
+                onApprove={handleApproveSummary}
+              />
             </div>
           ) : null}
-
-          {contextPanel}
-          {startAction}
 
           {session ? (
             <SessionMessages
@@ -390,22 +341,30 @@ export default function TimedSession({ initialState }: TimedSessionProps) {
           className="aspect-square w-full rounded-lg object-cover"
           loading="lazy"
         />
-        <p className="text-ink-muted mt-4 text-sm leading-6">{PERSPECTIVE_COPY}</p>
+        <p className="text-ink-muted mt-4 text-sm leading-6">{SESSION_PERSPECTIVE_COPY}</p>
         <div className="border-line text-ink-muted mt-5 border-t pt-4 text-sm leading-6">
           <div className="flex items-start gap-3">
             <ShieldCheck aria-hidden="true" className="text-brand mt-1 h-4 w-4 shrink-0" />
             <div>
               <p className="text-ink font-semibold">Granice rozmowy</p>
-              <p className="mt-1">{BOUNDARIES_COPY}</p>
+              <p className="mt-1">{SESSION_BOUNDARIES_COPY}</p>
             </div>
           </div>
         </div>
-        <a
-          href="/dashboard/avatar"
-          className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring mt-4 inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
-        >
-          Zmień awatara
-        </a>
+        {/* W trakcie rozmowy zmiana i tak zadziała dopiero od następnej sesji,
+            więc zamiast przycisku stoi tu zdanie, które to mówi wprost. */}
+        {canEndSession ? (
+          <p className="text-ink-muted mt-4 text-sm leading-6">
+            Perspektywa obowiązuje do końca tej rozmowy. Zmienisz ją w panelu, przed kolejnym startem.
+          </p>
+        ) : (
+          <a
+            href="/dashboard/avatar"
+            className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring mt-4 inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+          >
+            Zmień awatara
+          </a>
+        )}
       </aside>
     </div>
   );

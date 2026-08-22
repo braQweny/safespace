@@ -163,6 +163,23 @@ describe("buildOpenRouterSessionRequest", () => {
     }
   });
 
+  it("gives Ox Alpha room for hidden reasoning and keeps max_tokens plus temperature", () => {
+    for (const model of ["stealth/ox-alpha", "stealth/ox-alpha:free"]) {
+      const request = buildOpenRouterSessionRequest(input, model);
+
+      expect(request.model).toBe(model);
+      expect(request.temperature).toBe(0.7);
+      // Model rozumuje przed odpowiedzią — zbyt mały budżet wraca jako
+      // `finish_reason: "length"` i cała odpowiedź jest odrzucana.
+      expect(request.maxTokens).toBe(2400);
+      expect(request).not.toHaveProperty("maxCompletionTokens");
+      expect(request.reasoning).toEqual({
+        effort: "medium",
+      });
+      expect(request.provider.requireParameters).toBe(true);
+    }
+  });
+
   it("includes the selected catalog sessionStyleHint in the system message and keeps the user turn plain", () => {
     const modality = MVP_MODALITIES.find((item) => item.avatarId === "integrative-guide");
 

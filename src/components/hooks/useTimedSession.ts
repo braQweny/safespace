@@ -5,7 +5,6 @@ import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safe
 import {
   isSendSessionMessageResponse,
   type SendSessionMessageSuccessResponse,
-  type SessionMessageViewModel,
 } from "@/lib/session-flow/message-contract";
 import { appendSuccessfulTurn, isComposerAvailable, type UiSessionMessage } from "@/lib/session-flow/message-state";
 import { isCompleteSessionResponse } from "@/lib/session-flow/session-completion-contract";
@@ -27,7 +26,6 @@ export interface TimedSessionUiState {
   session: SessionView | null;
   messages: UiSessionMessage[];
   draft: string;
-  isStarting: boolean;
   isEnding: boolean;
   isMessagePending: boolean;
   isClientExpired: boolean;
@@ -39,10 +37,6 @@ export interface TimedSessionUiState {
 export type TimedSessionAction =
   | { type: "draft_changed"; draft: string }
   | { type: "client_expired" }
-  | { type: "start_requested" }
-  | { type: "start_succeeded"; session: SessionView; openingMessage?: SessionMessageViewModel }
-  | { type: "start_failed"; kind?: SessionStartPageStateKind; notice: SafetyNoticeState }
-  | { type: "start_settled" }
   | { type: "end_requested" }
   | { type: "end_succeeded"; session: SessionView }
   | { type: "end_failed"; notice: SafetyNoticeState }
@@ -53,80 +47,6 @@ export type TimedSessionAction =
   | { type: "session_expired"; session: SessionView; notice: SafetyNoticeState }
   | { type: "message_failed"; draft: string; notice: SafetyNoticeState }
   | { type: "message_settled" };
-
-export interface StartSessionOptions {
-  /** Start a follow-up session that carries no approved summary context. */
-  withoutContext?: boolean;
-}
-
-export interface ResolveStartWithoutContextInput {
-  isFollowupStart: boolean;
-  canStartWithoutContext: boolean;
-  approvedSummaryCount: number;
-  requestedWithoutContext: boolean;
-}
-
-/**
- * Decides whether the start request declares a context-free session. With no
- * approved summaries the confirmation is implicit — there is nothing to carry
- * over and the server requires the flag anyway; with summaries present the flag
- * only goes out when the user explicitly opted out.
- */
-export function resolveStartWithoutContext({
-  isFollowupStart,
-  canStartWithoutContext,
-  approvedSummaryCount,
-  requestedWithoutContext,
-}: ResolveStartWithoutContextInput) {
-  if (!isFollowupStart || !canStartWithoutContext) {
-    return false;
-  }
-
-  return requestedWithoutContext || approvedSummaryCount === 0;
-}
-
-interface StartSessionSuccessResponse {
-  ok: true;
-  session: SessionView;
-  openingMessage?: SessionMessageViewModel;
-}
-
-interface StartSessionFailureResponse {
-  ok: false;
-  code: string;
-  redirectTo?: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isOpeningMessage(value: unknown): value is SessionMessageViewModel {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    typeof value.id === "string" &&
-    value.role === "assistant" &&
-    typeof value.sequenceIndex === "number" &&
-    Number.isFinite(value.sequenceIndex) &&
-    typeof value.content === "string" &&
-    typeof value.createdAt === "string"
-  );
-}
-
-function isStartSessionSuccess(body: unknown): body is StartSessionSuccessResponse {
-  if (!(isRecord(body) && body.ok === true && isRecord(body.session))) {
-    return false;
-  }
-
-  return body.openingMessage === undefined || isOpeningMessage(body.openingMessage);
-}
-
-function isStartSessionFailure(body: unknown): body is StartSessionFailureResponse {
-  return isRecord(body) && body.ok === false && typeof body.code === "string";
-}
 
 function buildGenericNotice(title: string, body: string): SafetyNoticeState {
   return {
@@ -145,7 +65,6 @@ export function getInitialTimedSessionState(initialState: SessionStartPageState)
     session: initialState.session,
     messages: initialState.messages,
     draft: "",
-    isStarting: false,
     isEnding: false,
     isMessagePending: false,
     isClientExpired: initialState.session?.remainingSeconds === 0,
@@ -161,22 +80,6 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
       return { ...state, draft: action.draft };
     case "client_expired":
       return { ...state, kind: "expired", isClientExpired: true };
-    case "start_requested":
-      return { ...state, isStarting: true, notice: null };
-    case "start_succeeded":
-      return {
-        ...state,
-        session: action.session,
-        messages: action.openingMessage ? [action.openingMessage] : [],
-        kind: toSessionStartPageStateKind(action.session.status),
-        isClientExpired: action.session.remainingSeconds === 0,
-        isHardStopped: false,
-        isEnding: false,
-      };
-    case "start_failed":
-      return { ...state, kind: action.kind ?? state.kind, notice: action.notice };
-    case "start_settled":
-      return { ...state, isStarting: false };
     case "end_requested":
       return { ...state, isEnding: true, notice: null };
     case "end_succeeded":
@@ -245,85 +148,6 @@ export function useTimedSession(initialState: SessionStartPageState) {
   const setDraft = useCallback((draft: string) => {
     dispatch({ type: "draft_changed", draft });
   }, []);
-
-  async function startSession(options: StartSessionOptions = {}) {
-    if (state.isStarting) {
-      return;
-    }
-
-    dispatch({ type: "start_requested" });
-
-    try {
-      const isFollowupStart = state.kind === "followup_ready";
-      const startWithoutContext = resolveStartWithoutContext({
-        isFollowupStart,
-        canStartWithoutContext: initialState.canStartWithoutContext,
-        approvedSummaryCount: initialState.approvedSummaries.length,
-        requestedWithoutContext: options.withoutContext === true,
-      });
-      const result = await requestApiJson(isFollowupStart ? "/api/session/start-next" : "/api/session/start", {
-        method: "POST",
-        ...(startWithoutContext
-          ? {
-              body: JSON.stringify({
-                startWithoutContext: true,
-              }),
-            }
-          : {}),
-      });
-
-      if (result.kind === "network_error") {
-        dispatch({
-          type: "start_failed",
-          notice: buildGenericNotice(
-            "Nie udało się rozpocząć sesji",
-            "Połączenie z serwerem jest chwilowo niedostępne.",
-          ),
-        });
-        return;
-      }
-
-      if (isRateLimitedApiResult(result)) {
-        dispatch({
-          type: "start_failed",
-          notice: buildGenericNotice(
-            "Za dużo prób w krótkim czasie",
-            "Odczekaj około minuty i spróbuj ponownie rozpocząć sesję.",
-          ),
-        });
-        return;
-      }
-
-      const body = result.body;
-
-      if (isStartSessionSuccess(body)) {
-        dispatch({
-          type: "start_succeeded",
-          session: body.session,
-          openingMessage: body.openingMessage,
-        });
-        return;
-      }
-
-      if (isStartSessionFailure(body) && body.redirectTo) {
-        window.location.assign(body.redirectTo);
-        return;
-      }
-
-      const failureCode = isStartSessionFailure(body) ? body.code : null;
-
-      dispatch({
-        type: "start_failed",
-        kind:
-          failureCode === "trial_already_claimed" || failureCode === "no_context_not_confirmed"
-            ? "followup_ready"
-            : "unavailable",
-        notice: buildGenericNotice("Nie udało się rozpocząć sesji", "Spróbuj ponownie za chwilę albo wróć do panelu."),
-      });
-    } finally {
-      dispatch({ type: "start_settled" });
-    }
-  }
 
   async function sendMessage() {
     const trimmedDraft = state.draft.trim();
@@ -512,7 +336,6 @@ export function useTimedSession(initialState: SessionStartPageState) {
     composerAvailable,
     handleExpired,
     setDraft,
-    startSession,
     sendMessage,
     endSession,
   };

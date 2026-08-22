@@ -1,23 +1,35 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
+import SessionStartCard from "@/components/session/SessionStartCard";
 import Layout from "@/layouts/Layout.astro";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import {
+  getModalityByAvatarId,
+  MVP_MODALITIES,
+  toSelectedModalityAvatar,
+  type SelectedModalityAvatar,
+} from "@/lib/modalities";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
-import { listOwnedActiveSessionMetadata } from "@/lib/session-data/repository";
-import type { SessionMetadata } from "@/lib/session-data/types";
-import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
+import { SESSION_BOUNDARIES_COPY } from "@/lib/session-copy";
+import { toActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+import { readCurrentAvatarChoice, type CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-flow/session-history";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
+import { readSessionStartPageState, type SessionStartPageState } from "@/lib/session-flow/session-state";
 
 const avatarUpdated = Astro.url.searchParams.get("avatar") === "updated";
+// Historia da się przełączyć na inną perspektywę, więc adres musi tę zmianę
+// przeżyć — inaczej odświeżenie cicho wraca do zapisanego awatara.
+const viewedModality = getModalityByAvatarId(Astro.url.searchParams.get("historyAvatar"));
+const viewedAvatar = viewedModality ? toSelectedModalityAvatar(viewedModality) : null;
 const queryPage = parseSessionHistoryPage(Astro.url.searchParams.get("page"));
 const initialHistoryPage = queryPage.ok ? queryPage.page : 1;
 const operationalContext = await buildOperationalRequestContext(Astro);
 const sessionContext = getSessionDataContext(Astro);
 
+let currentAvatarChoice: CurrentAvatarChoice | null = null;
 let currentSelection: SelectedModalityAvatar | null = null;
 let initialHistory: SessionHistoryListResponse | null = queryPage.ok
   ? null
@@ -32,6 +44,7 @@ if (sessionContext.ok) {
   const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
 
   if (avatarChoice.ok) {
+    currentAvatarChoice = avatarChoice.data;
     currentSelection = avatarChoice.data.selected;
     logOperationalEvent(
       {
@@ -72,46 +85,43 @@ if (sessionContext.ok) {
   choiceFetchFailed = sessionContext.error.code !== "missing_auth";
 }
 
-if (!initialHistory && sessionContext.ok && currentSelection) {
+const historyAvatar = viewedAvatar ?? currentSelection;
+
+if (!initialHistory && sessionContext.ok && historyAvatar) {
   initialHistory = await readSessionHistoryList(sessionContext.data, {
-    avatar: currentSelection.avatarId,
+    avatar: historyAvatar.avatarId,
     page: String(initialHistoryPage),
   });
 }
 
-// Historia celowo pomija rozmowy bez wiadomości, więc trwająca sesja czytana jest osobno.
-let activeSession: SessionMetadata | null = null;
+// Rozmowa zaczyna się tutaj, więc panel czyta ten sam stan startu, z którego
+// wcześniej korzystał osobny ekran wstępny. Wiadomości zostają na stronie
+// rozmowy — panel potrzebuje tylko stanu i zatwierdzonych podsumowań.
+let startPageState: SessionStartPageState | null = null;
+let startStateFailed = false;
 
-if (sessionContext.ok && currentSelection) {
-  const activeSessions = await listOwnedActiveSessionMetadata(sessionContext.data, {
-    avatarId: currentSelection.avatarId,
-    limit: 1,
+if (sessionContext.ok && currentAvatarChoice) {
+  const state = await readSessionStartPageState(sessionContext.data, {
+    avatar: currentAvatarChoice,
+    includeMessagesForActive: false,
   });
 
-  if (activeSessions.ok) {
-    const nowMs = Date.now();
-    activeSession =
-      activeSessions.data.find((session) => {
-        const expiresAtMs = session.expiresAt ? Date.parse(session.expiresAt) : Number.NaN;
-        return Number.isFinite(expiresAtMs) && expiresAtMs > nowMs;
-      }) ?? null;
-  }
+  startPageState = state.ok ? state.data : null;
+  startStateFailed = !state.ok;
 }
 
-const activeRemainingMinutes = activeSession?.expiresAt
-  ? Math.max(1, Math.ceil((Date.parse(activeSession.expiresAt) - Date.now()) / 60_000))
-  : null;
+const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(startPageState.session) : null;
 ---
 
 <Layout title="Panel - SafeSpace" lang="pl">
   <div class="bg-canvas text-ink flex min-h-screen flex-col">
-    <AppHeader current="dashboard" />
+    <AppHeader activeSession={activeSession} />
 
     <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto max-w-6xl">
         <h1 class="text-ink text-3xl font-semibold">Twój panel</h1>
         <p class="text-ink-soft mt-3 max-w-3xl text-base leading-7">
-          Stąd rozpoczniesz sesję i wrócisz do zapisanych rozmów.
+          Stąd rozpoczniesz rozmowę i wrócisz do zapisanych sesji.
         </p>
 
         {
@@ -134,7 +144,7 @@ const activeRemainingMinutes = activeSession?.expiresAt
           <section class="border-line-strong bg-surface shadow-card rounded-lg border p-6">
             {
               currentSelection ? (
-                <div class="grid gap-5 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-center">
+                <div class="grid gap-5 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
                   <img
                     src={currentSelection.assetPath}
                     alt={currentSelection.altText}
@@ -143,42 +153,51 @@ const activeRemainingMinutes = activeSession?.expiresAt
                     class="aspect-square w-full max-w-40 rounded-lg object-cover"
                     loading="lazy"
                   />
-                  <div>
+                  <div class="min-w-0">
                     <p class="text-brand text-sm font-medium">Wybrany awatar</p>
                     <h2 class="text-ink mt-2 text-2xl font-semibold">{currentSelection.avatarName}</h2>
                     <p class="text-brand mt-2 text-base font-medium">{currentSelection.modalityName}</p>
-                    <p class="text-ink-muted mt-4 text-sm leading-6">
-                      {activeSession
-                        ? "Rozmowa z tą perspektywą jest w toku. Zmiana awatara zadziała dopiero od następnej sesji."
-                        : "Ten wybór obowiązuje w kolejnej sesji. Samo wejście na stronę sesji nie rozpoczyna rozmowy ani nie zużywa darmowej próby."}
-                    </p>
-                    <div class="mt-5 flex flex-col gap-3 sm:flex-row">
-                      <a
-                        href={
-                          activeSession
-                            ? `/dashboard/session?sessionId=${encodeURIComponent(activeSession.id)}`
-                            : "/dashboard/session"
-                        }
-                        class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-                      >
-                        {activeSession ? "Wróć do rozmowy" : "Przejdź do sesji"}
-                      </a>
+
+                    {activeSession ? (
+                      <>
+                        <p class="text-ink-muted mt-4 text-sm leading-6">
+                          Rozmowa z tą perspektywą jest w toku. Zmiana awatara zadziała dopiero od następnej sesji.
+                        </p>
+                        <a
+                          href={`/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`}
+                          class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                        >
+                          Wróć do rozmowy
+                        </a>
+                      </>
+                    ) : startPageState ? (
+                      <SessionStartCard client:load initialState={startPageState} />
+                    ) : (
+                      <p class="text-ink-muted mt-4 text-sm leading-6">
+                        {startStateFailed
+                          ? "Nie udało się odczytać stanu rozmowy. Odśwież panel za chwilę."
+                          : "Rozmowa jest chwilowo niedostępna. Spróbuj ponownie za chwilę."}
+                      </p>
+                    )}
+
+                    <p class="border-line text-ink-muted mt-5 border-t pt-4 text-sm leading-6">
+                      Ta perspektywa obowiązuje w kolejnej rozmowie.
                       <a
                         href="/dashboard/avatar"
-                        class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg border px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                        class="text-brand hover:text-brand-strong focus:ring-brand-ring ml-1 rounded font-medium underline transition-colors focus:ring-2 focus:outline-none"
                       >
                         Zmień awatara
                       </a>
-                    </div>
+                    </p>
                   </div>
                 </div>
               ) : (
                 <div>
                   <p class="text-brand text-sm font-medium">Następny krok</p>
-                  <h2 class="text-ink mt-2 text-2xl font-semibold">Wybierz awatara przed pierwszą sesją</h2>
+                  <h2 class="text-ink mt-2 text-2xl font-semibold">Wybierz awatara przed pierwszą rozmową</h2>
                   <p class="text-ink-muted mt-4 text-sm leading-6">
                     Awatar reprezentuje edukacyjną perspektywę przyszłej symulacji rozmowy. Wybór nie uruchamia jeszcze
-                    sesji ani nie zastępuje konsultacji ze specjalistą.
+                    rozmowy ani nie zastępuje konsultacji ze specjalistą.
                   </p>
                   <a
                     href="/dashboard/avatar"
@@ -191,32 +210,26 @@ const activeRemainingMinutes = activeSession?.expiresAt
             }
           </section>
 
-          {
-            activeSession ? (
-              <aside class="border-brand-soft bg-surface-soft rounded-lg border p-5">
-                <p class="text-brand flex items-center gap-2 text-sm font-semibold">
-                  <span aria-hidden="true" class="bg-brand h-2 w-2 rounded-full" />
-                  Rozmowa w toku
-                </p>
-                {/* Deliberately no button here: the card above already owns the
-                    single primary action, and two green buttons side by side made
-                    it unclear which one was the way back. */}
-                <p class="text-ink-muted mt-2 text-sm leading-6">
-                  {activeRemainingMinutes
-                    ? `Zostało jeszcze około ${activeRemainingMinutes} min.`
-                    : "Masz otwartą sesję z limitem czasu."}
-                </p>
-              </aside>
-            ) : (
-              <aside class="border-line bg-surface-soft rounded-lg border p-5">
-                <h2 class="text-brand-deep text-base font-semibold">Co dalej</h2>
-                <p class="text-ink-muted mt-2 text-sm leading-6">
-                  Sesję rozpoczynasz na stronie sesji świadomym kliknięciem startu — samo wejście tam niczego nie
-                  uruchamia.
-                </p>
-              </aside>
-            )
-          }
+          <aside class="border-line bg-surface-soft rounded-lg border p-5">
+            {
+              activeSession ? (
+                <>
+                  <p class="text-brand flex items-center gap-2 text-sm font-semibold">
+                    <span aria-hidden="true" class="bg-brand h-2 w-2 rounded-full" />
+                    Rozmowa w toku
+                  </p>
+                  <p class="text-ink-muted mt-2 text-sm leading-6">
+                    {activeSession.remainingMinutes
+                      ? `Zostało jeszcze około ${activeSession.remainingMinutes} min.`
+                      : "Masz otwartą rozmowę z limitem czasu."}
+                  </p>
+                  <div class="border-line mt-4 border-t pt-4" />
+                </>
+              ) : null
+            }
+            <h2 class="text-brand-deep text-base font-semibold">Granice rozmowy</h2>
+            <p class="text-ink-muted mt-2 text-sm leading-6">{SESSION_BOUNDARIES_COPY}</p>
+          </aside>
         </div>
 
         {
@@ -224,6 +237,8 @@ const activeRemainingMinutes = activeSession?.expiresAt
             <DashboardSessionHistory
               client:load
               selectedAvatar={currentSelection}
+              initialViewedAvatarId={viewedAvatar?.avatarId ?? null}
+              modalities={MVP_MODALITIES}
               initialHistoryPage={initialHistoryPage}
               initialHistory={initialHistory}
             />

@@ -79,6 +79,17 @@ const astroConfig = tseslint.config({
   },
 });
 
+// `return Astro.redirect(...)` to idiomatyczny wczesny wyjątek strony, ale
+// no-misused-promises przewraca się na takim `return`: astro-eslint-parser nie
+// daje temu węzłowi rodzica, więc reguła rzuca zamiast sprawdzić. Wyłączona
+// tylko dla stron — komponenty .astro nadal ją mają.
+const astroPagesConfig = tseslint.config({
+  files: ["src/pages/**/*.astro"],
+  rules: {
+    "@typescript-eslint/no-misused-promises": "off",
+  },
+});
+
 export default tseslint.config(
   includeIgnoreFile(gitignorePath),
   baseConfig,
@@ -87,5 +98,6 @@ export default tseslint.config(
   eslintPluginAstro.configs["flat/recommended"],
   ...eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
+  astroPagesConfig,
   eslintPluginPrettier,
 );

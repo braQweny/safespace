@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveStartWithoutContext,
-  timedSessionReducer,
-  type SafetyNoticeState,
-  type TimedSessionUiState,
-} from "../useTimedSession";
+import { timedSessionReducer, type SafetyNoticeState, type TimedSessionUiState } from "../useTimedSession";
 import type { SessionView } from "@/lib/session-flow/session-state";
 
 const activeSession: SessionView = {
@@ -32,7 +27,6 @@ const baseState: TimedSessionUiState = {
   session: null,
   messages: [],
   draft: "",
-  isStarting: false,
   isEnding: false,
   isMessagePending: false,
   isClientExpired: false,
@@ -42,52 +36,6 @@ const baseState: TimedSessionUiState = {
 };
 
 describe("timedSessionReducer", () => {
-  it("starts a session atomically: resets messages, derives kind, clears hard stop", () => {
-    const state = timedSessionReducer(
-      {
-        ...baseState,
-        kind: "followup_ready",
-        isHardStopped: true,
-        messages: [
-          { id: "m1", role: "user", sequenceIndex: 1, content: "stara", createdAt: "2026-06-12T10:01:00.000Z" },
-        ],
-      },
-      { type: "start_succeeded", session: activeSession },
-    );
-
-    expect(state.kind).toBe("active");
-    expect(state.session).toEqual(activeSession);
-    expect(state.messages).toEqual([]);
-    expect(state.isHardStopped).toBe(false);
-    expect(state.isClientExpired).toBe(false);
-  });
-
-  it("seeds the conversation with the avatar's opening message when the start provides one", () => {
-    const openingMessage = {
-      id: "m-opening",
-      role: "assistant" as const,
-      sequenceIndex: 0,
-      content: "Otwarcie avatara",
-      createdAt: "2026-06-12T10:00:05.000Z",
-    };
-    const state = timedSessionReducer(
-      { ...baseState, kind: "ready" },
-      { type: "start_succeeded", session: activeSession, openingMessage },
-    );
-
-    expect(state.messages).toEqual([openingMessage]);
-    expect(state.kind).toBe("active");
-  });
-
-  it("keeps the conversation empty when the start response carries no opening message", () => {
-    const state = timedSessionReducer(
-      { ...baseState, kind: "followup_ready" },
-      { type: "start_succeeded", session: activeSession, openingMessage: undefined },
-    );
-
-    expect(state.messages).toEqual([]);
-  });
-
   it("marks client expiry together with the expired kind", () => {
     const state = timedSessionReducer(
       { ...baseState, kind: "active", session: activeSession },
@@ -211,7 +159,7 @@ describe("timedSessionReducer", () => {
     expect(failed.pendingUserText).toBeNull();
   });
 
-  it("restores the draft when a message fails and keeps kind on start failure without kind", () => {
+  it("keeps the failure notice attached to the message that failed", () => {
     const failed = timedSessionReducer(
       { ...baseState, kind: "active", session: activeSession, isMessagePending: true },
       { type: "message_failed", draft: "utracona wiadomość", notice: infoNotice },
@@ -219,56 +167,12 @@ describe("timedSessionReducer", () => {
 
     expect(failed.draft).toBe("utracona wiadomość");
     expect(failed.notice).toEqual(infoNotice);
-
-    const startFailed = timedSessionReducer(
-      { ...baseState, kind: "followup_ready", isStarting: true },
-      { type: "start_failed", notice: infoNotice },
-    );
-
-    expect(startFailed.kind).toBe("followup_ready");
   });
 
   it("settles pending flags via dedicated actions", () => {
-    expect(timedSessionReducer({ ...baseState, isStarting: true }, { type: "start_settled" }).isStarting).toBe(false);
     expect(timedSessionReducer({ ...baseState, isEnding: true }, { type: "end_settled" }).isEnding).toBe(false);
     expect(
       timedSessionReducer({ ...baseState, isMessagePending: true }, { type: "message_settled" }).isMessagePending,
-    ).toBe(false);
-  });
-});
-
-describe("resolveStartWithoutContext", () => {
-  const followupWithContext = {
-    isFollowupStart: true,
-    canStartWithoutContext: true,
-    approvedSummaryCount: 2,
-    requestedWithoutContext: false,
-  };
-
-  it("keeps approved context unless the user opts out", () => {
-    expect(resolveStartWithoutContext(followupWithContext)).toBe(false);
-    expect(resolveStartWithoutContext({ ...followupWithContext, requestedWithoutContext: true })).toBe(true);
-  });
-
-  it("confirms the context-free start implicitly when there is nothing to carry over", () => {
-    expect(resolveStartWithoutContext({ ...followupWithContext, approvedSummaryCount: 0 })).toBe(true);
-  });
-
-  it("never declares a context-free start outside an offered follow-up", () => {
-    expect(
-      resolveStartWithoutContext({
-        ...followupWithContext,
-        isFollowupStart: false,
-        approvedSummaryCount: 0,
-        requestedWithoutContext: true,
-      }),
-    ).toBe(false);
-    expect(
-      resolveStartWithoutContext({
-        ...followupWithContext,
-        canStartWithoutContext: false,
-        requestedWithoutContext: true,
-      }),
     ).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import {
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
   isOpenRouterGemini37FlashModel,
+  isOpenRouterOxAlphaModel,
   supportsOpenRouterTemperature,
 } from "@/lib/session-ai/openrouter-request-params";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
@@ -25,6 +26,7 @@ const OPENROUTER_SUMMARY_TIMEOUT_MS = 12_000;
 const OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS = 320;
 const OPENROUTER_GEMINI_3_5_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 800;
 const OPENROUTER_GEMINI_3_7_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 1_600;
+const OPENROUTER_OX_ALPHA_SUMMARY_MAX_COMPLETION_TOKENS = 2_400;
 const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
 
 interface OpenRouterSummaryOptions {
@@ -109,6 +111,10 @@ export function buildOpenRouterSummaryRequest(
  * this branch in step with `resolveSessionMaxCompletionTokens` in session-ai.
  */
 function resolveSummaryMaxCompletionTokens(model: string) {
+  if (isOpenRouterOxAlphaModel(model)) {
+    return OPENROUTER_OX_ALPHA_SUMMARY_MAX_COMPLETION_TOKENS;
+  }
+
   if (isOpenRouterGemini37FlashModel(model)) {
     return OPENROUTER_GEMINI_3_7_FLASH_SUMMARY_MAX_COMPLETION_TOKENS;
   }

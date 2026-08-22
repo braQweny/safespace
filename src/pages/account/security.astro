@@ -1,6 +1,8 @@
 ---
+import AppHeader from "@/components/AppHeader.astro";
 import Layout from "@/layouts/Layout.astro";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
+import { getAdminContext } from "@/lib/admin/auth";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 
 const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
@@ -10,30 +12,52 @@ const successMessage =
     ? "Hasło zostało zapisane. Możesz logować się e-mailem i hasłem albo przez Google."
     : null;
 const { user } = Astro.locals;
+
+// Administracja miała własną powłokę, ale żaden widok aplikacji do niej nie
+// prowadził. Sprawdzenie kosztuje jedno zapytanie i tylko na tej stronie.
+const adminContext = await getAdminContext(Astro);
+const isAdmin = adminContext.ok;
 ---
 
-<Layout title="Bezpieczeństwo konta - SafeSpace" lang="pl">
-  <main class="bg-canvas text-ink min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-    <section class="mx-auto flex min-h-[calc(100vh-64px)] max-w-2xl items-center">
-      <div
-        class="border-line-strong w-full rounded-lg border bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
-      >
-        <a
-          href="/dashboard"
-          class="text-brand hover:text-brand-strong text-sm font-medium transition-colors hover:underline"
-        >
-          Wróć do panelu
-        </a>
-        <h1 class="text-ink mt-3 text-2xl font-semibold">Bezpieczeństwo konta</h1>
+<Layout title="Konto - SafeSpace" lang="pl">
+  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+    <AppHeader />
+
+    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <section class="mx-auto max-w-2xl">
+        <h1 class="text-ink text-3xl font-semibold">Konto</h1>
         <p class="text-ink-muted mt-3 text-sm leading-6">
-          Zalogowano jako <span class="text-ink font-semibold">{user?.email}</span>. Jeśli konto powstało przez Google,
-          ustawienie hasła dodaje logowanie e-mailem bez tworzenia drugiego konta.
+          Zalogowano jako <span class="text-ink font-semibold">{user?.email}</span>.
         </p>
 
-        <div class="mt-6">
-          <SetPasswordForm serverError={error} serverSuccess={successMessage} client:load />
+        <div class="border-line-strong bg-surface shadow-card mt-6 rounded-lg border p-6 sm:p-8">
+          <h2 class="text-ink text-lg font-semibold">Hasło</h2>
+          <p class="text-ink-muted mt-2 text-sm leading-6">
+            Jeśli konto powstało przez Google, ustawienie hasła dodaje logowanie e-mailem bez tworzenia drugiego konta.
+          </p>
+
+          <div class="mt-6">
+            <SetPasswordForm serverError={error} serverSuccess={successMessage} client:load />
+          </div>
         </div>
-      </div>
-    </section>
-  </main>
+
+        {
+          isAdmin ? (
+            <div class="border-line bg-surface-soft mt-5 rounded-lg border p-5">
+              <h2 class="text-brand-deep text-base font-semibold">Administracja</h2>
+              <p class="text-ink-muted mt-2 text-sm leading-6">
+                To konto ma dostęp do statystyk zbiorczych. Panel administracyjny nie pokazuje treści rozmów.
+              </p>
+              <a
+                href="/admin"
+                class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring mt-4 inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+              >
+                Otwórz panel administracyjny
+              </a>
+            </div>
+          ) : null
+        }
+      </section>
+    </main>
+  </div>
 </Layout>

@@ -7,82 +7,52 @@ import {
   getAvatarChoiceErrorMessage,
   parseAvatarChoiceErrorCode,
 } from "@/lib/avatar-choice-errors";
-import {
-  getModalityByAvatarId,
-  getValidAvatarChoice,
-  MVP_MODALITIES,
-  toSelectedModalityAvatar,
-  type SelectedModalityAvatar,
-} from "@/lib/modalities";
+import { MVP_MODALITIES, type SelectedModalityAvatar } from "@/lib/modalities";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
-import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-flow/session-history";
-import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
-import { createClient } from "@/lib/supabase";
+import { readActiveSessionBadge, type ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 
-const { user } = Astro.locals;
-const supabase = createClient(Astro.request.headers, Astro.cookies);
 const queryErrorCode = parseAvatarChoiceErrorCode(Astro.url.searchParams.get(AVATAR_CHOICE_ERROR_PARAM));
 const operationalContext = await buildOperationalRequestContext(Astro);
-const queryAvatar = getModalityByAvatarId(Astro.url.searchParams.get("avatar"));
-const queryPage = parseSessionHistoryPage(Astro.url.searchParams.get("page"));
-const initialHistoryPage = queryPage.ok ? queryPage.page : 1;
+const sessionContext = getSessionDataContext(Astro);
 
-let currentSelection: SelectedModalityAvatar | null = queryAvatar ? toSelectedModalityAvatar(queryAvatar) : null;
-let savedSelection: SelectedModalityAvatar | null = null;
-let initialHistory: SessionHistoryListResponse | null = null;
+let currentSelection: SelectedModalityAvatar | null = null;
+let activeSession: ActiveSessionBadge | null = null;
 let pageError = queryErrorCode ? getAvatarChoiceErrorMessage(queryErrorCode) : null;
 
-if (!user) {
-  pageError = getAvatarChoiceErrorMessage("missing_auth");
-  logOperationalEvent(
-    {
-      event: "avatar.fetch",
-      level: "warn",
-      outcome: "failure",
-      status: 200,
-      reasonCode: "missing_auth",
-    },
-    operationalContext,
+if (!sessionContext.ok) {
+  pageError = getAvatarChoiceErrorMessage(
+    sessionContext.error.code === "missing_auth" ? "missing_auth" : "config_unavailable",
   );
-} else if (!supabase) {
-  pageError = getAvatarChoiceErrorMessage("config_unavailable");
   logOperationalEvent(
     {
       event: "avatar.fetch",
-      level: "error",
+      level: sessionContext.error.code === "missing_auth" ? "warn" : "error",
       outcome: "failure",
       status: 200,
-      reasonCode: "config_unavailable",
-      provider: "supabase",
+      reasonCode: sessionContext.error.code === "missing_auth" ? "missing_auth" : "config_unavailable",
     },
     operationalContext,
   );
 } else {
-  const { data, error } = await supabase
-    .from("user_avatar_choices")
-    .select("modality_id, avatar_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
 
-  if (error) {
-    pageError = getAvatarChoiceErrorMessage("fetch_failed");
+  if (avatarChoice.ok) {
+    currentSelection = avatarChoice.data.selected;
     logOperationalEvent(
       {
         event: "avatar.fetch",
-        level: "warn",
-        outcome: "failure",
+        level: "info",
+        outcome: "success",
         status: 200,
-        reasonCode: "fetch_failed",
         provider: "supabase",
       },
       operationalContext,
     );
-  } else if (data) {
-    const selectedChoice = getValidAvatarChoice(data.modality_id, data.avatar_id);
-    savedSelection = selectedChoice ? toSelectedModalityAvatar(selectedChoice) : null;
-    currentSelection = currentSelection ?? savedSelection;
+  } else if (avatarChoice.error.code === "missing_avatar") {
+    // Pierwszy wybór nie jest błędem — strona po prostu startuje bez zaznaczenia.
     logOperationalEvent(
       {
         event: "avatar.fetch",
@@ -94,34 +64,31 @@ if (!user) {
       operationalContext,
     );
   } else {
+    pageError = getAvatarChoiceErrorMessage(
+      avatarChoice.error.code === "invalid_avatar_choice" ? "invalid_choice" : "fetch_failed",
+    );
     logOperationalEvent(
       {
         event: "avatar.fetch",
-        level: "info",
-        outcome: "success",
+        level: "warn",
+        outcome: "failure",
         status: 200,
+        reasonCode: avatarChoice.error.code === "invalid_avatar_choice" ? "invalid_choice" : "fetch_failed",
         provider: "supabase",
       },
       operationalContext,
     );
   }
-}
 
-if (!pageError && currentSelection) {
-  const sessionContext = getSessionDataContext(Astro);
-
-  if (sessionContext.ok) {
-    initialHistory = await readSessionHistoryList(sessionContext.data, {
-      avatar: currentSelection.avatarId,
-      page: String(initialHistoryPage),
-    });
+  if (currentSelection) {
+    activeSession = await readActiveSessionBadge(sessionContext.data, { avatarId: currentSelection.avatarId });
   }
 }
 ---
 
 <Layout title="Wybór awatara - SafeSpace" lang="pl">
   <div class="bg-canvas text-ink flex min-h-screen flex-col">
-    <AppHeader current="avatar" />
+    <AppHeader activeSession={activeSession} />
 
     <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto max-w-6xl">
@@ -130,16 +97,22 @@ if (!pageError && currentSelection) {
             mobile screen, so the actual choice started below the fold. The detail
             stays available, just folded away until someone wants it. */
         }
-        <h1 class="text-ink max-w-4xl text-3xl font-semibold">Wybierz perspektywę rozmowy</h1>
+        <a
+          href="/dashboard"
+          class="text-brand hover:text-brand-strong focus:ring-brand-ring rounded text-sm font-medium transition-colors hover:underline focus:ring-2 focus:outline-none"
+        >
+          ← Wróć do panelu
+        </a>
+        <h1 class="text-ink mt-3 max-w-4xl text-3xl font-semibold">Wybierz perspektywę rozmowy</h1>
         <p class="text-ink-soft mt-3 max-w-3xl text-base leading-7">
-          Każdy awatar prowadzi rozmowę w innym stylu. Wybór dotyczy kolejnej sesji i możesz go później zmienić.
+          Każdy awatar prowadzi rozmowę w innym stylu. Wybór dotyczy kolejnej rozmowy i możesz go później zmienić.
         </p>
 
         <details class="group mt-3 max-w-3xl">
           <summary
             class="text-brand focus:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:ring-2 focus:outline-none"
           >
-            Co to znaczy i co widać w historii
+            Co to znaczy dla rozmowy
             <span aria-hidden="true" class="transition-transform group-open:rotate-180">▾</span>
           </summary>
           <div class="text-ink-muted mt-3 space-y-2 text-sm leading-6">
@@ -148,12 +121,19 @@ if (!pageError && currentSelection) {
               dobiera nurtu za Ciebie; decyzje dotyczące realnej terapii warto omawiać z wykwalifikowaną osobą.
             </p>
             <p>
-              Możesz przełączać awatary, żeby sprawdzić zapisane rozmowy dla danej perspektywy, zanim zapiszesz nowy
-              wybór. Lista historii nie pokazuje fragmentów rozmowy — pełna treść jest dostępna dopiero po otwarciu
-              zapisu tylko do odczytu.
+              Zapisy rozmów są prowadzone osobno dla każdej perspektywy. Znajdziesz je w panelu, w historii rozmów — tam
+              też przełączysz się między perspektywami, żeby przejrzeć starsze zapisy.
             </p>
           </div>
         </details>
+
+        {
+          activeSession ? (
+            <div class="border-line-accent bg-surface-hover text-brand-deep mt-6 max-w-3xl rounded-lg border p-4 text-sm leading-6">
+              Masz rozmowę w toku. Zapisana tu zmiana zadziała dopiero od następnej rozmowy.
+            </div>
+          ) : null
+        }
 
         {
           pageError ? (
@@ -163,13 +143,7 @@ if (!pageError && currentSelection) {
           ) : null
         }
 
-        <AvatarChoiceForm
-          client:load
-          modalities={MVP_MODALITIES}
-          currentSelection={currentSelection}
-          initialHistoryPage={initialHistoryPage}
-          initialHistory={initialHistory}
-        />
+        <AvatarChoiceForm client:load modalities={MVP_MODALITIES} currentSelection={currentSelection} />
       </section>
     </main>
   </div>

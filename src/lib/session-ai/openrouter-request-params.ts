@@ -4,6 +4,7 @@ const OPENAI_GPT_5_6_LUNA_PRO_MODEL_PATTERN = /^openai\/gpt-5\.6-luna-pro(?:$|[-
 const GEMINI_3_1_FLASH_LITE_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$|[-:])/i;
 const GEMINI_3_5_FLASH_MODEL_PATTERN = /^google\/gemini-3\.5-flash(?:$|[-:])/i;
 const GEMINI_3_7_FLASH_MODEL_PATTERN = /^google\/gemini-3\.7-flash(?:$|[-:])/i;
+const STEALTH_OX_ALPHA_MODEL_PATTERN = /^stealth\/ox-alpha(?:$|[-:])/i;
 
 type OpenRouterReasoningEffort = "minimal" | "medium";
 
@@ -45,6 +46,14 @@ export function isOpenRouterGemini37FlashModel(model: string) {
   return GEMINI_3_7_FLASH_MODEL_PATTERN.test(model.trim());
 }
 
+/**
+ * Ox Alpha rozumuje przed odpowiedzią i przyjmuje `max_tokens` oraz
+ * `temperature` (OpenRouter nie wystawia dla niego `max_completion_tokens`).
+ */
+export function isOpenRouterOxAlphaModel(model: string) {
+  return STEALTH_OX_ALPHA_MODEL_PATTERN.test(model.trim());
+}
+
 function usesMaxCompletionTokens(model: string) {
   return OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN.test(model.trim());
 }
@@ -71,6 +80,10 @@ function resolveOpenRouterReasoningEffort(model: string): OpenRouterReasoningEff
   }
 
   if (GEMINI_3_1_FLASH_LITE_MODEL_PATTERN.test(trimmedModel)) {
+    return "medium";
+  }
+
+  if (isOpenRouterOxAlphaModel(trimmedModel)) {
     return "medium";
   }
 

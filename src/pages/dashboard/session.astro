@@ -2,92 +2,57 @@
 import Layout from "@/layouts/Layout.astro";
 import AppHeader from "@/components/AppHeader.astro";
 import TimedSession from "@/components/session/TimedSession";
+import { getLatestOwnedSessionSummaryState } from "@/lib/session-data/repository";
+import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { readSessionStartPageState } from "@/lib/session-flow/session-state";
-import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 
 const sessionContext = getSessionDataContext(Astro);
 const resumeSessionId = Astro.url.searchParams.get("sessionId");
 
-let pageState: SessionStartPageState | null = null;
-let pageError: string | null = null;
-let avatarRequired = false;
-
+// Rozmowę rozpoczyna się w panelu, więc ta strona istnieje wyłącznie dla sesji,
+// która już trwa albo właśnie się zakończyła. Każdy inny stan wraca do panelu —
+// tam stoi przycisk startu i informacja, z czym rozmowa się zacznie.
 if (!sessionContext.ok) {
-  pageError =
-    sessionContext.error.code === "missing_auth"
-      ? "Zaloguj się, żeby przygotować pierwszą sesję."
-      : "Prywatna sesja jest chwilowo niedostępna. Spróbuj ponownie za chwilę.";
-} else {
-  const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
+  return Astro.redirect("/dashboard");
+}
 
-  if (!avatarChoice.ok) {
-    if (avatarChoice.error.code === "missing_avatar") {
-      avatarRequired = true;
-      pageError = null;
-    } else {
-      pageError =
-        avatarChoice.error.code === "invalid_avatar_choice"
-          ? "Zapisany wybór awatara nie pasuje już do katalogu. Wybierz awatara ponownie."
-          : "Nie udało się odczytać wyboru awatara. Spróbuj ponownie za chwilę.";
-    }
-  } else {
-    const state = await readSessionStartPageState(sessionContext.data, {
-      avatar: avatarChoice.data,
-      includeMessagesForActive: true,
-      resumeSessionId,
-    });
+const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
 
-    pageState = state.ok ? state.data : null;
-    pageError = state.ok ? null : "Nie udało się odczytać stanu pierwszej sesji. Spróbuj ponownie za chwilę.";
-  }
+if (!avatarChoice.ok) {
+  return Astro.redirect("/dashboard");
+}
+
+const startPageState = await readSessionStartPageState(sessionContext.data, {
+  avatar: avatarChoice.data,
+  includeMessagesForActive: true,
+  resumeSessionId,
+});
+
+if (!startPageState.ok || !startPageState.data.session) {
+  return Astro.redirect("/dashboard");
+}
+
+const pageState = startPageState.data;
+const activeSession = pageState.session;
+let initialSummary: LatestSessionSummaryState | null = null;
+
+// Podsumowanie decyduje o kolejnej rozmowie, więc wjeżdża razem z ekranem
+// zakończenia zamiast czekać na odnalezienie rozmowy w historii.
+if (activeSession && pageState.kind !== "active") {
+  const summaryState = await getLatestOwnedSessionSummaryState(sessionContext.data, activeSession.id);
+  initialSummary = summaryState.ok ? summaryState.data : null;
 }
 ---
 
-<Layout title="Sesja - SafeSpace" lang="pl">
+<Layout title="Rozmowa - SafeSpace" lang="pl">
   <div class="bg-canvas text-ink flex h-[100dvh] flex-col">
-    <AppHeader current="session" />
+    <AppHeader />
 
     {/* `display: contents` na wyspie Astro, żeby wysokość 100dvh dochodziła do layoutu rozmowy. */}
     <main class="min-h-0 flex-1 overflow-hidden [&>astro-island]:contents">
-      {
-        pageState ? (
-          <TimedSession client:load initialState={pageState} />
-        ) : (
-          <div class="h-full overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
-            <section class="mx-auto max-w-5xl">
-              <h1 class="text-ink text-3xl font-semibold">Sesja SafeSpace</h1>
-              <p class="text-ink-soft mt-4 max-w-3xl text-base leading-7">
-                To edukacyjna symulacja rozmowy, nie diagnoza ani zastępstwo kontaktu ze specjalistą.
-              </p>
-
-              {pageError ? (
-                <div class="border-danger-line bg-danger-soft text-danger mt-6 rounded-lg border p-4 text-sm leading-6">
-                  {pageError}
-                </div>
-              ) : null}
-
-              {avatarRequired ? (
-                <section class="border-line-strong bg-surface shadow-card mt-8 rounded-lg border p-6">
-                  <p class="text-brand text-sm font-medium">Wymagany awatar</p>
-                  <h2 class="text-ink mt-2 text-2xl font-semibold">Wybierz awatara przed startem sesji</h2>
-                  <p class="text-ink-muted mt-4 max-w-3xl text-sm leading-6">
-                    Ta strona nie zużyła darmowej próby. Najpierw zapisz perspektywę edukacyjnej rozmowy, a potem wróć
-                    do startu sesji.
-                  </p>
-                  <a
-                    href="/dashboard/avatar"
-                    class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-                  >
-                    Wybierz awatara
-                  </a>
-                </section>
-              ) : null}
-            </section>
-          </div>
-        )
-      }
+      <TimedSession client:load initialState={pageState} initialSummary={initialSummary} />
     </main>
   </div>
 </Layout>

@@ -59,6 +59,15 @@ Auth: `src/lib/supabase.ts` (cookie SSR client, `astro:env/server` secrets), pag
 
 Other session routes: `start.ts` / `start-next.ts` (start free trial / summary-backed follow-up), `end.ts` (explicit completion / expiry transition via `session-flow/session-completion-contract`), `transcribe.ts` (voice input → text), `history/`, `summary/`. Avatar choice is saved via `POST /api/profile/avatar` (redirect-based errors from `avatar-choice-errors.ts`).
 
+### Where each screen starts and ends
+
+The UI deliberately keeps one job per view; splitting a step across two pages is what the navigation audit removed, so re-adding a "prepare to start" screen is a regression, not a feature:
+
+- **`/dashboard`** owns starting a conversation (`SessionStartCard` → `useSessionStart` → start/start-next, then redirect to the session page), the saved-avatar card, and the **only** conversation history in the app. History is stored per avatar, so the section names the perspective and offers a switcher (`?historyAvatar=<avatarId>`, distinct from the `?avatar=updated` save flash).
+- **`/dashboard/session`** is the live conversation only. Without a session (`readSessionStartPageState().session === null`) it redirects to `/dashboard` — the page never renders a start button. A finished session shows its closing card **with `SessionSummaryPanel` inline**: the decision about what carries into the next conversation belongs where the conversation ended.
+- **`/dashboard/avatar`** only picks a perspective. It carries no history and no start action.
+- **`AppHeader`** has no nav tabs. The logo returns to the dashboard, an active conversation surfaces as a contextual pill (`session-flow/active-session-badge`), and the account menu holds account + sign-out. The admin entry lives on the account page, behind `getAdminContext`.
+
 ### `src/lib/` subsystems and their boundaries
 
 Several directories carry a `README.md` that is the **authoritative contract** — read it before touching the code. The boundaries are a privacy design, not just style:
