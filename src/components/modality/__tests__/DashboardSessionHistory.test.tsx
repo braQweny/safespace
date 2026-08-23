@@ -36,4 +36,26 @@ describe("DashboardSessionHistory", () => {
     expect(html).toContain(selectedAvatar.avatarName);
     expect(html).toContain(selectedAvatar.modalityName);
   });
+
+  it("lets the dashboard place the section in its own grid column", () => {
+    const html = renderToStaticMarkup(
+      <DashboardSessionHistory
+        className="mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-3"
+        selectedAvatar={selectedAvatar}
+        modalities={MVP_MODALITIES}
+        initialHistoryPage={1}
+        initialHistory={null}
+      />,
+    );
+
+    // Sekcja trafia do prawej kolumny panelu: strona nadpisuje domyślny odstęp
+    // górny i wskazuje pozycję w siatce.
+    const sectionClass = /<section class="([^"]*)"/.exec(html)?.[1] ?? "";
+
+    expect(sectionClass).toContain("lg:col-start-2");
+    expect(sectionClass).toContain("lg:row-start-1");
+    expect(sectionClass).toContain("lg:row-end-3");
+    expect(sectionClass).toContain("mt-0");
+    expect(sectionClass).not.toContain("mt-8");
+  });
 });

@@ -16,6 +16,8 @@ interface DashboardSessionHistoryProps {
   modalities: readonly ModalityAvatar[];
   initialHistoryPage: number;
   initialHistory: SessionHistoryListResponse | null;
+  /** Klasy układu sekcji — strona ustawia historię w kolumnie obok karty startu. */
+  className?: string;
 }
 
 /**
@@ -67,6 +69,7 @@ export default function DashboardSessionHistory({
   modalities,
   initialHistoryPage,
   initialHistory,
+  className,
 }: DashboardSessionHistoryProps) {
   const [historyPage, setHistoryPage] = useState(initialHistoryPage);
   const [viewedAvatarId, setViewedAvatarId] = useState<AvatarId>(initialViewedAvatarId ?? selectedAvatar.avatarId);
@@ -94,6 +97,7 @@ export default function DashboardSessionHistory({
   return (
     <AvatarSessionHistory
       key={`${viewedAvatar.avatarId}:${historyPage}`}
+      className={className}
       selectedAvatar={viewedAvatar}
       page={historyPage}
       onPageChange={changeHistoryPage}

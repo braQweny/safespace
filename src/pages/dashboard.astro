@@ -128,6 +128,16 @@ const otherPerspectiveName = otherPerspectiveSession?.avatarId
   : null;
 const support = getSupportContact();
 const sessionBudgetMinutes = formatSessionBudgetMinutes();
+
+// Z zapisaną perspektywą panel dzieli się na dwie kolumny: po lewej karta startu
+// i granice rozmowy, po prawej historia rozciągnięta na oba wiersze (karta i
+// granice same wpadają do lewej kolumny). Drugi wiersz jest `1fr`, żeby wysoka
+// historia rozpychała tylko jego, a nie wiersz karty — inaczej między kartą a
+// granicami rosłaby pusta przerwa. Bez perspektywy historii nie ma, więc granice
+// stoją w wąskiej kolumnie obok karty pierwszych kroków.
+const panelGridClass = currentSelection
+  ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-[auto_1fr]"
+  : "lg:grid-cols-[minmax(0,1fr)_320px]";
 ---
 
 <Layout title="Panel - SafeSpace" lang="pl">
@@ -160,7 +170,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes();
           ) : null
         }
 
-        <div class="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div class:list={["mt-8 grid gap-5 lg:items-start", panelGridClass]}>
           <section class="border-line-strong bg-surface shadow-card rounded-lg border p-6">
             {
               currentSelection ? (
@@ -307,20 +317,21 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes();
             <h2 class="text-brand-deep text-base font-semibold">Granice rozmowy</h2>
             <p class="text-ink-muted mt-2 text-sm leading-6">{SESSION_BOUNDARIES_COPY}</p>
           </aside>
-        </div>
 
-        {
-          currentSelection ? (
-            <DashboardSessionHistory
-              client:load
-              selectedAvatar={currentSelection}
-              initialViewedAvatarId={viewedAvatar?.avatarId ?? null}
-              modalities={MVP_MODALITIES}
-              initialHistoryPage={initialHistoryPage}
-              initialHistory={initialHistory}
-            />
-          ) : null
-        }
+          {
+            currentSelection ? (
+              <DashboardSessionHistory
+                client:load
+                className="mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-3"
+                selectedAvatar={currentSelection}
+                initialViewedAvatarId={viewedAvatar?.avatarId ?? null}
+                modalities={MVP_MODALITIES}
+                initialHistoryPage={initialHistoryPage}
+                initialHistory={initialHistory}
+              />
+            ) : null
+          }
+        </div>
       </section>
     </main>
 
