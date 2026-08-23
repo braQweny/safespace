@@ -1,13 +1,23 @@
 import { useState } from "react";
-import { FileText, PlayCircle } from "lucide-react";
+import { FileText, Mail, PlayCircle } from "lucide-react";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
 import type { SessionQuota } from "@/lib/session-data/types";
+import { formatRemainingFreeSessions, PREMIUM_HOW_TO_COPY } from "@/lib/session-flow/plan-copy";
+import { formatSessionBudgetCopy } from "@/lib/session-flow/session-budget";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 
+export { formatRemainingFreeSessions };
+
 interface SessionStartCardProps {
   initialState: SessionStartPageState;
+  /**
+   * Adres kontaktowy z `SUPPORT_EMAIL`. Po wyczerpaniu puli jest jedyną drogą
+   * do premium, więc karta dostaje go z serwera zamiast obiecywać kontakt,
+   * którego w danym wdrożeniu może nie być.
+   */
+  supportEmail?: string | null;
 }
 
 const READY_FREE_COPY =
@@ -21,28 +31,10 @@ const FOLLOWUP_COPY = "Rozmowa ma limit czasu i zaczyna się dopiero po kliknię
 const LIMIT_REACHED_COPY =
   "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już wykorzystane na tym koncie. Dalsze rozmowy są dostępne w planie premium. Zapisy dotychczasowych rozmów znajdziesz w historii poniżej.";
 
+const SESSION_BUDGET_COPY = formatSessionBudgetCopy();
+
 export function buildSessionHref(sessionId: string) {
   return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
-}
-
-/**
- * Free accounts see how much of the allowance is left before they commit to a
- * start; premium accounts have no cap, so nothing is shown for them.
- */
-export function formatRemainingFreeSessions(quota: SessionQuota | null) {
-  if (quota?.plan !== "free" || quota.sessionLimit === null || quota.remainingSessions === null) {
-    return null;
-  }
-
-  if (quota.remainingSessions <= 0) {
-    return null;
-  }
-
-  if (quota.remainingSessions === 1) {
-    return `To ostatnia z ${quota.sessionLimit} bezpłatnych rozmów na tym koncie.`;
-  }
-
-  return `Pozostały ${quota.remainingSessions} z ${quota.sessionLimit} bezpłatnych rozmów na tym koncie.`;
 }
 
 function getStartCopy(kind: SessionStartPageState["kind"], quota: SessionQuota | null) {
@@ -53,7 +45,7 @@ function getStartCopy(kind: SessionStartPageState["kind"], quota: SessionQuota |
   return FOLLOWUP_COPY;
 }
 
-export default function SessionStartCard({ initialState }: SessionStartCardProps) {
+export default function SessionStartCard({ initialState, supportEmail = null }: SessionStartCardProps) {
   const [skipContext, setSkipContext] = useState(false);
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
@@ -73,21 +65,45 @@ export default function SessionStartCard({ initialState }: SessionStartCardProps
   const canStart = kind === "ready" || kind === "followup_ready";
   const remainingCopy = formatRemainingFreeSessions(initialState.sessionQuota);
 
+  if (kind === "session_limit_reached") {
+    // Koniec puli nie może być ślepym zaułkiem: użytkownik ma wiedzieć, co
+    // dalej (premium jest przyznawane ręcznie) i mieć dokąd napisać.
+    return (
+      <div
+        className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6"
+        data-session-limit-reached
+      >
+        <p className="text-ink font-semibold">Pula bezpłatnych rozmów została wykorzystana</p>
+        <p className="mt-1">{LIMIT_REACHED_COPY}</p>
+        <p className="mt-3">{PREMIUM_HOW_TO_COPY}</p>
+        {supportEmail ? (
+          <a
+            href={`mailto:${supportEmail}?subject=${encodeURIComponent("SafeSpace — dostęp do planu premium")}`}
+            className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+          >
+            <Mail aria-hidden="true" className="h-4 w-4" />
+            Napisz w sprawie premium
+          </a>
+        ) : null}
+      </div>
+    );
+  }
+
   if (!canStart) {
     return (
       <div className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6">
-        {kind === "session_limit_reached"
-          ? LIMIT_REACHED_COPY
-          : kind === "trial_already_claimed"
-            ? "Pierwsza darmowa rozmowa została już wykorzystana na tym koncie. Zapisy znajdziesz w historii poniżej."
-            : "Nie udało się potwierdzić dostępności rozmowy. Odśwież panel za chwilę."}
+        {kind === "trial_already_claimed"
+          ? "Pierwsza darmowa rozmowa została już wykorzystana na tym koncie. Zapisy znajdziesz w historii poniżej."
+          : "Nie udało się potwierdzić dostępności rozmowy. Odśwież panel za chwilę."}
       </div>
     );
   }
 
   return (
     <div className="mt-5 flex flex-col gap-4">
-      <p className="text-ink-muted text-sm leading-6">{getStartCopy(kind, initialState.sessionQuota)}</p>
+      <p className="text-ink-muted text-sm leading-6">
+        {getStartCopy(kind, initialState.sessionQuota)} {SESSION_BUDGET_COPY}
+      </p>
 
       {remainingCopy ? (
         <p className="text-brand text-sm font-medium" data-session-quota>

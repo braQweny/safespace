@@ -36,7 +36,7 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
   expired: {
     title: "Limit czasu został osiągnięty",
-    body: "Pierwsza 15-minutowa sesja jest już po czasie. Nie można już wysyłać nowych wiadomości.",
+    body: "Czas tej rozmowy minął i nie można już wysyłać nowych wiadomości. Zapis pozostaje w historii — możesz go podsumować poniżej.",
   },
   completed: {
     title: "Sesja została zakończona",
@@ -87,12 +87,28 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
   const { summaryState, summaryStatus, summaryErrorCode, generateSummary, approveSummary } =
     useSessionSummary(initialSummary);
   const confirmEndRef = useRef<HTMLDivElement | null>(null);
+  const endButtonRef = useRef<HTMLButtonElement | null>(null);
+  const restoreEndFocusRef = useRef(false);
 
   useEffect(() => {
     if (isConfirmingEnd) {
       confirmEndRef.current?.focus();
+      return;
+    }
+
+    // Fokus wraca tam, skąd dialog się otworzył — inaczej klawiatura „spada”
+    // na początek dokumentu, a czytnik ekranu traci miejsce w rozmowie.
+    // Przycisk jest wyłączony, dopóki dialog jest otwarty, więc fokus musi
+    // poczekać na render po zamknięciu.
+    if (restoreEndFocusRef.current) {
+      restoreEndFocusRef.current = false;
+      endButtonRef.current?.focus();
     }
   }, [isConfirmingEnd]);
+  const cancelEndConfirmation = useCallback(() => {
+    restoreEndFocusRef.current = true;
+    setIsConfirmingEnd(false);
+  }, []);
   const closeCrisisHelp = useCallback(() => {
     setIsCrisisHelpOpen(false);
   }, []);
@@ -156,10 +172,18 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                 loading="lazy"
               />
               <div className="min-w-0">
+                {canEndSession ? (
+                  <a
+                    href="/dashboard"
+                    className="text-ink-muted hover:text-brand focus:ring-brand-ring mb-1 inline-flex rounded text-xs font-medium transition-colors focus:ring-2 focus:outline-none"
+                  >
+                    ← Wróć do panelu
+                  </a>
+                ) : null}
                 <p className="text-brand text-xs font-medium">{stateCopy[kind].title}</p>
-                <h2 className={cn("text-ink truncate font-semibold", isChatLayout ? "text-base" : "mt-0.5 text-lg")}>
+                <h1 className={cn("text-ink truncate font-semibold", isChatLayout ? "text-base" : "mt-0.5 text-lg")}>
                   {avatar.avatarName}
-                </h2>
+                </h1>
                 <p className={cn("text-brand truncate text-sm", isChatLayout && "hidden lg:block")}>
                   {avatar.modalityName}
                 </p>
@@ -176,6 +200,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                     onExpired={handleExpired}
                   />
                   <button
+                    ref={endButtonRef}
                     type="button"
                     onClick={() => {
                       setIsConfirmingEnd(true);
@@ -205,6 +230,13 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               role="alertdialog"
               aria-label="Potwierdź zakończenie sesji"
               tabIndex={-1}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancelEndConfirmation();
+                }
+              }}
               className="border-danger-line bg-danger-soft text-danger mt-4 rounded-lg border p-4 text-sm leading-6 focus:outline-none"
             >
               <p className="font-semibold">Na pewno zakończyć sesję?</p>
@@ -223,9 +255,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsConfirmingEnd(false);
-                  }}
+                  onClick={cancelEndConfirmation}
                   className="border-line-strong bg-surface text-ink-soft hover:bg-surface-soft focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
                 >
                   Wróć do rozmowy

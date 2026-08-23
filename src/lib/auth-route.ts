@@ -10,6 +10,7 @@ import { buildOperationalRequestContext } from "@/lib/operational-visibility/req
 import type {
   OperationalEventLevel,
   OperationalEventName,
+  OperationalEventOutcome,
   OperationalEventProvider,
   OperationalReasonCode,
 } from "@/lib/operational-visibility/types";
@@ -17,6 +18,8 @@ import { createClient } from "@/lib/supabase";
 
 interface AuthFailureOptions {
   level?: OperationalEventLevel;
+  /** Defaults to `failure`; `blocked` marks a provider-side rate limit. */
+  outcome?: Extract<OperationalEventOutcome, "failure" | "blocked">;
   provider?: OperationalEventProvider;
   status?: 302 | 303;
 }
@@ -35,7 +38,7 @@ export async function createAuthRoute(context: APIContext, event: OperationalEve
       {
         event,
         level: options.level ?? "warn",
-        outcome: "failure",
+        outcome: options.outcome ?? "failure",
         status: options.status ?? 303,
         reasonCode,
         ...(options.provider ? { provider: options.provider } : {}),

@@ -30,6 +30,7 @@ describe("toActiveSessionBadge", () => {
     expect(toActiveSessionBadge(createSession({ expiresAt: "2026-06-12T10:00:30.000Z" }), now)).toEqual({
       sessionId: "session-1",
       remainingMinutes: 1,
+      avatarId: "cbt-guide",
     });
     expect(toActiveSessionBadge(createSession(), now)?.remainingMinutes).toBe(10);
   });
@@ -54,7 +55,27 @@ describe("readActiveSessionBadge", () => {
     await expect(readActiveSessionBadge(context, { avatarId: "cbt-guide", now }, listActiveSessions)).resolves.toEqual({
       sessionId: "live-session",
       remainingMinutes: 5,
+      avatarId: "cbt-guide",
     });
+    expect(listActiveSessions).toHaveBeenCalledWith(context, { avatarId: "cbt-guide", limit: 5 });
+  });
+
+  it("scans every perspective when no avatar filter is given", async () => {
+    const listActiveSessions = vi.fn().mockResolvedValue({
+      ok: true,
+      data: [createSession({ id: "other-avatar", avatarId: "psychodynamic-listener" })],
+    });
+
+    // Strony wołają to bez żadnych opcji — brak obiektu nie może wywracać
+    // panelu (fixture leży w przeszłości, więc bez `now` pill jest pusty).
+    await expect(readActiveSessionBadge(context, undefined, listActiveSessions)).resolves.toBeNull();
+    expect(listActiveSessions).toHaveBeenLastCalledWith(context, { limit: 5 });
+    await expect(readActiveSessionBadge(context, { now }, listActiveSessions)).resolves.toEqual({
+      sessionId: "other-avatar",
+      remainingMinutes: 10,
+      avatarId: "psychodynamic-listener",
+    });
+    expect(listActiveSessions).toHaveBeenCalledWith(context, { limit: 5 });
   });
 
   it("stays silent instead of failing the page when the read fails", async () => {

@@ -265,6 +265,7 @@ Configure these repository secrets in GitHub:
 - `OPENROUTER_API_KEY` - server-only key used by F-02 safety classification and S-04 ordinary session responses, passed to Wrangler during deploy
 - `OPENROUTER_SESSION_MODEL` - optional ordinary response model override; not required as a secret because code defaults to `openai/gpt-4o-mini`
 - `OPERATIONAL_LOG_HASH_SECRET` - optional server-only salt for pseudonymous operational log correlation
+- `SUPPORT_EMAIL` - optional override of the public contact address shown to users (footer, blocked-account page, premium request CTA); defaults to `safespacenow123@gmail.com` in `src/lib/support-contact.ts`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
 

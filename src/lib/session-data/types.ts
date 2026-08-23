@@ -247,7 +247,13 @@ export interface ListSessionMetadataOptions {
 }
 
 export interface ListActiveSessionMetadataInput {
-  avatarId: SessionAvatarId;
+  /**
+   * Zawężenie do jednej perspektywy. Bez niego lista obejmuje wszystkie
+   * rozmowy w toku właściciela — tak działa pill „Rozmowa w toku” w nagłówku,
+   * który ma pokazać trwającą rozmowę niezależnie od aktualnie zapisanego
+   * awatara.
+   */
+  avatarId?: SessionAvatarId;
   limit?: number;
 }
 

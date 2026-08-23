@@ -102,12 +102,18 @@ jobs:
             if [ -n "$OPERATIONAL_LOG_HASH_SECRET" ]; then
               printf 'OPERATIONAL_LOG_HASH_SECRET=%s\n' "$OPERATIONAL_LOG_HASH_SECRET"
             fi
+            # Opcjonalne nadpisanie publicznego adresu kontaktowego (domyślny
+            # jest w src/lib/support-contact.ts).
+            if [ -n "$SUPPORT_EMAIL" ]; then
+              printf 'SUPPORT_EMAIL=%s\n' "$SUPPORT_EMAIL"
+            fi
           } > .env.production
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPERATIONAL_LOG_HASH_SECRET: ${{ secrets.OPERATIONAL_LOG_HASH_SECRET }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:

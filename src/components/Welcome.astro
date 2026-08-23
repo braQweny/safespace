@@ -1,5 +1,6 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
 
 const { user } = Astro.locals;
@@ -234,4 +235,6 @@ const boundaries = [
       </div>
     </section>
   </main>
+
+  <SiteFooter />
 </div>

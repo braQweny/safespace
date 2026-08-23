@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import type {
@@ -13,7 +13,11 @@ import { useSessionHistoryList } from "@/components/hooks/useSessionHistoryList"
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { cn } from "@/lib/utils";
 import SessionHistoryDetailPanel from "./SessionHistoryDetail";
-import SessionHistoryList from "./SessionHistoryList";
+import SessionHistoryList, {
+  SESSION_STATUS_LEGEND_ORDER,
+  getOpenDetailButtonId,
+  sessionStatusLegend,
+} from "./SessionHistoryList";
 
 interface AvatarSessionHistoryProps {
   selectedAvatar: SelectedModalityAvatar | null;
@@ -60,6 +64,9 @@ export default function AvatarSessionHistory({
   const isHydrated = useIsHydrated();
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedRef = useRef(false);
+  // Ostatnio żądana rozmowa — po zamknięciu podglądu fokus wraca na jej wiersz,
+  // także gdy podgląd zamknięto jeszcze w trakcie ładowania (detail === null).
+  const requestedSessionIdRef = useRef<string | null>(null);
 
   const { history, refreshHistory, removeHistoryItem } = useSessionHistoryList({
     selectedAvatar,
@@ -103,7 +110,21 @@ export default function AvatarSessionHistory({
 
   function handleOpenDetail(sessionId: string) {
     setNotice(null);
+    requestedSessionIdRef.current = sessionId;
     void openDetail(sessionId);
+  }
+
+  // Panel znika z DOM razem z podglądem, więc fokus trzeba oddać świadomie —
+  // na przycisk „Otwórz” tej samej rozmowy, zanim React zdąży odmontować panel.
+  function handleCloseDetail() {
+    const sessionId = detail?.session.id ?? requestedSessionIdRef.current;
+
+    clearDetail();
+    resetSummary();
+
+    if (sessionId) {
+      document.getElementById(getOpenDetailButtonId(sessionId))?.focus();
+    }
   }
 
   // A session that just ended links straight here; opening it by hand again
@@ -116,18 +137,21 @@ export default function AvatarSessionHistory({
     // `openDetail` is a fresh reference each render, so this effect re-runs; the
     // ref guard is what keeps it to a single fetch.
     autoOpenedRef.current = true;
+    requestedSessionIdRef.current = autoOpenSessionId;
     void openDetail(autoOpenSessionId);
   }, [autoOpenSessionId, selectedAvatar, openDetail]);
 
   // On narrow screens the detail panel renders below a list that can be taller
   // than the viewport, so opening a conversation looked like nothing happened.
+  // `block: "start"` + `scroll-mt-20` on the panel keep its title clear of the
+  // sticky 56px header instead of tucking it underneath.
   useEffect(() => {
     if (!detail) {
       return;
     }
 
     detailPanelRef.current?.scrollIntoView({
-      block: "nearest",
+      block: "start",
       behavior:
         typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? "auto"
@@ -204,6 +228,21 @@ export default function AvatarSessionHistory({
         Lista pokazuje tylko datę, status i czas trwania. Treść rozmowy pojawia się dopiero po otwarciu szczegółów.
       </p>
 
+      <details className="group mt-2">
+        <summary className="text-brand focus:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:ring-2 focus:outline-none">
+          Co oznaczają statusy
+          <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
+        </summary>
+        <dl className="text-ink-muted mt-2 space-y-1 text-sm leading-6">
+          {SESSION_STATUS_LEGEND_ORDER.map((status) => (
+            <div key={status} className="flex flex-wrap gap-x-2">
+              <dt className="text-ink font-semibold">{sessionStatusLegend[status].label}</dt>
+              <dd>— {sessionStatusLegend[status].description}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
+
       {contextNotice ? (
         <div className="border-line-accent bg-surface-hover text-brand-deep mt-4 rounded-lg border p-3 text-sm leading-6">
           {contextNotice}
@@ -256,7 +295,7 @@ export default function AvatarSessionHistory({
           />
 
           {showDetailPanel ? (
-            <div ref={detailPanelRef}>
+            <div ref={detailPanelRef} className="scroll-mt-20">
               <SessionHistoryDetailPanel
                 detail={detail}
                 detailStatus={detailStatus}
@@ -267,6 +306,7 @@ export default function AvatarSessionHistory({
                 canSummarize={canSummarizeDetail}
                 onGenerateSummary={handleGenerateSummary}
                 onApproveSummary={handleApproveSummary}
+                onClose={handleCloseDetail}
               />
             </div>
           ) : null}

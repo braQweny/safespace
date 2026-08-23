@@ -1,0 +1,222 @@
+---
+import AppHeader from "@/components/AppHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Layout from "@/layouts/Layout.astro";
+import { CRISIS_RESOURCE_REGIONS } from "@/lib/session-safety/crisis-resources";
+import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
+import { getSupportContact } from "@/lib/support-contact";
+
+// Ta strona opisuje, jak produkt faktycznie działa (co zapisuje, kto to widzi,
+// jak usunąć). Jest to jedyne miejsce, do którego prowadzą linki „Prywatność
+// i zasady” ze stopki — treść ma być zgodna z architekturą, nie z życzeniem.
+const support = getSupportContact();
+const { user } = Astro.locals;
+const backHref = user ? "/dashboard" : "/";
+const backLabel = user ? "Wróć do panelu" : "Wróć na stronę główną";
+const sections = [
+  { id: "czym-jest", label: "Czym jest SafeSpace" },
+  { id: "dane", label: "Jakie dane przetwarzamy" },
+  { id: "kto-widzi", label: "Kto widzi Twoje rozmowy" },
+  { id: "ai", label: "Jak działa AI w rozmowie" },
+  { id: "usuwanie", label: "Usuwanie i kontrola" },
+  { id: "plany", label: "Plan bezpłatny i premium" },
+  { id: "kryzys", label: "Pomoc w kryzysie" },
+  { id: "kontakt", label: "Kontakt" },
+] as const;
+---
+
+<Layout
+  title="Prywatność i zasady - SafeSpace"
+  lang="pl"
+  description="Jak SafeSpace przetwarza dane, kto widzi rozmowy i jak je usunąć."
+>
+  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+    <AppHeader />
+
+    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <article class="mx-auto max-w-3xl">
+        <p class="text-brand text-sm font-medium">SafeSpace</p>
+        <h1 class="text-ink mt-2 text-3xl font-semibold">Prywatność i zasady korzystania</h1>
+        <p class="text-ink-soft mt-3 text-base leading-7">
+          Krótko i po ludzku: co SafeSpace robi z Twoimi danymi, kto ma do nich dostęp i czego produkt nie robi.
+        </p>
+
+        <nav aria-label="Spis treści" class="border-line bg-surface-soft mt-6 rounded-lg border p-4">
+          <p class="text-ink text-sm font-semibold">Na tej stronie</p>
+          <ul class="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+            {
+              sections.map((section) => (
+                <li>
+                  <a
+                    href={`#${section.id}`}
+                    class="text-brand hover:text-brand-strong focus:ring-brand-ring rounded underline-offset-4 hover:underline focus:ring-2 focus:outline-none"
+                  >
+                    {section.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+
+        <div class="mt-8 space-y-10 text-base leading-7">
+          <section id="czym-jest" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Czym jest SafeSpace</h2>
+            <p class="text-ink-soft mt-3">
+              SafeSpace to edukacyjna symulacja rozmowy wspierana przez AI. Pokazuje, jak może wyglądać praca w różnych
+              nurtach psychoterapii, i pomaga uporządkować myśli przed realną rozmową ze specjalistą.
+            </p>
+            <ul class="text-ink-soft mt-3 list-disc space-y-1 pl-5">
+              <li>Nie jest terapią, diagnozą ani poradą medyczną.</li>
+              <li>Nie zastępuje kontaktu z psychoterapeutą, lekarzem ani pomocą kryzysową.</li>
+              <li>Nie dobiera nurtu terapii za Ciebie — wybór perspektywy ma charakter edukacyjny.</li>
+            </ul>
+          </section>
+
+          <section id="dane" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Jakie dane przetwarzamy</h2>
+            <dl class="mt-3 space-y-4">
+              <div>
+                <dt class="text-ink font-semibold">Konto</dt>
+                <dd class="text-ink-soft mt-1">
+                  Adres e‑mail i dane logowania (hasło albo konto Google). Konto jest potrzebne, żeby rozmowy i ich
+                  historia pozostały prywatne i widoczne tylko dla Ciebie.
+                </dd>
+              </div>
+              <div>
+                <dt class="text-ink font-semibold">Treść rozmów</dt>
+                <dd class="text-ink-soft mt-1">
+                  Wiadomości, które piszesz lub dyktujesz, odpowiedzi awatara oraz podsumowania, które sam wygenerujesz.
+                  Nagranie głosu służy wyłącznie do przepisania na tekst i nie jest zapisywane.
+                </dd>
+              </div>
+              <div>
+                <dt class="text-ink font-semibold">Dane o korzystaniu</dt>
+                <dd class="text-ink-soft mt-1">
+                  Data, status i długość rozmowy, wybrana perspektywa oraz techniczne dzienniki działania serwisu.
+                  Dzienniki nie zawierają treści rozmów, adresów e‑mail ani pełnych identyfikatorów konta.
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section id="kto-widzi" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Kto widzi Twoje rozmowy</h2>
+            <p class="text-ink-soft mt-3">
+              Tylko Ty. Treść rozmów i podsumowań jest dostępna wyłącznie po zalogowaniu na Twoje konto. Administratorzy
+              SafeSpace widzą jedynie statystyki zbiorcze i dane konta (np. datę założenia, status, plan) — nie mają
+              dostępu do treści rozmów. Nie ma też „tylnych drzwi” do podglądu rozmów; każdy ewentualny wyjątek prawny
+              lub bezpieczeństwa wymagałby osobnej, jawnie opisanej procedury.
+            </p>
+          </section>
+
+          <section id="ai" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Jak działa AI w rozmowie</h2>
+            <p class="text-ink-soft mt-3">
+              Odpowiedzi awatara generuje model językowy udostępniany przez zewnętrznego dostawcę (OpenRouter). Żeby to
+              było możliwe, treść bieżącej rozmowy — ostatnie wiadomości i tylko te podsumowania, które sam zatwierdzisz
+              — jest przesyłana do tego dostawcy w celu wygenerowania odpowiedzi. Każda Twoja wiadomość przechodzi też
+              przez automatyczną ocenę bezpieczeństwa; jeśli wskazuje na pilne zagrożenie, symulacja zostaje zatrzymana
+              i pokazujemy numery pomocy.
+            </p>
+            <p class="text-ink-soft mt-3">
+              Nic z rozmowy nie przechodzi do kolejnej sesji samo z siebie. Kolejna rozmowa zna tylko podsumowanie,
+              które wcześniej przeczytasz i zatwierdzisz przyciskiem „Użyj w kolejnej sesji”.
+            </p>
+          </section>
+
+          <section id="usuwanie" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Usuwanie i kontrola</h2>
+            <ul class="text-ink-soft mt-3 list-disc space-y-2 pl-5">
+              <li>
+                Każdą rozmowę możesz trwale usunąć w panelu, w sekcji „Historia rozmów” (ikona kosza, potem
+                potwierdzenie). Usunięcie kasuje treść wiadomości i podsumowań; pozostaje tylko pozbawiony treści ślad,
+                że rozmowa istniała — dlatego usunięcie nie przywraca wykorzystanej rozmowy z puli.
+              </li>
+              <li>Podsumowanie możesz wygenerować ponownie albo w ogóle go nie zatwierdzać.</li>
+              <li>
+                Chcesz usunąć całe konto wraz z historią? Napisz do nas{
+                  support.email ? " — adres jest w sekcji Kontakt" : ""
+                }.
+              </li>
+            </ul>
+          </section>
+
+          <section id="plany" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Plan bezpłatny i premium</h2>
+            <p class="text-ink-soft mt-3">
+              Plan bezpłatny obejmuje {FREE_PLAN_SESSION_LIMIT} rozmowy z limitem czasu na konto (łącznie, także usunięte).
+              Plan premium nie ma tego limitu. W tej chwili premium nie jest sprzedawane w aplikacji — jest przyznawane ręcznie
+              przez zespół SafeSpace. Jeśli chcesz rozmawiać dalej, skontaktuj się z nami.
+            </p>
+          </section>
+
+          <section id="kryzys" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Pomoc w kryzysie</h2>
+            <p class="text-ink-soft mt-3">
+              SafeSpace nie jest pomocą kryzysową i nie kontaktuje służb. Jeśli jesteś w bezpośrednim
+              niebezpieczeństwie, nie czekaj na odpowiedź aplikacji.
+            </p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              {
+                CRISIS_RESOURCE_REGIONS.map((region) => (
+                  <div class="border-line bg-surface rounded-lg border p-4">
+                    <p class="text-ink text-sm font-semibold">{region.label}</p>
+                    <ul class="mt-2 space-y-2 text-sm">
+                      {region.contacts.map((contact) => (
+                        <li>
+                          <span class="text-ink-soft">{contact.label}</span>
+                          {contact.kind !== "local_guidance" ? (
+                            <>
+                              <span aria-hidden="true"> — </span>
+                              <a
+                                href={`tel:${contact.value.replace(/\s+/g, "")}`}
+                                class="text-brand font-semibold underline-offset-4 hover:underline"
+                              >
+                                {contact.value}
+                              </a>
+                            </>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              }
+            </div>
+          </section>
+
+          <section id="kontakt" class="scroll-mt-20">
+            <h2 class="text-ink text-xl font-semibold">Kontakt</h2>
+            <p class="text-ink-soft mt-3">
+              {
+                support.mailtoHref ? (
+                  <>
+                    Pytania o dane, usunięcie konta, dostęp do planu premium albo zablokowane konto:{" "}
+                    <a href={support.mailtoHref} class="text-brand font-semibold underline-offset-4 hover:underline">
+                      {support.email}
+                    </a>
+                    .
+                  </>
+                ) : (
+                  "Adres kontaktowy zespołu SafeSpace zostanie podany w tym miejscu."
+                )
+              }
+            </p>
+          </section>
+        </div>
+
+        <div class="mt-10">
+          <a
+            href={backHref}
+            class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+          >
+            {backLabel}
+          </a>
+        </div>
+      </article>
+    </main>
+
+    <SiteFooter />
+  </div>
+</Layout>

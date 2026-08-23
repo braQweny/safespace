@@ -2,6 +2,7 @@
 import AppHeader from "@/components/AppHeader.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
 import SessionStartCard from "@/components/session/SessionStartCard";
+import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import {
   getModalityByAvatarId,
@@ -13,11 +14,13 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { SESSION_BOUNDARIES_COPY } from "@/lib/session-copy";
-import { toActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+import { readActiveSessionBadge, toActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 import { readCurrentAvatarChoice, type CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-flow/session-history";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
+import { formatSessionBudgetMinutes } from "@/lib/session-flow/session-budget";
 import { readSessionStartPageState, type SessionStartPageState } from "@/lib/session-flow/session-state";
+import { getSupportContact } from "@/lib/support-contact";
 
 const avatarUpdated = Astro.url.searchParams.get("avatar") === "updated";
 // Historia da się przełączyć na inną perspektywę, więc adres musi tę zmianę
@@ -110,12 +113,26 @@ if (sessionContext.ok && currentAvatarChoice) {
   startStateFailed = !state.ok;
 }
 
+// Rozmowa w toku z zapisaną perspektywą blokuje kartę startu. Rozmowa w toku
+// z inną perspektywą (użytkownik zmienił awatara w trakcie) nie może zniknąć z
+// nagłówka i panelu — inaczej nie byłoby dokąd wrócić.
 const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(startPageState.session) : null;
+const anyActiveSession =
+  activeSession ?? (sessionContext.ok ? await readActiveSessionBadge(sessionContext.data) : null);
+const otherPerspectiveSession =
+  !activeSession && anyActiveSession && anyActiveSession.avatarId !== currentSelection?.avatarId
+    ? anyActiveSession
+    : null;
+const otherPerspectiveName = otherPerspectiveSession?.avatarId
+  ? (getModalityByAvatarId(otherPerspectiveSession.avatarId)?.avatarName ?? null)
+  : null;
+const support = getSupportContact();
+const sessionBudgetMinutes = formatSessionBudgetMinutes();
 ---
 
 <Layout title="Panel - SafeSpace" lang="pl">
   <div class="bg-canvas text-ink flex min-h-screen flex-col">
-    <AppHeader activeSession={activeSession} />
+    <AppHeader activeSession={anyActiveSession} />
 
     <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto max-w-6xl">
@@ -126,8 +143,11 @@ const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(s
 
         {
           avatarUpdated ? (
-            <div class="border-line-accent bg-surface text-brand mt-6 rounded-lg border p-4 text-sm leading-6">
-              Wybór awatara został zapisany.
+            <div
+              class="border-line-accent bg-surface text-brand mt-6 rounded-lg border p-4 text-sm leading-6"
+              role="status"
+            >
+              Perspektywa została zapisana. Krok 2 z 2: rozpocznij rozmowę poniżej, kiedy będziesz gotowy.
             </div>
           ) : null
         }
@@ -135,7 +155,7 @@ const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(s
         {
           choiceFetchFailed ? (
             <div class="border-danger-line bg-danger-soft text-danger mt-6 rounded-lg border p-4 text-sm leading-6">
-              Nie udało się pobrać zapisanego wyboru. Możesz wrócić do wyboru awatara albo spróbować ponownie za chwilę.
+              Nie udało się pobrać zapisanej perspektywy. Możesz wrócić do jej wyboru albo spróbować ponownie za chwilę.
             </div>
           ) : null
         }
@@ -154,14 +174,37 @@ const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(s
                     loading="lazy"
                   />
                   <div class="min-w-0">
-                    <p class="text-brand text-sm font-medium">Wybrany awatar</p>
+                    <p class="text-brand text-sm font-medium">Wybrana perspektywa</p>
                     <h2 class="text-ink mt-2 text-2xl font-semibold">{currentSelection.avatarName}</h2>
                     <p class="text-brand mt-2 text-base font-medium">{currentSelection.modalityName}</p>
+
+                    {otherPerspectiveSession ? (
+                      <div
+                        class="border-line-accent bg-surface-soft text-ink-soft mt-4 rounded-lg border p-4 text-sm leading-6"
+                        data-other-perspective-session
+                      >
+                        <p class="text-ink font-semibold">
+                          Masz rozmowę w toku
+                          {otherPerspectiveName ? ` z perspektywą „${otherPerspectiveName}”` : " z inną perspektywą"}
+                        </p>
+                        <p class="mt-1">
+                          Wróć do niej, zanim zaczniesz nową — trwająca rozmowa nie przerwie się sama, a jej czas
+                          płynie.
+                        </p>
+                        <a
+                          href={`/dashboard/session?sessionId=${encodeURIComponent(otherPerspectiveSession.sessionId)}`}
+                          class="text-brand hover:text-brand-strong focus:ring-brand-ring mt-2 inline-flex rounded font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
+                        >
+                          Wróć do rozmowy
+                        </a>
+                      </div>
+                    ) : null}
 
                     {activeSession ? (
                       <>
                         <p class="text-ink-muted mt-4 text-sm leading-6">
-                          Rozmowa z tą perspektywą jest w toku. Zmiana awatara zadziała dopiero od następnej sesji.
+                          Rozmowa z tą perspektywą jest w toku. Zmiana perspektywy zadziała dopiero od następnej
+                          rozmowy.
                         </p>
                         <a
                           href={`/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`}
@@ -171,7 +214,7 @@ const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(s
                         </a>
                       </>
                     ) : startPageState ? (
-                      <SessionStartCard client:load initialState={startPageState} />
+                      <SessionStartCard client:load initialState={startPageState} supportEmail={support.email} />
                     ) : (
                       <p class="text-ink-muted mt-4 text-sm leading-6">
                         {startStateFailed
@@ -186,24 +229,52 @@ const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(s
                         href="/dashboard/avatar"
                         class="text-brand hover:text-brand-strong focus:ring-brand-ring ml-1 rounded font-medium underline transition-colors focus:ring-2 focus:outline-none"
                       >
-                        Zmień awatara
+                        Zmień perspektywę
                       </a>
                     </p>
                   </div>
                 </div>
               ) : (
-                <div>
-                  <p class="text-brand text-sm font-medium">Następny krok</p>
-                  <h2 class="text-ink mt-2 text-2xl font-semibold">Wybierz awatara przed pierwszą rozmową</h2>
-                  <p class="text-ink-muted mt-4 text-sm leading-6">
-                    Awatar reprezentuje edukacyjną perspektywę przyszłej symulacji rozmowy. Wybór nie uruchamia jeszcze
-                    rozmowy ani nie zastępuje konsultacji ze specjalistą.
-                  </p>
+                <div data-first-steps>
+                  <p class="text-brand text-sm font-medium">Dwa kroki do pierwszej rozmowy</p>
+                  <h2 class="text-ink mt-2 text-2xl font-semibold">Najpierw wybierz perspektywę rozmowy</h2>
+                  <ol class="mt-5 grid gap-3 sm:grid-cols-2">
+                    <li class="border-line-accent bg-surface-soft flex gap-3 rounded-lg border p-4" aria-current="step">
+                      <span
+                        class="bg-brand flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                        aria-hidden="true"
+                      >
+                        1
+                      </span>
+                      <div class="min-w-0">
+                        <p class="text-ink text-sm font-semibold">Wybierz perspektywę</p>
+                        <p class="text-ink-muted mt-1 text-sm leading-6">
+                          Pięć awatarów, każdy w innym nurcie psychoterapii. To wybór edukacyjny — nie diagnoza i nie
+                          dobór terapii. Zmienisz go przed każdą kolejną rozmową.
+                        </p>
+                      </div>
+                    </li>
+                    <li class="border-line bg-surface flex gap-3 rounded-lg border p-4">
+                      <span
+                        class="border-line text-ink-muted flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold"
+                        aria-hidden="true"
+                      >
+                        2
+                      </span>
+                      <div class="min-w-0">
+                        <p class="text-ink text-sm font-semibold">Rozpocznij rozmowę</p>
+                        <p class="text-ink-muted mt-1 text-sm leading-6">
+                          Po zapisaniu wrócisz tutaj. Rozmowa ruszy dopiero po Twoim kliknięciu i potrwa do{" "}
+                          {sessionBudgetMinutes} z widocznym czasem.
+                        </p>
+                      </div>
+                    </li>
+                  </ol>
                   <a
                     href="/dashboard/avatar"
                     class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
                   >
-                    Wybierz awatara
+                    Wybierz perspektywę
                   </a>
                 </div>
               )
@@ -212,17 +283,23 @@ const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(s
 
           <aside class="border-line bg-surface-soft rounded-lg border p-5">
             {
-              activeSession ? (
+              anyActiveSession ? (
                 <>
                   <p class="text-brand flex items-center gap-2 text-sm font-semibold">
                     <span aria-hidden="true" class="bg-brand h-2 w-2 rounded-full" />
                     Rozmowa w toku
                   </p>
                   <p class="text-ink-muted mt-2 text-sm leading-6">
-                    {activeSession.remainingMinutes
-                      ? `Zostało jeszcze około ${activeSession.remainingMinutes} min.`
+                    {anyActiveSession.remainingMinutes
+                      ? `Zostało jeszcze około ${anyActiveSession.remainingMinutes} min.`
                       : "Masz otwartą rozmowę z limitem czasu."}
                   </p>
+                  <a
+                    href={`/dashboard/session?sessionId=${encodeURIComponent(anyActiveSession.sessionId)}`}
+                    class="text-brand hover:text-brand-strong focus:ring-brand-ring mt-2 inline-flex rounded text-sm font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
+                  >
+                    Wróć do rozmowy
+                  </a>
                   <div class="border-line mt-4 border-t pt-4" />
                 </>
               ) : null
@@ -246,5 +323,7 @@ const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(s
         }
       </section>
     </main>
+
+    <SiteFooter />
   </div>
 </Layout>

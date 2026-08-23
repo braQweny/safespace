@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import type { SessionSummaryFailureCode } from "@/lib/session-flow/session-summary-contract";
@@ -19,6 +19,8 @@ interface SessionHistoryDetailPanelProps {
   canSummarize: boolean;
   onGenerateSummary: () => void;
   onApproveSummary: () => void;
+  /** Zamyka podgląd — rodzic czyści stan szczegółu i oddaje fokus liście. */
+  onClose: () => void;
 }
 
 function toUiMessages(detail: SessionHistoryDetail): UiSessionMessage[] {
@@ -41,12 +43,23 @@ export default function SessionHistoryDetailPanel({
   canSummarize,
   onGenerateSummary,
   onApproveSummary,
+  onClose,
 }: SessionHistoryDetailPanelProps) {
   const detailMessages = useMemo(() => (detail ? toUiMessages(detail) : []), [detail]);
 
   return (
     <aside className="border-line bg-surface-soft rounded-lg border p-4">
-      <p className="text-ink text-sm font-semibold">Podgląd tylko do odczytu</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-ink text-sm font-semibold">Podgląd tylko do odczytu</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring -mt-1 -mr-1 inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors focus:ring-2 focus:outline-none"
+        >
+          <X aria-hidden="true" className="h-4 w-4" />
+          Zamknij podgląd
+        </button>
+      </div>
       <p className="text-ink-muted mt-1 text-sm leading-6">
         Ten widok nie pozwala wysyłać wiadomości, ponawiać odpowiedzi ani restartować czasu sesji.
       </p>
@@ -74,7 +87,12 @@ export default function SessionHistoryDetailPanel({
             onGenerate={onGenerateSummary}
             onApprove={onApproveSummary}
           />
-          <div className="max-h-[70vh] overflow-y-auto">
+          {/*
+            Wewnętrzny scroll tylko w układzie obok listy (`@3xl:` z `@container`
+            sekcji) — na wąskim kontenerze panel stoi pod listą i rozmowa płynie
+            w stronie, bez scrolla w scrollu.
+          */}
+          <div className="@3xl:max-h-[70vh] @3xl:overflow-y-auto">
             <SessionMessages
               messages={detailMessages}
               assistantAvatar={selectedAvatar}

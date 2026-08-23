@@ -1,0 +1,5 @@
+---
+// „/account” nie ma własnej treści — menu konta prowadzi do /account/security,
+// ale adres wpisany ręcznie (albo zapamiętany) nie może kończyć się na 404.
+return Astro.redirect("/account/security", 302);
+---

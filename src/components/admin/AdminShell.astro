@@ -17,10 +17,30 @@ const navItems = [
     <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p class="text-sm font-medium text-[#37685f]">Administracja SafeSpace</p>
+          <a
+            href="/dashboard"
+            class="focus:ring-brand-ring rounded text-sm font-medium text-[#37685f] transition-colors hover:underline focus:ring-2 focus:outline-none"
+          >
+            ← Wróć do panelu
+          </a>
+          <p class="mt-2 text-sm font-medium text-[#37685f]">Administracja SafeSpace</p>
           <h1 class="text-ink mt-1 text-2xl font-semibold">{title}</h1>
         </div>
-        {adminEmail ? <p class="text-sm break-all text-[#5a6d68]">{adminEmail}</p> : null}
+        <div class="flex flex-col items-start gap-2 sm:items-end">
+          {adminEmail ? <p class="text-sm break-all text-[#5a6d68]">{adminEmail}</p> : null}
+          {
+            /* Powłoka admina nie ma AppHeadera, więc bez tego formularza nie
+               dało się stąd wylogować inaczej niż wracając do panelu. */
+          }
+          <form method="POST" action="/api/auth/signout">
+            <button
+              type="submit"
+              class="border-line text-ink-muted hover:bg-surface-soft focus:ring-brand-ring inline-flex h-9 items-center rounded-lg border bg-white px-3 text-sm transition-colors focus:ring-2 focus:outline-none"
+            >
+              Wyloguj się
+            </button>
+          </form>
+        </div>
       </div>
       <nav class="flex flex-wrap gap-2" aria-label="Nawigacja admina">
         {

@@ -8,11 +8,17 @@ import type { SessionAvatarId, SessionDataContext, SessionMetadata } from "@/lib
 export interface ActiveSessionBadge {
   sessionId: string;
   remainingMinutes: number | null;
+  /**
+   * Perspektywa, w której toczy się rozmowa. Panel porównuje ją z zapisanym
+   * awatarem, żeby uczciwie powiedzieć „to rozmowa z inną perspektywą”.
+   * Null, gdy źródło (np. widok sesji) nie niesie tej informacji.
+   */
+  avatarId: SessionAvatarId | null;
 }
 
 const ACTIVE_SESSION_SCAN_LIMIT = 5;
 
-type ActiveSessionCandidate = Pick<SessionMetadata, "id" | "expiresAt">;
+type ActiveSessionCandidate = Pick<SessionMetadata, "id" | "expiresAt"> & Partial<Pick<SessionMetadata, "avatarId">>;
 
 export function toActiveSessionBadge(
   session: ActiveSessionCandidate | null,
@@ -32,21 +38,23 @@ export function toActiveSessionBadge(
     sessionId: session.id,
     // Zaokrąglenie w górę, żeby ostatnia minuta nie pokazywała się jako zero.
     remainingMinutes: Math.max(1, Math.ceil((expiresAtMs - now.getTime()) / 60_000)),
+    avatarId: session.avatarId ?? null,
   };
 }
 
 export interface ReadActiveSessionBadgeOptions {
-  avatarId: SessionAvatarId;
+  /** Pominięty = dowolna perspektywa (pill w nagłówku). */
+  avatarId?: SessionAvatarId;
   now?: Date;
 }
 
 export async function readActiveSessionBadge(
   context: SessionDataContext,
-  options: ReadActiveSessionBadgeOptions,
+  options: ReadActiveSessionBadgeOptions = {},
   listActiveSessions = listOwnedActiveSessionMetadata,
 ): Promise<ActiveSessionBadge | null> {
   const activeSessions = await listActiveSessions(context, {
-    avatarId: options.avatarId,
+    ...(options.avatarId ? { avatarId: options.avatarId } : {}),
     limit: ACTIVE_SESSION_SCAN_LIMIT,
   });
 

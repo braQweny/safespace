@@ -4,6 +4,7 @@ import {
   canTransitionSessionLifecycle,
   getNextSessionSummaryRevision,
   listNewestApprovedSessionSummaryContexts,
+  listOwnedActiveSessionMetadata,
   toApprovedSessionSummaryContexts,
   toDeletedSessionTombstone,
   toLatestSessionSummaryState,
@@ -306,5 +307,54 @@ describe("session data repository pure helpers", () => {
     expect(calls).toContainEqual(["eq", "status", "ready"]);
     expect(calls).toContainEqual(["eq", "is_visible", true]);
     expect(calls).toContainEqual(["neq", "therapy_sessions.status", "deleted"]);
+  });
+});
+
+describe("listOwnedActiveSessionMetadata", () => {
+  function createActiveSessionQuery(rows: unknown[]) {
+    const calls: [string, ...unknown[]][] = [];
+    const query = {
+      select: vi.fn((...args: unknown[]) => {
+        calls.push(["select", ...args]);
+        return query;
+      }),
+      eq: vi.fn((...args: unknown[]) => {
+        calls.push(["eq", ...args]);
+        return query;
+      }),
+      order: vi.fn((...args: unknown[]) => {
+        calls.push(["order", ...args]);
+        return query;
+      }),
+      limit: vi.fn((...args: unknown[]) => {
+        calls.push(["limit", ...args]);
+        return Promise.resolve({ data: rows, error: null });
+      }),
+    };
+    const context = {
+      supabase: {
+        from: vi.fn((table: string) => {
+          calls.push(["from", table]);
+          return query;
+        }),
+      },
+      user: { id: "user-1" },
+    } as unknown as SessionDataContext;
+
+    return { calls, context };
+  }
+
+  it("filters by avatar only when a perspective is given, so the header pill sees every active session", async () => {
+    const withAvatar = createActiveSessionQuery([]);
+    await listOwnedActiveSessionMetadata(withAvatar.context, { avatarId: "cbt-guide" });
+    expect(withAvatar.calls).toContainEqual(["eq", "user_id", "user-1"]);
+    expect(withAvatar.calls).toContainEqual(["eq", "status", "active"]);
+    expect(withAvatar.calls).toContainEqual(["eq", "avatar_id", "cbt-guide"]);
+
+    const anyAvatar = createActiveSessionQuery([]);
+    await listOwnedActiveSessionMetadata(anyAvatar.context, {});
+    expect(anyAvatar.calls).toContainEqual(["eq", "status", "active"]);
+    expect(anyAvatar.calls.some(([method, column]) => method === "eq" && column === "avatar_id")).toBe(false);
+    expect(anyAvatar.calls).toContainEqual(["limit", 5]);
   });
 });

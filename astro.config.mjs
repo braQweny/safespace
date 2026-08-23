@@ -39,6 +39,9 @@ export default defineConfig({
       OPENROUTER_SESSION_MODEL: envField.string({ context: "server", access: "public", optional: true }),
       OPENROUTER_SUMMARY_MODEL: envField.string({ context: "server", access: "public", optional: true }),
       OPENROUTER_TRANSCRIPTION_MODEL: envField.string({ context: "server", access: "public", optional: true }),
+      // Adres kontaktowy pokazywany użytkownikom (stopka, blokada konta, limit
+      // sesji). Bez niego UI nie obiecuje kontaktu, którego nie ma.
+      SUPPORT_EMAIL: envField.string({ context: "server", access: "public", optional: true }),
     },
   },
 });

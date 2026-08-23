@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
 import SignInForm from "@/components/auth/SignInForm";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { SOCIAL_AUTH_PROVIDERS } from "@/lib/auth-providers";
@@ -16,57 +17,61 @@ if (shouldRedirectToDashboard) {
 {
   !shouldRedirectToDashboard && (
     <Layout title="Logowanie - SafeSpace" lang="pl">
-      <main class="bg-canvas text-ink flex min-h-screen items-center justify-center px-4 py-10">
-        <section class="border-line-strong w-full max-w-md rounded-lg border bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8">
-          <div class="mb-6">
-            <a
-              href="/"
-              class="text-brand hover:text-brand-strong text-sm font-medium transition-colors hover:underline"
-            >
-              SafeSpace
-            </a>
-            <h1 class="text-ink mt-3 text-2xl font-semibold">Zaloguj się</h1>
-            <p class="text-ink-muted mt-2 text-sm leading-6">Wybierz Google albo konto e-mail.</p>
-          </div>
+      <div class="bg-canvas text-ink flex min-h-screen flex-col">
+        <main class="flex flex-1 items-center justify-center px-4 py-10">
+          <section class="border-line-strong w-full max-w-md rounded-lg border bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8">
+            <div class="mb-6">
+              <a
+                href="/"
+                class="text-brand hover:text-brand-strong text-sm font-medium transition-colors hover:underline"
+              >
+                SafeSpace
+              </a>
+              <h1 class="text-ink mt-3 text-2xl font-semibold">Zaloguj się</h1>
+              <p class="text-ink-muted mt-2 text-sm leading-6">Wybierz Google albo konto e-mail.</p>
+            </div>
 
-          <div class="space-y-3">
-            {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
-              <form method="POST" action="/api/auth/google">
-                <button
-                  type="submit"
-                  class="border-brand-soft text-brand-deep hover:bg-surface-hover focus:ring-brand-ring flex h-11 w-full items-center justify-center gap-3 rounded-lg border bg-white px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
-                >
-                  <span class="text-brand flex size-6 items-center justify-center rounded-full border border-[#d8e7e2] text-sm font-semibold">
-                    G
-                  </span>
-                  {authProvider.buttonLabel}
-                </button>
-              </form>
-            ))}
-          </div>
+            <div class="space-y-3">
+              {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
+                <form method="POST" action="/api/auth/google">
+                  <button
+                    type="submit"
+                    class="border-brand-soft text-brand-deep hover:bg-surface-hover focus:ring-brand-ring flex h-11 w-full items-center justify-center gap-3 rounded-lg border bg-white px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                  >
+                    <span class="text-brand flex size-6 items-center justify-center rounded-full border border-[#d8e7e2] text-sm font-semibold">
+                      G
+                    </span>
+                    {authProvider.buttonLabel}
+                  </button>
+                </form>
+              ))}
+            </div>
 
-          <div class="text-ink-faint my-6 flex items-center gap-3 text-xs font-medium">
-            <span class="bg-line h-px flex-1" />
-            <span>lub</span>
-            <span class="bg-line h-px flex-1" />
-          </div>
+            <div class="text-ink-faint my-6 flex items-center gap-3 text-xs font-medium">
+              <span class="bg-line h-px flex-1" />
+              <span>lub</span>
+              <span class="bg-line h-px flex-1" />
+            </div>
 
-          <SignInForm serverError={error} client:load />
+            <SignInForm serverError={error} client:load />
 
-          <p class="text-ink-muted mt-4 text-center text-sm">
-            <a href="/auth/forgot-password" class="text-brand font-medium hover:underline">
-              Nie pamiętasz hasła?
-            </a>
-          </p>
+            <p class="text-ink-muted mt-4 text-center text-sm">
+              <a href="/auth/forgot-password" class="text-brand font-medium hover:underline">
+                Nie pamiętasz hasła?
+              </a>
+            </p>
 
-          <p class="text-ink-muted mt-2 text-center text-sm">
-            Nie masz konta?{" "}
-            <a href="/auth/signup" class="text-brand font-medium hover:underline">
-              Utwórz konto
-            </a>
-          </p>
-        </section>
-      </main>
+            <p class="text-ink-muted mt-2 text-center text-sm">
+              Nie masz konta?{" "}
+              <a href="/auth/signup" class="text-brand font-medium hover:underline">
+                Utwórz konto
+              </a>
+            </p>
+          </section>
+        </main>
+
+        <SiteFooter compact />
+      </div>
     </Layout>
   )
 }

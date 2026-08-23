@@ -112,6 +112,25 @@ describe("createAuthRoute", () => {
     );
   });
 
+  it("lets a masked provider failure be logged as blocked instead of failure", async () => {
+    const context = createContext();
+    const route = await createAuthRoute(context, "auth.resend_confirmation");
+
+    route.logFailure("rate_limited", { provider: "supabase", outcome: "blocked" });
+
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      {
+        event: "auth.resend_confirmation",
+        level: "warn",
+        outcome: "blocked",
+        status: 303,
+        reasonCode: "rate_limited",
+        provider: "supabase",
+      },
+      operationalContext,
+    );
+  });
+
   it("logs success with the supabase provider by default and redirects", async () => {
     const context = createContext();
     const route = await createAuthRoute(context, "auth.signin");

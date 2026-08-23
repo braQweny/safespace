@@ -1,6 +1,13 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
-import { formatDateTime, getDurationLabel } from "../SessionHistoryList";
+import SessionHistoryList, {
+  SESSION_STATUS_LEGEND_ORDER,
+  formatDateTime,
+  getDurationLabel,
+  getOpenDetailButtonId,
+  sessionStatusLegend,
+} from "../SessionHistoryList";
 
 function createItem(overrides: Partial<SessionHistoryListItem> = {}): SessionHistoryListItem {
   return {
@@ -60,5 +67,104 @@ describe("formatDateTime", () => {
   it("stays safe on missing and unparsable timestamps", () => {
     expect(formatDateTime(null, now)).toBe("Brak daty");
     expect(formatDateTime("not-a-date", now)).toBe("Brak daty");
+  });
+});
+
+function renderList(props: Partial<Parameters<typeof SessionHistoryList>[0]> = {}) {
+  return renderToStaticMarkup(
+    <SessionHistoryList
+      items={[createItem()]}
+      selectedSessionId={null}
+      pendingDeleteId={null}
+      deletingId={null}
+      onOpenDetail={() => undefined}
+      onRequestDelete={() => undefined}
+      onCancelDelete={() => undefined}
+      onConfirmDelete={() => undefined}
+      {...props}
+    />,
+  );
+}
+
+describe("sessionStatusLegend", () => {
+  it("explains every status the list can show", () => {
+    const statuses: SessionHistoryListItem["status"][] = ["created", "active", "completed", "expired", "interrupted"];
+
+    for (const status of statuses) {
+      expect(sessionStatusLegend[status].label.length).toBeGreaterThan(0);
+      expect(sessionStatusLegend[status].description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the visible legend to the statuses a finished or running conversation can have", () => {
+    // `created` is a transient start state — the badge still gets a title, but
+    // the legend would only confuse.
+    expect(SESSION_STATUS_LEGEND_ORDER).toEqual(["active", "completed", "expired", "interrupted"]);
+  });
+
+  it("ties the completed status to the explicit end-session action", () => {
+    expect(sessionStatusLegend.completed.description).toContain("Zakończ sesję");
+    expect(sessionStatusLegend.expired.description).toContain("limit czasu");
+    expect(sessionStatusLegend.interrupted.description).toContain("bezpieczeństwa");
+    expect(sessionStatusLegend.active.description).toContain("wrócić");
+  });
+});
+
+describe("SessionHistoryList", () => {
+  it("puts the legend explanation on the status badge as a title", () => {
+    const html = renderList();
+
+    expect(html).toContain(`title="${sessionStatusLegend.completed.description}"`);
+    expect(html).toContain(">Zakończona<");
+  });
+
+  it("titles an active row that already ran out of time as expired", () => {
+    const html = renderList({
+      items: [createItem({ status: "active", endedAt: null, expiresAt: "2000-01-01T00:00:00.000Z" })],
+    });
+
+    expect(html).toContain(`title="${sessionStatusLegend.expired.description}"`);
+    expect(html).not.toContain(`title="${sessionStatusLegend.active.description}"`);
+  });
+
+  it("gives the open button a deterministic id so the detail panel can hand focus back", () => {
+    const html = renderList();
+
+    expect(getOpenDetailButtonId("session-1")).toBe("session-history-open-session-1");
+    expect(html).toContain('<button id="session-history-open-session-1" type="button"');
+  });
+
+  it("renders the delete confirmation as a labelled, focusable group", () => {
+    const html = renderList({ pendingDeleteId: "session-1" });
+    const headingIdMatch = /aria-labelledby="([^"]+)"/.exec(html);
+
+    expect(headingIdMatch).not.toBeNull();
+    expect(html).toContain('role="group"');
+    expect(html).toContain('tabindex="-1"');
+
+    const headingId = headingIdMatch?.[1] ?? "";
+
+    expect(html).toContain(`<p id="${headingId}" class="font-semibold">Potwierdź usunięcie rozmowy</p>`);
+    expect(html).toContain("Anuluj");
+    expect(html).toContain("Potwierdź usunięcie");
+  });
+
+  it("uses distinct confirmation heading ids per row", () => {
+    const html = renderList({
+      items: [createItem({ id: "session-1" }), createItem({ id: "session-2" })],
+      pendingDeleteId: "session-2",
+    });
+
+    expect(html).toContain('aria-labelledby="session-history-delete-heading-session-2"');
+    expect(html).not.toContain('aria-labelledby="session-history-delete-heading-session-1"');
+    expect(html).toContain('id="session-history-open-session-1"');
+    expect(html).toContain('id="session-history-open-session-2"');
+  });
+
+  it("does not render the confirmation group until a delete is requested", () => {
+    const html = renderList();
+
+    expect(html).not.toContain('role="group"');
+    expect(html).not.toContain("Potwierdź usunięcie rozmowy");
   });
 });

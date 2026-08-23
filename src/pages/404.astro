@@ -1,35 +1,58 @@
 ---
+import AppHeader from "@/components/AppHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
+
+// Zalogowany użytkownik, który trafił na zły adres, widzi ten sam nagłówek
+// co wszędzie (logo → panel, menu konta) — nie zostaje bez orientacji.
+const { user } = Astro.locals;
 ---
 
 <Layout title="Nie znaleziono strony - SafeSpace" lang="pl">
-  <main class="bg-canvas text-ink min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-    <section class="mx-auto flex min-h-[calc(100vh-64px)] max-w-2xl items-center">
-      <div
-        class="border-line-strong w-full rounded-lg border bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
-      >
-        <p class="text-brand text-sm font-medium">SafeSpace</p>
-        <h1 class="text-ink mt-3 text-2xl font-semibold">Nie znaleźliśmy tej strony</h1>
-        <p class="text-ink-muted mt-4 text-sm leading-6">
-          Adres, który próbujesz otworzyć, nie istnieje albo został przeniesiony. Sprawdź link lub wróć na stronę
-          główną.
-        </p>
+  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+    <AppHeader />
 
-        <div class="mt-6 flex flex-wrap gap-3">
-          <a
-            href="/"
-            class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-          >
-            Wróć na stronę główną
-          </a>
-          <a
-            href="/dashboard"
-            class="border-line-strong text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg border bg-white px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
-          >
-            Przejdź do panelu
-          </a>
+    <main class="flex flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
+      <section class="mx-auto w-full max-w-2xl">
+        <div
+          class="border-line-strong w-full rounded-lg border bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
+        >
+          <p class="text-brand text-sm font-medium">SafeSpace</p>
+          <h1 class="text-ink mt-3 text-2xl font-semibold">Nie znaleźliśmy tej strony</h1>
+          <p class="text-ink-muted mt-4 text-sm leading-6">
+            Adres, który próbujesz otworzyć, nie istnieje albo został przeniesiony. Sprawdź link lub wróć
+            {user ? " do panelu" : " na stronę główną"}.
+          </p>
+
+          <div class="mt-6 flex flex-wrap gap-3">
+            {
+              user ? (
+                <a
+                  href="/dashboard"
+                  class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                >
+                  Przejdź do panelu
+                </a>
+              ) : (
+                <a
+                  href="/"
+                  class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                >
+                  Wróć na stronę główną
+                </a>
+              )
+            }
+            <a
+              href={user ? "/" : "/auth/signin"}
+              class="border-line-strong text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg border bg-white px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+            >
+              {user ? "Strona główna" : "Zaloguj się"}
+            </a>
+          </div>
         </div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
+
+    <SiteFooter compact />
+  </div>
 </Layout>

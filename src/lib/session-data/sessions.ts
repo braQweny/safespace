@@ -123,14 +123,17 @@ export async function listOwnedActiveSessionMetadata(
   context: SessionDataContext,
   input: ListActiveSessionMetadataInput,
 ): Promise<SessionDataResult<SessionMetadata[]>> {
-  const { data, error } = await context.supabase
+  let query = context.supabase
     .from("therapy_sessions")
     .select(SESSION_SELECT)
     .eq("user_id", context.user.id)
-    .eq("avatar_id", input.avatarId)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(input.limit ?? 5);
+    .eq("status", "active");
+
+  if (input.avatarId) {
+    query = query.eq("avatar_id", input.avatarId);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(input.limit ?? 5);
 
   if (error) {
     return sessionDataError(mapSupabaseReadError(error));

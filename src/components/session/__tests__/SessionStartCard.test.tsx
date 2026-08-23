@@ -164,8 +164,50 @@ describe("SessionStartCard", () => {
 
     expect(html).toContain("trzy rozmowy próbne");
     expect(html).toContain("planie premium");
+    // Koniec puli nie jest ślepym zaułkiem: użytkownik dowiaduje się, jak
+    // zdobyć premium, ale bez skonfigurowanego kontaktu nie dostaje pustego CTA.
+    expect(html).toContain("przyznaje go ręcznie zespół SafeSpace");
+    expect(html).not.toContain("mailto:");
+  });
+
+  it("offers a contact action after the allowance is exhausted when support e-mail is configured", () => {
+    const html = renderToStaticMarkup(
+      <SessionStartCard
+        initialState={{
+          kind: "session_limit_reached",
+          trialAvailable: false,
+          avatar,
+          session: null,
+          messages: [],
+          messageFetchFailed: false,
+          approvedSummaries: [],
+          canStartWithoutContext: false,
+          sessionQuota: { ...freeQuota, usedSessions: 3, remainingSessions: 0, canStartSession: false },
+        }}
+        supportEmail="pomoc@example.org"
+      />,
+    );
+
+    expect(html).toContain("Napisz w sprawie premium");
+    expect(html).toContain("mailto:pomoc@example.org");
     expect(html).not.toContain("Rozpocznij");
-    expect(html).not.toContain("<button");
+  });
+
+  it("tells the user how long a conversation lasts before they start", () => {
+    const html = renderStartCard({
+      kind: "ready",
+      trialAvailable: true,
+      avatar,
+      session: null,
+      messages: [],
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+      sessionQuota: freeQuota,
+    });
+
+    expect(html).toContain("Każda rozmowa trwa do 15 minut");
+    expect(html).toContain("Rozpocznij pierwszą darmową rozmowę");
   });
 
   it("tells free accounts how many sessions remain before they start", () => {

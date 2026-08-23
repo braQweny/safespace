@@ -4,6 +4,7 @@ import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionHistoryDetail, SessionHistoryListItem } from "@/lib/session-data/types";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 import AvatarSessionHistory from "../AvatarSessionHistory";
+import { SESSION_STATUS_LEGEND_ORDER, sessionStatusLegend } from "../SessionHistoryList";
 
 const selectedAvatar = toSelectedModalityAvatar(MVP_MODALITIES[1]);
 
@@ -70,6 +71,35 @@ describe("AvatarSessionHistory", () => {
     expect(html).not.toContain("Prywatna tresc listy");
     expect(html).not.toContain("Preview rozmowy");
     expect(html).not.toContain("session-21");
+  });
+
+  it("explains the status badges in a collapsed legend next to the list description", () => {
+    const html = renderHistory();
+
+    expect(html).toContain("Lista pokazuje tylko datę, status i czas trwania.");
+    expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>Co oznaczają statusy/);
+
+    for (const status of SESSION_STATUS_LEGEND_ORDER) {
+      expect(html).toContain(`<dt class="text-ink font-semibold">${sessionStatusLegend[status].label}</dt>`);
+      expect(html).toContain(`<dd>— ${sessionStatusLegend[status].description}</dd>`);
+    }
+
+    // The badge title and the legend must come from the same map.
+    expect(html).toContain(`title="${sessionStatusLegend.completed.description}"`);
+  });
+
+  it("keeps the opened detail panel clear of the sticky header and lets it be closed", () => {
+    const html = renderHistory({
+      initialDetail: {
+        session: createHistoryItem(1),
+        messages: [],
+        summary: { kind: "none" },
+      },
+    });
+
+    expect(html).toContain('<div class="scroll-mt-20"><aside');
+    expect(html).toContain("Zamknij podgląd");
+    expect(html).toContain('id="session-history-open-session-1"');
   });
 
   it("renders selected-avatar labels, pagination controls, and read-only detail affordances", () => {

@@ -4,6 +4,7 @@ import { FormField } from "@/components/auth/FormField";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
 import { SubmitButton } from "@/components/auth/SubmitButton";
 import { ServerError } from "@/components/auth/ServerError";
+import { useRememberedAuthEmail } from "@/components/hooks/useRememberedAuthEmail";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-validation";
 
 interface Props {
@@ -11,7 +12,11 @@ interface Props {
 }
 
 export default function SignUpForm({ serverError }: Props) {
-  const [email, setEmail] = useState("");
+  // Native POST + redirect would otherwise drop the typed address on every
+  // server-side error; it is restored only when such an error is shown.
+  const { email, setEmail, rememberEmailBeforeSubmit } = useRememberedAuthEmail({
+    shouldRestore: Boolean(serverError),
+  });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -50,7 +55,10 @@ export default function SignUpForm({ serverError }: Props) {
   function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     if (!validate()) {
       e.preventDefault();
+      return;
     }
+
+    rememberEmailBeforeSubmit();
   }
 
   const passwordHint =

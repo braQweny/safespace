@@ -1,67 +1,163 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { SOCIAL_AUTH_PROVIDERS } from "@/lib/auth-providers";
 
 const isSignedIn = Boolean(Astro.locals.user);
+const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
+const wasResent = Astro.url.searchParams.get("resent") === "1";
 
-const content = isSignedIn
-  ? {
-      heading: "Konto jest aktywne",
-      description: "Możesz przejść do prywatnej części SafeSpace.",
-      href: "/dashboard",
-      linkText: "Przejdź do panelu",
-    }
-  : {
-      heading: "Sprawdź skrzynkę",
-      description:
-        "Jeśli rejestracja wymaga potwierdzenia, wyślemy e-mail z linkiem. Jeśli ten adres był wcześniej użyty z Google, wiadomość może nie przyjść — wtedy zaloguj się przez Google i ustaw hasło w ustawieniach konta.",
-      href: "/auth/signin",
-      linkText: "Wróć do logowania",
-    };
+const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
 ---
 
-<Layout title={`${content.heading} - SafeSpace`} lang="pl">
-  <main class="bg-canvas text-ink flex min-h-screen items-center justify-center px-4 py-10">
-    <section
-      class="border-line-strong w-full max-w-md rounded-lg border bg-white p-6 text-center shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
-    >
-      <a href="/" class="text-brand hover:text-brand-strong text-sm font-medium transition-colors hover:underline">
-        SafeSpace
-      </a>
-      <h1 class="text-ink mt-3 text-2xl font-semibold">{content.heading}</h1>
-      <p class="text-ink-muted mt-3 text-sm leading-6">{content.description}</p>
-      {
-        isSignedIn ? (
-          <a
-            href={content.href}
-            class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-6 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-          >
-            {content.linkText}
-          </a>
-        ) : (
-          <div class="mt-6 space-y-3">
-            {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
-              <form method="POST" action="/api/auth/google">
+<Layout title={`${heading} - SafeSpace`} lang="pl">
+  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+    <main class="flex flex-1 items-center justify-center px-4 py-10">
+      <section
+        class="border-line-strong w-full max-w-md rounded-lg border bg-white p-6 text-center shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
+      >
+        <a href="/" class="text-brand hover:text-brand-strong text-sm font-medium transition-colors hover:underline">
+          SafeSpace
+        </a>
+        <h1 class="text-ink mt-3 text-2xl font-semibold">{heading}</h1>
+        {
+          isSignedIn ? (
+            <>
+              <p class="text-ink-muted mt-3 text-sm leading-6">Możesz przejść do prywatnej części SafeSpace.</p>
+              <a
+                href="/dashboard"
+                class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-6 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+              >
+                Przejdź do panelu
+              </a>
+            </>
+          ) : (
+            <>
+              <p class="text-ink-muted mt-3 text-sm leading-6">
+                <span data-confirm-email-generic>Wysłaliśmy wiadomość z linkiem potwierdzającym.</span>
+                <span data-confirm-email-target hidden>
+                  Wysłaliśmy wiadomość z linkiem potwierdzającym na adres{" "}
+                  <strong class="text-ink font-semibold" data-confirm-email />.
+                </span>
+                Kliknij link, a potem zaloguj się. Jeśli wiadomość nie dotrze w kilka minut, sprawdź folder ze spamem
+                albo wyślij link ponownie poniżej.
+              </p>
+              <p class="text-ink-muted mt-3 text-sm leading-6">
+                Jeśli ten adres był wcześniej użyty z Google, wiadomość może nie przyjść — wtedy zaloguj się przez
+                Google i ustaw hasło w ustawieniach konta.
+              </p>
+
+              {wasResent ? (
+                <div
+                  role="status"
+                  class="border-brand-soft text-brand-deep mt-6 rounded-lg border bg-[#f4fbf8] p-4 text-left text-sm leading-6"
+                >
+                  Jeśli ten adres czeka na potwierdzenie, wysłaliśmy wiadomość ponownie. Sprawdź też folder ze spamem.
+                </div>
+              ) : null}
+
+              <form
+                method="POST"
+                action="/api/auth/resend-confirmation"
+                class="border-line mt-6 space-y-4 rounded-lg border p-4 text-left"
+                aria-labelledby="resend-confirmation-heading"
+                data-remembered-email-form
+                data-has-error={error ? "true" : "false"}
+              >
+                <h2 id="resend-confirmation-heading" class="text-ink text-base font-semibold">
+                  Wyślij link ponownie
+                </h2>
+
+                {error ? (
+                  <p
+                    role="alert"
+                    class="rounded-lg border border-[#ecc8c2] bg-[#fdf6f4] p-3 text-sm leading-6 text-[#7c3326]"
+                  >
+                    {error}
+                  </p>
+                ) : null}
+
+                <div>
+                  <label for="email" class="text-brand-deep text-sm font-medium">
+                    Adres e-mail
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    autocomplete="email"
+                    class="border-brand-soft text-ink focus:ring-brand-ring mt-1 h-11 w-full rounded-lg border bg-white px-3 text-sm focus:ring-2 focus:outline-none"
+                  />
+                </div>
+
                 <button
                   type="submit"
-                  class="bg-brand hover:bg-brand-strong focus:ring-brand-ring flex h-11 w-full items-center justify-center gap-3 rounded-lg px-4 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                  class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 w-full items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
                 >
-                  <span class="flex size-6 items-center justify-center rounded-full border border-white/40 text-sm font-semibold">
-                    G
-                  </span>
-                  {authProvider.buttonLabel}
+                  Wyślij ponownie
                 </button>
               </form>
-            ))}
-            <a
-              href={content.href}
-              class="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 w-full items-center justify-center rounded-lg border bg-white px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
-            >
-              {content.linkText}
-            </a>
-          </div>
-        )
-      }
-    </section>
-  </main>
+
+              <div class="text-ink-faint my-6 flex items-center gap-3 text-xs font-medium">
+                <span class="bg-line h-px flex-1" />
+                <span>lub</span>
+                <span class="bg-line h-px flex-1" />
+              </div>
+
+              <div class="space-y-3">
+                {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
+                  <form method="POST" action="/api/auth/google">
+                    <button
+                      type="submit"
+                      class="border-brand-soft text-brand-deep hover:bg-surface-hover focus:ring-brand-ring flex h-11 w-full items-center justify-center gap-3 rounded-lg border bg-white px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                    >
+                      <span class="text-brand flex size-6 items-center justify-center rounded-full border border-[#d8e7e2] text-sm font-semibold">
+                        G
+                      </span>
+                      {authProvider.buttonLabel}
+                    </button>
+                  </form>
+                ))}
+                <a
+                  href="/auth/signin"
+                  class="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 w-full items-center justify-center rounded-lg border bg-white px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                >
+                  Wróć do logowania
+                </a>
+              </div>
+            </>
+          )
+        }
+      </section>
+    </main>
+
+    <SiteFooter compact />
+  </div>
 </Layout>
+
+<script>
+  // Adres z rejestracji (albo z poprzedniej próby ponownej wysyłki) czeka w
+  // sessionStorage tej karty — nigdy w URL. Bez JS zdanie zostaje ogólne, a
+  // pole formularza puste.
+  import { bindRememberedAuthEmailForm } from "@/components/auth/remembered-auth-email";
+
+  const form = document.querySelector<HTMLFormElement>("[data-remembered-email-form]");
+  const genericSentence = document.querySelector<HTMLElement>("[data-confirm-email-generic]");
+  const addressSentence = document.querySelector<HTMLElement>("[data-confirm-email-target]");
+  const addressSlot = document.querySelector<HTMLElement>("[data-confirm-email]");
+
+  if (form) {
+    const remembered = bindRememberedAuthEmailForm(form, { restore: true });
+    // Po błędzie walidacji zapamiętany adres to ten odrzucony — wraca do pola,
+    // ale nie do zdania „Wysłaliśmy wiadomość na adres…”.
+    const showAddress = form.dataset.hasError !== "true";
+
+    if (remembered && showAddress && genericSentence && addressSentence && addressSlot) {
+      addressSlot.textContent = remembered;
+      genericSentence.hidden = true;
+      addressSentence.hidden = false;
+    }
+  }
+</script>

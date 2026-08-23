@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Clock, Loader2, MessageSquareText, PlayCircle, Trash2 } from "lucide-react";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
 import { computeClientRemainingSeconds, formatRemainingTime } from "@/lib/session-flow/message-state";
@@ -20,13 +20,62 @@ interface SessionHistoryListProps {
   onConfirmDelete: (sessionId: string) => void;
 }
 
-const statusLabels: Record<SessionHistoryListItem["status"], string> = {
-  created: "Utworzona",
-  active: "Aktywna",
-  completed: "Zakończona",
-  expired: "Po czasie",
-  interrupted: "Przerwana",
+export interface SessionStatusLegendEntry {
+  label: string;
+  description: string;
+}
+
+/**
+ * Jedno źródło etykiet i wyjaśnień statusów: `title` odznaki na liście i zwijana
+ * legenda w nagłówku sekcji muszą mówić dokładnie to samo.
+ */
+export const sessionStatusLegend: Record<SessionHistoryListItem["status"], SessionStatusLegendEntry> = {
+  created: {
+    label: "Utworzona",
+    description: "Rozmowa została przygotowana, ale nie zdążyła się rozpocząć.",
+  },
+  active: {
+    label: "Aktywna",
+    description: "Rozmowa trwa — możesz do niej wrócić, dopóki nie minie czas sesji.",
+  },
+  completed: {
+    label: "Zakończona",
+    description: "Rozmowa zamknięta przez Ciebie przyciskiem „Zakończ sesję”.",
+  },
+  expired: {
+    label: "Po czasie",
+    description: "Minął limit czasu rozmowy — nie da się już w niej pisać.",
+  },
+  interrupted: {
+    label: "Przerwana",
+    description: "Rozmowa zatrzymana przez mechanizm bezpieczeństwa.",
+  },
 };
+
+/**
+ * Statusy pokazywane w legendzie. `created` to stan przejściowy między startem a
+ * aktywacją — lista pokazuje go tylko po nieudanym starcie, więc w legendzie
+ * tylko by mylił; odznaka i tak dostaje swój `title`.
+ */
+export const SESSION_STATUS_LEGEND_ORDER = [
+  "active",
+  "completed",
+  "expired",
+  "interrupted",
+] as const satisfies readonly SessionHistoryListItem["status"][];
+
+/**
+ * Deterministyczny id przycisku „Otwórz” — po zamknięciu podglądu fokus wraca
+ * na wiersz, z którego podgląd został otwarty. Id sesji to UUID, więc nadaje
+ * się do atrybutu `id` bez ucieczki.
+ */
+export function getOpenDetailButtonId(sessionId: string) {
+  return `session-history-open-${sessionId}`;
+}
+
+function getDeleteConfirmHeadingId(sessionId: string) {
+  return `session-history-delete-heading-${sessionId}`;
+}
 
 const statusBadgeClasses: Record<SessionHistoryListItem["status"], string> = {
   created: "border-line-strong bg-surface-soft text-ink-muted",
@@ -134,6 +183,16 @@ function SessionHistoryListItemRow({
   onConfirmDelete,
 }: SessionHistoryListItemRowProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(() => getInitialActiveRemainingSeconds(item));
+  const deleteButtonRef = useRef<HTMLButtonElement | null>(null);
+  const confirmDeleteRef = useRef<HTMLDivElement | null>(null);
+
+  // Blok potwierdzenia pojawia się pod wierszem, poza fokusem — bez przeniesienia
+  // fokusu czytnik ekranu nie dowiedziałby się, że coś wymaga decyzji.
+  useEffect(() => {
+    if (isConfirming) {
+      confirmDeleteRef.current?.focus();
+    }
+  }, [isConfirming]);
 
   useEffect(() => {
     if (item.status !== "active" || !item.expiresAt) {
@@ -153,6 +212,25 @@ function SessionHistoryListItemRow({
 
   const effectiveStatus = item.status === "active" && remainingSeconds === 0 ? "expired" : item.status;
   const isActive = effectiveStatus === "active";
+  const statusLegend = sessionStatusLegend[effectiveStatus];
+  const deleteConfirmHeadingId = getDeleteConfirmHeadingId(item.id);
+
+  // Anulowanie zdejmuje blok z DOM, więc fokus musi wrócić na kosz tej pozycji
+  // — inaczej wylądowałby na <body>.
+  function handleCancelDelete() {
+    onCancelDelete();
+    deleteButtonRef.current?.focus();
+  }
+
+  function handleConfirmKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    handleCancelDelete();
+  }
 
   return (
     <li
@@ -166,12 +244,13 @@ function SessionHistoryListItemRow({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
+              title={statusLegend.description}
               className={cn(
                 "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold",
                 statusBadgeClasses[effectiveStatus],
               )}
             >
-              {statusLabels[effectiveStatus]}
+              {statusLegend.label}
             </span>
             <span className="text-ink-faint text-xs">{getDurationLabel(item)}</span>
           </div>
@@ -198,6 +277,7 @@ function SessionHistoryListItemRow({
             </>
           ) : null}
           <button
+            id={getOpenDetailButtonId(item.id)}
             type="button"
             disabled={!isInteractive}
             onClick={() => {
@@ -209,6 +289,7 @@ function SessionHistoryListItemRow({
             Otwórz
           </button>
           <button
+            ref={deleteButtonRef}
             type="button"
             aria-label="Usuń rozmowę"
             title="Usuń rozmowę"
@@ -224,17 +305,24 @@ function SessionHistoryListItemRow({
       </div>
 
       {isConfirming ? (
-        <div className="border-warn-line bg-warn-soft text-warn mt-4 rounded-lg border p-4 text-sm leading-6">
-          <p className="font-semibold">Potwierdź usunięcie rozmowy</p>
+        <div
+          ref={confirmDeleteRef}
+          role="group"
+          aria-labelledby={deleteConfirmHeadingId}
+          tabIndex={-1}
+          onKeyDown={handleConfirmKeyDown}
+          className="border-warn-line bg-warn-soft text-warn mt-4 rounded-lg border p-4 text-sm leading-6 focus:outline-none"
+        >
+          <p id={deleteConfirmHeadingId} className="font-semibold">
+            Potwierdź usunięcie rozmowy
+          </p>
           <p className="mt-1">
             Usunięcie jest nieodwracalne i nie przywraca darmowej próby. Treść rozmowy zostanie trwale usunięta.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => {
-                onCancelDelete();
-              }}
+              onClick={handleCancelDelete}
               className="border-warn-line text-warn hover:bg-warn-soft focus:ring-warn-strong inline-flex h-9 items-center justify-center rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
             >
               Anuluj

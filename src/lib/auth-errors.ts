@@ -14,6 +14,7 @@ const AUTH_ERROR_MESSAGES = {
   oauth_start_failed: "Nie udało się rozpocząć logowania przez Google. Spróbuj ponownie za chwilę.",
   oauth_callback_failed: "Nie udało się dokończyć logowania. Spróbuj ponownie.",
   reset_password_failed: "Nie udało się wysłać linku do zmiany hasła. Spróbuj ponownie za chwilę.",
+  resend_confirmation_failed: "Nie udało się wysłać linku potwierdzającego ponownie. Spróbuj ponownie za chwilę.",
 } as const;
 
 export type AuthErrorCode = keyof typeof AUTH_ERROR_MESSAGES;
@@ -21,6 +22,7 @@ export type AuthErrorCode = keyof typeof AUTH_ERROR_MESSAGES;
 interface SupabaseAuthLikeError {
   message?: string;
   status?: number;
+  code?: string;
 }
 
 export function getAuthErrorMessage(code: AuthErrorCode) {
@@ -76,6 +78,29 @@ export function mapResetPasswordError(error: SupabaseAuthLikeError): AuthErrorCo
   }
 
   return "reset_password_failed";
+}
+
+/**
+ * Resending the confirmation link deliberately ends on the same page whatever
+ * the provider answered (the response must not reveal whether the address
+ * exists or is already confirmed), so this mapping only feeds the operational
+ * log — `rate_limited` is the one outcome worth telling apart (HTTP 429 /
+ * `over_email_send_rate_limit`).
+ */
+export function mapResendConfirmationError(error: SupabaseAuthLikeError): AuthErrorCode {
+  const message = error.message?.toLowerCase() ?? "";
+  const code = error.code?.toLowerCase() ?? "";
+
+  if (
+    error.status === 429 ||
+    code.includes("rate_limit") ||
+    message.includes("rate limit") ||
+    message.includes("too many")
+  ) {
+    return "rate_limited";
+  }
+
+  return "resend_confirmation_failed";
 }
 
 export function mapPasswordUpdateError(error: SupabaseAuthLikeError): AuthErrorCode {

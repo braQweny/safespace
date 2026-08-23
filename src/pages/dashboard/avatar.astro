@@ -1,6 +1,7 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
 import AvatarChoiceForm from "@/components/modality/AvatarChoiceForm";
+import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import {
   AVATAR_CHOICE_ERROR_PARAM,
@@ -80,13 +81,13 @@ if (!sessionContext.ok) {
     );
   }
 
-  if (currentSelection) {
-    activeSession = await readActiveSessionBadge(sessionContext.data, { avatarId: currentSelection.avatarId });
-  }
+  // Rozmowa w toku może należeć do innej perspektywy niż ta właśnie zapisana —
+  // ostrzeżenie i pill w nagłówku mają ją pokazać tak czy inaczej.
+  activeSession = await readActiveSessionBadge(sessionContext.data);
 }
 ---
 
-<Layout title="Wybór awatara - SafeSpace" lang="pl">
+<Layout title="Wybór perspektywy - SafeSpace" lang="pl">
   <div class="bg-canvas text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={activeSession} />
 
@@ -105,7 +106,8 @@ if (!sessionContext.ok) {
         </a>
         <h1 class="text-ink mt-3 max-w-4xl text-3xl font-semibold">Wybierz perspektywę rozmowy</h1>
         <p class="text-ink-soft mt-3 max-w-3xl text-base leading-7">
-          Każdy awatar prowadzi rozmowę w innym stylu. Wybór dotyczy kolejnej rozmowy i możesz go później zmienić.
+          Każda perspektywa to inny awatar i inny nurt psychoterapii — rozmowa będzie prowadzona w jego stylu. Wybór
+          dotyczy kolejnej rozmowy i możesz go później zmienić; po zapisaniu wrócisz do panelu, skąd zaczniesz rozmowę.
         </p>
 
         <details class="group mt-3 max-w-3xl">
@@ -146,5 +148,7 @@ if (!sessionContext.ok) {
         <AvatarChoiceForm client:load modalities={MVP_MODALITIES} currentSelection={currentSelection} />
       </section>
     </main>
+
+    <SiteFooter />
   </div>
 </Layout>

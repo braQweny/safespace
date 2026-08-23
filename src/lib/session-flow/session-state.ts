@@ -19,7 +19,8 @@ import type {
 } from "@/lib/session-data/types";
 import type { CurrentAvatarChoice } from "./avatar-choice";
 
-export const FREE_TRIAL_DURATION_SECONDS = 900;
+export { FREE_TRIAL_DURATION_SECONDS } from "./session-budget";
+
 const ACTIVE_SESSION_SCAN_LIMIT = 5;
 
 export type EffectiveSessionStatus = Exclude<SessionLifecycleStatus, "created" | "deleted"> | "claimed";

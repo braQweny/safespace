@@ -1,9 +1,17 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
 import { getAdminContext } from "@/lib/admin/auth";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
+import { getSessionDataContext } from "@/lib/session-data/auth";
+import { readSessionQuota } from "@/lib/session-data/quota";
+import type { SessionQuota } from "@/lib/session-data/types";
+import { readActiveSessionBadge, type ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+import { formatPlanName, formatSessionAllowance, PREMIUM_HOW_TO_COPY } from "@/lib/session-flow/plan-copy";
+import { formatSessionBudgetMinutes } from "@/lib/session-flow/session-budget";
+import { getSupportContact } from "@/lib/support-contact";
 
 const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
 const status = Astro.url.searchParams.get("status");
@@ -17,20 +25,72 @@ const { user } = Astro.locals;
 // prowadził. Sprawdzenie kosztuje jedno zapytanie i tylko na tej stronie.
 const adminContext = await getAdminContext(Astro);
 const isAdmin = adminContext.ok;
+
+// Plan i pula rozmów są czytane tą samą ścieżką co karta startu w panelu
+// (`readSessionQuota`), żeby konto nigdy nie mówiło czego innego niż panel.
+const sessionContext = getSessionDataContext(Astro);
+let quota: SessionQuota | null = null;
+let activeSession: ActiveSessionBadge | null = null;
+
+if (sessionContext.ok) {
+  const quotaResult = await readSessionQuota(sessionContext.data);
+  quota = quotaResult.ok ? quotaResult.data : null;
+  activeSession = await readActiveSessionBadge(sessionContext.data);
+}
+
+const support = getSupportContact();
+const sessionBudgetMinutes = formatSessionBudgetMinutes();
 ---
 
 <Layout title="Konto - SafeSpace" lang="pl">
   <div class="bg-canvas text-ink flex min-h-screen flex-col">
-    <AppHeader />
+    <AppHeader activeSession={activeSession} />
 
     <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto max-w-2xl">
-        <h1 class="text-ink text-3xl font-semibold">Konto</h1>
+        <a
+          href="/dashboard"
+          class="text-brand hover:text-brand-strong focus:ring-brand-ring rounded text-sm font-medium transition-colors hover:underline focus:ring-2 focus:outline-none"
+        >
+          ← Wróć do panelu
+        </a>
+        <h1 class="text-ink mt-3 text-3xl font-semibold">Konto</h1>
         <p class="text-ink-muted mt-3 text-sm leading-6">
           Zalogowano jako <span class="text-ink font-semibold">{user?.email}</span>.
         </p>
 
-        <div class="border-line-strong bg-surface shadow-card mt-6 rounded-lg border p-6 sm:p-8">
+        <div class="border-line-strong bg-surface shadow-card mt-6 rounded-lg border p-6 sm:p-8" data-account-plan>
+          <h2 class="text-ink text-lg font-semibold">Plan i pula rozmów</h2>
+          {
+            quota ? (
+              <>
+                <p class="text-brand mt-2 text-base font-semibold">{formatPlanName(quota.plan)}</p>
+                <p class="text-ink-muted mt-1 text-sm leading-6">
+                  {formatSessionAllowance(quota)} Każda rozmowa trwa do {sessionBudgetMinutes}. Usunięcie rozmowy z
+                  historii nie przywraca jej do puli.
+                </p>
+                {quota.plan === "free" ? (
+                  <p class="text-ink-muted mt-3 text-sm leading-6">{PREMIUM_HOW_TO_COPY}</p>
+                ) : null}
+                {quota.plan === "free" && support.mailtoHref ? (
+                  <a
+                    href={`${support.mailtoHref}?subject=${encodeURIComponent("SafeSpace — dostęp do planu premium")}`}
+                    class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring mt-4 inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                  >
+                    Napisz w sprawie premium
+                  </a>
+                ) : null}
+              </>
+            ) : (
+              <p class="text-ink-muted mt-2 text-sm leading-6">
+                Nie udało się odczytać planu konta. Odśwież stronę za chwilę — szczegóły puli rozmów zobaczysz też w
+                panelu.
+              </p>
+            )
+          }
+        </div>
+
+        <div class="border-line-strong bg-surface shadow-card mt-5 rounded-lg border p-6 sm:p-8">
           <h2 class="text-ink text-lg font-semibold">Hasło</h2>
           <p class="text-ink-muted mt-2 text-sm leading-6">
             Jeśli konto powstało przez Google, ustawienie hasła dodaje logowanie e-mailem bez tworzenia drugiego konta.
@@ -39,6 +99,20 @@ const isAdmin = adminContext.ok;
           <div class="mt-6">
             <SetPasswordForm serverError={error} serverSuccess={successMessage} client:load />
           </div>
+        </div>
+
+        <div class="border-line bg-surface-soft mt-5 rounded-lg border p-5">
+          <h2 class="text-brand-deep text-base font-semibold">Twoje dane i usunięcie konta</h2>
+          <p class="text-ink-muted mt-2 text-sm leading-6">
+            Treść rozmów widzisz tylko Ty; każdą rozmowę możesz trwale usunąć w historii w panelu. Jak działa prywatność
+            i jak usunąć całe konto, opisujemy na stronie
+            <a
+              href="/privacy"
+              class="text-brand hover:text-brand-strong focus:ring-brand-ring ml-1 rounded font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
+            >
+              Prywatność i zasady
+            </a>
+          </p>
         </div>
 
         {
@@ -59,5 +133,7 @@ const isAdmin = adminContext.ok;
         }
       </section>
     </main>
+
+    <SiteFooter />
   </div>
 </Layout>
