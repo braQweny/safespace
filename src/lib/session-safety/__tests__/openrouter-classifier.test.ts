@@ -85,7 +85,9 @@ describe("buildOpenRouterSafetyRequest", () => {
       maxCompletionTokens: 64,
       stream: false,
       provider: {
+        dataCollection: "deny",
         requireParameters: true,
+        zdr: true,
       },
       responseFormat: {
         type: "json_schema",
@@ -164,7 +166,9 @@ describe("classifySessionSafetyWithOpenRouter", () => {
       max_completion_tokens: 64,
       stream: false,
       provider: {
+        data_collection: "deny",
         require_parameters: true,
+        zdr: true,
       },
       response_format: {
         type: "json_schema",

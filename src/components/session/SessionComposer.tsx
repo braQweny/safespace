@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface SessionComposerProps {
+  sessionId: string;
   value: string;
   isDisabled: boolean;
   isPending: boolean;
@@ -73,7 +74,14 @@ export function getSupportedWebmMimeType(mediaRecorder: Pick<typeof MediaRecorde
   return ["audio/webm;codecs=opus", "audio/webm"].find((mimeType) => mediaRecorder.isTypeSupported(mimeType)) ?? null;
 }
 
-export default function SessionComposer({ value, isDisabled, isPending, onChange, onSubmit }: SessionComposerProps) {
+export default function SessionComposer({
+  sessionId,
+  value,
+  isDisabled,
+  isPending,
+  onChange,
+  onSubmit,
+}: SessionComposerProps) {
   const [dictationStatus, setDictationStatus] = useState<DictationStatus>("idle");
   const [dictationError, setDictationError] = useState<string | null>(null);
   const latestValueRef = useRef(value);
@@ -140,6 +148,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
       const result = await requestApiJson("/api/session/transcribe", {
         method: "POST",
         body: JSON.stringify({
+          sessionId,
           audioBase64,
           format: "webm",
         }),
@@ -164,7 +173,7 @@ export default function SessionComposer({ value, isDisabled, isPending, onChange
     } finally {
       setDictationStatus("idle");
     }
-  }, [cleanupRecordingStream, clearRecordingTimeout, onChange]);
+  }, [cleanupRecordingStream, clearRecordingTimeout, onChange, sessionId]);
 
   const startRecording = useCallback(async () => {
     if (!canUseDictation) {

@@ -11,7 +11,7 @@ export function createClient(requestHeaders: Headers, cookies: AstroCookies) {
       getAll() {
         return parseCookieHeader(requestHeaders.get("Cookie") ?? "").map(({ name, value }) => ({
           name,
-          value: value ?? "",
+          value,
         }));
       },
       setAll(cookiesToSet) {

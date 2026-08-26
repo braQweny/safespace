@@ -1,5 +1,5 @@
-import { adminError, adminOk, type AdminResult } from "./errors";
-import { writeAdminAuditEvent, type WriteAdminAuditEventInput } from "./audit";
+import { coerceAuditEventRow, mapAdminAuditEvent } from "./audit";
+import { adminError, adminOk, getStableAdminSupabaseErrorCode, type AdminResult } from "./errors";
 import { isRecord } from "@/lib/type-guards";
 import type {
   AdminBlockReasonCode,
@@ -18,9 +18,6 @@ import type {
   AdminUserStatusFilter,
   SafeAdminUserProfile,
 } from "./types";
-
-const ADMIN_USER_PROFILE_SELECT =
-  "user_id,email,account_created_at,last_sign_in_at,last_activity_at,blocked_at,blocked_by,block_reason_code,premium_granted_at,premium_granted_by,created_at,updated_at";
 
 const STATUS_FILTERS = ["all", "active", "blocked"] as const;
 const PLAN_FILTERS = ["all", "free", "premium"] as const;
@@ -71,15 +68,13 @@ interface AdminUserProfileRow {
 }
 
 interface AdminUserMutationRepository {
-  updateBlockState: typeof updateAdminUserProfileBlockState;
-  updatePlanState: typeof updateAdminUserProfilePlanState;
-  writeAuditEvent: typeof writeAdminAuditEvent;
+  mutateBlockState: typeof mutateAdminUserBlockState;
+  mutatePlanState: typeof mutateAdminUserPlanState;
 }
 
 const defaultAdminUserMutationRepository: AdminUserMutationRepository = {
-  updateBlockState: updateAdminUserProfileBlockState,
-  updatePlanState: updateAdminUserProfilePlanState,
-  writeAuditEvent: writeAdminAuditEvent,
+  mutateBlockState: mutateAdminUserBlockState,
+  mutatePlanState: mutateAdminUserPlanState,
 };
 
 function readRpcResult(value: unknown): RpcResult | null {
@@ -324,109 +319,74 @@ const EMPTY_COUNTERS: AdminUserListItem["counters"] = {
   approvedSummaries: 0,
 };
 
-async function updateAdminUserProfile(
-  context: AdminContext,
-  targetUserId: AdminUserId,
-  patch: Record<string, string | null>,
-): Promise<AdminResult<AdminUserListItem>> {
-  const { data, error } = await context.supabase
-    .from("admin_user_profiles")
-    .update(patch)
-    .eq("user_id", targetUserId)
-    .select(ADMIN_USER_PROFILE_SELECT)
-    .maybeSingle();
-
-  if (error) {
-    return adminError("write_failed");
+function mapAtomicAdminUserMutation(value: unknown): AdminUserBlockResult | null {
+  if (!isRecord(value)) {
+    return null;
   }
 
-  const row = coerceProfileRow(data);
+  const profile = coerceProfileRow(value.profile);
+  const auditEvent = coerceAuditEventRow(value.auditEvent);
 
-  if (!row) {
-    return adminError("target_not_found");
+  if (!profile || !auditEvent) {
+    return null;
   }
 
-  return adminOk(toListItem(mapProfile(row), EMPTY_COUNTERS));
+  return {
+    user: toListItem(mapProfile(profile), EMPTY_COUNTERS),
+    auditEvent: mapAdminAuditEvent(auditEvent),
+  };
 }
 
-async function updateAdminUserProfileBlockState(
+function adminMutationFailure(error: unknown) {
+  return adminError(getStableAdminSupabaseErrorCode(error) === "P0002" ? "target_not_found" : "write_failed");
+}
+
+async function mutateAdminUserBlockState(
   context: AdminContext,
   input: AdminUserBlockInput,
-): Promise<AdminResult<AdminUserListItem>> {
-  const patch =
-    input.action === "block"
-      ? {
-          blocked_at: new Date().toISOString(),
-          blocked_by: context.user.id,
-          block_reason_code: input.reasonCode,
-        }
-      : {
-          blocked_at: null,
-          blocked_by: null,
-          block_reason_code: null,
-        };
+): Promise<AdminResult<AdminUserBlockResult>> {
+  const result = readRpcResult(
+    await context.supabase.rpc("set_private_admin_user_block_state", {
+      input_target_user_id: input.targetUserId,
+      input_action: input.action,
+      input_reason_code: input.reasonCode,
+    }),
+  );
 
-  return updateAdminUserProfile(context, input.targetUserId, patch);
+  if (!result || result.error) {
+    return adminMutationFailure(result?.error);
+  }
+
+  const mutation = mapAtomicAdminUserMutation(result.data);
+  return mutation ? adminOk(mutation) : adminError("write_failed");
 }
 
-async function updateAdminUserProfilePlanState(
+async function mutateAdminUserPlanState(
   context: AdminContext,
   input: AdminUserPlanInput,
-): Promise<AdminResult<AdminUserListItem>> {
-  const patch =
-    input.action === "grant"
-      ? {
-          premium_granted_at: new Date().toISOString(),
-          premium_granted_by: context.user.id,
-        }
-      : {
-          premium_granted_at: null,
-          premium_granted_by: null,
-        };
+): Promise<AdminResult<AdminUserPlanResult>> {
+  const result = readRpcResult(
+    await context.supabase.rpc("set_private_admin_user_plan_state", {
+      input_target_user_id: input.targetUserId,
+      input_action: input.action,
+      input_reason_code: input.reasonCode,
+    }),
+  );
 
-  return updateAdminUserProfile(context, input.targetUserId, patch);
-}
+  if (!result || result.error) {
+    return adminMutationFailure(result?.error);
+  }
 
-function getBlockAuditInput(input: AdminUserBlockInput): WriteAdminAuditEventInput {
-  return {
-    targetUserId: input.targetUserId,
-    action: input.action === "block" ? "account_blocked" : "account_unblocked",
-    reasonCode: input.reasonCode,
-  };
-}
-
-function getPlanAuditInput(input: AdminUserPlanInput): WriteAdminAuditEventInput {
-  return {
-    targetUserId: input.targetUserId,
-    action: input.action === "grant" ? "premium_granted" : "premium_revoked",
-    reasonCode: input.reasonCode,
-  };
+  const mutation = mapAtomicAdminUserMutation(result.data);
+  return mutation ? adminOk(mutation) : adminError("write_failed");
 }
 
 export async function setAdminUserBlockState(
   context: AdminContext,
   input: AdminUserBlockInput,
-  repository: Pick<
-    AdminUserMutationRepository,
-    "updateBlockState" | "writeAuditEvent"
-  > = defaultAdminUserMutationRepository,
+  repository: Pick<AdminUserMutationRepository, "mutateBlockState"> = defaultAdminUserMutationRepository,
 ): Promise<AdminResult<AdminUserBlockResult>> {
-  const user = await repository.updateBlockState(context, input);
-
-  if (!user.ok) {
-    return user;
-  }
-
-  const auditEvent = await repository.writeAuditEvent(context, getBlockAuditInput(input));
-
-  if (!auditEvent.ok) {
-    return auditEvent;
-  }
-
-  return adminOk({
-    user: user.data,
-    auditEvent: auditEvent.data,
-  });
+  return repository.mutateBlockState(context, input);
 }
 
 /**
@@ -437,25 +397,7 @@ export async function setAdminUserBlockState(
 export async function setAdminUserPlanState(
   context: AdminContext,
   input: AdminUserPlanInput,
-  repository: Pick<
-    AdminUserMutationRepository,
-    "updatePlanState" | "writeAuditEvent"
-  > = defaultAdminUserMutationRepository,
+  repository: Pick<AdminUserMutationRepository, "mutatePlanState"> = defaultAdminUserMutationRepository,
 ): Promise<AdminResult<AdminUserPlanResult>> {
-  const user = await repository.updatePlanState(context, input);
-
-  if (!user.ok) {
-    return user;
-  }
-
-  const auditEvent = await repository.writeAuditEvent(context, getPlanAuditInput(input));
-
-  if (!auditEvent.ok) {
-    return auditEvent;
-  }
-
-  return adminOk({
-    user: user.data,
-    auditEvent: auditEvent.data,
-  });
+  return repository.mutatePlanState(context, input);
 }

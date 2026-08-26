@@ -68,6 +68,16 @@ describe("checkSessionRateLimit", () => {
     await expect(checkSessionRateLimit(undefined, "user:user-1")).resolves.toBe("allowed");
   });
 
+  it("fails closed when the production caller requires an abuse boundary", async () => {
+    await expect(checkSessionRateLimit(undefined, "user:user-1", { failClosed: true })).resolves.toBe("unavailable");
+
+    const limiter: RateLimiterBinding = {
+      limit: vi.fn(() => Promise.reject(new Error("binding unavailable"))),
+    };
+
+    await expect(checkSessionRateLimit(limiter, "user:user-1", { failClosed: true })).resolves.toBe("unavailable");
+  });
+
   it("fails open when the limiter throws", async () => {
     const limiter: RateLimiterBinding = {
       limit: vi.fn(() => Promise.reject(new Error("binding unavailable"))),

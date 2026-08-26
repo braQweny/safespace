@@ -19,6 +19,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm run audit:prod
       - run: npm run test
       - run: npx astro sync
       - run: npm run lint
@@ -119,7 +120,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.95.0"
+          wranglerVersion: "4.126.0"
           command: deploy --secrets-file .env.production
       - name: Remove production secrets file
         if: always()

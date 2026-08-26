@@ -11,23 +11,24 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.8",
-    "@astrojs/cloudflare": "^13.5.0",
-    "@astrojs/react": "^5.0.4",
-    "@astrojs/sitemap": "^3.7.2",
+    "@astrojs/cloudflare": "14.2.5",
+    "@astrojs/react": "6.0.4",
+    "@astrojs/sitemap": "3.7.3",
     "@eslint/config-helpers": "^0.6.0",
     "@openrouter/sdk": "0.12.79",
     "@radix-ui/react-slot": "^1.1.2",
-    "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "^2.99.1",
+    "@supabase/ssr": "0.12.5",
+    "@supabase/supabase-js": "2.112.4",
     "@tailwindcss/vite": "^4.2.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "astro": "^6.3.1",
+    "astro": "7.2.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
@@ -57,10 +58,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.2",
     "vitest": "^4.1.8",
-    "wrangler": "^4.95.0"
-  },
-  "overrides": {
-    "vite": "^7.3.2"
+    "wrangler": "4.126.0"
   },
   "lint-staged": {
     "*.{ts,tsx,astro}": [

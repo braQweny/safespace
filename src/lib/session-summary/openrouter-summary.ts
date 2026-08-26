@@ -11,6 +11,10 @@ import {
 } from "@/lib/session-ai/openrouter-request-params";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
+import {
+  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  type OpenRouterPrivateProviderPreferences,
+} from "@/lib/openrouter/privacy";
 import { SessionSummaryError } from "./errors";
 import { buildSessionSummaryMessages } from "./summary-prompt";
 import type {
@@ -46,9 +50,7 @@ type OpenRouterSummaryRequestBody = OpenRouterNonStreamingChatRequest & {
     effort: "minimal" | "medium";
   };
   stream: false;
-  provider: {
-    requireParameters: true;
-  };
+  provider: OpenRouterPrivateProviderPreferences;
 };
 
 export { resolveSummaryModel } from "./env";
@@ -97,9 +99,7 @@ export function buildOpenRouterSummaryRequest(
     ...buildOpenRouterReasoningParameter(model),
     ...buildOpenRouterTokenLimitParameter(model, resolveSummaryMaxCompletionTokens(model)),
     stream: false,
-    provider: {
-      requireParameters: true,
-    },
+    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
   };
 }
 

@@ -349,6 +349,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               <SessionStarterPrompts isDisabled={!composerAvailable || isMessagePending} onSelect={setDraft} />
             ) : null}
             <SessionComposer
+              sessionId={session.id}
               value={draft}
               isDisabled={!composerAvailable}
               isPending={isMessagePending}

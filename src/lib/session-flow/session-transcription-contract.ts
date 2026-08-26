@@ -1,4 +1,6 @@
 import type { SessionTranscriptionFormat, TranscribeSessionAudioInput } from "@/lib/session-transcription/types";
+import type { SessionId } from "@/lib/session-data/types";
+import { parseSessionIdParam } from "./session-id";
 
 export const SESSION_TRANSCRIPTION_FORMAT = "webm" satisfies SessionTranscriptionFormat;
 export const SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES = 5 * 1024 * 1024;
@@ -9,6 +11,9 @@ export type SessionTranscriptionFailureCode =
   | "account_blocked"
   | "account_access_unavailable"
   | "session_data_unavailable"
+  | "session_not_found"
+  | "session_not_active"
+  | "session_expired"
   | "invalid_audio"
   | "audio_too_large"
   | "unsupported_format"
@@ -16,7 +21,9 @@ export type SessionTranscriptionFailureCode =
   | "provider_unavailable"
   | "invalid_provider_response";
 
-export type SessionTranscriptionRequest = TranscribeSessionAudioInput;
+export type SessionTranscriptionRequest = TranscribeSessionAudioInput & {
+  sessionId: SessionId;
+};
 
 export interface SessionTranscriptionSuccessResponse {
   ok: true;
@@ -34,7 +41,11 @@ export type SessionTranscriptionResponse = SessionTranscriptionSuccessResponse |
 
 export type SessionTranscriptionValidationResult =
   | { ok: true; data: SessionTranscriptionRequest }
-  | { ok: false; code: "invalid_audio" | "audio_too_large" | "unsupported_format"; status: 400 | 413 };
+  | {
+      ok: false;
+      code: "session_not_found" | "invalid_audio" | "audio_too_large" | "unsupported_format";
+      status: 400 | 404 | 413;
+    };
 
 export async function parseSessionTranscriptionRequest(
   request: Request,
@@ -49,6 +60,12 @@ export async function parseSessionTranscriptionRequest(
 
   if (!isRecord(body)) {
     return validationFailure("invalid_audio", 400);
+  }
+
+  const sessionId = parseSessionIdParam(typeof body.sessionId === "string" ? body.sessionId : undefined);
+
+  if (!sessionId) {
+    return validationFailure("session_not_found", 404);
   }
 
   if (body.format !== SESSION_TRANSCRIPTION_FORMAT) {
@@ -73,6 +90,7 @@ export async function parseSessionTranscriptionRequest(
   return {
     ok: true,
     data: {
+      sessionId,
       audioBase64,
       format: SESSION_TRANSCRIPTION_FORMAT,
     },
@@ -144,8 +162,8 @@ function isBase64Alphabet(value: string) {
 }
 
 function validationFailure(
-  code: "invalid_audio" | "audio_too_large" | "unsupported_format",
-  status: 400 | 413,
+  code: "session_not_found" | "invalid_audio" | "audio_too_large" | "unsupported_format",
+  status: 400 | 404 | 413,
 ): SessionTranscriptionValidationResult {
   return {
     ok: false,

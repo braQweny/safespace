@@ -3,10 +3,10 @@
  * Cloudflare Workers rate limiting binding (`SESSION_RATE_LIMITER` in
  * wrangler.jsonc).
  *
- * Fail-open by design: the binding exists only in the Workers runtime, so
- * local dev (`npm run dev`) and tests run without limiting instead of
- * breaking. The limiter protects provider cost and abuse, not correctness —
- * quota-grade guarantees stay in the database (trial claim constraint).
+ * Local development may opt into fail-open because the binding exists only in
+ * the Workers runtime. Production callers use fail-closed so a missing or
+ * failing binding cannot turn provider-backed endpoints into an unbounded
+ * abuse/cost path.
  */
 
 export interface RateLimiterBinding {
@@ -24,7 +24,11 @@ const RATE_LIMITED_API_PATHS = new Set([
 // `[sessionId]` segment, so it is matched by prefix instead of exact path.
 const RATE_LIMITED_API_PATH_PREFIXES = ["/api/session/summary/"];
 
-export type RateLimitVerdict = "allowed" | "limited";
+export type RateLimitVerdict = "allowed" | "limited" | "unavailable";
+
+interface RateLimitOptions {
+  failClosed?: boolean;
+}
 
 export function isRateLimitedApiRequest(method: string, pathname: string) {
   if (method !== "POST") {
@@ -48,16 +52,16 @@ export function getRateLimitKey(userId: string | null, request: Request) {
 export async function checkSessionRateLimit(
   limiter: RateLimiterBinding | undefined,
   key: string,
+  options: RateLimitOptions = {},
 ): Promise<RateLimitVerdict> {
   if (!limiter) {
-    return "allowed";
+    return options.failClosed ? "unavailable" : "allowed";
   }
 
   try {
     const { success } = await limiter.limit({ key });
     return success ? "allowed" : "limited";
   } catch {
-    // A failing limiter must not take the product down with it.
-    return "allowed";
+    return options.failClosed ? "unavailable" : "allowed";
   }
 }

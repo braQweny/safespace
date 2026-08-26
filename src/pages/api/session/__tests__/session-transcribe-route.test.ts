@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionDataContext } from "@/lib/session-data/types";
+import type { SessionMetadata } from "@/lib/session-data/types";
+import { ok, sessionDataError } from "@/lib/session-data/errors";
 import { SessionTranscriptionError } from "@/lib/session-transcription/errors";
 
 const requireSessionRouteAccess = vi.fn();
 const transcribeSessionAudio = vi.fn();
+const getOwnedSessionMetadata = vi.fn();
+const expireOwnedSession = vi.fn();
 
 vi.mock("@/lib/session-flow/route-access", () => ({
   requireSessionRouteAccess,
@@ -11,6 +15,16 @@ vi.mock("@/lib/session-flow/route-access", () => ({
 
 vi.mock("@/lib/session-transcription/provider", () => ({
   transcribeSessionAudio,
+}));
+
+vi.mock("@/lib/session-data/repository", () => ({
+  getOwnedSessionMetadata,
+}));
+
+vi.mock("@/lib/session-flow/time-limit", () => ({
+  expireOwnedSession,
+  isSessionExpired: (session: SessionMetadata) =>
+    typeof session.expiresAt === "string" && Date.parse(session.expiresAt) <= Date.now(),
 }));
 
 const { POST } = await import("@/pages/api/session/transcribe");
@@ -21,7 +35,28 @@ const contextData = {
   },
 } as SessionDataContext;
 
-function createContext(body: unknown = { audioBase64: "UklGRg==", format: "webm" }) {
+const SESSION_ID = "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a";
+
+const activeSession = {
+  id: SESSION_ID,
+  userId: "user-1",
+  modalityId: "cbt",
+  avatarId: "cbt-guide",
+  status: "active",
+  startedAt: "2099-06-07T10:00:00.000Z",
+  endedAt: null,
+  expiresAt: "2099-06-07T10:15:00.000Z",
+  deletedAt: null,
+  deletionReasonCode: null,
+  isTrial: false,
+  trialClaimId: null,
+  durationBucketSeconds: 900,
+  usesApprovedContext: false,
+  createdAt: "2099-06-07T10:00:00.000Z",
+  updatedAt: "2099-06-07T10:00:00.000Z",
+} satisfies SessionMetadata;
+
+function createContext(body: unknown = { sessionId: SESSION_ID, audioBase64: "UklGRg==", format: "webm" }) {
   return {
     request: new Request("https://safespace.local/api/session/transcribe", {
       method: "POST",
@@ -52,6 +87,8 @@ describe("POST /api/session/transcribe", () => {
       ok: true,
       data: contextData,
     });
+    getOwnedSessionMetadata.mockResolvedValue(ok(activeSession));
+    expireOwnedSession.mockResolvedValue(ok({ session: activeSession }));
     transcribeSessionAudio.mockResolvedValue({
       text: "Podyktowana treść wiadomości.",
       providerMetadata: {
@@ -83,7 +120,9 @@ describe("POST /api/session/transcribe", () => {
   });
 
   it("validates v1 WebM audio before provider calls", async () => {
-    const response = await POST(createContext({ audioBase64: "UklGRg==", format: "mp3" }) as never);
+    const response = await POST(
+      createContext({ sessionId: SESSION_ID, audioBase64: "UklGRg==", format: "mp3" }) as never,
+    );
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
@@ -91,6 +130,35 @@ describe("POST /api/session/transcribe", () => {
       type: "session_transcription_error",
       code: "unsupported_format",
     });
+    expect(transcribeSessionAudio).not.toHaveBeenCalled();
+  });
+
+  it("requires an owned active session before sending audio to the provider", async () => {
+    getOwnedSessionMetadata.mockResolvedValueOnce(sessionDataError("session_not_found"));
+
+    const missing = await POST(createContext() as never);
+
+    expect(missing.status).toBe(404);
+    await expect(readJson(missing)).resolves.toMatchObject({ code: "session_not_found" });
+    expect(transcribeSessionAudio).not.toHaveBeenCalled();
+
+    getOwnedSessionMetadata.mockResolvedValueOnce(ok({ ...activeSession, status: "completed" }));
+
+    const completed = await POST(createContext() as never);
+
+    expect(completed.status).toBe(409);
+    await expect(readJson(completed)).resolves.toMatchObject({ code: "session_not_active" });
+    expect(transcribeSessionAudio).not.toHaveBeenCalled();
+  });
+
+  it("expires an elapsed session before rejecting transcription", async () => {
+    getOwnedSessionMetadata.mockResolvedValueOnce(ok({ ...activeSession, expiresAt: "2020-06-07T10:15:00.000Z" }));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(409);
+    await expect(readJson(response)).resolves.toMatchObject({ code: "session_expired" });
+    expect(expireOwnedSession).toHaveBeenCalledOnce();
     expect(transcribeSessionAudio).not.toHaveBeenCalled();
   });
 

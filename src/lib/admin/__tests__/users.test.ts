@@ -76,6 +76,35 @@ const auditEvent: AdminAuditEvent = {
   createdAt: "2026-06-07T10:00:00.000Z",
 };
 
+function createAtomicRpcData(status: "active" | "blocked", plan: "free" | "premium", event = auditEvent) {
+  const { profile } = createListItem(status, plan);
+
+  return {
+    profile: {
+      user_id: profile.userId,
+      email: profile.email,
+      account_created_at: profile.accountCreatedAt,
+      last_sign_in_at: profile.lastSignInAt,
+      last_activity_at: profile.lastActivityAt,
+      blocked_at: profile.blockedAt,
+      blocked_by: profile.blockedBy,
+      block_reason_code: profile.blockReasonCode,
+      premium_granted_at: profile.premiumGrantedAt,
+      premium_granted_by: profile.premiumGrantedBy,
+      created_at: profile.createdAt,
+      updated_at: profile.updatedAt,
+    },
+    auditEvent: {
+      id: event.id,
+      admin_user_id: event.adminUserId,
+      target_user_id: event.targetUserId,
+      action: event.action,
+      reason_code: event.reasonCode,
+      created_at: event.createdAt,
+    },
+  };
+}
+
 describe("admin user filters", () => {
   it("normalizes user list filters", () => {
     const params = new URLSearchParams({
@@ -261,9 +290,51 @@ describe("admin block actions", () => {
     });
   });
 
-  it("blocks users and writes audit intent without deleting private data", async () => {
-    const updateBlockState = vi.fn().mockResolvedValue(adminOk(createListItem("blocked")));
-    const writeAuditEvent = vi.fn().mockResolvedValue(adminOk(auditEvent));
+  it("calls the transactional database RPC and maps its safe response", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: createAtomicRpcData("blocked", "free"),
+      error: null,
+    });
+
+    const result = await setAdminUserBlockState(createAdminContext(rpc), {
+      targetUserId: "user-1",
+      action: "block",
+      reasonCode: "policy_violation",
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        user: { accountStatus: "blocked" },
+        auditEvent: { action: "account_blocked" },
+      },
+    });
+    expect(rpc).toHaveBeenCalledWith("set_private_admin_user_block_state", {
+      input_target_user_id: "user-1",
+      input_action: "block",
+      input_reason_code: "policy_violation",
+    });
+  });
+
+  it("maps a transactional target miss to the stable public code", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: "P0002", message: "raw" } });
+
+    await expect(
+      setAdminUserBlockState(createAdminContext(rpc), {
+        targetUserId: "missing",
+        action: "unblock",
+        reasonCode: "owner_request",
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "target_not_found" } });
+  });
+
+  it("uses one atomic block-and-audit mutation without deleting private data", async () => {
+    const mutateBlockState = vi.fn().mockResolvedValue(
+      adminOk({
+        user: createListItem("blocked"),
+        auditEvent,
+      }),
+    );
 
     const result = await setAdminUserBlockState(
       createAdminContext(),
@@ -273,8 +344,7 @@ describe("admin block actions", () => {
         reasonCode: "policy_violation",
       },
       {
-        updateBlockState,
-        writeAuditEvent,
+        mutateBlockState,
       },
     );
 
@@ -286,16 +356,16 @@ describe("admin block actions", () => {
         },
       },
     });
-    expect(writeAuditEvent).toHaveBeenCalledWith(expect.any(Object), {
+    expect(mutateBlockState).toHaveBeenCalledWith(expect.any(Object), {
       targetUserId: "user-1",
-      action: "account_blocked",
+      action: "block",
       reasonCode: "policy_violation",
     });
-    expect(JSON.stringify(updateBlockState.mock.calls)).not.toContain("session_messages");
-    expect(JSON.stringify(updateBlockState.mock.calls)).not.toContain("delete");
+    expect(JSON.stringify(mutateBlockState.mock.calls)).not.toContain("session_messages");
+    expect(JSON.stringify(mutateBlockState.mock.calls)).not.toContain("delete");
   });
 
-  it("returns target_not_found and write_failed without raw errors", async () => {
+  it("returns target_not_found and write_failed from the atomic mutation without raw errors", async () => {
     const targetMissing = await setAdminUserBlockState(
       createAdminContext(),
       {
@@ -304,8 +374,7 @@ describe("admin block actions", () => {
         reasonCode: "owner_request",
       },
       {
-        updateBlockState: vi.fn().mockResolvedValue(adminError("target_not_found")),
-        writeAuditEvent: vi.fn(),
+        mutateBlockState: vi.fn().mockResolvedValue(adminError("target_not_found")),
       },
     );
 
@@ -316,7 +385,7 @@ describe("admin block actions", () => {
       },
     });
 
-    const auditFailed = await setAdminUserBlockState(
+    const mutationFailed = await setAdminUserBlockState(
       createAdminContext(),
       {
         targetUserId: "user-1",
@@ -324,12 +393,11 @@ describe("admin block actions", () => {
         reasonCode: "owner_request",
       },
       {
-        updateBlockState: vi.fn().mockResolvedValue(adminOk(createListItem("active"))),
-        writeAuditEvent: vi.fn().mockResolvedValue(adminError("write_failed")),
+        mutateBlockState: vi.fn().mockResolvedValue(adminError("write_failed")),
       },
     );
 
-    expect(auditFailed).toEqual({
+    expect(mutationFailed).toEqual({
       ok: false,
       error: {
         code: "write_failed",
@@ -376,12 +444,14 @@ describe("admin plan actions", () => {
   });
 
   it("grants premium and writes a premium_granted audit event", async () => {
-    const updatePlanState = vi.fn().mockResolvedValue(adminOk(createListItem("active", "premium")));
-    const writeAuditEvent = vi.fn().mockResolvedValue(
+    const mutatePlanState = vi.fn().mockResolvedValue(
       adminOk({
-        ...auditEvent,
-        action: "premium_granted",
-        reasonCode: "subscription_paid",
+        user: createListItem("active", "premium"),
+        auditEvent: {
+          ...auditEvent,
+          action: "premium_granted",
+          reasonCode: "subscription_paid",
+        },
       }),
     );
 
@@ -393,8 +463,7 @@ describe("admin plan actions", () => {
         reasonCode: "subscription_paid",
       },
       {
-        updatePlanState,
-        writeAuditEvent,
+        mutatePlanState,
       },
     );
 
@@ -409,20 +478,23 @@ describe("admin plan actions", () => {
         },
       },
     });
-    expect(writeAuditEvent).toHaveBeenCalledWith(expect.any(Object), {
+    expect(mutatePlanState).toHaveBeenCalledWith(expect.any(Object), {
       targetUserId: "user-1",
-      action: "premium_granted",
+      action: "grant",
       reasonCode: "subscription_paid",
     });
-    expect(JSON.stringify(updatePlanState.mock.calls)).not.toContain("session_messages");
+    expect(JSON.stringify(mutatePlanState.mock.calls)).not.toContain("session_messages");
   });
 
   it("revokes premium with a premium_revoked audit event and maps failures to stable codes", async () => {
-    const writeAuditEvent = vi.fn().mockResolvedValue(
+    const mutatePlanState = vi.fn().mockResolvedValue(
       adminOk({
-        ...auditEvent,
-        action: "premium_revoked",
-        reasonCode: "subscription_ended",
+        user: createListItem("active", "free"),
+        auditEvent: {
+          ...auditEvent,
+          action: "premium_revoked",
+          reasonCode: "subscription_ended",
+        },
       }),
     );
 
@@ -434,8 +506,7 @@ describe("admin plan actions", () => {
         reasonCode: "subscription_ended",
       },
       {
-        updatePlanState: vi.fn().mockResolvedValue(adminOk(createListItem("active", "free"))),
-        writeAuditEvent,
+        mutatePlanState,
       },
     );
 
@@ -447,9 +518,9 @@ describe("admin plan actions", () => {
         },
       },
     });
-    expect(writeAuditEvent).toHaveBeenCalledWith(expect.any(Object), {
+    expect(mutatePlanState).toHaveBeenCalledWith(expect.any(Object), {
       targetUserId: "user-1",
-      action: "premium_revoked",
+      action: "revoke",
       reasonCode: "subscription_ended",
     });
 
@@ -461,8 +532,7 @@ describe("admin plan actions", () => {
         reasonCode: "subscription_paid",
       },
       {
-        updatePlanState: vi.fn().mockResolvedValue(adminError("target_not_found")),
-        writeAuditEvent: vi.fn(),
+        mutatePlanState: vi.fn().mockResolvedValue(adminError("target_not_found")),
       },
     );
 

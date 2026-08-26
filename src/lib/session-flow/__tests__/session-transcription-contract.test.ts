@@ -18,10 +18,13 @@ function createRequest(body: unknown) {
 }
 
 describe("session transcription contract", () => {
+  const sessionId = "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a";
+
   it("accepts only raw webm base64 audio", async () => {
     await expect(
       parseSessionTranscriptionRequest(
         createRequest({
+          sessionId,
           audioBase64: "UklGRg==",
           format: "webm",
         }),
@@ -29,6 +32,7 @@ describe("session transcription contract", () => {
     ).resolves.toEqual({
       ok: true,
       data: {
+        sessionId,
         audioBase64: "UklGRg==",
         format: "webm",
       },
@@ -37,6 +41,7 @@ describe("session transcription contract", () => {
     await expect(
       parseSessionTranscriptionRequest(
         createRequest({
+          sessionId,
           audioBase64: "UklGRg==",
           format: "mp3",
         }),
@@ -50,6 +55,7 @@ describe("session transcription contract", () => {
     await expect(
       parseSessionTranscriptionRequest(
         createRequest({
+          sessionId,
           audioBase64: "data:audio/webm;base64,UklGRg==",
           format: "webm",
         }),
@@ -67,6 +73,7 @@ describe("session transcription contract", () => {
     await expect(
       parseSessionTranscriptionRequest(
         createRequest({
+          sessionId,
           audioBase64: oversizedAudio,
           format: "webm",
         }),
@@ -75,6 +82,16 @@ describe("session transcription contract", () => {
       ok: false,
       code: "audio_too_large",
       status: 413,
+    });
+  });
+
+  it("rejects a missing or malformed session id before accepting audio", async () => {
+    await expect(
+      parseSessionTranscriptionRequest(createRequest({ audioBase64: "UklGRg==", format: "webm" })),
+    ).resolves.toEqual({
+      ok: false,
+      code: "session_not_found",
+      status: 404,
     });
   });
 

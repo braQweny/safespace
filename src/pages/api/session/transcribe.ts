@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { SessionTranscriptionError } from "@/lib/session-transcription/errors";
 import { transcribeSessionAudio } from "@/lib/session-transcription/provider";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
+import { getOwnedSessionMetadata } from "@/lib/session-data/repository";
+import { expireOwnedSession, isSessionExpired } from "@/lib/session-flow/time-limit";
 import {
   parseSessionTranscriptionRequest,
   sessionTranscriptionFailure,
@@ -27,6 +29,14 @@ function getFailureStatus(code: SessionTranscriptionFailureCode) {
 
   if (code === "audio_too_large") {
     return 413;
+  }
+
+  if (code === "session_not_found") {
+    return 404;
+  }
+
+  if (code === "session_not_active" || code === "session_expired") {
+    return 409;
   }
 
   if (code === "invalid_audio" || code === "unsupported_format") {
@@ -70,8 +80,30 @@ export const POST: APIRoute = async (context) => {
     return jsonResponse(sessionTranscriptionFailure(transcriptionRequest.code), transcriptionRequest.status);
   }
 
+  const sessionResult = await getOwnedSessionMetadata(sessionContext.data, transcriptionRequest.data.sessionId);
+
+  if (!sessionResult.ok) {
+    const code = sessionResult.error.code === "session_not_found" ? "session_not_found" : "session_data_unavailable";
+    return jsonResponse(sessionTranscriptionFailure(code), getFailureStatus(code));
+  }
+
+  const session = sessionResult.data;
+
+  if (session.status !== "active") {
+    const code = session.status === "expired" ? "session_expired" : "session_not_active";
+    return jsonResponse(sessionTranscriptionFailure(code), getFailureStatus(code));
+  }
+
+  if (isSessionExpired(session)) {
+    await expireOwnedSession(sessionContext.data, session);
+    return jsonResponse(sessionTranscriptionFailure("session_expired"), 409);
+  }
+
   try {
-    const transcription = await transcribeSessionAudio(transcriptionRequest.data);
+    const transcription = await transcribeSessionAudio({
+      audioBase64: transcriptionRequest.data.audioBase64,
+      format: transcriptionRequest.data.format,
+    });
 
     return jsonResponse(sessionTranscriptionSuccess(transcription.text), 200);
   } catch (error) {

@@ -44,6 +44,7 @@ describe("SessionComposer dictation controls", () => {
   it("renders a microphone action next to the send action", () => {
     const html = renderToStaticMarkup(
       <SessionComposer
+        sessionId="5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a"
         value=""
         isDisabled={false}
         isPending={false}
@@ -59,6 +60,7 @@ describe("SessionComposer dictation controls", () => {
   it("disables dictation when the composer is disabled or message is pending", () => {
     const disabledHtml = renderToStaticMarkup(
       <SessionComposer
+        sessionId="5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a"
         value=""
         isDisabled={true}
         isPending={false}
@@ -68,6 +70,7 @@ describe("SessionComposer dictation controls", () => {
     );
     const pendingHtml = renderToStaticMarkup(
       <SessionComposer
+        sessionId="5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a"
         value=""
         isDisabled={false}
         isPending={true}

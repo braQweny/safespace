@@ -125,6 +125,8 @@ describe("buildOpenRouterSummaryRequest", () => {
     expect(request.maxTokens).toBeLessThanOrEqual(320);
     expect(request).not.toHaveProperty("maxCompletionTokens");
     expect(request.provider.requireParameters).toBe(true);
+    expect(request.provider.dataCollection).toBe("deny");
+    expect(request.provider.zdr).toBe(true);
     expect(request.messages[0].role).toBe("system");
     expect(request.messages.at(-1)?.content).toContain("Czuje napiecie");
   });
@@ -253,7 +255,9 @@ describe("generateSessionSummaryWithOpenRouter", () => {
       model: "openai/gpt-4o-mini",
       stream: false,
       provider: {
+        data_collection: "deny",
         require_parameters: true,
+        zdr: true,
       },
     });
     expect(body).toHaveProperty("max_tokens");

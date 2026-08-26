@@ -2,6 +2,10 @@ import type { Fetcher } from "@openrouter/sdk";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterEnv, resolveOpenRouterModel } from "@/lib/openrouter/env";
+import {
+  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  type OpenRouterPrivateProviderPreferences,
+} from "@/lib/openrouter/privacy";
 
 import { buildSessionSafetyClassifierUserContent, SESSION_SAFETY_CLASSIFIER_SYSTEM_PROMPT } from "./classifier-prompt";
 import { parseProviderSafetyDecision } from "./parse-provider-decision";
@@ -79,9 +83,7 @@ type OpenRouterSafetyRequestBody = OpenRouterNonStreamingChatRequest & {
     effort: "minimal";
   };
   stream: false;
-  provider: {
-    requireParameters: true;
-  };
+  provider: OpenRouterPrivateProviderPreferences;
   responseFormat: {
     type: "json_schema";
     jsonSchema: typeof OPENROUTER_SAFETY_RESPONSE_SCHEMA;
@@ -142,9 +144,7 @@ export function buildOpenRouterSafetyRequest(
     ...buildSafetyReasoningParameter(model),
     maxCompletionTokens: resolveSafetyMaxCompletionTokens(model),
     stream: false,
-    provider: {
-      requireParameters: true,
-    },
+    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
     responseFormat: {
       type: "json_schema",
       jsonSchema: OPENROUTER_SAFETY_RESPONSE_SCHEMA,

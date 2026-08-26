@@ -23,8 +23,25 @@ export default defineConfig({
   // covered by the browser CORS preflight model.
   security: {
     checkOrigin: true,
+    // Astro hashes the bundled island scripts and styles, so the production
+    // pages get XSS protection without allowing arbitrary inline scripts.
+    csp: {
+      directives: [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "img-src 'self' data:",
+      ],
+    },
   },
   integrations: [react(), ...(siteUrl ? [sitemap()] : [])],
+  // SafeSpace does not render code examples. Disabling Shiki prevents its
+  // inline styles from weakening the CSP if Markdown content is added later.
+  markdown: {
+    syntaxHighlight: false,
+  },
   vite: {
     plugins: [tailwindcss()],
   },

@@ -1,5 +1,9 @@
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
+import {
+  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  type OpenRouterPrivateProviderPreferences,
+} from "@/lib/openrouter/privacy";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterSessionConfig, resolveSessionModel } from "./env";
@@ -50,9 +54,7 @@ type OpenRouterSessionRequestBody = OpenRouterNonStreamingChatRequest & {
     effort: "minimal" | "medium";
   };
   stream: false;
-  provider: {
-    requireParameters: true;
-  };
+  provider: OpenRouterPrivateProviderPreferences;
 };
 
 export async function generateSessionResponseWithOpenRouter(
@@ -99,9 +101,7 @@ export function buildOpenRouterSessionRequest(
     ...buildOpenRouterReasoningParameter(model),
     ...buildOpenRouterTokenLimitParameter(model, resolveSessionMaxCompletionTokens(model)),
     stream: false,
-    provider: {
-      requireParameters: true,
-    },
+    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
   };
 }
 
