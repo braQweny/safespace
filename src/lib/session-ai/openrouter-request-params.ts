@@ -1,3 +1,5 @@
+import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
+
 const OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|o\d(?:[.-]|$))/i;
 const OPENAI_GPT_5_5_MODEL_PATTERN = /^openai\/gpt-5\.5(?:$|[-:])/i;
 const OPENAI_GPT_5_6_LUNA_PRO_MODEL_PATTERN = /^openai\/gpt-5\.6-luna-pro(?:$|[-:])/i;
@@ -5,8 +7,6 @@ const GEMINI_3_1_FLASH_LITE_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$
 const GEMINI_3_5_FLASH_MODEL_PATTERN = /^google\/gemini-3\.5-flash(?:$|[-:])/i;
 const GEMINI_3_7_FLASH_MODEL_PATTERN = /^google\/gemini-3\.7-flash(?:$|[-:])/i;
 const STEALTH_OX_ALPHA_MODEL_PATTERN = /^stealth\/ox-alpha(?:$|[-:])/i;
-
-type OpenRouterReasoningEffort = "minimal" | "medium";
 
 export function buildOpenRouterTokenLimitParameter(model: string, maxTokens: number) {
   if (usesMaxCompletionTokens(model)) {
@@ -24,8 +24,13 @@ export function supportsOpenRouterTemperature(model: string) {
   return !usesMaxCompletionTokens(model);
 }
 
-export function buildOpenRouterReasoningParameter(model: string) {
-  const effort = resolveOpenRouterReasoningEffort(model);
+/**
+ * A configured effort (`OPENROUTER_SESSION_REASONING_EFFORT`) wins over the
+ * per-model default; without one, only models with a known default get the
+ * parameter at all.
+ */
+export function buildOpenRouterReasoningParameter(model: string, effortOverride?: OpenRouterReasoningEffort) {
+  const effort = effortOverride ?? resolveOpenRouterReasoningEffort(model);
 
   if (!effort) {
     return {};

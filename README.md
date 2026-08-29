@@ -192,11 +192,12 @@ S-04 adds a separate server-only ordinary response helper under `src/lib/session
 
 Add these variables to local `.env` and `.dev.vars` files:
 
-| Variable                   | Description                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------- |
-| `OPENROUTER_API_KEY`       | Server-only OpenRouter API key used by the safety classifier and ordinary session responses |
-| `OPENROUTER_SAFETY_MODEL`  | Optional safety model override; defaults to `openai/gpt-4o-mini` when empty                 |
-| `OPENROUTER_SESSION_MODEL` | Optional ordinary session response model override; defaults to `openai/gpt-4o-mini`         |
+| Variable                              | Description                                                                                                                                                                               |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`                  | Server-only OpenRouter API key used by the safety classifier and ordinary session responses                                                                                               |
+| `OPENROUTER_SAFETY_MODEL`             | Optional safety model override; defaults to `openai/gpt-4o-mini` when empty                                                                                                               |
+| `OPENROUTER_SESSION_MODEL`            | Optional ordinary session response model override; defaults to `openai/gpt-4o-mini`                                                                                                       |
+| `OPENROUTER_SESSION_REASONING_EFFORT` | Optional reasoning effort for session responses (`minimal`, `low`, `medium`, `high`, `xhigh`); empty keeps the model default, `high`/`xhigh` also raise the completion budget and timeout |
 
 ```
 OPENROUTER_API_KEY=replace-with-openrouter-api-key
@@ -264,6 +265,7 @@ Configure these repository secrets in GitHub:
 - `SUPABASE_DB_POOLER_HOST` - optional override if Supabase shows a different host than `aws-0-eu-west-1.pooler.supabase.com`
 - `OPENROUTER_API_KEY` - server-only key used by F-02 safety classification and S-04 ordinary session responses, passed to Wrangler during deploy
 - `OPENROUTER_SESSION_MODEL` - optional ordinary response model override; not required as a secret because code defaults to `openai/gpt-4o-mini`
+- `OPENROUTER_SESSION_REASONING_EFFORT` - optional reasoning effort for session responses (`minimal`…`xhigh`); public config, not a secret
 - `OPERATIONAL_LOG_HASH_SECRET` - optional server-only salt for pseudonymous operational log correlation
 - `SUPPORT_EMAIL` - optional override of the public contact address shown to users (footer, blocked-account page, premium request CTA); defaults to `safespacenow123@gmail.com` in `src/lib/support-contact.ts`
 - `CLOUDFLARE_ACCOUNT_ID`

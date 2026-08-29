@@ -9,6 +9,7 @@ import {
   isOpenRouterOxAlphaModel,
   supportsOpenRouterTemperature,
 } from "@/lib/session-ai/openrouter-request-params";
+import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import {
@@ -47,7 +48,7 @@ type OpenRouterSummaryRequestBody = OpenRouterNonStreamingChatRequest & {
   maxCompletionTokens?: number;
   maxTokens?: number;
   reasoning?: {
-    effort: "minimal" | "medium";
+    effort: OpenRouterReasoningEffort;
   };
   stream: false;
   provider: OpenRouterPrivateProviderPreferences;

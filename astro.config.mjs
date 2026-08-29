@@ -54,6 +54,9 @@ export default defineConfig({
       OPENROUTER_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
       OPENROUTER_SAFETY_MODEL: envField.string({ context: "server", access: "public", optional: true }),
       OPENROUTER_SESSION_MODEL: envField.string({ context: "server", access: "public", optional: true }),
+      // Poziom rozumowania odpowiedzi w rozmowie (minimal|low|medium|high|xhigh).
+      // Pusty = domyślny dla modelu; wartość spoza listy jest ignorowana.
+      OPENROUTER_SESSION_REASONING_EFFORT: envField.string({ context: "server", access: "public", optional: true }),
       OPENROUTER_SUMMARY_MODEL: envField.string({ context: "server", access: "public", optional: true }),
       OPENROUTER_TRANSCRIPTION_MODEL: envField.string({ context: "server", access: "public", optional: true }),
       // Adres kontaktowy pokazywany użytkownikom (stopka, blokada konta, limit

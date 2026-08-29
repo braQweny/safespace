@@ -9,6 +9,7 @@ vi.mock("../env", () => ({
   getOpenRouterSessionConfig: () => ({
     apiKey: undefined,
     model: "openai/gpt-4o-mini",
+    reasoningEffort: undefined,
   }),
   resolveSessionModel: (modelOverride?: string | null) => {
     const trimmedModel = modelOverride?.trim();
@@ -262,6 +263,49 @@ describe("buildOpenRouterSessionRequest", () => {
       effort: "medium",
     });
     expect(request.provider.requireParameters).toBe(true);
+  });
+
+  it("leaves GPT-5.6 Luna on the provider's own reasoning default without a configured effort", () => {
+    const request = buildOpenRouterSessionRequest(input, "openai/gpt-5.6-luna");
+
+    expect(request.model).toBe("openai/gpt-5.6-luna");
+    expect(request).not.toHaveProperty("reasoning");
+    expect(request).not.toHaveProperty("temperature");
+    expect(request.maxCompletionTokens).toBe(800);
+    expect(request).not.toHaveProperty("maxTokens");
+  });
+
+  it("applies the configured extra-high effort with a budget that fits hidden thinking", () => {
+    const request = buildOpenRouterSessionRequest(input, "openai/gpt-5.6-luna", { reasoningEffort: "xhigh" });
+
+    expect(request.reasoning).toEqual({
+      effort: "xhigh",
+    });
+    // Hidden reasoning bills against the same cap as the visible reply; a chat-sized
+    // budget would come back as finish_reason "length" and fail the whole turn.
+    expect(request.maxCompletionTokens).toBe(16_000);
+    expect(request).not.toHaveProperty("maxTokens");
+    expect(request).not.toHaveProperty("temperature");
+    expect(request.provider.requireParameters).toBe(true);
+  });
+
+  it("lets the configured effort override a model's default effort and budget", () => {
+    const request = buildOpenRouterSessionRequest(input, "stealth/ox-alpha", { reasoningEffort: "high" });
+
+    expect(request.reasoning).toEqual({
+      effort: "high",
+    });
+    expect(request.maxTokens).toBe(6_000);
+    expect(request).not.toHaveProperty("maxCompletionTokens");
+  });
+
+  it("keeps a model's own budget for efforts below high", () => {
+    const request = buildOpenRouterSessionRequest(input, "stealth/ox-alpha", { reasoningEffort: "low" });
+
+    expect(request.reasoning).toEqual({
+      effort: "low",
+    });
+    expect(request.maxTokens).toBe(2_400);
   });
 });
 

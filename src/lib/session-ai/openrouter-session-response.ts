@@ -4,6 +4,7 @@ import {
   OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
+import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterSessionConfig, resolveSessionModel } from "./env";
@@ -35,6 +36,14 @@ const OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS = 1_600;
 // zużywa więcej niż Gemini Flash. Zapas jest darmowy (model bez opłat), a za mały
 // budżet wraca jako `finish_reason: "length"` i psuje całą odpowiedź.
 const OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
+// Wymuszony wysoki poziom rozumowania (`OPENROUTER_SESSION_REASONING_EFFORT`)
+// myśli dłużej niż jakikolwiek domyślny profil modelu: ukryte tokeny idą w
+// tysiące, a zbyt ciasny limit wraca jako `finish_reason: "length"` i psuje
+// całą turę. Budżet i timeout rosną razem z poziomem.
+const OPENROUTER_HIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS = 6_000;
+const OPENROUTER_XHIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS = 16_000;
+const OPENROUTER_HIGH_REASONING_SESSION_TIMEOUT_MS = 30_000;
+const OPENROUTER_XHIGH_REASONING_SESSION_TIMEOUT_MS = 60_000;
 const OPENROUTER_SESSION_TEMPERATURE = 0.7;
 
 interface OpenRouterSessionResponseOptions {
@@ -42,6 +51,12 @@ interface OpenRouterSessionResponseOptions {
   model?: string;
   fetcher?: Fetcher;
   timeoutMs?: number;
+  /** Overrides the configured `OPENROUTER_SESSION_REASONING_EFFORT`. */
+  reasoningEffort?: OpenRouterReasoningEffort;
+}
+
+interface OpenRouterSessionRequestOptions {
+  reasoningEffort?: OpenRouterReasoningEffort;
 }
 
 type OpenRouterSessionRequestBody = OpenRouterNonStreamingChatRequest & {
@@ -51,7 +66,7 @@ type OpenRouterSessionRequestBody = OpenRouterNonStreamingChatRequest & {
   maxCompletionTokens?: number;
   maxTokens?: number;
   reasoning?: {
-    effort: "minimal" | "medium";
+    effort: OpenRouterReasoningEffort;
   };
   stream: false;
   provider: OpenRouterPrivateProviderPreferences;
@@ -64,13 +79,14 @@ export async function generateSessionResponseWithOpenRouter(
   const config = getOpenRouterSessionConfig();
   const apiKey = options.apiKey ?? config.apiKey;
   const model = resolveSessionModel(options.model ?? config.model);
+  const reasoningEffort = options.reasoningEffort ?? config.reasoningEffort;
 
   try {
     const response = await sendOpenRouterChat({
       apiKey,
-      chatRequest: buildOpenRouterSessionRequest(input, model),
+      chatRequest: buildOpenRouterSessionRequest(input, model, { reasoningEffort }),
       fetcher: options.fetcher,
-      timeoutMs: resolveTimeoutMs(options.timeoutMs),
+      timeoutMs: resolveTimeoutMs(options.timeoutMs, reasoningEffort),
     });
 
     return {
@@ -93,19 +109,30 @@ export async function generateSessionResponseWithOpenRouter(
 export function buildOpenRouterSessionRequest(
   input: GenerateSessionResponseInput,
   model: string,
+  options: OpenRouterSessionRequestOptions = {},
 ): OpenRouterSessionRequestBody {
+  const { reasoningEffort } = options;
+
   return {
     model,
     messages: [...buildSessionResponseMessages(input)],
     ...buildOptionalSamplingParameters(model),
-    ...buildOpenRouterReasoningParameter(model),
-    ...buildOpenRouterTokenLimitParameter(model, resolveSessionMaxCompletionTokens(model)),
+    ...buildOpenRouterReasoningParameter(model, reasoningEffort),
+    ...buildOpenRouterTokenLimitParameter(model, resolveSessionMaxCompletionTokens(model, reasoningEffort)),
     stream: false,
     provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
   };
 }
 
-function resolveSessionMaxCompletionTokens(model: string) {
+function resolveSessionMaxCompletionTokens(model: string, reasoningEffort?: OpenRouterReasoningEffort) {
+  if (reasoningEffort === "xhigh") {
+    return OPENROUTER_XHIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS;
+  }
+
+  if (reasoningEffort === "high") {
+    return OPENROUTER_HIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS;
+  }
+
   if (isOpenRouterOxAlphaModel(model)) {
     return OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS;
   }
@@ -127,12 +154,24 @@ function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSessionR
   };
 }
 
-function resolveTimeoutMs(timeoutMs: number | undefined) {
+function resolveTimeoutMs(timeoutMs: number | undefined, reasoningEffort?: OpenRouterReasoningEffort) {
   if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    return OPENROUTER_SESSION_TIMEOUT_MS;
+    return resolveDefaultTimeoutMs(reasoningEffort);
   }
 
   return Math.round(timeoutMs);
+}
+
+function resolveDefaultTimeoutMs(reasoningEffort?: OpenRouterReasoningEffort) {
+  if (reasoningEffort === "xhigh") {
+    return OPENROUTER_XHIGH_REASONING_SESSION_TIMEOUT_MS;
+  }
+
+  if (reasoningEffort === "high") {
+    return OPENROUTER_HIGH_REASONING_SESSION_TIMEOUT_MS;
+  }
+
+  return OPENROUTER_SESSION_TIMEOUT_MS;
 }
 
 function extractAssistantText(responseBody: ChatResult) {
