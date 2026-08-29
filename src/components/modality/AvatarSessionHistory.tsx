@@ -207,18 +207,18 @@ export default function AvatarSessionHistory({
       className={cn(
         // `@container`: podział na listę i podgląd zależy od szerokości samej sekcji,
         // nie okna — w kolumnie obok wyboru awatara breakpoint `lg:` byłby kłamstwem.
-        "border-line-strong @container mt-8 rounded-lg border bg-white p-5 shadow-[0_18px_46px_rgba(24,78,70,0.10)]",
+        "border-line-strong bg-surface shadow-card @container mt-8 rounded-[20px] border p-5 sm:p-6",
         className,
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-ink text-xl font-semibold">Historia rozmów</h2>
+          <h2 className="text-ink font-serif text-2xl leading-tight font-medium">Historia rozmów</h2>
           {selectedAvatar ? (
-            <>
-              <p className="text-ink-soft mt-1 text-sm font-medium">{selectedAvatar.avatarName}</p>
-              <p className="text-brand text-sm">{selectedAvatar.modalityName}</p>
-            </>
+            <p className="text-ink-muted mt-1 text-sm">
+              <span className="text-ink-soft font-medium">{selectedAvatar.avatarName}</span> ·{" "}
+              {selectedAvatar.modalityName}
+            </p>
           ) : null}
         </div>
         {controls}
@@ -229,7 +229,7 @@ export default function AvatarSessionHistory({
       </p>
 
       <details className="group mt-2">
-        <summary className="text-brand focus:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:ring-2 focus:outline-none">
+        <summary className="text-brand focus-visible:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:outline-none focus-visible:ring-2">
           Co oznaczają statusy
           <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
         </summary>
@@ -244,39 +244,37 @@ export default function AvatarSessionHistory({
       </details>
 
       {contextNotice ? (
-        <div className="border-line-accent bg-surface-hover text-brand-deep mt-4 rounded-lg border p-3 text-sm leading-6">
-          {contextNotice}
-        </div>
+        <div className="bg-brand-tint text-brand-deep mt-4 rounded-xl p-3.5 text-sm leading-6">{contextNotice}</div>
       ) : null}
 
       {!selectedAvatar ? (
-        <div className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6">
-          Wybierz awatara, żeby zobaczyć zapisane rozmowy dla tej perspektywy.
+        <div className="bg-surface-soft text-ink-muted mt-5 rounded-xl p-4 text-sm leading-6">
+          Wybierz perspektywę, żeby zobaczyć jej zapisane rozmowy.
         </div>
       ) : null}
 
       {notice ? (
-        <div className="border-line-strong bg-surface-soft text-ink-soft mt-5 rounded-lg border p-4 text-sm leading-6">
+        <div className="bg-surface-soft text-ink-soft mt-5 rounded-xl p-4 text-sm leading-6" role="status">
           {notice}
         </div>
       ) : null}
 
       {history.status === "error" && history.errorCode ? (
-        <div className="border-danger-line bg-danger-soft text-danger mt-5 rounded-lg border p-4 text-sm leading-6">
+        <div className="border-danger-line bg-danger-soft text-danger mt-5 rounded-xl border p-4 text-sm leading-6">
           {errorCopy[history.errorCode]}
         </div>
       ) : null}
 
       {history.status === "loading" && history.items.length === 0 && selectedAvatar ? (
-        <div className="border-line bg-surface-soft text-ink-muted mt-5 flex min-h-32 items-center justify-center rounded-lg border text-sm">
+        <div className="bg-surface-soft text-ink-muted mt-5 flex min-h-32 items-center justify-center rounded-xl text-sm">
           <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
           Ładowanie historii
         </div>
       ) : null}
 
       {history.status === "ready" && history.items.length === 0 ? (
-        <div className="border-line bg-surface-soft text-ink-muted mt-5 rounded-lg border p-4 text-sm leading-6">
-          Brak zapisanych rozmów dla tego awatara.
+        <div className="bg-surface-soft text-ink-muted mt-5 rounded-xl p-4 text-sm leading-6">
+          Brak zapisanych rozmów dla tej perspektywy.
         </div>
       ) : null}
 
@@ -323,7 +321,7 @@ export default function AvatarSessionHistory({
               onClick={() => {
                 changePage(activePage - 1);
               }}
-              className="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ChevronLeft aria-hidden="true" className="h-4 w-4" />
               Poprzednia
@@ -334,7 +332,7 @@ export default function AvatarSessionHistory({
               onClick={() => {
                 changePage(activePage + 1);
               }}
-              className="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Następna
               <ChevronRight aria-hidden="true" className="h-4 w-4" />

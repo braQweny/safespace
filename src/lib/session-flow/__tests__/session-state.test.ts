@@ -54,6 +54,9 @@ const avatar: CurrentAvatarChoice = {
     avatarName: "Marek, praktyczny przewodnik",
     explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
     focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
+    voiceSample: "oddzielmy na chwilę fakt od interpretacji…",
+    pairingNote:
+      "Marek mówi konkretnie i po ludzku, bez tonu trenera. Najpierw przyjmuje uczucie, potem porządkuje jedną sytuację i może zaproponować mały, dobrowolny krok. Jeśli wolisz zostać przy przeżywaniu zamiast porządkować, bliżej Ci może być do Nadii.",
     sessionStyleHint: "Uzywa jasnej struktury.",
     summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
     assetPath: "/avatars/cbt-guide.png",

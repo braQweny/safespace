@@ -7,51 +7,94 @@
 @import "tailwindcss" source("..");
 @import "tw-animate-css";
 
+/*
+ * Fonty są serwowane z własnego hosta (fontsource), nie z Google Fonts:
+ * rozmowa o zdrowiu psychicznym nie powinna zostawiać adresu IP u trzeciej
+ * strony tylko dlatego, że strona chciała ładny szeryf.
+ */
+@import "@fontsource-variable/source-sans-3";
+@import "@fontsource-variable/source-sans-3/wght-italic.css";
+@import "@fontsource-variable/newsreader/opsz.css";
+@import "@fontsource-variable/newsreader/opsz-italic.css";
+
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Paleta SafeSpace. Wcześniej te same wartości były wpisywane jako surowe hexy
- * w klasach arbitralnych (kilkadziesiąt wariantów tej samej zieleni). Tokeny
- * trzymają je w jednym miejscu i dają klasy `bg-surface`, `text-ink`, `border-line` itd.
+ * Paleta SafeSpace — kierunek „Cichy pokój”.
+ *
+ * Ciepły papier zamiast klinicznej mięty, jedna mchowa zieleń jako akcent
+ * marki i glina zarezerwowana dla pomocy kryzysowej oraz fazy domykania
+ * rozmowy. Szeryf (Newsreader) dla wszystkiego, co czyta się powoli —
+ * odpowiedzi awatara, podsumowania, nagłówki — bezszeryfowy (Source Sans 3)
+ * dla sterowania. Nazwy tokenów zostały te same co wcześniej (`bg-surface`,
+ * `text-ink`, `border-line`…), zmieniły się wartości.
  */
 @theme {
-  --color-canvas: #f4faf7;
-  --color-surface: #ffffff;
-  --color-surface-soft: #f8fcfa;
-  --color-surface-hover: #eef8f4;
+  --font-sans: "Source Sans 3 Variable", "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Newsreader Variable", "Newsreader", Georgia, "Times New Roman", serif;
 
-  --color-line: #d7e5e0;
-  --color-line-strong: #c8ddd7;
-  --color-line-accent: #9cc8bc;
+  --color-canvas: #f5f1e9;
+  --color-surface: #fbf9f4;
+  --color-surface-soft: #f0ebe1;
+  --color-surface-hover: #ede7db;
 
-  --color-brand: #1f6f65;
-  --color-brand-strong: #185950;
-  --color-brand-deep: #173f39;
-  --color-brand-ring: #2d8a7d;
-  --color-brand-soft: #bfd8d1;
-  --color-brand-disabled: #9abbb4;
+  --color-line: #e8e2d6;
+  --color-line-strong: #e2dccf;
+  --color-line-accent: #cfc6b4;
 
-  --color-ink: #10231f;
-  --color-ink-soft: #38524b;
-  --color-ink-muted: #52645f;
-  --color-ink-faint: #62756f;
+  --color-brand: #2d6a5e;
+  --color-brand-strong: #245a4f;
+  --color-brand-deep: #1c4a42;
+  --color-brand-ring: #4f8f80;
+  --color-brand-soft: #d9e7e0;
+  --color-brand-tint: #eaf1ed;
+  --color-brand-disabled: #9dbbb1;
 
-  --color-danger: #7d2d2d;
-  --color-danger-strong: #a03d3a;
-  --color-danger-line: #e2b8b8;
-  --color-danger-soft: #fff8f8;
+  /* Glina: tylko „Pomoc teraz” i domykanie rozmowy — nigdy jako dekoracja. */
+  --color-clay: #b8643c;
+  --color-clay-strong: #9a4f2c;
+  --color-clay-line: #e6c9b6;
+  --color-clay-soft: #f6ebe2;
 
-  --color-warn: #654b16;
-  --color-warn-strong: #a97d1c;
-  --color-warn-line: #edd3a1;
-  --color-warn-soft: #fffaf0;
+  --color-ink: #1e2622;
+  --color-ink-soft: #46514b;
+  --color-ink-muted: #6b756f;
+  --color-ink-faint: #8f9893;
 
-  --color-speaker: #263952;
-  --color-speaker-line: #c8d4ee;
-  --color-speaker-soft: #f5f8ff;
+  --color-danger: #7a3530;
+  --color-danger-strong: #9c463f;
+  --color-danger-line: #e5c4bd;
+  --color-danger-soft: #faf1ee;
 
-  --shadow-card: 0 22px 60px rgba(24, 78, 70, 0.12);
-  --shadow-rail: 0 8px 24px rgba(24, 78, 70, 0.08);
+  --color-warn: #6a4d1c;
+  --color-warn-strong: #a67a24;
+  --color-warn-line: #e8d3a6;
+  --color-warn-soft: #fbf5e6;
+
+  /* Własne słowa użytkownika: atrament na cieplejszym papierze, bez koloru „obcego”. */
+  --color-speaker: #1e2622;
+  --color-speaker-line: #e2dccf;
+  --color-speaker-soft: #ede7db;
+
+  /*
+   * Odcienie perspektyw: ta sama jasność i nasycenie, różna barwa — jedna
+   * osoba na raz ma swój kolor, ale żadna nie krzyczy. Mapa klas w
+   * `src/lib/perspective-tint.ts`.
+   */
+  --color-persp-psychodynamic: #2f6a5c;
+  --color-persp-psychodynamic-soft: #dfe9e3;
+  --color-persp-cbt: #3b5f8a;
+  --color-persp-cbt-soft: #dde5f0;
+  --color-persp-humanistic: #9a5535;
+  --color-persp-humanistic-soft: #f4e3d9;
+  --color-persp-systemic: #2f6b78;
+  --color-persp-systemic-soft: #dae8eb;
+  --color-persp-integrative: #6a5192;
+  --color-persp-integrative-soft: #e8e1f0;
+
+  --shadow-card: 0 1px 2px rgba(30, 38, 34, 0.04);
+  --shadow-rail: 0 8px 24px rgba(30, 38, 34, 0.06);
+  --shadow-float: 0 24px 60px rgba(30, 38, 34, 0.12);
 }
 
 :root {
@@ -161,8 +204,14 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@utility bg-cosmic {
-  background-image: linear-gradient(to bottom, #0a0e1a, #0f1529, #0a0e1a);
+/*
+ * Tło stron: kolor papieru plus ledwo widoczne ziarno (5% krycia). Ziarno
+ * to jeden kafelek SVG liczony raz przez przeglądarkę — daje głębię bez
+ * gradientów i bez obrazka do pobrania.
+ */
+@utility bg-paper {
+  background-color: var(--color-canvas);
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.22 0 0 0 0 0.2 0 0 0 0 0.15 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @layer base {
@@ -170,6 +219,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-paper text-ink font-sans antialiased;
+    font-optical-sizing: auto;
+  }
+  h1 {
+    @apply font-serif font-medium tracking-tight;
   }
 }

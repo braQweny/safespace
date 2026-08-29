@@ -29,6 +29,6 @@ describe("CrisisHelpPanel", () => {
 
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('aria-controls="crisis-help-panel"');
-    expect(html).toContain("Potrzebuję pomocy teraz");
+    expect(html).toContain("Pomoc teraz");
   });
 });

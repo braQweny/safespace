@@ -43,7 +43,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes();
 ---
 
 <Layout title="Konto - SafeSpace" lang="pl">
-  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={activeSession} />
 
     <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
@@ -54,7 +54,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes();
         >
           ← Wróć do panelu
         </a>
-        <h1 class="text-ink mt-3 text-3xl font-semibold">Konto</h1>
+        <h1 class="text-ink mt-3 text-4xl leading-tight">Konto</h1>
         <p class="text-ink-muted mt-3 text-sm leading-6">
           Zalogowano jako <span class="text-ink font-semibold">{user?.email}</span>.
         </p>

@@ -121,7 +121,7 @@ export default function DashboardSessionHistory({
             onChange={(event) => {
               changeViewedAvatar(event.target.value as AvatarId);
             }}
-            className="border-line-accent text-ink focus:ring-brand-ring h-10 w-full min-w-0 rounded-lg border bg-white px-3 text-sm transition-colors focus:ring-2 focus:outline-none sm:w-auto"
+            className="border-line-accent bg-surface text-ink focus-visible:ring-brand-ring h-10 w-full min-w-0 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 sm:w-auto"
           >
             {modalities.map((modality) => (
               <option key={modality.avatarId} value={modality.avatarId}>

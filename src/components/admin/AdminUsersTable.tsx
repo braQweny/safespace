@@ -166,7 +166,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
         </label>
         <button
           type="submit"
-          className="bg-brand-strong focus:ring-line-accent inline-flex h-10 items-center justify-center gap-2 self-end rounded-md px-4 text-sm font-medium text-white transition-colors hover:bg-[#1a4b44] focus:ring-2 focus:outline-none"
+          className="bg-brand-strong focus:ring-line-accent hover:bg-brand-deep inline-flex h-10 items-center justify-center gap-2 self-end rounded-md px-4 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
         >
           <Search aria-hidden="true" className="size-4" />
           Szukaj
@@ -177,7 +177,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
 
       <div className="border-line overflow-hidden rounded-lg border bg-white">
         <table aria-label="Lista użytkowników" className="w-full min-w-[1000px] border-collapse text-left text-sm">
-          <thead className="text-ink-soft bg-[#edf3f1]">
+          <thead className="text-ink-soft bg-brand-tint">
             <tr>
               <th className="px-4 py-3 font-semibold">E-mail</th>
               <th className="px-4 py-3 font-semibold">Status</th>
@@ -210,8 +210,8 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                       <span
                         className={
                           isBlocked
-                            ? "inline-flex rounded-md bg-[#f8e7e7] px-2 py-1 text-xs font-medium text-[#8a3434]"
-                            : "text-brand-strong inline-flex rounded-md bg-[#e5f3ee] px-2 py-1 text-xs font-medium"
+                            ? "bg-danger-soft text-danger inline-flex rounded-md px-2 py-1 text-xs font-medium"
+                            : "text-brand-strong bg-brand-tint inline-flex rounded-md px-2 py-1 text-xs font-medium"
                         }
                       >
                         {getStatusLabel(user)}
@@ -222,8 +222,8 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                         data-admin-user-plan={user.plan}
                         className={
                           isPremium
-                            ? "inline-flex rounded-md bg-[#fbf1d9] px-2 py-1 text-xs font-medium text-[#7a5a0c]"
-                            : "text-ink-muted inline-flex rounded-md bg-[#eef1f0] px-2 py-1 text-xs font-medium"
+                            ? "bg-warn-soft text-warn inline-flex rounded-md px-2 py-1 text-xs font-medium"
+                            : "text-ink-muted bg-surface-soft inline-flex rounded-md px-2 py-1 text-xs font-medium"
                         }
                       >
                         {getPlanLabel(user)}

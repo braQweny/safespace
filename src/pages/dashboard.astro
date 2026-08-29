@@ -20,6 +20,7 @@ import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-f
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 import { formatSessionBudgetMinutes } from "@/lib/session-flow/session-budget";
 import { readSessionStartPageState, type SessionStartPageState } from "@/lib/session-flow/session-state";
+import { getPerspectiveTint } from "@/lib/perspective-tint";
 import { getSupportContact } from "@/lib/support-contact";
 
 const avatarUpdated = Astro.url.searchParams.get("avatar") === "updated";
@@ -128,6 +129,10 @@ const otherPerspectiveName = otherPerspectiveSession?.avatarId
   : null;
 const support = getSupportContact();
 const sessionBudgetMinutes = formatSessionBudgetMinutes();
+// Karta startu pokazuje, jak ta perspektywa słucha — zdanie z katalogu, nie z
+// zapisanego wyboru (ten niesie tylko identyfikatory i nazwy).
+const currentModality = currentSelection ? getModalityByAvatarId(currentSelection.avatarId) : null;
+const currentTint = currentSelection ? getPerspectiveTint(currentSelection.modalityId) : null;
 
 // Z zapisaną perspektywą panel dzieli się na dwie kolumny: po lewej karta startu
 // i granice rozmowy, po prawej historia rozciągnięta na oba wiersze (karta i
@@ -136,143 +141,151 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes();
 // granicami rosłaby pusta przerwa. Bez perspektywy historii nie ma, więc granice
 // stoją w wąskiej kolumnie obok karty pierwszych kroków.
 const panelGridClass = currentSelection
-  ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-[auto_1fr]"
-  : "lg:grid-cols-[minmax(0,1fr)_320px]";
+  ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-[auto_1fr]"
+  : "lg:grid-cols-[minmax(0,1fr)_360px]";
 ---
 
 <Layout title="Panel - SafeSpace" lang="pl">
-  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={anyActiveSession} />
 
-    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main class="flex-1 px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
       <section class="mx-auto max-w-6xl">
-        <h1 class="text-ink text-3xl font-semibold">Twój panel</h1>
-        <p class="text-ink-soft mt-3 max-w-3xl text-base leading-7">
-          Stąd rozpoczniesz rozmowę i wrócisz do zapisanych sesji.
+        <h1 class="text-ink text-4xl leading-tight">Dzień dobry.</h1>
+        <p class="text-ink-muted mt-2 max-w-3xl text-[17px] leading-7">
+          Stąd rozpoczniesz rozmowę i wrócisz do jej zapisów.
         </p>
 
         {
           avatarUpdated ? (
             <div
-              class="border-line-accent bg-surface text-brand mt-6 rounded-lg border p-4 text-sm leading-6"
+              class="border-line-accent bg-surface text-brand-deep mt-6 rounded-2xl border p-4 text-sm leading-6"
               role="status"
             >
-              Perspektywa została zapisana. Krok 2 z 2: rozpocznij rozmowę poniżej, kiedy będziesz gotowy.
+              Perspektywa została zapisana. Krok 2 z 2: rozpocznij rozmowę poniżej, kiedy będzie na to dobry moment.
             </div>
           ) : null
         }
 
         {
           choiceFetchFailed ? (
-            <div class="border-danger-line bg-danger-soft text-danger mt-6 rounded-lg border p-4 text-sm leading-6">
+            <div class="border-danger-line bg-danger-soft text-danger mt-6 rounded-2xl border p-4 text-sm leading-6">
               Nie udało się pobrać zapisanej perspektywy. Możesz wrócić do jej wyboru albo spróbować ponownie za chwilę.
             </div>
           ) : null
         }
 
-        <div class:list={["mt-8 grid gap-5 lg:items-start", panelGridClass]}>
-          <section class="border-line-strong bg-surface shadow-card rounded-lg border p-6">
+        <div class:list={["mt-9 grid gap-8 lg:items-start", panelGridClass]}>
+          <section class="border-line-strong bg-surface shadow-card rounded-[20px] border p-6 sm:p-8">
             {
               currentSelection ? (
-                <div class="grid gap-5 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
-                  <img
-                    src={currentSelection.assetPath}
-                    alt={currentSelection.altText}
-                    width="384"
-                    height="384"
-                    class="aspect-square w-full max-w-40 rounded-lg object-cover"
-                    loading="lazy"
-                  />
-                  <div class="min-w-0">
-                    <p class="text-brand text-sm font-medium">Wybrana perspektywa</p>
-                    <h2 class="text-ink mt-2 text-2xl font-semibold">{currentSelection.avatarName}</h2>
-                    <p class="text-brand mt-2 text-base font-medium">{currentSelection.modalityName}</p>
-
-                    {otherPerspectiveSession ? (
-                      <div
-                        class="border-line-accent bg-surface-soft text-ink-soft mt-4 rounded-lg border p-4 text-sm leading-6"
-                        data-other-perspective-session
-                      >
-                        <p class="text-ink font-semibold">
-                          Masz rozmowę w toku
-                          {otherPerspectiveName ? ` z perspektywą „${otherPerspectiveName}”` : " z inną perspektywą"}
-                        </p>
-                        <p class="mt-1">
-                          Wróć do niej, zanim zaczniesz nową — trwająca rozmowa nie przerwie się sama, a jej czas
-                          płynie.
-                        </p>
-                        <a
-                          href={`/dashboard/session?sessionId=${encodeURIComponent(otherPerspectiveSession.sessionId)}`}
-                          class="text-brand hover:text-brand-strong focus:ring-brand-ring mt-2 inline-flex rounded font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
-                        >
-                          Wróć do rozmowy
-                        </a>
-                      </div>
-                    ) : null}
-
-                    {activeSession ? (
-                      <>
-                        <p class="text-ink-muted mt-4 text-sm leading-6">
-                          Rozmowa z tą perspektywą jest w toku. Zmiana perspektywy zadziała dopiero od następnej
-                          rozmowy.
-                        </p>
-                        <a
-                          href={`/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`}
-                          class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-                        >
-                          Wróć do rozmowy
-                        </a>
-                      </>
-                    ) : startPageState ? (
-                      <SessionStartCard client:load initialState={startPageState} supportEmail={support.email} />
-                    ) : (
-                      <p class="text-ink-muted mt-4 text-sm leading-6">
-                        {startStateFailed
-                          ? "Nie udało się odczytać stanu rozmowy. Odśwież panel za chwilę."
-                          : "Rozmowa jest chwilowo niedostępna. Spróbuj ponownie za chwilę."}
+                <div class="flex flex-col">
+                  <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+                    <img
+                      src={currentSelection.assetPath}
+                      alt={currentSelection.altText}
+                      width="384"
+                      height="384"
+                      class="aspect-square w-28 shrink-0 rounded-2xl object-cover sm:w-32"
+                      loading="lazy"
+                    />
+                    <div class="min-w-0">
+                      <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">
+                        Perspektywa na tę rozmowę
                       </p>
-                    )}
-
-                    <p class="border-line text-ink-muted mt-5 border-t pt-4 text-sm leading-6">
-                      Ta perspektywa obowiązuje w kolejnej rozmowie.
+                      <h2 class="text-ink mt-1.5 font-serif text-[28px] leading-tight font-medium">
+                        {currentSelection.avatarName}
+                      </h2>
+                      <p class:list={["mt-1 text-[15px] font-medium", currentTint?.text]}>
+                        {currentSelection.modalityName}
+                      </p>
+                      {currentModality ? (
+                        <p class="text-ink-soft mt-3 text-base leading-relaxed">{currentModality.explanation}</p>
+                      ) : null}
                       <a
                         href="/dashboard/avatar"
-                        class="text-brand hover:text-brand-strong focus:ring-brand-ring ml-1 rounded font-medium underline transition-colors focus:ring-2 focus:outline-none"
+                        class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-3 inline-flex rounded text-sm font-medium underline underline-offset-4 transition-colors focus:outline-none focus-visible:ring-2"
                       >
                         Zmień perspektywę
                       </a>
-                    </p>
+                    </div>
                   </div>
+
+                  {otherPerspectiveSession ? (
+                    <div
+                      class="bg-brand-tint text-ink-soft mt-6 rounded-2xl p-4 text-sm leading-6"
+                      data-other-perspective-session
+                    >
+                      <p class="text-ink font-semibold">
+                        Masz rozmowę w toku
+                        {otherPerspectiveName ? ` z perspektywą „${otherPerspectiveName}”` : " z inną perspektywą"}
+                      </p>
+                      <p class="mt-1">
+                        Wróć do niej, zanim zaczniesz nową — trwająca rozmowa nie przerwie się sama, a jej czas płynie.
+                      </p>
+                      <a
+                        href={`/dashboard/session?sessionId=${encodeURIComponent(otherPerspectiveSession.sessionId)}`}
+                        class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-2 inline-flex rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+                      >
+                        Wróć do rozmowy
+                      </a>
+                    </div>
+                  ) : null}
+
+                  {activeSession ? (
+                    <div class="border-line mt-6 border-t pt-5">
+                      <p class="text-ink-muted text-sm leading-6">
+                        Rozmowa z tą perspektywą jest w toku. Zmiana perspektywy zadziała dopiero od następnej rozmowy.
+                      </p>
+                      <a
+                        href={`/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`}
+                        class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-4 inline-flex h-12 items-center justify-center rounded-2xl px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+                      >
+                        Wróć do rozmowy
+                      </a>
+                    </div>
+                  ) : startPageState ? (
+                    <SessionStartCard client:load initialState={startPageState} supportEmail={support.email} />
+                  ) : (
+                    <p class="text-ink-muted mt-6 text-sm leading-6">
+                      {startStateFailed
+                        ? "Nie udało się odczytać stanu rozmowy. Odśwież panel za chwilę."
+                        : "Rozmowa jest chwilowo niedostępna. Spróbuj ponownie za chwilę."}
+                    </p>
+                  )}
+
+                  <p class="text-ink-muted mt-6 text-[13px] leading-5">{SESSION_BOUNDARIES_COPY}</p>
                 </div>
               ) : (
                 <div data-first-steps>
-                  <p class="text-brand text-sm font-medium">Dwa kroki do pierwszej rozmowy</p>
-                  <h2 class="text-ink mt-2 text-2xl font-semibold">Najpierw wybierz perspektywę rozmowy</h2>
-                  <ol class="mt-5 grid gap-3 sm:grid-cols-2">
-                    <li class="border-line-accent bg-surface-soft flex gap-3 rounded-lg border p-4" aria-current="step">
-                      <span
-                        class="bg-brand flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                        aria-hidden="true"
-                      >
+                  <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">
+                    Dwa kroki do pierwszej rozmowy
+                  </p>
+                  <h2 class="text-ink mt-1.5 font-serif text-[28px] leading-tight font-medium">
+                    Najpierw wybierz perspektywę rozmowy
+                  </h2>
+                  <ol class="mt-6 grid gap-3 sm:grid-cols-2">
+                    <li class="bg-surface-soft flex gap-4 rounded-2xl p-4" aria-current="step">
+                      <span class="text-brand shrink-0 font-serif text-2xl leading-none font-medium" aria-hidden="true">
                         1
                       </span>
                       <div class="min-w-0">
-                        <p class="text-ink text-sm font-semibold">Wybierz perspektywę</p>
+                        <p class="text-ink text-[15px] font-semibold">Wybierz perspektywę</p>
                         <p class="text-ink-muted mt-1 text-sm leading-6">
                           Pięć awatarów, każdy w innym nurcie psychoterapii. To wybór edukacyjny — nie diagnoza i nie
                           dobór terapii. Zmienisz go przed każdą kolejną rozmową.
                         </p>
                       </div>
                     </li>
-                    <li class="border-line bg-surface flex gap-3 rounded-lg border p-4">
+                    <li class="border-line flex gap-4 rounded-2xl border p-4">
                       <span
-                        class="border-line text-ink-muted flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold"
+                        class="text-ink-faint shrink-0 font-serif text-2xl leading-none font-medium"
                         aria-hidden="true"
                       >
                         2
                       </span>
                       <div class="min-w-0">
-                        <p class="text-ink text-sm font-semibold">Rozpocznij rozmowę</p>
+                        <p class="text-ink text-[15px] font-semibold">Rozpocznij rozmowę</p>
                         <p class="text-ink-muted mt-1 text-sm leading-6">
                           Po zapisaniu wrócisz tutaj. Rozmowa ruszy dopiero po Twoim kliknięciu i potrwa do{" "}
                           {sessionBudgetMinutes} z widocznym czasem.
@@ -282,40 +295,61 @@ const panelGridClass = currentSelection
                   </ol>
                   <a
                     href="/dashboard/avatar"
-                    class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                    class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-6 inline-flex h-12 items-center justify-center gap-3 rounded-2xl px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                   >
                     Wybierz perspektywę
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="h-4 w-4"
+                    >
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
                   </a>
+                  <p class="text-ink-muted mt-6 text-[13px] leading-5">{SESSION_BOUNDARIES_COPY}</p>
                 </div>
               )
             }
           </section>
 
-          <aside class="border-line bg-surface-soft rounded-lg border p-5">
+          {/* Cichy blok obok karty: numery pod ręką, bez ostrzegawczych kolorów. */}
+          <aside class="bg-brand-tint rounded-[20px] p-5 sm:p-6">
             {
               anyActiveSession ? (
                 <>
-                  <p class="text-brand flex items-center gap-2 text-sm font-semibold">
+                  <p class="text-brand-deep flex items-center gap-2 text-sm font-semibold">
                     <span aria-hidden="true" class="bg-brand h-2 w-2 rounded-full" />
                     Rozmowa w toku
                   </p>
-                  <p class="text-ink-muted mt-2 text-sm leading-6">
+                  <p class="text-ink-soft mt-2 text-sm leading-6">
                     {anyActiveSession.remainingMinutes
                       ? `Zostało jeszcze około ${anyActiveSession.remainingMinutes} min.`
                       : "Masz otwartą rozmowę z limitem czasu."}
                   </p>
                   <a
                     href={`/dashboard/session?sessionId=${encodeURIComponent(anyActiveSession.sessionId)}`}
-                    class="text-brand hover:text-brand-strong focus:ring-brand-ring mt-2 inline-flex rounded text-sm font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
+                    class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-2 inline-flex rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
                   >
                     Wróć do rozmowy
                   </a>
-                  <div class="border-line mt-4 border-t pt-4" />
+                  <div class="border-brand-soft mt-4 border-t pt-4" />
                 </>
               ) : null
             }
-            <h2 class="text-brand-deep text-base font-semibold">Granice rozmowy</h2>
-            <p class="text-ink-muted mt-2 text-sm leading-6">{SESSION_BOUNDARIES_COPY}</p>
+            <h2 class="text-brand-deep text-[15px] font-semibold">Gdyby działo się coś pilnego</h2>
+            <p class="text-ink-soft mt-2 text-sm leading-6">
+              Realna pomoc jest zawsze pod ręką: <a href="tel:112" class="text-ink font-semibold">112</a> w nagłym zagrożeniu,
+              <a href="tel:800702222" class="text-ink font-semibold">800 70 2222</a> — wsparcie dla dorosłych w kryzysie psychicznym.
+            </p>
+            <p class="text-ink-muted mt-3 text-[13px] leading-5">
+              SafeSpace jest symulacją edukacyjną, nie pomocą kryzysową. W rozmowie przycisk „Pomoc teraz” jest zawsze
+              na widoku.
+            </p>
           </aside>
 
           {

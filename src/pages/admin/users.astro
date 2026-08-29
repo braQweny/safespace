@@ -32,9 +32,9 @@ if (adminContext.ok) {
         <AdminUsersTable initialResponse={usersResponse} currentAdminUserId={adminContext.data.user.id} client:idle />
       </AdminShell>
     ) : (
-      <main class="text-ink min-h-screen bg-[#f5f7f7] px-4 py-10">
+      <main class="text-ink bg-paper min-h-screen px-4 py-10">
         <section class="border-line mx-auto max-w-2xl rounded-lg border bg-white p-6">
-          <h1 class="text-ink text-2xl font-semibold">Brak dostępu</h1>
+          <h1 class="text-ink text-3xl leading-tight">Brak dostępu</h1>
           <p class="text-ink-muted mt-3 text-sm leading-6">
             Ta część produktu jest dostępna tylko dla aktywnych administratorów.
           </p>

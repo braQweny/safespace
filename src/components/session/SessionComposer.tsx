@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Loader2, Mic, Send, Square } from "lucide-react";
+import { ArrowUp, Loader2, Mic, Square } from "lucide-react";
 import { requestApiJson } from "@/lib/api-client";
 import { SESSION_MESSAGE_MAX_CHARS } from "@/lib/session-flow/message-contract";
 import {
@@ -260,85 +260,95 @@ export default function SessionComposer({
         event.preventDefault();
         onSubmit();
       }}
+      className="mx-auto w-full max-w-3xl"
     >
       <label htmlFor="session-message" className="sr-only">
         Treść wiadomości
       </label>
-      <textarea
-        id="session-message"
-        value={value}
-        maxLength={SESSION_MESSAGE_MAX_CHARS}
-        disabled={isDisabled}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-        onKeyDown={(event) => {
-          if (!canSubmit || !shouldSubmitSessionComposerFromKeyboard(event)) {
-            return;
-          }
+      {/* Pole i przyciski tworzą jedną kartę: tekst u góry, sterowanie w dolnym
+          rzędzie — jak kartka, nie formularz. */}
+      <div
+        className={cn(
+          "border-line-strong bg-surface shadow-card focus-within:border-brand-ring focus-within:ring-brand-ring/20 rounded-[18px] border transition-colors focus-within:ring-2",
+          isDisabled && "bg-surface-soft",
+        )}
+      >
+        <textarea
+          id="session-message"
+          value={value}
+          maxLength={SESSION_MESSAGE_MAX_CHARS}
+          disabled={isDisabled}
+          onChange={(event) => {
+            onChange(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (!canSubmit || !shouldSubmitSessionComposerFromKeyboard(event)) {
+              return;
+            }
 
-          event.preventDefault();
-          onSubmit();
-        }}
-        placeholder="Napisz, od czego chcesz zacząć…"
-        className="border-brand-soft bg-surface text-ink placeholder:text-ink-faint focus:border-brand-ring focus:ring-brand-ring/25 disabled:bg-surface-hover min-h-16 w-full resize-y rounded-lg border px-4 py-3 text-sm leading-6 transition-colors outline-none focus:ring-2 disabled:cursor-not-allowed sm:min-h-24"
-      />
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* The hint used to be *replaced* by the counter, so it disappeared exactly
-            when a long message made "how do I send this?" pressing. Show both —
-            but not the keyboard shortcut on phones, where there is no Cmd key. */}
-        <p className={cn("text-ink-faint text-xs", !isNearCharLimit && "hidden sm:block")}>
-          <span className="hidden sm:inline">Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.</span>
-          {isNearCharLimit ? (
-            <span className="text-ink-muted font-medium tabular-nums sm:ml-2">
-              {trimmedValue.length}/{SESSION_MESSAGE_MAX_CHARS}
-            </span>
-          ) : null}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={!canUseDictation}
-            aria-pressed={dictationStatus === "recording"}
-            onClick={() => {
-              if (dictationStatus === "recording") {
-                stopRecording();
-                return;
-              }
+            event.preventDefault();
+            onSubmit();
+          }}
+          placeholder="Napisz, od czego chcesz zacząć…"
+          className="text-ink placeholder:text-ink-faint block max-h-60 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-base leading-relaxed outline-none disabled:cursor-not-allowed sm:min-h-[4.5rem]"
+        />
+        <div className="flex items-center justify-between gap-3 px-2.5 pb-2.5 pl-4">
+          {/* The hint used to be *replaced* by the counter, so it disappeared exactly
+              when a long message made "how do I send this?" pressing. Show both —
+              but not the keyboard shortcut on phones, where there is no Cmd key. */}
+          <p className={cn("text-ink-faint text-xs", !isNearCharLimit && "hidden sm:block")}>
+            <span className="hidden sm:inline">Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.</span>
+            {isNearCharLimit ? (
+              <span className="text-ink-muted font-medium tabular-nums sm:ml-2">
+                {trimmedValue.length}/{SESSION_MESSAGE_MAX_CHARS}
+              </span>
+            ) : null}
+          </p>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled={!canUseDictation}
+              aria-pressed={dictationStatus === "recording"}
+              onClick={() => {
+                if (dictationStatus === "recording") {
+                  stopRecording();
+                  return;
+                }
 
-              void startRecording();
-            }}
-            className="border-line-accent text-brand hover:border-brand-ring hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-lg border bg-white px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:border-[#c8d9d5] disabled:text-[#8ba39d]"
-          >
-            {dictationStatus === "recording" ? (
-              <Square aria-hidden="true" className="h-4 w-4 fill-current" />
-            ) : dictationStatus === "transcribing" ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : (
-              <Mic aria-hidden="true" className="h-4 w-4" />
-            )}
-            {dictationStatus === "recording"
-              ? "Zatrzymaj"
-              : dictationStatus === "transcribing"
-                ? "Przepisywanie…"
-                : "Dyktuj"}
-          </button>
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="bg-brand hover:bg-brand-strong focus:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
-          >
-            {isPending ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send aria-hidden="true" className="h-4 w-4" />
-            )}
-            Wyślij
-          </button>
+                void startRecording();
+              }}
+              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {dictationStatus === "recording" ? (
+                <Square aria-hidden="true" className="text-clay h-4 w-4 fill-current" />
+              ) : dictationStatus === "transcribing" ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mic aria-hidden="true" className="h-4 w-4" />
+              )}
+              {dictationStatus === "recording"
+                ? "Zatrzymaj"
+                : dictationStatus === "transcribing"
+                  ? "Przepisywanie…"
+                  : "Dyktuj"}
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:bg-brand-disabled inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
+            >
+              {isPending ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUp aria-hidden="true" className="h-4 w-4" />
+              )}
+              Wyślij
+            </button>
+          </div>
         </div>
       </div>
       {(dictationStatusCopy !== null || dictationError !== null) && (
-        <p className="text-ink-faint mt-2 text-xs" role={dictationError ? "alert" : "status"}>
+        <p className="text-ink-muted mt-2 text-xs" role={dictationError ? "alert" : "status"}>
           {dictationError ?? dictationStatusCopy}
         </p>
       )}

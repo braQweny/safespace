@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Clock } from "lucide-react";
 import { computeClientRemainingSeconds, formatRemainingTime } from "@/lib/session-flow/message-state";
+import { resolveSessionPhase, type SessionPhase } from "@/lib/session-flow/session-phase";
 import { cn } from "@/lib/utils";
 
 interface SessionTimerProps {
@@ -23,31 +23,66 @@ function getTimerLevel(remainingSeconds: number | null): TimerLevel {
   return remainingSeconds > CRITICAL_THRESHOLD_SECONDS ? "warning" : "critical";
 }
 
-function getProgressRatio(remainingSeconds: number | null, totalSeconds: number | null | undefined) {
+function getElapsedRatio(remainingSeconds: number | null, totalSeconds: number | null | undefined) {
   if (remainingSeconds === null || !totalSeconds || totalSeconds <= 0) {
     return null;
   }
 
-  return Math.min(1, Math.max(0, remainingSeconds / totalSeconds));
+  return Math.min(1, Math.max(0, 1 - remainingSeconds / totalSeconds));
 }
 
-const levelStyles: Record<TimerLevel, { shell: string; icon: string; bar: string }> = {
-  calm: {
-    shell: "border-brand-soft bg-surface-soft text-brand-deep",
-    icon: "text-brand",
-    bar: "bg-brand",
-  },
-  warning: {
-    shell: "border-warn-line bg-warn-soft text-warn",
-    icon: "text-warn-strong",
-    bar: "bg-warn-strong",
-  },
-  critical: {
-    shell: "border-danger-line bg-danger-soft text-danger",
-    icon: "text-danger-strong",
-    bar: "bg-danger-strong",
-  },
+/**
+ * Faza liczona tą samą funkcją, którą dostaje model — użytkownik i awatar
+ * mają widzieć ten sam moment rozmowy. Bez budżetu nie ma fazy.
+ */
+function getSessionPhase(
+  expiresAt: string | null,
+  remainingSeconds: number | null,
+  totalSeconds: number | null | undefined,
+): SessionPhase | null {
+  if (!expiresAt || remainingSeconds === null || !totalSeconds || totalSeconds <= 0) {
+    return null;
+  }
+
+  const expiresAtMs = Date.parse(expiresAt);
+
+  if (!Number.isFinite(expiresAtMs)) {
+    return null;
+  }
+
+  const startedAt = new Date(expiresAtMs - totalSeconds * 1_000).toISOString();
+
+  return resolveSessionPhase(
+    { startedAt, expiresAt, durationBucketSeconds: null, createdAt: startedAt },
+    { now: new Date(expiresAtMs - remainingSeconds * 1_000) },
+  );
+}
+
+const phaseLabels: Record<SessionPhase, string> = {
+  opening: "początek",
+  middle: "w trakcie",
+  closing: "domykanie",
 };
+
+/**
+ * Czas pokazany jako łuk, nie odliczanie: pierścień wypełnia się w tempie
+ * sesji, obok stoi „ok. N min” i faza rozmowy. Sekundy pojawiają się dopiero
+ * w ostatnich dwóch minutach — wtedy precyzja naprawdę pomaga.
+ */
+function formatRemainingLabel(remainingSeconds: number | null, level: TimerLevel) {
+  if (remainingSeconds === null) {
+    return "—";
+  }
+
+  if (level === "critical") {
+    return formatRemainingTime(remainingSeconds);
+  }
+
+  return `ok. ${Math.max(1, Math.round(remainingSeconds / 60))} min`;
+}
+
+const RING_RADIUS = 14;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export default function SessionTimer({
   expiresAt,
@@ -81,9 +116,11 @@ export default function SessionTimer({
   }, [onExpired, remainingSeconds]);
 
   const level = getTimerLevel(remainingSeconds);
-  const progressRatio = getProgressRatio(remainingSeconds, totalSeconds);
-  const styles = levelStyles[level];
+  const elapsedRatio = getElapsedRatio(remainingSeconds, totalSeconds);
+  const phase = getSessionPhase(expiresAt, remainingSeconds, totalSeconds);
   const totalMinutes = totalSeconds && totalSeconds > 0 ? Math.round(totalSeconds / 60) : null;
+  // Glina wchodzi dopiero przy domykaniu — wcześniej łuk jest po prostu zielony.
+  const isClosing = phase === "closing" || level !== "calm";
 
   return (
     <div
@@ -95,17 +132,38 @@ export default function SessionTimer({
             ? "Pozostały czas sesji — mniej niż 5 minut"
             : "Pozostały czas sesji"
       }
-      className={cn("inline-flex min-w-32 flex-col gap-1.5 rounded-lg border px-3 py-1.5", styles.shell)}
+      className="inline-flex items-center gap-2.5"
     >
-      <div className="inline-flex items-center gap-2 text-sm font-semibold tabular-nums">
-        <Clock aria-hidden="true" className={cn("h-4 w-4 shrink-0", styles.icon)} />
-        <span>{formatRemainingTime(remainingSeconds)}</span>
-        {level === "critical" ? (
-          <span className="text-xs font-medium">kończy się czas</span>
-        ) : totalMinutes ? (
-          // Without the total, a bare "14:56" gives no sense of how much is left.
-          <span className="text-xs font-normal opacity-75">z {totalMinutes} min</span>
-        ) : null}
+      <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true" className="h-9 w-9 shrink-0">
+        <circle cx="18" cy="18" r={RING_RADIUS} fill="none" strokeWidth="3" className="stroke-line-strong" />
+        {elapsedRatio === null ? null : (
+          <circle
+            cx="18"
+            cy="18"
+            r={RING_RADIUS}
+            fill="none"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={`${(elapsedRatio * RING_CIRCUMFERENCE).toFixed(2)} ${RING_CIRCUMFERENCE.toFixed(2)}`}
+            transform="rotate(-90 18 18)"
+            className={cn(
+              "transition-[stroke-dasharray] duration-1000 ease-linear",
+              isClosing ? "stroke-clay" : "stroke-brand",
+            )}
+          />
+        )}
+      </svg>
+      <div className="flex flex-col leading-tight">
+        <span className={cn("text-sm font-semibold tabular-nums", isClosing ? "text-clay-strong" : "text-ink")}>
+          {formatRemainingLabel(remainingSeconds, level)}
+        </span>
+        <span className="text-ink-muted text-xs">
+          {level === "critical"
+            ? "kończy się czas"
+            : [phase ? phaseLabels[phase] : null, totalMinutes ? `z ${totalMinutes} min` : null]
+                .filter(Boolean)
+                .join(" · ")}
+        </span>
       </div>
       {/* Zmiana progu ogłaszana czytnikowi ekranu raz, bez odczytywania każdej sekundy. */}
       <span role="status" className="sr-only">
@@ -115,14 +173,6 @@ export default function SessionTimer({
             ? "Zostało mniej niż 5 minut sesji."
             : null}
       </span>
-      {progressRatio === null ? null : (
-        <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-black/10">
-          <div
-            className={cn("h-full rounded-full transition-[width] duration-1000 ease-linear", styles.bar)}
-            style={{ width: `${(progressRatio * 100).toFixed(2)}%` }}
-          />
-        </div>
-      )}
     </div>
   );
 }

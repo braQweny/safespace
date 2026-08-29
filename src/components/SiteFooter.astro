@@ -16,7 +16,7 @@ const support = getSupportContact();
 const year = new Date().getFullYear();
 ---
 
-<footer class:list={["border-line text-ink-muted border-t text-sm", compact ? "py-5" : "py-8"]}>
+<footer class:list={["border-line text-ink-muted border-t text-[13px] leading-6", compact ? "py-5" : "py-7"]}>
   <div
     class="mx-auto flex max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"
   >
@@ -28,7 +28,7 @@ const year = new Date().getFullYear();
     <nav aria-label="Informacje o serwisie" class="flex flex-wrap items-center gap-x-4 gap-y-2">
       <a
         href="/privacy"
-        class="hover:text-brand focus:ring-brand-ring rounded underline-offset-4 transition-colors hover:underline focus:ring-2 focus:outline-none"
+        class="hover:text-ink focus-visible:ring-brand-ring rounded underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2"
       >
         Prywatność i zasady
       </a>
@@ -36,7 +36,7 @@ const year = new Date().getFullYear();
         support.mailtoHref ? (
           <a
             href={support.mailtoHref}
-            class="hover:text-brand focus:ring-brand-ring rounded underline-offset-4 transition-colors hover:underline focus:ring-2 focus:outline-none"
+            class="hover:text-ink focus-visible:ring-brand-ring rounded underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2"
           >
             Kontakt
           </a>

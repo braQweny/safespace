@@ -12,15 +12,13 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
 ---
 
 <Layout title={`${heading} - SafeSpace`} lang="pl">
-  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
     <main class="flex flex-1 items-center justify-center px-4 py-10">
-      <section
-        class="border-line-strong w-full max-w-md rounded-lg border bg-white p-6 text-center shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
-      >
+      <section class="border-line-strong shadow-card w-full max-w-md rounded-lg border bg-white p-6 text-center sm:p-8">
         <a href="/" class="text-brand hover:text-brand-strong text-sm font-medium transition-colors hover:underline">
           SafeSpace
         </a>
-        <h1 class="text-ink mt-3 text-2xl font-semibold">{heading}</h1>
+        <h1 class="text-ink mt-3 text-3xl leading-tight">{heading}</h1>
         {
           isSignedIn ? (
             <>
@@ -51,7 +49,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
               {wasResent ? (
                 <div
                   role="status"
-                  class="border-brand-soft text-brand-deep mt-6 rounded-lg border bg-[#f4fbf8] p-4 text-left text-sm leading-6"
+                  class="border-brand-soft text-brand-deep bg-brand-tint mt-6 rounded-lg border p-4 text-left text-sm leading-6"
                 >
                   Jeśli ten adres czeka na potwierdzenie, wysłaliśmy wiadomość ponownie. Sprawdź też folder ze spamem.
                 </div>
@@ -72,7 +70,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                 {error ? (
                   <p
                     role="alert"
-                    class="rounded-lg border border-[#ecc8c2] bg-[#fdf6f4] p-3 text-sm leading-6 text-[#7c3326]"
+                    class="border-danger-line bg-danger-soft text-danger rounded-lg border p-3 text-sm leading-6"
                   >
                     {error}
                   </p>
@@ -113,7 +111,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                       type="submit"
                       class="border-brand-soft text-brand-deep hover:bg-surface-hover focus:ring-brand-ring flex h-11 w-full items-center justify-center gap-3 rounded-lg border bg-white px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
                     >
-                      <span class="text-brand flex size-6 items-center justify-center rounded-full border border-[#d8e7e2] text-sm font-semibold">
+                      <span class="text-brand border-line-strong flex size-6 items-center justify-center rounded-full border text-sm font-semibold">
                         G
                       </span>
                       {authProvider.buttonLabel}

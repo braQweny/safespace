@@ -7,6 +7,9 @@ export const MVP_MODALITIES = [
     explanation:
       "Pomaga przyglądać się temu, jak wcześniejsze doświadczenia, relacje i powtarzające się wzorce mogą wpływać na obecne przeżycia.",
     focus: "Zwraca uwagę na znaczenia, emocje i powracające motywy w opowiadanej historii.",
+    voiceSample: "nie musimy się z tym spieszyć. zostańmy przy tym chwilę.",
+    pairingNote:
+      "Lena mówi krótko i powoli. Nie doradza i nie ocenia — częściej zostaje przy jednym wątku, niż proponuje plan. Jeśli szukasz konkretnych kroków, bliżej Ci może być do Marka.",
     sessionStyleHint: [
       "Avatar: Lena, uważna słuchaczka.",
       "Modality: psychoanalytic / psychodynamic (podejście psychoanalityczno-psychodynamiczne).",
@@ -56,6 +59,9 @@ export const MVP_MODALITIES = [
     avatarName: "Marek, praktyczny przewodnik",
     explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
     focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
+    voiceSample: "oddzielmy na chwilę fakt od interpretacji…",
+    pairingNote:
+      "Marek mówi konkretnie i po ludzku, bez tonu trenera. Najpierw przyjmuje uczucie, potem porządkuje jedną sytuację i może zaproponować mały, dobrowolny krok. Jeśli wolisz zostać przy przeżywaniu zamiast porządkować, bliżej Ci może być do Nadii.",
     sessionStyleHint: [
       "Avatar: Marek, praktyczny przewodnik.",
       "Modality: cognitive-behavioral (podejście poznawczo-behawioralne).",
@@ -106,6 +112,9 @@ export const MVP_MODALITIES = [
     explanation:
       "Pomaga zatrzymać się przy aktualnym przeżyciu, potrzebach, wartościach i tym, co jest ważne w danym momencie.",
     focus: "Wzmacnia język emocji, samoobserwację i łagodne nazywanie tego, co pojawia się tu i teraz.",
+    voiceSample: "zostańmy przez moment przy tym uczuciu.",
+    pairingNote:
+      "Nadia mówi ciepło i bez pośpiechu, rzadko pyta. Zostaje przy tym, co czujesz tu i teraz, i nie kieruje rozmową. Jeśli potrzebujesz struktury albo jasnych pytań, bliżej Ci może być do Marka.",
     sessionStyleHint: [
       "Avatar: Nadia, wspierająca towarzyszka.",
       "Modality: humanistic / experiential (podejście humanistyczno-doświadczeniowe).",
@@ -157,6 +166,9 @@ export const MVP_MODALITIES = [
     explanation:
       "Pomaga patrzeć na trudność w kontekście relacji, ról, komunikacji i układów, w których dana osoba funkcjonuje.",
     focus: "Zauważa zależności między osobami, oczekiwaniami i sposobami reagowania w ważnych relacjach.",
+    voiceSample: "co zwykle dzieje się potem?",
+    pairingNote:
+      "Olek mówi spokojnie i z ciekawością o tym, co dzieje się między ludźmi — nikogo nie obsadza w roli winnego. Pyta o sekwencje i role w relacji. Jeśli chcesz zostać przy własnym przeżyciu, a nie przy układzie między osobami, bliżej Ci może być do Nadii lub Leny.",
     sessionStyleHint: [
       "Avatar: Olek, łącznik perspektyw.",
       "Modality: systemic (podejście systemowe).",
@@ -207,6 +219,9 @@ export const MVP_MODALITIES = [
     explanation:
       "Łączy kilka sposobów patrzenia na sytuację, żeby dopasować rozmowę do tematu, tempa i potrzeb użytkownika.",
     focus: "Pomaga wybrać najczytelniejszy sposób rozmowy: emocje, myśli, relacje albo konkretną sytuację.",
+    voiceSample: "możemy to ująć prościej…",
+    pairingNote:
+      "Iga mówi jasno i elastycznie: w jednej odpowiedzi trzyma jeden wątek i czasem oddaje Ci wybór kierunku. Jeśli od początku wiesz, jakiego sposobu rozmowy szukasz, wybierz go wprost — jeśli nie, Iga jest dobrym pierwszym wyborem.",
     sessionStyleHint: [
       "Avatar: Iga, przewodniczka łącząca wątki.",
       "Modality: integrative (podejście integracyjne).",
@@ -262,6 +277,23 @@ export interface SelectedModalityAvatar {
   avatarName: string;
   assetPath: string;
   altText: string;
+}
+
+/**
+ * Krótka etykieta wyboru: mówi o perspektywie, nie o „podejściu”, i odmienia
+ * się poprawnie bez heurystyk na końcówkach. Pełna nazwa nurtu zostaje w
+ * `modalityName` dla szczegółu.
+ */
+export const PERSPECTIVE_LABELS: Record<ModalityId, string> = {
+  psychodynamic: "Perspektywa psychodynamiczna",
+  cbt: "Perspektywa poznawczo-behawioralna",
+  humanistic_experiential: "Perspektywa humanistyczno-doświadczeniowa",
+  systemic: "Perspektywa systemowa",
+  integrative: "Perspektywa integracyjna",
+};
+
+export function getPerspectiveLabel(modalityId: ModalityId) {
+  return PERSPECTIVE_LABELS[modalityId];
 }
 
 export function getModalityById(modalityId: unknown) {

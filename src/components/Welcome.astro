@@ -2,6 +2,10 @@
 import AppHeader from "@/components/AppHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
+import { MVP_MODALITIES, getPerspectiveLabel } from "@/lib/modalities";
+import { getPerspectiveTint } from "@/lib/perspective-tint";
+import { CRISIS_RESOURCE_CATALOG } from "@/lib/session-safety/crisis-resources";
+import { FREE_TRIAL_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 
 const { user } = Astro.locals;
 const primaryCta = user
@@ -20,18 +24,35 @@ const secondaryCta = user
       label: "Mam już konto",
     };
 
+// „do 15 minut” wynika z budżetu sesji — landing nie może obiecywać innej
+// długości niż ta, którą naprawdę dostaje rozmowa.
+const budgetMinutes = Math.max(1, Math.round(FREE_TRIAL_DURATION_SECONDS / 60));
+
+// Narysowana karta rozmowy w hero: pierwsza perspektywa z katalogu, dwie
+// minuty po starcie. Pierścień to ten sam łuk, który pokazuje prawdziwa sesja.
+const featured = MVP_MODALITIES[0];
+const featuredFirstName = featured.avatarName.split(",")[0]?.trim() || featured.avatarName;
+const previewElapsedMinutes = Math.min(2, budgetMinutes);
+const previewRemainingMinutes = budgetMinutes - previewElapsedMinutes;
+const RING_RADIUS = 14;
+const ringCircumference = 2 * Math.PI * RING_RADIUS;
+const ringElapsed = (previewElapsedMinutes / budgetMinutes) * ringCircumference;
+
+const emergencyContact = CRISIS_RESOURCE_CATALOG.pl.contacts.find((contact) => contact.kind === "emergency_number");
+const crisisLineContact = CRISIS_RESOURCE_CATALOG.pl.contacts.find((contact) => contact.kind === "crisis_line");
+
 const steps = [
   {
     title: "Zakładasz konto",
-    body: "Darmowa sesja jest dostępna po zalogowaniu, żeby zachować prywatny kontekst i nie uruchamiać rozmowy anonimowo.",
+    body: "Darmowa rozmowa jest dostępna po zalogowaniu, żeby zachować prywatny kontekst i nie uruchamiać rozmowy anonimowo.",
   },
   {
     title: "Wybierasz perspektywę",
-    body: "W swoim panelu wybierzesz awatara reprezentującego nurt psychoterapii i przeczytasz krótki opis podejścia.",
+    body: "Pięć awatarów, każdy w innym nurcie psychoterapii, z krótkim opisem podejścia.",
   },
   {
-    title: "Przechodzisz do rozmowy",
-    body: "Pierwsza sesja jest limitowana do 15 minut, z widocznym czasem i jasną informacją, że to symulacja edukacyjna.",
+    title: "Zaczynasz rozmowę",
+    body: `Do ${budgetMinutes} minut, z widocznym czasem i jasną informacją, że to symulacja edukacyjna.`,
   },
 ];
 
@@ -43,7 +64,7 @@ const boundaries = [
 ];
 ---
 
-<div class="bg-canvas text-ink min-h-screen w-full">
+<div class="bg-paper text-ink min-h-screen w-full">
   {
     /* Ten sam nagłówek co w aplikacji — zalogowana osoba nie trafia na drugi,
       niepodobny system nawigacji. */
@@ -52,85 +73,204 @@ const boundaries = [
 
   <main>
     <section
-      class="mx-auto grid w-full max-w-7xl gap-10 overflow-x-hidden px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:px-8 lg:py-16"
+      class="mx-auto grid w-full max-w-6xl gap-12 overflow-x-hidden px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:px-8 lg:py-20"
     >
-      <div class="max-w-2xl min-w-0 self-center">
-        <p
-          class="border-line-accent inline-flex max-w-full rounded-lg border bg-white px-3 py-1 text-sm font-medium text-wrap text-[#285d55]"
-        >
-          Edukacyjna symulacja rozmowy wspierana przez AI
+      <div class="flex max-w-2xl min-w-0 flex-col gap-6">
+        <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">
+          Edukacyjna symulacja rozmowy · nie terapia
         </p>
-        <h1 class="text-ink mt-5 text-4xl leading-tight font-semibold sm:text-5xl lg:text-6xl">SafeSpace</h1>
-        <p class="text-ink-soft mt-6 max-w-xl text-lg leading-8">
-          Spokojne wejście do pierwszej rozmowy o trudnościach psychicznych. Produkt pomaga uporządkować myśli i
-          zobaczyć, jak może wyglądać praca w różnych nurtach psychoterapii.
+        <h1 class="text-ink text-4xl leading-[1.05] font-medium tracking-tight text-pretty sm:text-5xl lg:text-[66px]">
+          Spokojne miejsce na pierwszą rozmowę.
+        </h1>
+        <p class="text-ink-soft max-w-xl text-lg leading-8 text-pretty">
+          SafeSpace pomaga uporządkować myśli i zobaczyć, jak może wyglądać rozmowa w różnych nurtach psychoterapii —
+          zanim zdecydujesz, czy i gdzie szukać realnej pomocy.
         </p>
-        <p class="border-warn-line bg-warn-soft text-warn mt-5 max-w-xl rounded-lg border px-4 py-3 text-sm leading-6">
-          SafeSpace nie jest terapią, diagnozą ani pomocą kryzysową. W nagłym zagrożeniu życia lub zdrowia skontaktuj
-          się z numerem 112, lokalnymi służbami, telefonem zaufania albo specjalistą.
-        </p>
-        <div class="mt-8 flex min-w-0 flex-col gap-3 sm:flex-row">
+        <div class="mt-2 flex min-w-0 flex-col gap-3 sm:flex-row">
           <a
             href={primaryCta.href}
-            class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-12 items-center justify-center rounded-lg px-5 text-base font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+            class="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-13 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2"
           >
             {primaryCta.label}
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-[18px] w-[18px]"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6"></path>
+            </svg>
           </a>
           {
             secondaryCta ? (
               <a
                 href={secondaryCta.href}
-                class="hover:bg-surface-hover focus:ring-brand-ring inline-flex h-12 items-center justify-center rounded-lg border border-[#8ab7ad] bg-white px-5 text-base font-medium text-[#1f514a] transition-colors focus:ring-2 focus:outline-none"
+                class="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-13 items-center justify-center rounded-[14px] border px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
               >
                 {secondaryCta.label}
               </a>
             ) : null
           }
         </div>
-        <p class="text-ink-muted mt-5 max-w-xl text-sm leading-6">
+        <p class="text-ink-muted max-w-xl text-sm leading-6">
           {
             user
-              ? "Zalogowano. Kolejny krok — wybór awatara i sesja — czeka w Twoim panelu."
-              : "Darmowa, 15-minutowa sesja wymaga konta, żeby rozmowa pozostała prywatna. Ta strona niczego nie uruchamia ani nie zapisuje."
+              ? "Zalogowano. Kolejny krok — wybór perspektywy i rozmowa — czeka w Twoim panelu."
+              : `Pierwsza rozmowa: do ${budgetMinutes} minut, prywatnie, po zalogowaniu. Ta strona niczego nie uruchamia ani nie zapisuje.`
           }
         </p>
       </div>
 
-      <figure class="max-w-full min-w-0 self-center">
-        <img
-          src="/safespace-landing.png"
-          width="800"
-          height="533"
-          alt="Ekran aplikacji SafeSpace z rozmową, timerem i oznaczeniami prywatności"
-          class="border-line-strong aspect-[800/533] w-full max-w-full rounded-lg border bg-white object-cover shadow-[0_24px_70px_rgba(24,78,70,0.18)]"
-          decoding="async"
-          loading="eager"
-        />
-        <figcaption class="text-ink-muted mt-3 max-w-full text-sm leading-6 text-wrap">
-          Rozmowa toczy się w przeglądarce: z widocznym limitem czasu, prywatnym zapisem i bez obietnicy diagnozy.
-        </figcaption>
+      {
+        /* Zamiast zrzutu ekranu — narysowany podgląd rozmowy. Ten sam chip,
+          pierścień czasu i proza, które zobaczy zalogowana osoba. */
+      }
+      <figure
+        role="img"
+        aria-label={`Podgląd rozmowy z awatarem ${featuredFirstName}: widoczny czas sesji, odpowiedzi jako spokojna proza i pole na Twoją wiadomość.`}
+        class="relative mx-auto w-full max-w-xl lg:mx-0 lg:h-[560px] lg:max-w-[640px] lg:justify-self-end"
+      >
+        <div
+          aria-hidden="true"
+          class="bg-brand-soft absolute top-0 right-0 hidden h-[540px] w-[460px] rounded-t-[230px] rounded-b-[28px] lg:block"
+        >
+        </div>
+        <div
+          aria-hidden="true"
+          class="border-line-strong bg-surface shadow-float relative flex flex-col rounded-[22px] border lg:absolute lg:bottom-7 lg:left-0 lg:w-[540px]"
+        >
+          <div class="border-line flex items-center justify-between gap-3 border-b px-5 py-4">
+            <div class="flex min-w-0 items-center gap-2.5">
+              <img
+                src={featured.assetPath}
+                alt=""
+                width="384"
+                height="384"
+                class="h-[30px] w-[30px] shrink-0 rounded-full object-cover"
+                loading="eager"
+              />
+              <span class="truncate text-sm font-semibold">{featured.avatarName}</span>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <svg width="28" height="28" viewBox="0 0 36 36" class="h-7 w-7">
+                <circle cx="18" cy="18" r={RING_RADIUS} fill="none" class="stroke-line-strong" stroke-width="3"
+                ></circle>
+                <circle
+                  cx="18"
+                  cy="18"
+                  r={RING_RADIUS}
+                  fill="none"
+                  class="stroke-brand"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-dasharray={`${ringElapsed.toFixed(2)} ${ringCircumference.toFixed(2)}`}
+                  transform="rotate(-90 18 18)"></circle>
+              </svg>
+              <span class="text-ink-muted text-xs">ok. {previewRemainingMinutes} min · początek</span>
+            </div>
+          </div>
+          <div class="flex flex-col gap-4 px-6 pt-6 pb-5">
+            <div class="flex flex-col gap-1.5">
+              <span class="text-persp-psychodynamic text-[11px] font-semibold tracking-[0.08em] uppercase">
+                {featuredFirstName}
+              </span>
+              <p class="font-serif text-[17px] leading-relaxed">
+                Nie musimy się spieszyć. Od czego chcesz dziś zacząć?
+              </p>
+            </div>
+            <div class="bg-speaker-soft max-w-[360px] self-end rounded-2xl rounded-br-[4px] px-3.5 py-3">
+              <p class="text-sm leading-relaxed">Chyba od tego, że nie wiem, czy terapia jest w ogóle dla mnie.</p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <span class="text-persp-psychodynamic text-[11px] font-semibold tracking-[0.08em] uppercase">
+                {featuredFirstName}
+              </span>
+              <p class="font-serif text-[17px] leading-relaxed">
+                „W ogóle dla mnie” — zastanawiam się, co się za tym kryje. Zostańmy przy tym chwilę.
+              </p>
+            </div>
+          </div>
+          <div
+            class="border-line-strong bg-surface mx-4 mb-4 flex items-center justify-between gap-3 rounded-2xl border py-2.5 pr-2.5 pl-4"
+          >
+            <span class="text-ink-faint text-sm">Napisz…</span>
+            <span class="bg-brand flex h-[34px] w-[34px] items-center justify-center rounded-full">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-4 w-4 text-white"
+              >
+                <path d="M12 19V5M5 12l7-7 7 7"></path>
+              </svg>
+            </span>
+          </div>
+        </div>
       </figure>
     </section>
 
-    <section class="border-y border-[#d6e6e1] bg-white">
-      <div class="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8 lg:py-12">
-        <div class="lg:col-span-1">
-          <p class="text-brand text-sm font-medium">Jak to działa</p>
-          <h2 class="text-ink mt-3 text-2xl leading-tight font-semibold">Krótka ścieżka przed pierwszą sesją</h2>
-          <p class="text-ink-muted mt-3 text-sm leading-6">
-            Trzy kroki dzielą Cię od rozmowy. Żaden z nich nie uruchamia sesji przypadkiem — czas zaczyna biec dopiero
-            po świadomym kliknięciu startu.
-          </p>
+    <section class="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-14 sm:px-6 lg:px-8 lg:py-18">
+      <div class="flex max-w-2xl flex-col gap-2.5">
+        <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">Pięć perspektyw</p>
+        <h2 class="text-ink font-serif text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
+          Pięć sposobów słuchania, jeden spokojny ton
+        </h2>
+        <p class="text-ink-muted text-base leading-7 sm:text-lg">
+          Każdy awatar reprezentuje inny nurt psychoterapii. Wybierasz perspektywę przed rozmową i możesz ją zmienić
+          przed kolejną.
+        </p>
+      </div>
+      <ul class="grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-6">
+        {
+          MVP_MODALITIES.map((modality) => {
+            const tint = getPerspectiveTint(modality.modalityId);
+
+            return (
+              <li class="flex flex-col gap-3">
+                <img
+                  src={modality.assetPath}
+                  alt={modality.altText}
+                  width="384"
+                  height="384"
+                  class="h-20 w-20 rounded-full object-cover"
+                  loading="lazy"
+                />
+                <div class="flex flex-col gap-0.5">
+                  <p class="text-ink text-base font-semibold">{modality.avatarName}</p>
+                  <p class:list={["text-[13px] font-medium", tint.text]}>{getPerspectiveLabel(modality.modalityId)}</p>
+                </div>
+                <p class="text-ink-muted text-sm leading-6">{modality.explanation}</p>
+              </li>
+            );
+          })
+        }
+      </ul>
+    </section>
+
+    <section class="border-line bg-surface border-y">
+      <div
+        class="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-16 lg:px-8"
+      >
+        <div class="flex flex-col gap-2.5">
+          <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">Jak to działa</p>
+          <h2 class="text-ink font-serif text-3xl leading-tight font-medium tracking-tight">
+            Trzy kroki, żaden nie uruchamia rozmowy przypadkiem
+          </h2>
         </div>
-        <ol class="grid gap-4 sm:grid-cols-3 lg:col-span-2">
+        <ol class="grid gap-8 sm:grid-cols-3">
           {
             steps.map((step, index) => (
-              <li class="border-line bg-surface-soft rounded-lg border p-5">
-                <span class="bg-brand flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white">
-                  {index + 1}
-                </span>
-                <h3 class="text-brand-deep mt-4 text-base font-semibold">{step.title}</h3>
-                <p class="text-ink-muted mt-2 text-sm leading-6">{step.body}</p>
+              <li class="border-line-accent flex flex-col gap-2 border-t pt-3">
+                <span class="text-brand font-serif text-[26px] font-medium">{index + 1}</span>
+                <p class="text-ink text-base font-semibold">{step.title}</p>
+                <p class="text-ink-muted text-sm leading-6">{step.body}</p>
               </li>
             ))
           }
@@ -138,101 +278,71 @@ const boundaries = [
       </div>
     </section>
 
-    <section
-      class="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8 lg:py-12"
-    >
-      <div>
-        <p class="text-brand text-sm font-medium">Jedna bezpłatna sesja</p>
-        <h2 class="text-ink mt-3 max-w-3xl text-3xl leading-tight font-semibold">
-          15 minut, konto użytkownika i jasne granice przed rozmową
-        </h2>
-        <p class="text-ink-soft mt-4 max-w-3xl text-base leading-7">
-          SafeSpace udostępnia pierwszą, limitowaną sesję w przeglądarce. Konto jest potrzebne, żeby rozmowa i jej
-          historia pozostały prywatne, a wybór awatara opisuje edukacyjną perspektywę przyszłej rozmowy.
-        </p>
-        <p class="text-ink-soft mt-4 max-w-3xl text-base leading-7">
-          Po sesji możesz wrócić do zapisu rozmowy w prywatnej historii i zatwierdzić podsumowanie, które posłuży jako
-          kontekst kolejnej rozmowy. Bez Twojej zgody żadna treść nie jest przenoszona dalej.
-        </p>
-      </div>
-      <aside class="border-line-strong rounded-lg border bg-white p-5 shadow-[0_18px_50px_rgba(24,78,70,0.10)]">
-        <h3 class="text-brand-deep text-base font-semibold">Co dostajesz</h3>
-        <ul class="text-ink-muted mt-4 space-y-3 text-sm leading-6">
-          <li>Jedną bezpłatną, 15-minutową sesję z wybraną perspektywą.</li>
-          <li>Prywatną historię rozmów widoczną tylko dla Ciebie.</li>
-          <li>Jasne granice bezpieczeństwa widoczne przed rozmową.</li>
-        </ul>
-      </aside>
-    </section>
-
-    <section class="bg-[#182a2a] text-white">
-      <div class="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8 lg:py-12">
-        <div>
-          <p class="text-sm font-medium text-[#9ed8cc]">Granice bezpieczeństwa</p>
-          <h2 class="mt-3 text-3xl leading-tight font-semibold">Zanim zaczniesz, wiedz, czego produkt nie robi</h2>
-          <p class="mt-4 text-base leading-7 text-[#d8e8e3]">
-            SafeSpace ma pomagać w przygotowaniu do realnej rozmowy i edukacyjnie pokazywać możliwe sposoby pracy. Nie
-            ma zastępować kontaktu z wykwalifikowaną osobą.
-          </p>
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2">
-          {
-            boundaries.map((boundary) => (
-              <p class="text-surface-hover rounded-lg border border-white/15 bg-white/8 p-4 text-sm leading-6">
-                {boundary}
-              </p>
-            ))
-          }
-        </div>
-      </div>
-      <div class="border-t border-white/10">
-        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <p class="max-w-4xl text-sm leading-6 text-[#ffdcb0]">
-            Jeśli jesteś w bezpośrednim niebezpieczeństwie, zadzwoń pod 112 albo skontaktuj się z lokalną pomocą
-            kryzysową, telefonem zaufania lub specjalistą. Nie czekaj na odpowiedź aplikacji.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
-      <div
-        class="border-line-strong grid gap-5 rounded-lg border bg-white p-6 shadow-[0_18px_50px_rgba(24,78,70,0.10)] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
-      >
-        <div>
-          <p class="text-brand text-sm font-medium">
-            {user ? "Wróć do swoich rozmów" : "Czas na pierwszy krok?"}
-          </p>
-          <h2 class="text-ink mt-2 text-2xl font-semibold">
-            {user ? "Przejdź do swojego panelu" : "Załóż konto i przygotuj pierwszą sesję"}
-          </h2>
-          <p class="text-ink-muted mt-3 max-w-3xl text-sm leading-6">
+    <section class="bg-brand-deep text-white">
+      <div class="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pt-16 pb-14 sm:px-6 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
+          <div class="flex flex-col gap-3">
+            <p class="text-brand-soft text-xs font-semibold tracking-[0.08em] uppercase">Granice bezpieczeństwa</p>
+            <h2 class="font-serif text-3xl leading-tight font-medium tracking-tight text-white sm:text-4xl">
+              Zanim zaczniesz, wiedz, czego SafeSpace nie robi
+            </h2>
+            <p class="text-base leading-7 text-white/80">
+              SafeSpace ma pomagać w przygotowaniu do realnej rozmowy i edukacyjnie pokazywać możliwe sposoby pracy. Nie
+              ma zastępować kontaktu z wykwalifikowaną osobą.
+            </p>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
             {
-              user
-                ? "W panelu wybierzesz awatara, rozpoczniesz sesję i wrócisz do zapisanych rozmów. Rozmowa nigdy nie zaczyna się na tej publicznej stronie."
-                : "Rejestracja zajmuje chwilę i niczego nie uruchamia automatycznie — sesję zaczynasz świadomie, osobnym przyciskiem w panelu."
+              boundaries.map((boundary) => (
+                <p class="rounded-[14px] border border-white/15 px-5 py-4 text-[15px] leading-6 text-white/90">
+                  {boundary}
+                </p>
+              ))
             }
-          </p>
+          </div>
         </div>
-        <div class="flex flex-col gap-3 sm:flex-row lg:justify-end">
-          <a
-            href={primaryCta.href}
-            class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
-          >
-            {primaryCta.label}
-          </a>
-          {
-            secondaryCta ? (
-              <a
-                href={secondaryCta.href}
-                class="hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg border border-[#8ab7ad] bg-white px-5 text-sm font-medium text-[#1f514a] transition-colors focus:ring-2 focus:outline-none"
-              >
-                Zaloguj się
-              </a>
-            ) : null
-          }
-        </div>
+        <p class="text-clay-soft border-t border-white/15 pt-6 text-[15px] leading-6">
+          Jeśli jesteś w bezpośrednim niebezpieczeństwie, zadzwoń pod{" "}
+          <strong class="font-semibold text-white">{emergencyContact?.value ?? "112"}</strong> albo skontaktuj się z lokalną
+          pomocą kryzysową (<strong class="font-semibold text-white">{crisisLineContact?.value ?? "800 70 2222"}</strong
+          >), telefonem zaufania lub specjalistą. Nie czekaj na odpowiedź aplikacji.
+        </p>
       </div>
+    </section>
+
+    <section
+      class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8"
+    >
+      <div class="flex max-w-2xl flex-col gap-2">
+        <h2 class="text-ink font-serif text-3xl leading-tight font-medium tracking-tight">
+          {user ? "Wróć do swoich rozmów" : "Czas na pierwszy krok?"}
+        </h2>
+        <p class="text-ink-muted text-base leading-7">
+          {
+            user
+              ? "W panelu wybierzesz perspektywę, rozpoczniesz rozmowę i wrócisz do zapisanych rozmów. Rozmowa nigdy nie zaczyna się na tej publicznej stronie."
+              : "Rejestracja zajmuje chwilę i niczego nie uruchamia automatycznie — rozmowę zaczynasz świadomie, osobnym przyciskiem w panelu."
+          }
+        </p>
+      </div>
+      <a
+        href={primaryCta.href}
+        class="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-13 shrink-0 items-center justify-center gap-2.5 self-start rounded-[14px] px-6 text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 lg:self-auto"
+      >
+        {primaryCta.label}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-[18px] w-[18px]"
+        >
+          <path d="M5 12h14M13 6l6 6-6 6"></path>
+        </svg>
+      </a>
     </section>
   </main>
 

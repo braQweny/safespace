@@ -78,11 +78,11 @@ function getDeleteConfirmHeadingId(sessionId: string) {
 }
 
 const statusBadgeClasses: Record<SessionHistoryListItem["status"], string> = {
-  created: "border-line-strong bg-surface-soft text-ink-muted",
-  active: "border-brand-soft bg-surface-hover text-brand",
-  completed: "border-line-accent bg-surface-hover text-brand-deep",
-  expired: "border-line-strong bg-surface-soft text-ink-muted",
-  interrupted: "border-warn-line bg-warn-soft text-warn",
+  created: "bg-surface-soft text-ink-muted",
+  active: "bg-brand-tint text-brand-deep",
+  completed: "bg-brand-tint text-brand-deep",
+  expired: "bg-surface-soft text-ink-muted",
+  interrupted: "bg-clay-soft text-clay-strong",
 };
 
 const SESSION_TIME_ZONE = "Europe/Warsaw";
@@ -236,25 +236,27 @@ function SessionHistoryListItemRow({
     <li
       data-history-item={item.id}
       className={cn(
-        "rounded-lg border p-4 text-sm leading-6 transition-colors",
-        isSelected ? "border-brand bg-canvas" : "border-line bg-surface hover:border-line-accent",
+        "rounded-2xl border p-4 text-sm leading-6 transition-colors",
+        isSelected
+          ? "border-brand ring-brand-soft bg-surface ring-[3px]"
+          : "border-line bg-surface hover:border-line-accent",
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+          <p className="text-ink text-[15px] font-semibold">{formatDateTime(item.startedAt ?? item.createdAt)}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <span
               title={statusLegend.description}
               className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold",
+                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
                 statusBadgeClasses[effectiveStatus],
               )}
             >
               {statusLegend.label}
             </span>
-            <span className="text-ink-faint text-xs">{getDurationLabel(item)}</span>
+            <span className="text-ink-muted text-xs">{getDurationLabel(item)}</span>
           </div>
-          <p className="text-ink mt-1.5 font-semibold">{formatDateTime(item.startedAt ?? item.createdAt)}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {isActive ? (
@@ -262,14 +264,14 @@ function SessionHistoryListItemRow({
               <div
                 role="timer"
                 aria-label="Pozostały czas sesji"
-                className="border-brand-soft bg-surface-soft text-brand-deep inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold tabular-nums"
+                className="bg-brand-tint text-brand-deep inline-flex h-9 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold tabular-nums"
               >
                 <Clock aria-hidden="true" className="text-brand h-4 w-4" />
                 Pozostało {formatRemainingTime(remainingSeconds)}
               </div>
               <a
                 href={getActiveSessionHref(item.id)}
-                className="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
               >
                 <PlayCircle aria-hidden="true" className="h-4 w-4" />
                 Wróć do rozmowy
@@ -283,7 +285,7 @@ function SessionHistoryListItemRow({
             onClick={() => {
               onOpenDetail(item.id);
             }}
-            className="border-line-accent bg-surface text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <MessageSquareText aria-hidden="true" className="h-4 w-4" />
             Otwórz
@@ -297,7 +299,7 @@ function SessionHistoryListItemRow({
             onClick={() => {
               onRequestDelete(item.id);
             }}
-            className="text-ink-faint hover:border-danger-line hover:bg-danger-soft hover:text-danger focus:ring-danger-strong inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 aria-hidden="true" className="h-4 w-4" />
           </button>
@@ -311,7 +313,7 @@ function SessionHistoryListItemRow({
           aria-labelledby={deleteConfirmHeadingId}
           tabIndex={-1}
           onKeyDown={handleConfirmKeyDown}
-          className="border-warn-line bg-warn-soft text-warn mt-4 rounded-lg border p-4 text-sm leading-6 focus:outline-none"
+          className="border-line-accent bg-surface-soft text-ink-soft mt-4 rounded-xl border p-4 text-sm leading-6 focus:outline-none"
         >
           <p id={deleteConfirmHeadingId} className="font-semibold">
             Potwierdź usunięcie rozmowy
@@ -323,7 +325,7 @@ function SessionHistoryListItemRow({
             <button
               type="button"
               onClick={handleCancelDelete}
-              className="border-warn-line text-warn hover:bg-warn-soft focus:ring-warn-strong inline-flex h-9 items-center justify-center rounded-lg border bg-white px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+              className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
               Anuluj
             </button>
@@ -333,7 +335,7 @@ function SessionHistoryListItemRow({
               onClick={() => {
                 onConfirmDelete(item.id);
               }}
-              className="bg-danger hover:bg-danger focus:ring-danger-strong disabled:bg-danger-line inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
+              className="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong disabled:bg-danger-line inline-flex h-9 items-center justify-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
             >
               {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
               Potwierdź usunięcie

@@ -19,28 +19,26 @@ interface SessionMessagesProps {
 
 const PIN_TO_BOTTOM_TOLERANCE_PX = 80;
 
-function getBubbleClasses(role: UiSessionMessage["role"]) {
+/**
+ * Rozmowa jest jedną kolumną tekstu, nie dwiema kolumnami dymków: odpowiedzi
+ * awatara to proza złożona szeryfem, własne słowa użytkownika stoją po
+ * prawej na cieplejszym papierze, a granica bezpieczeństwa dostaje cichą
+ * ramkę zamiast ostrzegawczego koloru.
+ */
+function getMessageClasses(role: UiSessionMessage["role"]) {
   if (role === "user") {
-    return "ml-auto max-w-[85%] rounded-2xl rounded-br-md border-speaker-line bg-speaker-soft text-speaker";
+    return "ml-auto max-w-[85%] rounded-[18px] rounded-br-md bg-speaker-soft px-4 py-3 text-base leading-relaxed text-speaker";
   }
 
   if (role === "system_boundary") {
-    return "w-full rounded-2xl border-warn-line bg-warn-soft text-warn";
+    return "w-full rounded-2xl border border-line-accent bg-surface px-5 py-4 text-sm leading-6 text-ink-soft";
   }
 
-  return "mr-auto max-w-[85%] rounded-2xl rounded-bl-md border-line bg-surface text-ink-soft";
+  return "text-ink mr-auto w-full font-serif text-[1.1875rem] leading-[1.6]";
 }
 
-function getRoleLabel(role: UiSessionMessage["role"], assistantAvatar: SelectedModalityAvatar) {
-  if (role === "assistant") {
-    return assistantAvatar.avatarName;
-  }
-
-  if (role === "system_boundary") {
-    return "Granica bezpieczeństwa";
-  }
-
-  return "Ty";
+function getAssistantDisplayName(assistantAvatar: SelectedModalityAvatar) {
+  return assistantAvatar.avatarName.split(",")[0]?.trim() || assistantAvatar.avatarName;
 }
 
 function renderInlines(inlines: readonly MessageMarkdownInline[]) {
@@ -94,29 +92,33 @@ function MessageHeader({
   role: UiSessionMessage["role"];
   assistantAvatar: SelectedModalityAvatar;
 }) {
-  const label = getRoleLabel(role, assistantAvatar);
+  if (role === "system_boundary") {
+    return (
+      <p className="text-ink-muted font-sans text-xs font-semibold tracking-[0.08em] uppercase">
+        Granica bezpieczeństwa
+      </p>
+    );
+  }
 
   if (role !== "assistant") {
-    return <p className="text-brand text-xs font-semibold">{label}</p>;
+    return <p className="text-brand font-sans text-xs font-semibold tracking-[0.08em] uppercase">Ty</p>;
   }
 
   return (
-    <div className="text-brand flex items-center gap-2 text-xs font-semibold">
+    <div className="text-brand flex items-center gap-2 font-sans text-xs font-semibold tracking-[0.08em] uppercase">
       <img
         src={assistantAvatar.assetPath}
         alt=""
-        width="24"
-        height="24"
-        className="h-6 w-6 rounded-full object-cover"
+        width="22"
+        height="22"
+        className="h-[22px] w-[22px] rounded-full object-cover"
         loading="lazy"
       />
-      <span>{label}</span>
+      {/* Na ekranie samo imię; czytnik ekranu dostaje pełną nazwę awatara raz, przy zmianie mówiącego. */}
+      <span aria-hidden="true">{getAssistantDisplayName(assistantAvatar)}</span>
+      <span className="sr-only">{assistantAvatar.avatarName}</span>
     </div>
   );
-}
-
-function getAssistantDisplayName(assistantAvatar: SelectedModalityAvatar) {
-  return assistantAvatar.avatarName.split(",")[0]?.trim() || assistantAvatar.avatarName;
 }
 
 function PendingAssistantStatus({ assistantAvatar }: { assistantAvatar: SelectedModalityAvatar }) {
@@ -124,7 +126,7 @@ function PendingAssistantStatus({ assistantAvatar }: { assistantAvatar: Selected
 
   return (
     <div
-      className="border-line bg-surface text-ink-soft mt-3 inline-flex items-center gap-2 rounded-2xl rounded-bl-md border px-4 py-3 text-sm font-medium"
+      className="text-ink-muted mt-6 inline-flex items-center gap-1.5 text-sm"
       role="status"
       aria-label={`${assistantName} myśli...`}
     >
@@ -185,52 +187,51 @@ export default function SessionMessages({
           : undefined
       }
       className={cn(
-        "border-line bg-surface-soft rounded-lg border p-4",
-        isLive ? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : "min-h-[280px]",
+        isLive
+          ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6"
+          : "border-line bg-surface min-h-[280px] rounded-2xl border p-4 sm:p-6",
       )}
     >
-      {!hasContent ? (
-        <div
-          className={cn(
-            "text-ink-muted flex items-center justify-center text-center text-sm leading-6",
-            isLive ? "h-full" : "min-h-56",
-          )}
-        >
-          {emptyCopy}
-        </div>
-      ) : (
-        // Chat convention: the conversation sits at the bottom, next to the
-        // composer, instead of floating at the top of a tall empty box.
-        <ol className={cn("space-y-2", isLive && "flex min-h-full flex-col justify-end")}>
-          {messages.map((message, index) => {
-            const previousRole = index > 0 ? messages[index - 1]?.role : null;
-            const showHeader = message.role !== "user" && message.role !== previousRole;
+      <div className={cn("mx-auto w-full max-w-3xl", isLive && "flex min-h-full flex-col")}>
+        {!hasContent ? (
+          <div
+            className={cn(
+              "text-ink-muted flex items-center justify-center text-center text-sm leading-6",
+              isLive ? "flex-1" : "min-h-56",
+            )}
+          >
+            {emptyCopy}
+          </div>
+        ) : (
+          // Chat convention: the conversation sits at the bottom, next to the
+          // composer, instead of floating at the top of a tall empty box.
+          <ol className={cn("flex flex-col gap-6", isLive && "min-h-full justify-end")}>
+            {messages.map((message, index) => {
+              const previousRole = index > 0 ? messages[index - 1]?.role : null;
+              const showHeader = message.role !== "user" && message.role !== previousRole;
 
-            return (
-              <li
-                key={message.id}
-                className={cn(
-                  "border p-4 text-sm leading-6",
-                  getBubbleClasses(message.role),
-                  message.role === previousRole && "mt-1",
-                )}
-              >
-                {showHeader ? <MessageHeader role={message.role} assistantAvatar={assistantAvatar} /> : null}
-                {message.role === "user" ? <span className="sr-only">Ty: </span> : null}
-                <MessageContent content={message.content} hasHeader={showHeader} />
+              return (
+                <li
+                  key={message.id}
+                  className={cn(getMessageClasses(message.role), message.role === previousRole && "-mt-2")}
+                >
+                  {showHeader ? <MessageHeader role={message.role} assistantAvatar={assistantAvatar} /> : null}
+                  {message.role === "user" ? <span className="sr-only">Ty: </span> : null}
+                  <MessageContent content={message.content} hasHeader={showHeader} />
+                </li>
+              );
+            })}
+            {pendingUserText ? (
+              <li className={getMessageClasses("user")}>
+                <span className="sr-only">Ty: </span>
+                <MessageContent content={pendingUserText} hasHeader={false} />
               </li>
-            );
-          })}
-          {pendingUserText ? (
-            <li className={cn("border p-4 text-sm leading-6", getBubbleClasses("user"))}>
-              <span className="sr-only">Ty: </span>
-              <MessageContent content={pendingUserText} hasHeader={false} />
-            </li>
-          ) : null}
-        </ol>
-      )}
+            ) : null}
+          </ol>
+        )}
 
-      {isPending ? <PendingAssistantStatus assistantAvatar={assistantAvatar} /> : null}
+        {isPending ? <PendingAssistantStatus assistantAvatar={assistantAvatar} /> : null}
+      </div>
     </div>
   );
 }

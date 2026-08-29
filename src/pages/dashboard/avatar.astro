@@ -88,10 +88,10 @@ if (!sessionContext.ok) {
 ---
 
 <Layout title="Wybór perspektywy - SafeSpace" lang="pl">
-  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={activeSession} />
 
-    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main class="flex-1 px-4 py-10 sm:px-6 lg:px-8">
       <section class="mx-auto max-w-6xl">
         {
           /* Two long paragraphs plus a privacy card used to fill the entire first
@@ -100,22 +100,47 @@ if (!sessionContext.ok) {
         }
         <a
           href="/dashboard"
-          class="text-brand hover:text-brand-strong focus:ring-brand-ring rounded text-sm font-medium transition-colors hover:underline focus:ring-2 focus:outline-none"
+          class="text-ink-muted hover:text-ink focus-visible:ring-brand-ring inline-flex items-center gap-1.5 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
         >
-          ← Wróć do panelu
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+          >
+            <path d="M19 12H5M11 18l-6-6 6-6"></path>
+          </svg>
+          Wróć do panelu
         </a>
-        <h1 class="text-ink mt-3 max-w-4xl text-3xl font-semibold">Wybierz perspektywę rozmowy</h1>
-        <p class="text-ink-soft mt-3 max-w-3xl text-base leading-7">
-          Każda perspektywa to inny awatar i inny nurt psychoterapii — rozmowa będzie prowadzona w jego stylu. Wybór
-          dotyczy kolejnej rozmowy i możesz go później zmienić; po zapisaniu wrócisz do panelu, skąd zaczniesz rozmowę.
+        <h1 class="text-ink mt-3 max-w-4xl font-serif text-4xl font-medium tracking-tight">
+          Wybierz perspektywę rozmowy
+        </h1>
+        <p class="text-ink-muted mt-3 max-w-3xl text-[17px] leading-7">
+          Każda perspektywa to inny nurt psychoterapii i inny sposób słuchania. Wybór dotyczy kolejnej rozmowy — możesz
+          go później zmienić. To wybór edukacyjny, nie dobór terapii.
         </p>
 
         <details class="group mt-3 max-w-3xl">
           <summary
-            class="text-brand focus:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:ring-2 focus:outline-none"
+            class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             Co to znaczy dla rozmowy
-            <span aria-hidden="true" class="transition-transform group-open:rotate-180">▾</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-4 w-4 transition-transform group-open:rotate-180"
+            >
+              <path d="m6 9 6 6 6-6"></path>
+            </svg>
           </summary>
           <div class="text-ink-muted mt-3 space-y-2 text-sm leading-6">
             <p>
@@ -131,7 +156,7 @@ if (!sessionContext.ok) {
 
         {
           activeSession ? (
-            <div class="border-line-accent bg-surface-hover text-brand-deep mt-6 max-w-3xl rounded-lg border p-4 text-sm leading-6">
+            <div class="border-line-accent bg-surface text-brand-deep mt-6 max-w-3xl rounded-2xl border p-4 text-sm leading-6">
               Masz rozmowę w toku. Zapisana tu zmiana zadziała dopiero od następnej rozmowy.
             </div>
           ) : null
@@ -139,7 +164,7 @@ if (!sessionContext.ok) {
 
         {
           pageError ? (
-            <div class="border-danger-line bg-danger-soft text-danger mt-6 rounded-lg border p-4 text-sm leading-6">
+            <div class="border-danger-line bg-danger-soft text-danger mt-6 rounded-2xl border p-4 text-sm leading-6">
               {pageError}
             </div>
           ) : null

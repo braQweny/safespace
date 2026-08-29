@@ -9,16 +9,14 @@ const { user } = Astro.locals;
 ---
 
 <Layout title="Nie znaleziono strony - SafeSpace" lang="pl">
-  <div class="bg-canvas text-ink flex min-h-screen flex-col">
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader />
 
     <main class="flex flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto w-full max-w-2xl">
-        <div
-          class="border-line-strong w-full rounded-lg border bg-white p-6 shadow-[0_22px_60px_rgba(24,78,70,0.12)] sm:p-8"
-        >
+        <div class="border-line-strong shadow-card w-full rounded-lg border bg-white p-6 sm:p-8">
           <p class="text-brand text-sm font-medium">SafeSpace</p>
-          <h1 class="text-ink mt-3 text-2xl font-semibold">Nie znaleźliśmy tej strony</h1>
+          <h1 class="text-ink mt-3 text-3xl leading-tight">Nie znaleźliśmy tej strony</h1>
           <p class="text-ink-muted mt-4 text-sm leading-6">
             Adres, który próbujesz otworzyć, nie istnieje albo został przeniesiony. Sprawdź link lub wróć
             {user ? " do panelu" : " na stronę główną"}.

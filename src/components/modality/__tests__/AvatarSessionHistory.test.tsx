@@ -307,7 +307,7 @@ describe("AvatarSessionHistory", () => {
       },
     });
 
-    expect(disabledHtml).toContain("Wybierz awatara");
+    expect(disabledHtml).toContain("Wybierz perspektywę");
     expect(emptyHtml).toContain("Brak zapisanych rozmów");
     expect(errorHtml).toContain("Nie udało się odczytać historii");
   });

@@ -17,8 +17,10 @@ interface SessionStarterPromptsProps {
 
 export default function SessionStarterPrompts({ isDisabled, onSelect }: SessionStarterPromptsProps) {
   return (
-    <div className="shrink-0">
-      <p className="text-ink-muted text-xs leading-5">Możesz zacząć od jednego z tych zdań — dopiszesz resztę sam.</p>
+    <div className="mx-auto w-full max-w-3xl shrink-0">
+      <p className="text-ink-muted text-xs leading-5">
+        Możesz zacząć od jednego z tych zdań — resztę dopiszesz po swojemu.
+      </p>
       <ul className="mt-2 flex flex-wrap gap-2">
         {STARTER_PROMPTS.map((prompt) => (
           <li key={prompt}>
@@ -28,7 +30,7 @@ export default function SessionStarterPrompts({ isDisabled, onSelect }: SessionS
               onClick={() => {
                 onSelect(prompt);
               }}
-              className="border-line-accent bg-surface text-ink-soft hover:border-brand-ring hover:bg-surface-hover focus:ring-brand-ring inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex min-h-10 items-center rounded-full border px-3.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {prompt}
             </button>

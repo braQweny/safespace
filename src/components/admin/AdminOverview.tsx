@@ -20,9 +20,9 @@ function formatCount(count: PrivacySafeCount | number) {
 function StatTile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <section className="border-line rounded-lg border bg-white p-4">
-      <p className="text-sm font-medium text-[#5a6d68]">{label}</p>
+      <p className="text-ink-muted text-sm font-medium">{label}</p>
       <p className="text-ink mt-2 text-3xl font-semibold">{value}</p>
-      {note ? <p className="mt-2 text-sm leading-5 text-[#6a7b76]">{note}</p> : null}
+      {note ? <p className="text-ink-faint mt-2 text-sm leading-5">{note}</p> : null}
     </section>
   );
 }

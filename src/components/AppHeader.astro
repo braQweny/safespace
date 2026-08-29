@@ -16,20 +16,28 @@ const activeSessionHref = activeSession
   : null;
 ---
 
-<header class="border-line bg-surface/90 sticky top-0 z-30 shrink-0 border-b backdrop-blur">
-  <div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+<header class="border-line bg-surface/85 sticky top-0 z-30 shrink-0 border-b backdrop-blur">
+  <div class="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-8">
     <a
       href={user ? "/dashboard" : "/"}
-      class="text-brand-deep hover:text-brand focus:ring-brand-ring shrink-0 rounded text-base font-semibold transition-colors focus:ring-2 focus:outline-none"
+      class="text-ink hover:text-brand-deep focus-visible:ring-brand-ring flex shrink-0 items-center gap-2.5 rounded-md transition-colors focus:outline-none focus-visible:ring-2"
     >
-      SafeSpace
+      {/* Łuk: drzwi do pokoju. Znak jest jeden i nie zmienia się z kontekstem. */}
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" class="h-6 w-6">
+        <path
+          d="M4.5 21.5V12a7.5 7.5 0 0 1 15 0v9.5Z"
+          class="fill-brand-soft stroke-brand"
+          stroke-width="1.75"
+          stroke-linejoin="round"></path>
+      </svg>
+      <span class="font-serif text-[22px] font-medium tracking-tight">SafeSpace</span>
     </a>
 
     {
       activeSessionHref ? (
         <a
           href={activeSessionHref}
-          class="border-brand-soft bg-surface-soft text-brand hover:bg-surface-hover focus:ring-brand-ring flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+          class="border-line-accent bg-surface text-brand-deep hover:bg-surface-soft focus-visible:ring-brand-ring flex h-9 min-w-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
         >
           <span aria-hidden="true" class="bg-brand h-2 w-2 shrink-0 rounded-full" />
           <span class="truncate">
@@ -44,15 +52,14 @@ const activeSessionHref = activeSession
       {
         user ? (
           <details class="group relative" data-account-menu>
-            <summary class="border-line text-ink-muted hover:bg-surface-soft focus:ring-brand-ring flex h-9 cursor-pointer list-none items-center gap-2 rounded-lg border px-3 text-sm transition-colors focus:ring-2 focus:outline-none">
-              <span class="hidden max-w-40 truncate sm:inline">{user.email}</span>
-              <span class="sm:hidden">Konto</span>
+            <summary class="border-line-strong bg-surface text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex h-9 cursor-pointer list-none items-center gap-2 rounded-full border pr-2.5 pl-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
+              <span>Konto</span>
               <svg
                 aria-hidden="true"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="1.75"
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 class="h-4 w-4 transition-transform group-open:rotate-180"
@@ -60,18 +67,18 @@ const activeSessionHref = activeSession
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </summary>
-            <div class="border-line bg-surface shadow-card absolute right-0 z-40 mt-2 w-60 rounded-lg border p-2">
-              <p class="text-ink-faint truncate px-2 py-1.5 text-xs sm:hidden">{user.email}</p>
+            <div class="border-line-strong bg-surface shadow-rail absolute right-0 z-40 mt-2 w-64 rounded-2xl border p-2">
+              <p class="text-ink-faint truncate px-2.5 py-2 text-xs">{user.email}</p>
               <a
                 href="/account/security"
-                class="text-ink-soft hover:bg-surface-soft focus:ring-brand-ring flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors focus:ring-2 focus:outline-none"
+                class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2"
               >
                 Konto
               </a>
               <form method="POST" action="/api/auth/signout">
                 <button
                   type="submit"
-                  class="text-ink-soft hover:bg-surface-soft focus:ring-brand-ring flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors focus:ring-2 focus:outline-none"
+                  class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wyloguj się
                 </button>
@@ -81,7 +88,7 @@ const activeSessionHref = activeSession
         ) : (
           <a
             href="/auth/signin"
-            class="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring flex h-9 items-center rounded-lg border px-3 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+            class="border-line-accent text-ink hover:bg-surface-soft focus-visible:ring-brand-ring flex h-9 items-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             Zaloguj się
           </a>

@@ -1,8 +1,9 @@
-import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
+import { RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
-import { CrisisContactValue } from "./crisis-contact";
+import { cn } from "@/lib/utils";
+import { CrisisContactList } from "./crisis-contact";
 
 type NoticeVariant = "caution" | "hard_stop" | "retry" | "info";
 
@@ -14,21 +15,18 @@ interface SessionSafetyNoticeProps {
 
 function getVariantClasses(variant: NoticeVariant) {
   if (variant === "hard_stop") {
-    return "border-danger-line bg-danger-soft text-danger";
+    // Zatrzymanie rozmowy bez czerwieni: spokojna karta, numery dużym pismem.
+    return "border-line-accent bg-surface text-ink-soft shadow-card p-6 sm:p-8";
   }
 
   if (variant === "retry") {
-    return "border-warn-line bg-warn-soft text-warn";
+    return "border-warn-line bg-warn-soft text-warn p-4 sm:p-5";
   }
 
-  return "border-brand-soft bg-surface-soft text-ink-soft";
+  return "border-line bg-surface-soft text-ink-soft p-4 sm:p-5";
 }
 
 function NoticeIcon({ variant }: { variant: NoticeVariant }) {
-  if (variant === "hard_stop") {
-    return <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />;
-  }
-
   if (variant === "retry") {
     return <RefreshCw aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />;
   }
@@ -58,43 +56,41 @@ export default function SessionSafetyNotice({ variant, copy, crisisResources = [
     <section
       ref={containerRef}
       aria-live={isHardStop ? "assertive" : "polite"}
-      className={`rounded-lg border p-4 text-sm leading-6 focus:outline-none ${getVariantClasses(variant)}`}
+      className={cn("rounded-2xl border text-sm leading-6 focus:outline-none", getVariantClasses(variant))}
       role={isHardStop ? "alert" : "status"}
       tabIndex={isHardStop ? -1 : undefined}
     >
-      <div className="flex gap-3">
-        <NoticeIcon variant={variant} />
+      {isHardStop ? (
         <div>
-          <h2 className="font-semibold">{copy.title}</h2>
-          <p className="mt-1">{copy.body}</p>
+          <p className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">Granica bezpieczeństwa</p>
+          <h2 className="text-ink mt-2 font-serif text-2xl leading-tight font-medium sm:text-3xl">{copy.title}</h2>
+          <p className="text-ink-soft mt-3 text-base leading-7">{copy.body}</p>
           {"nextSteps" in copy && copy.nextSteps.length > 0 ? (
-            <ul className="mt-3 list-disc space-y-1 pl-5">
+            <ul className="text-ink-soft mt-3 list-disc space-y-1 pl-5 text-base leading-7">
               {copy.nextSteps.map((step) => (
                 <li key={step}>{step}</li>
               ))}
             </ul>
           ) : null}
         </div>
-      </div>
-
-      {crisisResources.length > 0 ? (
-        <div className="mt-4 space-y-3 border-t border-current/20 pt-4">
-          {crisisResources.map((region) => (
-            <div key={region.id}>
-              <p className="font-semibold">{region.label}</p>
-              <ul className="mt-2 space-y-2">
-                {region.contacts.map((contact) => (
-                  <li key={`${region.id}-${contact.label}`}>
-                    <span className="font-medium">{contact.label}:</span> <CrisisContactValue contact={contact} />
-                    <span className="block">{contact.description}</span>
-                  </li>
+      ) : (
+        <div className="flex gap-3">
+          <NoticeIcon variant={variant} />
+          <div>
+            <h2 className="font-semibold">{copy.title}</h2>
+            <p className="mt-1">{copy.body}</p>
+            {"nextSteps" in copy && copy.nextSteps.length > 0 ? (
+              <ul className="mt-3 list-disc space-y-1 pl-5">
+                {copy.nextSteps.map((step) => (
+                  <li key={step}>{step}</li>
                 ))}
               </ul>
-              <p className="mt-2 text-xs opacity-90">{region.note}</p>
-            </div>
-          ))}
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      )}
+
+      {crisisResources.length > 0 ? <CrisisContactList regions={crisisResources} className="mt-6" /> : null}
     </section>
   );
 }

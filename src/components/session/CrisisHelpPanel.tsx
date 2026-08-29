@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import { LifeBuoy, X } from "lucide-react";
+import { Phone, X } from "lucide-react";
 import { CRISIS_RESOURCE_REGIONS } from "@/lib/session-safety/crisis-resources";
-import { CrisisContactValue } from "./crisis-contact";
+import { CrisisContactList } from "./crisis-contact";
 
 /**
  * Crisis contacts used to appear only after the safety classifier raised a hard
@@ -25,13 +25,11 @@ export function CrisisHelpTrigger({ isOpen, onToggle }: CrisisHelpTriggerProps) 
       onClick={onToggle}
       aria-expanded={isOpen}
       aria-controls="crisis-help-panel"
-      className="border-warn-line bg-warn-soft text-warn hover:bg-warn-soft/70 focus:ring-warn-strong inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none"
+      className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
     >
-      <LifeBuoy aria-hidden="true" className="h-4 w-4" />
-      {/* Shortened on phones so the header controls stay on one row, but never
-          reduced to a bare icon — this is the one button that must read clearly. */}
-      <span className="sm:hidden">Pomoc teraz</span>
-      <span className="hidden sm:inline">Potrzebuję pomocy teraz</span>
+      {/* Glina tylko na ikonie: przycisk ma być znajdowalny, nie alarmujący. */}
+      <Phone aria-hidden="true" className="text-clay h-4 w-4" />
+      <span>Pomoc teraz</span>
     </button>
   );
 }
@@ -66,40 +64,28 @@ export function CrisisHelpPanel({ onClose }: CrisisHelpPanelProps) {
       role="dialog"
       aria-label="Kontakty pomocy kryzysowej"
       tabIndex={-1}
-      className="border-warn-line bg-warn-soft text-warn mt-4 rounded-lg border p-4 text-sm leading-6 focus:outline-none"
+      className="border-line-accent bg-surface text-ink-soft shadow-card mx-auto mt-3 w-full max-w-3xl rounded-2xl border p-5 text-sm leading-6 focus:outline-none sm:p-6"
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="font-semibold">Realna pomoc, jeśli dzieje się coś pilnego</p>
+        <div>
+          <p className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">Pomoc teraz</p>
+          <p className="text-ink mt-1 font-serif text-xl leading-snug">Realna pomoc, jeśli dzieje się coś pilnego</p>
+        </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Zamknij kontakty pomocy"
-          className="hover:bg-warn-soft focus:ring-warn-strong -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus:ring-2 focus:outline-none"
+          className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring -mt-1 -mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2"
         >
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-1">
+      <p className="mt-2">
         SafeSpace jest symulacją edukacyjną i nie jest pomocą kryzysową. Poniższe kontakty prowadzą do realnych służb i
         linii wsparcia.
       </p>
 
-      <div className="mt-4 space-y-3 border-t border-current/20 pt-4">
-        {CRISIS_RESOURCE_REGIONS.map((region) => (
-          <div key={region.id}>
-            <p className="font-semibold">{region.label}</p>
-            <ul className="mt-2 space-y-2">
-              {region.contacts.map((contact) => (
-                <li key={`${region.id}-${contact.label}`}>
-                  <span className="font-medium">{contact.label}:</span> <CrisisContactValue contact={contact} />
-                  <span className="block">{contact.description}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs opacity-90">{region.note}</p>
-          </div>
-        ))}
-      </div>
+      <CrisisContactList regions={CRISIS_RESOURCE_REGIONS} className="mt-5" />
     </div>
   );
 }
