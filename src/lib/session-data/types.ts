@@ -153,6 +153,13 @@ export type LatestSessionSummaryState =
       summary: SessionSummaryPreview;
     };
 
+/**
+ * Sam stan podsumowania, bez jego treści. Lista historii pokazuje wyłącznie
+ * metadane, więc odczyt dla wielu rozmów naraz nie może nieść `summary_text` —
+ * do listy jedzie tylko informacja, czy z tej rozmowy coś przechodzi dalej.
+ */
+export type SessionSummaryStateKind = LatestSessionSummaryState["kind"];
+
 export interface SessionTrialClaimState {
   id: TrialClaimId;
   sessionId: SessionId;
@@ -292,6 +299,11 @@ export interface SessionHistoryListItem {
   expiresAt: string | null;
   durationBucketSeconds: SessionDurationBucketSeconds | null;
   isTrial: boolean;
+  /**
+   * Czy z tej rozmowy coś przechodzi do kolejnej. Stan, nie treść — lista
+   * historii nadal nie pokazuje ani słowa z rozmowy ani z podsumowania.
+   */
+  summaryState: SessionSummaryStateKind;
   createdAt: string;
   updatedAt: string;
 }

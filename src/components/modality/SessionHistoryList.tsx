@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Clock, Loader2, MessageSquareText, PlayCircle, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronRight, Clock, PlayCircle } from "lucide-react";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
 import { computeClientRemainingSeconds, formatRemainingTime } from "@/lib/session-flow/message-state";
 import { cn } from "@/lib/utils";
@@ -12,12 +12,7 @@ interface SessionHistoryListProps {
    * żadnej reakcji — do tego czasu akcje wiersza są wyłączone, a nie nieme.
    */
   isInteractive?: boolean;
-  pendingDeleteId: string | null;
-  deletingId: string | null;
   onOpenDetail: (sessionId: string) => void;
-  onRequestDelete: (sessionId: string) => void;
-  onCancelDelete: () => void;
-  onConfirmDelete: (sessionId: string) => void;
 }
 
 export interface SessionStatusLegendEntry {
@@ -40,7 +35,8 @@ export const sessionStatusLegend: Record<SessionHistoryListItem["status"], Sessi
   },
   completed: {
     label: "Zakończona",
-    description: "Rozmowa zamknięta przez Ciebie przyciskiem „Zakończ sesję”.",
+    description:
+      "Rozmowa zamknięta przez Ciebie przyciskiem „Zakończ sesję” — zwykły koniec, więc wiersz nie dostaje odznaki.",
   },
   expired: {
     label: "Po czasie",
@@ -73,14 +69,14 @@ export function getOpenDetailButtonId(sessionId: string) {
   return `session-history-open-${sessionId}`;
 }
 
-function getDeleteConfirmHeadingId(sessionId: string) {
-  return `session-history-delete-heading-${sessionId}`;
-}
-
-const statusBadgeClasses: Record<SessionHistoryListItem["status"], string> = {
+/**
+ * „Zakończona” to stan domyślny i nie zasługuje na odznakę — po dniu i godzinie
+ * widać wszystko, co trzeba. Odznakę dostają tylko stany, które czymś się
+ * różnią od zwykłego przebiegu rozmowy.
+ */
+const statusBadgeClasses: Partial<Record<SessionHistoryListItem["status"], string>> = {
   created: "bg-surface-soft text-ink-muted",
   active: "bg-brand-tint text-brand-deep",
-  completed: "bg-brand-tint text-brand-deep",
   expired: "bg-surface-soft text-ink-muted",
   interrupted: "bg-clay-soft text-clay-strong",
 };
@@ -128,6 +124,84 @@ export function formatDateTime(timestamp: string | null, now = new Date()) {
 }
 
 /**
+ * Nagłówek grupy dnia. Data przenosi się z wiersza do nagłówka, więc w samym
+ * wierszu zostaje sama godzina — kilka rozmów z jednego dnia przestaje wyglądać
+ * jak kilka kopii tego samego napisu.
+ */
+export function formatDayGroupLabel(timestamp: string | null, now = new Date()) {
+  if (!timestamp) {
+    return "Brak daty";
+  }
+
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Brak daty";
+  }
+
+  const day = dayFormatter.format(date);
+
+  if (day === dayFormatter.format(now)) {
+    return "Dzisiaj";
+  }
+
+  if (day === dayFormatter.format(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
+    return "Wczoraj";
+  }
+
+  return day;
+}
+
+export function formatTimeOfDay(timestamp: string | null) {
+  if (!timestamp) {
+    return "—";
+  }
+
+  const date = new Date(timestamp);
+
+  return Number.isNaN(date.getTime()) ? "—" : timeFormatter.format(date);
+}
+
+export interface SessionHistoryDayGroup {
+  key: string;
+  label: string;
+  items: SessionHistoryListItem[];
+}
+
+function getItemTimestamp(item: SessionHistoryListItem) {
+  return item.startedAt ?? item.createdAt;
+}
+
+/**
+ * Lista przychodzi już posortowana od najnowszej, więc grupowanie zachowuje
+ * kolejność i nie sortuje niczego po raz drugi.
+ */
+export function groupSessionHistoryItemsByDay(
+  items: readonly SessionHistoryListItem[],
+  now = new Date(),
+): SessionHistoryDayGroup[] {
+  const groups: SessionHistoryDayGroup[] = [];
+
+  for (const item of items) {
+    const label = formatDayGroupLabel(getItemTimestamp(item), now);
+    const lastGroup = groups.at(-1);
+
+    if (lastGroup?.key === label) {
+      lastGroup.items.push(item);
+      continue;
+    }
+
+    groups.push({
+      key: label,
+      label,
+      items: [item],
+    });
+  }
+
+  return groups;
+}
+
+/**
  * `durationBucketSeconds` is a privacy bucket (0/300/900/1800/3600), not the real
  * length — every trial session carries 900, so the list showed "15 min" next to a
  * two-minute conversation. Prefer the actual span and mark the bucket as a bound.
@@ -151,6 +225,59 @@ export function getDurationLabel(item: SessionHistoryListItem) {
   return "Czas nieustalony";
 }
 
+interface SummaryMarkCopy {
+  label: string;
+  className: string;
+  dashed: boolean;
+}
+
+/**
+ * Znacznik mówi wyłącznie o stanie: czy z tej rozmowy coś przechodzi dalej.
+ * Treść podsumowania zostaje w podglądzie, tak jak treść rozmowy.
+ */
+const summaryMarkCopy: Partial<Record<SessionHistoryListItem["summaryState"], SummaryMarkCopy>> = {
+  approved: {
+    label: "Przechodzi dalej",
+    className: "text-brand",
+    dashed: false,
+  },
+  preview: {
+    label: "Podsumowanie czeka na decyzję",
+    className: "text-ink-soft",
+    dashed: false,
+  },
+  stale: {
+    label: "Podsumowanie nieaktualne",
+    className: "text-ink-faint",
+    dashed: true,
+  },
+};
+
+/** Łuk ze znaku marki: to, co przechodzi przez próg do kolejnej rozmowy. */
+function SummaryMark({ state }: { state: SessionHistoryListItem["summaryState"] }) {
+  const copy = summaryMarkCopy[state];
+
+  if (!copy) {
+    return null;
+  }
+
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 text-xs font-semibold", copy.className)}>
+      <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+        <path
+          d="M4.5 21.5V12a7.5 7.5 0 0 1 15 0v9.5Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinejoin="round"
+          strokeDasharray={copy.dashed ? "3 3" : undefined}
+        />
+      </svg>
+      {copy.label}
+    </span>
+  );
+}
+
 function getActiveSessionHref(sessionId: string) {
   return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
 }
@@ -163,36 +290,11 @@ interface SessionHistoryListItemRowProps {
   item: SessionHistoryListItem;
   isSelected: boolean;
   isInteractive: boolean;
-  isConfirming: boolean;
-  isDeleting: boolean;
   onOpenDetail: (sessionId: string) => void;
-  onRequestDelete: (sessionId: string) => void;
-  onCancelDelete: () => void;
-  onConfirmDelete: (sessionId: string) => void;
 }
 
-function SessionHistoryListItemRow({
-  item,
-  isSelected,
-  isInteractive,
-  isConfirming,
-  isDeleting,
-  onOpenDetail,
-  onRequestDelete,
-  onCancelDelete,
-  onConfirmDelete,
-}: SessionHistoryListItemRowProps) {
+function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDetail }: SessionHistoryListItemRowProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(() => getInitialActiveRemainingSeconds(item));
-  const deleteButtonRef = useRef<HTMLButtonElement | null>(null);
-  const confirmDeleteRef = useRef<HTMLDivElement | null>(null);
-
-  // Blok potwierdzenia pojawia się pod wierszem, poza fokusem — bez przeniesienia
-  // fokusu czytnik ekranu nie dowiedziałby się, że coś wymaga decyzji.
-  useEffect(() => {
-    if (isConfirming) {
-      confirmDeleteRef.current?.focus();
-    }
-  }, [isConfirming]);
 
   useEffect(() => {
     if (item.status !== "active" || !item.expiresAt) {
@@ -213,136 +315,81 @@ function SessionHistoryListItemRow({
   const effectiveStatus = item.status === "active" && remainingSeconds === 0 ? "expired" : item.status;
   const isActive = effectiveStatus === "active";
   const statusLegend = sessionStatusLegend[effectiveStatus];
-  const deleteConfirmHeadingId = getDeleteConfirmHeadingId(item.id);
-
-  // Anulowanie zdejmuje blok z DOM, więc fokus musi wrócić na kosz tej pozycji
-  // — inaczej wylądowałby na <body>.
-  function handleCancelDelete() {
-    onCancelDelete();
-    deleteButtonRef.current?.focus();
-  }
-
-  function handleConfirmKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== "Escape") {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    handleCancelDelete();
-  }
+  const badgeClassName = statusBadgeClasses[effectiveStatus];
+  const timeOfDay = formatTimeOfDay(item.startedAt ?? item.createdAt);
+  const durationLabel = getDurationLabel(item);
 
   return (
     <li
       data-history-item={item.id}
       className={cn(
-        "rounded-2xl border p-4 text-sm leading-6 transition-colors",
-        isSelected
-          ? "border-brand ring-brand-soft bg-surface ring-[3px]"
-          : "border-line bg-surface hover:border-line-accent",
+        "rounded-xl transition-colors",
+        isSelected ? "bg-surface-soft ring-brand-soft ring-2" : "hover:bg-surface-soft",
       )}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-ink text-[15px] font-semibold">{formatDateTime(item.startedAt ?? item.createdAt)}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <span
-              title={statusLegend.description}
-              className={cn(
-                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                statusBadgeClasses[effectiveStatus],
-              )}
-            >
-              {statusLegend.label}
-            </span>
-            <span className="text-ink-muted text-xs">{getDurationLabel(item)}</span>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {isActive ? (
-            <>
-              <div
-                role="timer"
-                aria-label="Pozostały czas sesji"
-                className="bg-brand-tint text-brand-deep inline-flex h-9 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold tabular-nums"
-              >
-                <Clock aria-hidden="true" className="text-brand h-4 w-4" />
-                Pozostało {formatRemainingTime(remainingSeconds)}
-              </div>
-              <a
-                href={getActiveSessionHref(item.id)}
-                className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-              >
-                <PlayCircle aria-hidden="true" className="h-4 w-4" />
-                Wróć do rozmowy
-              </a>
-            </>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-ink text-[15px] leading-6">
+            <span className="font-semibold tabular-nums">{timeOfDay}</span>
+            <span className="text-ink-muted text-[13px]"> · {durationLabel}</span>
+          </p>
+          {badgeClassName || item.summaryState !== "none" ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+              {badgeClassName ? (
+                <span
+                  title={statusLegend.description}
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    badgeClassName,
+                  )}
+                >
+                  {statusLegend.label}
+                </span>
+              ) : null}
+              <SummaryMark state={item.summaryState} />
+            </div>
           ) : null}
-          <button
-            id={getOpenDetailButtonId(item.id)}
-            type="button"
-            disabled={!isInteractive}
-            onClick={() => {
-              onOpenDetail(item.id);
-            }}
-            className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <MessageSquareText aria-hidden="true" className="h-4 w-4" />
-            Otwórz
-          </button>
-          <button
-            ref={deleteButtonRef}
-            type="button"
-            aria-label="Usuń rozmowę"
-            title="Usuń rozmowę"
-            disabled={!isInteractive}
-            onClick={() => {
-              onRequestDelete(item.id);
-            }}
-            className="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Trash2 aria-hidden="true" className="h-4 w-4" />
-          </button>
         </div>
-      </div>
 
-      {isConfirming ? (
-        <div
-          ref={confirmDeleteRef}
-          role="group"
-          aria-labelledby={deleteConfirmHeadingId}
-          tabIndex={-1}
-          onKeyDown={handleConfirmKeyDown}
-          className="border-line-accent bg-surface-soft text-ink-soft mt-4 rounded-xl border p-4 text-sm leading-6 focus:outline-none"
+        {isActive ? (
+          <>
+            <div
+              role="timer"
+              aria-label="Pozostały czas sesji"
+              className="bg-brand-tint text-brand-deep inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-semibold tabular-nums"
+            >
+              <Clock aria-hidden="true" className="text-brand h-3.5 w-3.5" />
+              Pozostało {formatRemainingTime(remainingSeconds)}
+            </div>
+            <a
+              href={getActiveSessionHref(item.id)}
+              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2"
+            >
+              <PlayCircle aria-hidden="true" className="h-3.5 w-3.5" />
+              Wróć do rozmowy
+            </a>
+          </>
+        ) : null}
+
+        {/*
+          Jeden przycisk na wiersz zamiast trzech. Usuwanie przeniosło się do
+          podglądu — kasowanie z listy, na której każdy wiersz wygląda tak samo,
+          było proszeniem się o pomyłkę.
+        */}
+        <button
+          id={getOpenDetailButtonId(item.id)}
+          type="button"
+          disabled={!isInteractive}
+          aria-label={`Otwórz zapis rozmowy: ${formatDateTime(item.startedAt ?? item.createdAt)}`}
+          onClick={() => {
+            onOpenDetail(item.id);
+          }}
+          className="text-ink-muted hover:bg-surface hover:text-ink focus-visible:ring-brand-ring inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <p id={deleteConfirmHeadingId} className="font-semibold">
-            Potwierdź usunięcie rozmowy
-          </p>
-          <p className="mt-1">
-            Usunięcie jest nieodwracalne i nie przywraca darmowej próby. Treść rozmowy zostanie trwale usunięta.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleCancelDelete}
-              className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-            >
-              Anuluj
-            </button>
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={() => {
-                onConfirmDelete(item.id);
-              }}
-              className="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong disabled:bg-danger-line inline-flex h-9 items-center justify-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
-            >
-              {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-              Potwierdź usunięcie
-            </button>
-          </div>
-        </div>
-      ) : null}
+          <span className="hidden sm:inline">Otwórz</span>
+          <ChevronRight aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </div>
     </li>
   );
 }
@@ -351,31 +398,31 @@ export default function SessionHistoryList({
   items,
   selectedSessionId,
   isInteractive = true,
-  pendingDeleteId,
-  deletingId,
   onOpenDetail,
-  onRequestDelete,
-  onCancelDelete,
-  onConfirmDelete,
 }: SessionHistoryListProps) {
+  const groups = groupSessionHistoryItemsByDay(items);
+
   return (
-    <ol className="space-y-3">
-      {items.map((item) => {
-        return (
-          <SessionHistoryListItemRow
-            key={item.id}
-            item={item}
-            isSelected={selectedSessionId === item.id}
-            isInteractive={isInteractive}
-            isConfirming={pendingDeleteId === item.id}
-            isDeleting={deletingId === item.id}
-            onOpenDetail={onOpenDetail}
-            onRequestDelete={onRequestDelete}
-            onCancelDelete={onCancelDelete}
-            onConfirmDelete={onConfirmDelete}
-          />
-        );
-      })}
-    </ol>
+    <div className="flex flex-col gap-4">
+      {groups.map((group) => (
+        <section key={group.key}>
+          <div className="flex items-center gap-3">
+            <h3 className="text-ink-faint text-xs font-semibold tracking-[0.08em] uppercase">{group.label}</h3>
+            <span aria-hidden="true" className="bg-line h-px flex-1" />
+          </div>
+          <ol className="mt-1.5 space-y-0.5">
+            {group.items.map((item) => (
+              <SessionHistoryListItemRow
+                key={item.id}
+                item={item}
+                isSelected={selectedSessionId === item.id}
+                isInteractive={isInteractive}
+                onOpenDetail={onOpenDetail}
+              />
+            ))}
+          </ol>
+        </section>
+      ))}
+    </div>
   );
 }

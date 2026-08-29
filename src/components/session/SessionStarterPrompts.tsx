@@ -21,16 +21,18 @@ export default function SessionStarterPrompts({ isDisabled, onSelect }: SessionS
       <p className="text-ink-muted text-xs leading-5">
         Możesz zacząć od jednego z tych zdań — resztę dopiszesz po swojemu.
       </p>
-      <ul className="mt-2 flex flex-wrap gap-2">
+      {/* Na telefonie podpowiedzi jadą w poziomie zamiast zawijać się w trzy
+          rzędy nad polem pisania — od `sm` wracają do zawijania. */}
+      <ul className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
         {STARTER_PROMPTS.map((prompt) => (
-          <li key={prompt}>
+          <li key={prompt} className="shrink-0">
             <button
               type="button"
               disabled={isDisabled}
               onClick={() => {
                 onSelect(prompt);
               }}
-              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex min-h-10 items-center rounded-full border px-3.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex min-h-10 items-center rounded-full border px-3.5 py-2 text-sm whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 sm:whitespace-normal"
             >
               {prompt}
             </button>

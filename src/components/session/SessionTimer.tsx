@@ -66,8 +66,9 @@ const phaseLabels: Record<SessionPhase, string> = {
 
 /**
  * Czas pokazany jako łuk, nie odliczanie: pierścień wypełnia się w tempie
- * sesji, obok stoi „ok. N min” i faza rozmowy. Sekundy pojawiają się dopiero
- * w ostatnich dwóch minutach — wtedy precyzja naprawdę pomaga.
+ * sesji, obok stoi „ok. N min” i faza rozmowy. Na telefonie pierścień ustępuje
+ * miejsca paskowi pod nagłówkiem. Sekundy pojawiają się dopiero w ostatnich
+ * dwóch minutach — wtedy precyzja naprawdę pomaga.
  */
 function formatRemainingLabel(remainingSeconds: number | null, level: TimerLevel) {
   if (remainingSeconds === null) {
@@ -123,56 +124,83 @@ export default function SessionTimer({
   const isClosing = phase === "closing" || level !== "calm";
 
   return (
-    <div
-      role="timer"
-      aria-label={
-        level === "critical"
-          ? "Pozostały czas sesji — mniej niż 2 minuty"
-          : level === "warning"
-            ? "Pozostały czas sesji — mniej niż 5 minut"
-            : "Pozostały czas sesji"
-      }
-      className="inline-flex items-center gap-2.5"
-    >
-      <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true" className="h-9 w-9 shrink-0">
-        <circle cx="18" cy="18" r={RING_RADIUS} fill="none" strokeWidth="3" className="stroke-line-strong" />
-        {elapsedRatio === null ? null : (
-          <circle
-            cx="18"
-            cy="18"
-            r={RING_RADIUS}
-            fill="none"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray={`${(elapsedRatio * RING_CIRCUMFERENCE).toFixed(2)} ${RING_CIRCUMFERENCE.toFixed(2)}`}
-            transform="rotate(-90 18 18)"
-            className={cn(
-              "transition-[stroke-dasharray] duration-1000 ease-linear",
-              isClosing ? "stroke-clay" : "stroke-brand",
-            )}
-          />
-        )}
-      </svg>
-      <div className="flex flex-col leading-tight">
-        <span className={cn("text-sm font-semibold tabular-nums", isClosing ? "text-clay-strong" : "text-ink")}>
-          {formatRemainingLabel(remainingSeconds, level)}
-        </span>
-        <span className="text-ink-muted text-xs">
+    <>
+      <div
+        role="timer"
+        aria-label={
+          level === "critical"
+            ? "Pozostały czas sesji — mniej niż 2 minuty"
+            : level === "warning"
+              ? "Pozostały czas sesji — mniej niż 5 minut"
+              : "Pozostały czas sesji"
+        }
+        className="inline-flex items-center gap-2 sm:gap-2.5"
+      >
+        <svg
+          width="36"
+          height="36"
+          viewBox="0 0 36 36"
+          aria-hidden="true"
+          className="hidden shrink-0 sm:block sm:h-9 sm:w-9"
+        >
+          <circle cx="18" cy="18" r={RING_RADIUS} fill="none" strokeWidth="3" className="stroke-line-strong" />
+          {elapsedRatio === null ? null : (
+            <circle
+              cx="18"
+              cy="18"
+              r={RING_RADIUS}
+              fill="none"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={`${(elapsedRatio * RING_CIRCUMFERENCE).toFixed(2)} ${RING_CIRCUMFERENCE.toFixed(2)}`}
+              transform="rotate(-90 18 18)"
+              className={cn(
+                "transition-[stroke-dasharray] duration-1000 ease-linear",
+                isClosing ? "stroke-clay" : "stroke-brand",
+              )}
+            />
+          )}
+        </svg>
+        <div className="flex flex-col leading-tight">
+          <span className={cn("text-sm font-semibold tabular-nums", isClosing ? "text-clay-strong" : "text-ink")}>
+            {formatRemainingLabel(remainingSeconds, level)}
+          </span>
+          {/* Faza i budżet nie mieszczą się w jednym rzędzie telefonu — tam czas
+              niesie pierścień i pasek pod nagłówkiem. */}
+          <span className="text-ink-muted hidden text-xs sm:block">
+            {level === "critical"
+              ? "kończy się czas"
+              : [phase ? phaseLabels[phase] : null, totalMinutes ? `z ${totalMinutes} min` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+          </span>
+        </div>
+        {/* Zmiana progu ogłaszana czytnikowi ekranu raz, bez odczytywania każdej sekundy. */}
+        <span role="status" className="sr-only">
           {level === "critical"
-            ? "kończy się czas"
-            : [phase ? phaseLabels[phase] : null, totalMinutes ? `z ${totalMinutes} min` : null]
-                .filter(Boolean)
-                .join(" · ")}
+            ? "Zostało mniej niż 2 minuty sesji."
+            : level === "warning"
+              ? "Zostało mniej niż 5 minut sesji."
+              : null}
         </span>
       </div>
-      {/* Zmiana progu ogłaszana czytnikowi ekranu raz, bez odczytywania każdej sekundy. */}
-      <span role="status" className="sr-only">
-        {level === "critical"
-          ? "Zostało mniej niż 2 minuty sesji."
-          : level === "warning"
-            ? "Zostało mniej niż 5 minut sesji."
-            : null}
-      </span>
-    </div>
+      {/*
+        Ten sam łuk, spłaszczony do włoskowatego paska na całej szerokości
+        nagłówka: na telefonie pierścień 28 px jest za mały, żeby czytać z niego
+        upływ czasu, a odliczanie sekund byłoby dokładnie tym napięciem, którego
+        rozmowa ma nie dokładać.
+      */}
+      {elapsedRatio === null ? null : (
+        <span aria-hidden="true" className="bg-line absolute inset-x-0 bottom-0 h-0.5 sm:hidden">
+          <span
+            className={cn(
+              "block h-0.5 transition-[width] duration-1000 ease-linear",
+              isClosing ? "bg-clay" : "bg-brand",
+            )}
+            style={{ width: `${(elapsedRatio * 100).toFixed(2)}%` }}
+          />
+        </span>
+      )}
+    </>
   );
 }

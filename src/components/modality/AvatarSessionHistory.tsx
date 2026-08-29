@@ -225,7 +225,7 @@ export default function AvatarSessionHistory({
       </div>
 
       <p className="text-ink-muted mt-3 text-sm leading-6">
-        Lista pokazuje tylko datę, status i czas trwania. Treść rozmowy pojawia się dopiero po otwarciu szczegółów.
+        Lista pokazuje tylko datę, status i czas trwania. Treść otwierasz świadomie.
       </p>
 
       <details className="group mt-2">
@@ -284,12 +284,7 @@ export default function AvatarSessionHistory({
             items={history.items.slice(0, 20)}
             selectedSessionId={detail?.session.id ?? null}
             isInteractive={isHydrated}
-            pendingDeleteId={pendingDeleteId}
-            deletingId={deletingId}
             onOpenDetail={handleOpenDetail}
-            onRequestDelete={requestDelete}
-            onCancelDelete={cancelDelete}
-            onConfirmDelete={handleConfirmDelete}
           />
 
           {showDetailPanel ? (
@@ -305,6 +300,11 @@ export default function AvatarSessionHistory({
                 onGenerateSummary={handleGenerateSummary}
                 onApproveSummary={handleApproveSummary}
                 onClose={handleCloseDetail}
+                isConfirmingDelete={detail !== null && pendingDeleteId === detail.session.id}
+                isDeleting={detail !== null && deletingId === detail.session.id}
+                onRequestDelete={requestDelete}
+                onCancelDelete={cancelDelete}
+                onConfirmDelete={handleConfirmDelete}
               />
             </div>
           ) : null}

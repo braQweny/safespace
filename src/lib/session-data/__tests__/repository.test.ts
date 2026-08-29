@@ -8,6 +8,7 @@ import {
   toApprovedSessionSummaryContexts,
   toDeletedSessionTombstone,
   toLatestSessionSummaryState,
+  toSessionSummaryStatesBySession,
 } from "../repository";
 import type { SessionDataContext, SessionMetadata, SessionSummaryRecord } from "../types";
 
@@ -356,5 +357,33 @@ describe("listOwnedActiveSessionMetadata", () => {
     expect(anyAvatar.calls).toContainEqual(["eq", "status", "active"]);
     expect(anyAvatar.calls.some(([method, column]) => method === "eq" && column === "avatar_id")).toBe(false);
     expect(anyAvatar.calls).toContainEqual(["limit", 5]);
+  });
+});
+
+describe("toSessionSummaryStatesBySession", () => {
+  it("keeps the newest visible revision per session and never carries summary text", () => {
+    const states = toSessionSummaryStatesBySession([
+      { session_id: "session-1", status: "draft", is_visible: true, revision: 1 },
+      { session_id: "session-1", status: "ready", is_visible: true, revision: 2 },
+      { session_id: "session-2", status: "draft", is_visible: true, revision: 1 },
+      { session_id: "session-3", status: "stale", is_visible: true, revision: 4 },
+    ]);
+
+    expect(states.get("session-1")).toBe("approved");
+    expect(states.get("session-2")).toBe("preview");
+    expect(states.get("session-3")).toBe("stale");
+    expect(states.get("session-4")).toBeUndefined();
+  });
+
+  it("ignores deleted and invisible revisions, so a hidden summary never marks a row", () => {
+    const states = toSessionSummaryStatesBySession([
+      { session_id: "session-1", status: "ready", is_visible: true, revision: 1 },
+      { session_id: "session-1", status: "deleted", is_visible: true, revision: 5 },
+      { session_id: "session-1", status: "ready", is_visible: false, revision: 6 },
+      { session_id: "session-2", status: "ready", is_visible: false, revision: 1 },
+    ]);
+
+    expect(states.get("session-1")).toBe("approved");
+    expect(states.has("session-2")).toBe(false);
   });
 });

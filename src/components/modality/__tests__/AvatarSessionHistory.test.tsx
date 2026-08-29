@@ -19,6 +19,7 @@ function createHistoryItem(index: number): SessionHistoryListItem {
     expiresAt: `2026-06-07T${hour}:15:00.000Z`,
     durationBucketSeconds: 900,
     isTrial: true,
+    summaryState: "none",
     createdAt: `2026-06-07T${hour}:00:00.000Z`,
     updatedAt: `2026-06-07T${hour}:12:00.000Z`,
   };
@@ -85,7 +86,11 @@ describe("AvatarSessionHistory", () => {
     }
 
     // The badge title and the legend must come from the same map.
-    expect(html).toContain(`title="${sessionStatusLegend.completed.description}"`);
+    const interruptedHtml = renderHistory({
+      initialHistory: createHistoryResponse([{ ...createHistoryItem(1), status: "interrupted" }]),
+    });
+
+    expect(interruptedHtml).toContain(`title="${sessionStatusLegend.interrupted.description}"`);
   });
 
   it("keeps the opened detail panel clear of the sticky header and lets it be closed", () => {
@@ -197,9 +202,9 @@ describe("AvatarSessionHistory", () => {
       },
     });
 
-    expect(html).toContain("Propozycja — jeszcze nieużywana");
+    expect(html).toContain("Jeszcze nie przechodzi dalej");
     expect(html).toContain("Widoczne podsumowanie do sprawdzenia przed uzyciem.");
-    expect(html).toContain("Użyj w kolejnej sesji");
+    expect(html).toContain("Przepuść do następnej rozmowy");
     expect(html).not.toContain("Edytuj");
   });
 
@@ -271,24 +276,38 @@ describe("AvatarSessionHistory", () => {
       },
     });
 
-    expect(approvedHtml).toContain("Przekazywane kolejnej sesji");
-    expect(approvedHtml).toContain("Kolejna rozmowa zacznie się z tą wiedzą");
-    expect(staleHtml).toContain("Nieaktualne");
-    expect(staleHtml).toContain("nie zostanie przekazana kolejnej rozmowie");
+    expect(approvedHtml).toContain("Przechodzi do następnej rozmowy");
+    expect(approvedHtml).toContain("Następna rozmowa zacznie się z tą wiedzą");
+    expect(staleHtml).toContain("Ta wersja została zastąpiona");
+    expect(staleHtml).toContain("Nie przejdzie do następnej rozmowy");
     expect(nonSummarizableHtml).toContain("Aktywne albo puste rozmowy nie mogą zostać podsumowane");
     expect(renderHistory()).not.toContain("Zatwierdzone podsumowanie widoczne tylko w detail.");
   });
 
-  it("renders deletion confirmation copy without treating delete as avatar save", () => {
-    const html = renderHistory({
+  it("confirms a deletion inside the open preview, never from the bare list", () => {
+    // Usuwanie przeniosło się do podglądu: wiersze różnią się samą godziną, więc
+    // kasowanie z listy było kasowaniem w ciemno.
+    const listOnlyHtml = renderHistory({
       initialConfirmSessionId: "session-1",
     });
 
+    expect(listOnlyHtml).not.toContain("Potwierdź usunięcie rozmowy");
+    expect(listOnlyHtml).not.toContain("Usuń rozmowę");
+
+    const html = renderHistory({
+      initialConfirmSessionId: "session-1",
+      initialDetail: {
+        session: createHistoryItem(1),
+        messages: [],
+        summary: { kind: "none" },
+      },
+    });
+
+    expect(html).toContain("Usuń rozmowę");
     expect(html).toContain("Potwierdź usunięcie rozmowy");
     expect(html).toContain("nie przywraca darmowej próby");
     expect(html).toContain("Anuluj");
     expect(html).toContain("Potwierdź usunięcie");
-    expect(html).toContain("Usuń");
   });
 
   it("renders disabled, empty, and error states from safe props", () => {

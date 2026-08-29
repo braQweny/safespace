@@ -4,6 +4,7 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import { CRISIS_RESOURCE_REGIONS } from "@/lib/session-safety/crisis-resources";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
+import { SUMMARY_APPROVE_LABEL } from "@/lib/session-copy";
 import { getSupportContact } from "@/lib/support-contact";
 
 // Ta strona opisuje, jak produkt faktycznie działa (co zapisuje, kto to widzi,
@@ -127,7 +128,7 @@ const sections = [
             </p>
             <p class="text-ink-soft mt-3">
               Nic z rozmowy nie przechodzi do kolejnej sesji samo z siebie. Kolejna rozmowa zna tylko podsumowanie,
-              które wcześniej przeczytasz i zatwierdzisz przyciskiem „Użyj w kolejnej sesji”.
+              które wcześniej przeczytasz i zatwierdzisz przyciskiem „{SUMMARY_APPROVE_LABEL}”.
             </p>
           </section>
 

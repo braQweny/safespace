@@ -19,6 +19,7 @@ function createHistoryItem(index: number): SessionHistoryListItem {
     expiresAt: "2026-06-07T10:15:00.000Z",
     durationBucketSeconds: 900,
     isTrial: true,
+    summaryState: "none",
     createdAt: "2026-06-07T10:00:00.000Z",
     updatedAt: "2026-06-07T10:12:00.000Z",
   };

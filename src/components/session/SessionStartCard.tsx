@@ -48,9 +48,11 @@ function getStartCopy(kind: SessionStartPageState["kind"], quota: SessionQuota |
 
 /**
  * Pula bezpłatnych rozmów jako kilka kresek: wypełnione to te, które jeszcze
- * zostały. Zdanie obok mówi to samo słowami — kreski są tylko dla oka.
+ * zostały. Zdanie obok mówi to samo słowami — kreski są tylko dla oka. Karta
+ * pierwszych kroków w panelu renderuje ten sam miernik statycznie, żeby pula
+ * wyglądała tak samo przed wyborem perspektywy i po nim.
  */
-function AllowanceMeter({ quota }: { quota: SessionQuota | null }) {
+export function AllowanceMeter({ quota }: { quota: SessionQuota | null }) {
   if (quota?.plan !== "free" || quota.sessionLimit === null || quota.remainingSessions === null) {
     return null;
   }
@@ -140,13 +142,24 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
           </div>
           {hasApprovedSummaries ? (
             <div className="mt-3 space-y-3">
-              {initialState.approvedSummaries.slice(0, 3).map((summary, index) => (
+              {initialState.approvedSummaries.slice(0, 3).map((summary) => (
                 <div
                   key={summary.id}
                   className={cn("bg-surface rounded-xl p-4 transition-opacity", skipContext && "opacity-50")}
                 >
-                  <p className="text-brand text-xs font-semibold tracking-[0.08em] uppercase">
-                    Podsumowanie {index + 1}
+                  {/* Ten sam łuk co w bramie podsumowania: to jest dokładnie to,
+                      co przez próg przeszło. */}
+                  <p className="text-brand flex items-center gap-1.5 text-xs font-semibold tracking-[0.08em] uppercase">
+                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+                      <path
+                        d="M4.5 21.5V12a7.5 7.5 0 0 1 15 0v9.5Z"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Przechodzi do tej rozmowy
                   </p>
                   {/* Podsumowanie to treść rozmowy — szeryf, jak w samej rozmowie. */}
                   <p className="text-ink mt-2 font-serif text-[17px] leading-relaxed whitespace-pre-wrap">

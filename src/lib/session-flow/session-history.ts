@@ -3,6 +3,7 @@ import {
   getLatestOwnedSessionSummaryState,
   getOwnedSessionHistoryDetail,
   listOwnedSessionHistoryPage,
+  listOwnedSessionSummaryStates,
 } from "@/lib/session-data/repository";
 import {
   SESSION_HISTORY_PAGE_SIZE,
@@ -13,8 +14,10 @@ import {
   type SessionHistoryDetail,
   type SessionHistoryListItem,
   type SessionHistoryMessage,
+  type SessionId,
   type SessionMessageRecord,
   type SessionMetadata,
+  type SessionSummaryStateKind,
 } from "@/lib/session-data/types";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import {
@@ -29,6 +32,7 @@ export interface SessionHistoryRepository {
   listOwnedSessionHistoryPage: typeof listOwnedSessionHistoryPage;
   getOwnedSessionHistoryDetail: typeof getOwnedSessionHistoryDetail;
   getLatestOwnedSessionSummaryState: typeof getLatestOwnedSessionSummaryState;
+  listOwnedSessionSummaryStates: typeof listOwnedSessionSummaryStates;
 }
 
 export interface ReadSessionHistoryListInput {
@@ -46,6 +50,7 @@ const defaultSessionHistoryRepository: SessionHistoryRepository = {
   listOwnedSessionHistoryPage,
   getOwnedSessionHistoryDetail,
   getLatestOwnedSessionSummaryState,
+  listOwnedSessionSummaryStates,
 };
 
 function parseTimestampMs(timestamp: string | null) {
@@ -133,6 +138,7 @@ function getEffectiveHistoryStatus(session: SessionMetadata, now: Date): Session
 export function toSessionHistoryListItem(
   session: SessionMetadata,
   now: Date = new Date(),
+  summaryState: SessionSummaryStateKind = "none",
 ): SessionHistoryListItem | null {
   if (session.status === "deleted") {
     return null;
@@ -146,6 +152,7 @@ export function toSessionHistoryListItem(
     expiresAt: session.expiresAt,
     durationBucketSeconds: session.durationBucketSeconds,
     isTrial: session.isTrial,
+    summaryState,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };
@@ -165,7 +172,7 @@ function toSessionHistoryDetail(
   detail: OwnedSessionHistoryDetail,
   summary: SessionHistoryDetail["summary"],
 ): SessionHistoryDetail | null {
-  const session = toSessionHistoryListItem(detail.session);
+  const session = toSessionHistoryListItem(detail.session, new Date(), summary.kind);
 
   if (!session) {
     return null;
@@ -181,13 +188,16 @@ function toSessionHistoryDetail(
 function toSessionHistoryListResponse(
   page: OwnedSessionHistoryPage,
   avatar: NonNullable<ReturnType<typeof getModalityByAvatarId>>,
+  summaryStates: ReadonlyMap<SessionId, SessionSummaryStateKind>,
 ): SessionHistoryListResponse {
+  const now = new Date();
+
   return {
     ok: true,
     type: "session_history_list",
     avatar: toSelectedModalityAvatar(avatar),
     items: page.sessions
-      .map((session) => toSessionHistoryListItem(session))
+      .map((session) => toSessionHistoryListItem(session, now, summaryStates.get(session.id) ?? "none"))
       .filter((item) => item !== null)
       .sort(compareHistoryItemsNewestFirst),
     pagination: {
@@ -225,7 +235,15 @@ export async function readSessionHistoryList(
     return sessionHistoryFailure(mapSessionDataCode(history.error.code));
   }
 
-  return toSessionHistoryListResponse(history.data, avatar);
+  // Znacznik „przechodzi dalej” jest dodatkiem do listy, nie jej warunkiem:
+  // nieudany odczyt stanów podsumowań gasi znaczniki, ale nie zabiera
+  // użytkownikowi całej historii.
+  const summaryStates = await repository.listOwnedSessionSummaryStates(
+    context,
+    history.data.sessions.map((session) => session.id),
+  );
+
+  return toSessionHistoryListResponse(history.data, avatar, summaryStates.ok ? summaryStates.data : new Map());
 }
 
 export async function readSessionHistoryDetail(

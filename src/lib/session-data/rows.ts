@@ -25,6 +25,11 @@ export const HISTORY_SESSION_SELECT = `${SESSION_SELECT},session_messages!inner(
 export const MESSAGE_SELECT = "id,session_id,user_id,role,sequence_index,content,created_at";
 export const SUMMARY_SELECT = "id,session_id,user_id,summary_text,status,is_visible,revision,created_at,updated_at";
 export const SUMMARY_WITH_SESSION_SELECT = `${SUMMARY_SELECT},therapy_sessions!inner(id,status,deleted_at)`;
+/**
+ * Celowo bez `summary_text`: ten select obsługuje listę historii, która nie ma
+ * prawa zobaczyć treści podsumowania — tylko to, w jakim jest stanie.
+ */
+export const SUMMARY_STATE_SELECT = "session_id,status,is_visible,revision";
 export const TRIAL_CLAIM_SELECT = "id,session_id,user_id,trial_duration_seconds,claimed_at,created_at";
 
 export interface TherapySessionRow {
@@ -68,6 +73,13 @@ export interface SessionSummaryRow {
   updated_at: string;
 }
 
+export interface SessionSummaryStateRow {
+  session_id: SessionId;
+  status: SessionSummaryStatus;
+  is_visible: boolean;
+  revision: number;
+}
+
 export interface SessionTrialClaimRow {
   id: TrialClaimId;
   session_id: SessionId;
@@ -103,6 +115,14 @@ export function coerceSummaryRow(value: unknown): SessionSummaryRow | null {
 
 export function coerceSummaryRows(value: unknown): SessionSummaryRow[] {
   return Array.isArray(value) ? value.map(coerceSummaryRow).filter((row) => row !== null) : [];
+}
+
+export function coerceSummaryStateRow(value: unknown): SessionSummaryStateRow | null {
+  return isRecord(value) ? (value as SessionSummaryStateRow) : null;
+}
+
+export function coerceSummaryStateRows(value: unknown): SessionSummaryStateRow[] {
+  return Array.isArray(value) ? value.map(coerceSummaryStateRow).filter((row) => row !== null) : [];
 }
 
 export function coerceTrialClaimRow(value: unknown): SessionTrialClaimRow | null {

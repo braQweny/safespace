@@ -79,6 +79,80 @@ describe("TimedSession", () => {
     expect(html).toContain("Sesja jest aktywna");
     expect(html).toContain("Zakończ sesję");
     expect(html).toContain("Pozostały czas sesji");
+    // Pomoc kryzysowa zostaje na widoku także na wąskim ekranie.
+    expect(html).toContain("Pomoc teraz");
+    expect(html).toContain(">Pomoc<");
+  });
+
+  it("offers starter prompts until the user writes, not until the conversation is empty", () => {
+    // Start zapisuje wiadomość otwierającą awatara, więc warunek „brak
+    // wiadomości” chował podpowiedzi zawsze — także przed pierwszym zdaniem.
+    const openingOnly = renderSession({
+      kind: "active",
+      trialAvailable: false,
+      avatar,
+      session: {
+        id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+        status: "active",
+        startedAt: "2026-06-12T10:00:00.000Z",
+        endedAt: null,
+        expiresAt: "2026-06-12T10:15:00.000Z",
+        remainingSeconds: 600,
+        isTrial: true,
+        durationBucketSeconds: 900,
+      },
+      messages: [
+        {
+          id: "message-1",
+          role: "assistant",
+          sequenceIndex: 1,
+          content: "Od czego chcesz dziś zacząć?",
+          createdAt: "2026-06-12T10:00:01.000Z",
+        },
+      ],
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+      sessionQuota: null,
+    });
+    const afterFirstUserMessage = renderSession({
+      kind: "active",
+      trialAvailable: false,
+      avatar,
+      session: {
+        id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+        status: "active",
+        startedAt: "2026-06-12T10:00:00.000Z",
+        endedAt: null,
+        expiresAt: "2026-06-12T10:15:00.000Z",
+        remainingSeconds: 600,
+        isTrial: true,
+        durationBucketSeconds: 900,
+      },
+      messages: [
+        {
+          id: "message-1",
+          role: "assistant",
+          sequenceIndex: 1,
+          content: "Od czego chcesz dziś zacząć?",
+          createdAt: "2026-06-12T10:00:01.000Z",
+        },
+        {
+          id: "message-2",
+          role: "user",
+          sequenceIndex: 2,
+          content: "Od tygodnia wracam z pracy i od razu kładę się spać.",
+          createdAt: "2026-06-12T10:00:30.000Z",
+        },
+      ],
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+      sessionQuota: null,
+    });
+
+    expect(openingOnly).toContain("Nie wiem, od czego zacząć.");
+    expect(afterFirstUserMessage).not.toContain("Nie wiem, od czego zacząć.");
   });
 
   it("hides the active timer and end action after completion", () => {
@@ -107,9 +181,9 @@ describe("TimedSession", () => {
     expect(html).not.toContain("Zakończ sesję");
     expect(html).not.toContain("Pozostały czas sesji");
     // Decyzja o kontekście kolejnej rozmowy zapada tu, nie dopiero w historii.
-    expect(html).toContain("Podsumowanie do kolejnej sesji");
+    expect(html).toContain("Co przechodzi do następnej rozmowy");
+    expect(html).toContain("Podsumowanie tej rozmowy");
     expect(html).toContain("Wygeneruj podsumowanie");
-    expect(html).toContain("Użyj w kolejnej sesji");
     expect(html).toContain("Otwórz w historii");
     // The closing CTA must deep-link at the conversation that just ended, not at
     // a dashboard list where the user has to find it again.

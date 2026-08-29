@@ -1,7 +1,7 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
-import SessionStartCard from "@/components/session/SessionStartCard";
+import SessionStartCard, { AllowanceMeter } from "@/components/session/SessionStartCard";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import {
@@ -13,6 +13,9 @@ import {
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
+import { readSessionQuota } from "@/lib/session-data/quota";
+import type { SessionQuota } from "@/lib/session-data/types";
+import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
 import { SESSION_BOUNDARIES_COPY } from "@/lib/session-copy";
 import { readActiveSessionBadge, toActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 import { readCurrentAvatarChoice, type CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
@@ -103,6 +106,16 @@ if (!initialHistory && sessionContext.ok && historyAvatar) {
 // rozmowy — panel potrzebuje tylko stanu i zatwierdzonych podsumowań.
 let startPageState: SessionStartPageState | null = null;
 let startStateFailed = false;
+// Karta pierwszych kroków obiecuje pulę rozmów, zanim jakakolwiek się zacznie,
+// więc na tej ścieżce quota jest czytana osobno — stan startu wymaga zapisanej
+// perspektywy, a ta jeszcze nie istnieje.
+let firstStepsQuota: SessionQuota | null = null;
+
+if (sessionContext.ok && !currentAvatarChoice) {
+  const quota = await readSessionQuota(sessionContext.data);
+
+  firstStepsQuota = quota.ok ? quota.data : null;
+}
 
 if (sessionContext.ok && currentAvatarChoice) {
   const state = await readSessionStartPageState(sessionContext.data, {
@@ -132,6 +145,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes();
 // Karta startu pokazuje, jak ta perspektywa słucha — zdanie z katalogu, nie z
 // zapisanego wyboru (ten niesie tylko identyfikatory i nazwy).
 const currentModality = currentSelection ? getModalityByAvatarId(currentSelection.avatarId) : null;
+const firstStepsAllowanceCopy = formatRemainingFreeSessions(firstStepsQuota);
 const currentTint = currentSelection ? getPerspectiveTint(currentSelection.modalityId) : null;
 
 // Z zapisaną perspektywą panel dzieli się na dwie kolumny: po lewej karta startu
@@ -262,8 +276,28 @@ const panelGridClass = currentSelection
                     Dwa kroki do pierwszej rozmowy
                   </p>
                   <h2 class="text-ink mt-1.5 font-serif text-[28px] leading-tight font-medium">
-                    Najpierw wybierz perspektywę rozmowy
+                    Najpierw wybierz, kto ma słuchać
                   </h2>
+                  <p class="text-ink-muted mt-2 text-sm leading-6">
+                    Pięć awatarów, każdy w innym nurcie psychoterapii. To wybór edukacyjny — nie diagnoza i nie dobór
+                    terapii. Zmienisz go przed każdą kolejną rozmową.
+                  </p>
+                  {/* Twarze przed krokami: pierwszy krok przestaje być abstrakcją. */}
+                  <ul class="mt-5 flex flex-wrap gap-4">
+                    {MVP_MODALITIES.map((modality) => (
+                      <li class="flex w-14 flex-col items-center gap-1.5">
+                        <img
+                          src={modality.assetPath}
+                          alt=""
+                          width="384"
+                          height="384"
+                          loading="lazy"
+                          class="h-14 w-14 rounded-full object-cover"
+                        />
+                        <span class="text-ink-muted text-[13px] leading-4">{modality.avatarName.split(",")[0]}</span>
+                      </li>
+                    ))}
+                  </ul>
                   <ol class="mt-6 grid gap-3 sm:grid-cols-2">
                     <li class="bg-surface-soft flex gap-4 rounded-2xl p-4" aria-current="step">
                       <span class="text-brand shrink-0 font-serif text-2xl leading-none font-medium" aria-hidden="true">
@@ -272,8 +306,8 @@ const panelGridClass = currentSelection
                       <div class="min-w-0">
                         <p class="text-ink text-[15px] font-semibold">Wybierz perspektywę</p>
                         <p class="text-ink-muted mt-1 text-sm leading-6">
-                          Pięć awatarów, każdy w innym nurcie psychoterapii. To wybór edukacyjny — nie diagnoza i nie
-                          dobór terapii. Zmienisz go przed każdą kolejną rozmową.
+                          Posłuchasz po jednym zdaniu każdej z nich i zaznaczysz tę, która brzmi jak rozmowa, jakiej
+                          teraz potrzebujesz.
                         </p>
                       </div>
                     </li>
@@ -293,24 +327,34 @@ const panelGridClass = currentSelection
                       </div>
                     </li>
                   </ol>
-                  <a
-                    href="/dashboard/avatar"
-                    class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-6 inline-flex h-12 items-center justify-center gap-3 rounded-2xl px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-                  >
-                    Wybierz perspektywę
-                    <svg
-                      aria-hidden="true"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.75"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="h-4 w-4"
+                  <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+                    <a
+                      href="/dashboard/avatar"
+                      class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-2xl px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                     >
-                      <path d="M5 12h14M13 6l6 6-6 6" />
-                    </svg>
-                  </a>
+                      Wybierz perspektywę
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.75"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="h-4 w-4"
+                      >
+                        <path d="M5 12h14M13 6l6 6-6 6" />
+                      </svg>
+                    </a>
+                    {firstStepsAllowanceCopy ? (
+                      <div class="flex items-center gap-3">
+                        <AllowanceMeter quota={firstStepsQuota} />
+                        <p class="text-ink-soft text-sm leading-6" data-first-steps-quota>
+                          {firstStepsAllowanceCopy}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
                   <p class="text-ink-muted mt-6 text-[13px] leading-5">{SESSION_BOUNDARIES_COPY}</p>
                 </div>
               )

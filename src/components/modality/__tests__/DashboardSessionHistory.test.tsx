@@ -6,7 +6,7 @@ import DashboardSessionHistory, { getAvatarFirstName } from "../DashboardSession
 const selectedAvatar = toSelectedModalityAvatar(MVP_MODALITIES[3]);
 
 describe("getAvatarFirstName", () => {
-  it("keeps the switcher label short enough to fit the control", () => {
+  it("keeps the switcher name short enough to read at a glance", () => {
     expect(getAvatarFirstName("Olek, łącznik perspektyw")).toBe("Olek");
     expect(getAvatarFirstName("Lena, uważna słuchaczka")).toBe("Lena");
   });
@@ -17,7 +17,7 @@ describe("getAvatarFirstName", () => {
 });
 
 describe("DashboardSessionHistory", () => {
-  it("labels every perspective by first name and marks the saved one", () => {
+  it("names every perspective face and marks the saved one", () => {
     const html = renderToStaticMarkup(
       <DashboardSessionHistory
         selectedAvatar={selectedAvatar}
@@ -27,11 +27,15 @@ describe("DashboardSessionHistory", () => {
       />,
     );
 
+    // Przełącznik to rząd twarzy — imię jest dostępną nazwą obrazka, bo żaden
+    // widoczny tekst już go nie niesie.
     for (const modality of MVP_MODALITIES) {
-      expect(html).toContain(`>${getAvatarFirstName(modality.avatarName)}`);
+      expect(html).toContain(`alt="${getAvatarFirstName(modality.avatarName)}`);
     }
 
-    expect(html).toContain("(wybrany)");
+    expect(html).toContain(`alt="${getAvatarFirstName(selectedAvatar.avatarName)} (wybrany)"`);
+    expect(html).toContain('role="radiogroup"');
+    expect(html).not.toContain("<select");
     // Pełna nazwa i nurt zostają w nagłówku sekcji, nie w kontrolce.
     expect(html).toContain(selectedAvatar.avatarName);
     expect(html).toContain(selectedAvatar.modalityName);

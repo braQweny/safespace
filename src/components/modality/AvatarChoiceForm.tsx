@@ -39,59 +39,62 @@ export default function AvatarChoiceForm({ modalities, currentSelection }: Avata
   const [selectedModalityId, setSelectedModalityId] = useState<ModalityId | "">(currentSelection?.modalityId ?? "");
   const isHydrated = useIsHydrated();
   const selectedModality = modalities.find((modality) => modality.modalityId === selectedModalityId) ?? null;
-  // Szczegół zawsze kogoś pokazuje: bez zapisanego wyboru jest to pierwsza
-  // osoba z listy, ale żaden przycisk radiowy nie jest wtedy zaznaczony.
-  const detailModality = selectedModality ?? modalities.at(0) ?? null;
   // Without JavaScript the radios still work but React never re-renders, so the
   // save bar has to stay in the server-rendered markup or the form is unusable.
   const hasUnsavedChoice =
     !isHydrated || (selectedModality !== null && selectedModality.modalityId !== currentSelection?.modalityId);
-  const detailTint = detailModality ? getPerspectiveTint(detailModality.modalityId) : null;
 
   return (
     <form method="POST" action="/api/profile/avatar" className="mt-8">
-      <div className="grid gap-8 lg:grid-cols-[420px_minmax(0,1fr)] lg:items-start">
-        {/* role="radiogroup" zamiast fieldset: grid na fieldsetcie bywa ignorowany przez starsze WebKity. */}
-        <div role="radiogroup" aria-label="Perspektywy rozmowy" className="flex flex-col gap-1.5">
-          {modalities.map((modality) => {
-            const isSelected = modality.modalityId === selectedModalityId;
-            const tint = getPerspectiveTint(modality.modalityId);
+      {/*
+        Pięć głosów naraz zamiast listy nurtów obok karty szczegółu: wybiera się
+        po brzmieniu, nie po nazwie szkoły, a na telefonie sam wybór nie schodzi
+        pod ekran za opisem jednej perspektywy.
+        `role="radiogroup"` zamiast fieldset: grid na fieldsetcie bywa ignorowany
+        przez starsze WebKity.
+      */}
+      <div role="radiogroup" aria-label="Perspektywy rozmowy" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {modalities.map((modality) => {
+          const isSelected = modality.modalityId === selectedModalityId;
+          const tint = getPerspectiveTint(modality.modalityId);
 
-            return (
-              <label
-                key={modality.modalityId}
-                className={cn(
-                  "focus-within:ring-brand-ring flex min-h-[72px] cursor-pointer items-center gap-4 rounded-2xl border px-4 py-3 transition-colors focus-within:ring-2 focus-within:outline-none",
-                  isSelected
-                    ? "border-brand bg-surface ring-brand-soft ring-[3px]"
-                    : "hover:bg-surface hover:border-line-strong border-transparent",
-                )}
-              >
-                <input
-                  type="radio"
-                  name="modalityId"
-                  value={modality.modalityId}
-                  checked={isSelected}
-                  required
-                  onChange={() => {
-                    setSelectedModalityId(modality.modalityId);
-                  }}
-                  className="peer sr-only"
-                />
+          return (
+            <label
+              key={modality.modalityId}
+              className={cn(
+                "focus-within:ring-brand-ring bg-surface shadow-card flex cursor-pointer flex-col rounded-[20px] border p-5 transition-colors focus-within:ring-2 focus-within:outline-none sm:p-6",
+                isSelected ? cn("ring-2", tint.border, tint.ring) : "border-line-strong hover:border-line-accent",
+              )}
+            >
+              <input
+                type="radio"
+                name="modalityId"
+                value={modality.modalityId}
+                checked={isSelected}
+                required
+                onChange={() => {
+                  setSelectedModalityId(modality.modalityId);
+                }}
+                className="peer sr-only"
+              />
+
+              <div className="flex items-start gap-3.5">
                 <img
                   src={modality.assetPath}
-                  alt=""
+                  alt={modality.altText}
                   width="384"
                   height="384"
                   loading="lazy"
-                  className="h-14 w-14 shrink-0 rounded-full object-cover"
+                  className="h-16 w-16 shrink-0 rounded-full object-cover"
                 />
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="text-ink text-base font-semibold">{modality.avatarName}</span>
-                  <span className={cn("text-sm", tint.text)}>{getPerspectiveLabel(modality.modalityId)}</span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-ink text-[17px] leading-6 font-semibold">{modality.avatarName}</span>
+                  <span className={cn("text-[13px] leading-5", tint.text)}>
+                    {getPerspectiveLabel(modality.modalityId)}
+                  </span>
                 </span>
                 {/* The radio itself is sr-only, so an always-visible marker is the
-                    only thing telling a sighted user these rows are a choice. */}
+                    only thing telling a sighted user these cards are a choice. */}
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -101,82 +104,76 @@ export default function AvatarChoiceForm({ modalities, currentSelection }: Avata
                 >
                   <Check className={cn("h-3.5 w-3.5", isSelected ? "opacity-100" : "opacity-0")} strokeWidth={2.5} />
                 </span>
-              </label>
-            );
-          })}
-          <p className="text-ink-faint mt-3 px-4 text-[13px] leading-6">
-            Zapisy rozmów są prowadzone osobno dla każdej perspektywy. Znajdziesz je w panelu.
+              </div>
+
+              <div className={cn("mt-4 rounded-2xl px-4 py-4", tint.soft)}>
+                <span className={cn("block text-xs font-semibold tracking-[0.08em] uppercase", tint.text)}>
+                  {VOICE_SAMPLE_LABELS[modality.avatarId] ?? DEFAULT_VOICE_SAMPLE_LABEL}
+                </span>
+                <span className="text-ink mt-2 block font-serif text-xl leading-snug italic">
+                  „{modality.voiceSample}”
+                </span>
+              </div>
+
+              <span className="text-ink-muted mt-4 block text-xs font-semibold tracking-[0.08em] uppercase">
+                Na czym skupia uwagę
+              </span>
+              <span className="text-ink-soft mt-1.5 block text-sm leading-6">{modality.focus}</span>
+
+              {/* Zdanie porównawcze tylko przy zaznaczonej karcie: pomaga przy
+                  decyzji, a przy pięciu kartach naraz byłoby ścianą tekstu. */}
+              {isSelected ? (
+                <span className="text-ink-muted border-line mt-4 block border-t pt-3 text-[13px] leading-5">
+                  {modality.pairingNote}
+                </span>
+              ) : null}
+            </label>
+          );
+        })}
+
+        <div className="flex flex-col justify-center gap-3 px-5 py-4">
+          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4.5 21.5V12a7.5 7.5 0 0 1 15 0v9.5Z"
+              className="stroke-line-accent fill-none"
+              strokeWidth="1.75"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <p className="text-ink-muted text-sm leading-6">
+            Zapisy rozmów są prowadzone osobno dla każdej perspektywy. Zmiana wyboru niczego nie usuwa — starsze rozmowy
+            zostają pod swoją twarzą w historii.
           </p>
         </div>
-
-        {detailModality && detailTint ? (
-          <section
-            aria-live="polite"
-            className="border-line-strong bg-surface shadow-card flex flex-col gap-7 rounded-[20px] border p-6 sm:p-9"
-          >
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-7">
-              <img
-                src={detailModality.assetPath}
-                alt={detailModality.altText}
-                width="384"
-                height="384"
-                loading="lazy"
-                className="h-[168px] w-[168px] shrink-0 rounded-2xl object-cover"
-              />
-              <div className="flex min-w-0 flex-col gap-2">
-                <p className={cn("text-xs font-semibold tracking-[0.08em] uppercase", detailTint.text)}>
-                  {detailModality.modalityName}
-                </p>
-                <h2 className="text-ink font-serif text-3xl font-medium tracking-tight">{detailModality.avatarName}</h2>
-                <p className="text-ink-soft mt-1 text-[17px] leading-7">{detailModality.explanation}</p>
-              </div>
-            </div>
-
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="bg-surface-soft flex flex-col gap-2 rounded-2xl px-5 py-5">
-                <p className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">Na czym skupia uwagę</p>
-                <p className="text-ink text-[15px] leading-6">{detailModality.focus}</p>
-              </div>
-              <div className={cn("flex flex-col gap-2 rounded-2xl px-5 py-5", detailTint.soft)}>
-                <p className={cn("text-xs font-semibold tracking-[0.08em] uppercase", detailTint.text)}>
-                  {VOICE_SAMPLE_LABELS[detailModality.avatarId] ?? DEFAULT_VOICE_SAMPLE_LABEL}
-                </p>
-                <p className="text-ink font-serif text-xl leading-snug italic">„{detailModality.voiceSample}”</p>
-              </div>
-            </div>
-
-            <p className="text-ink-muted text-sm leading-6">{detailModality.pairingNote}</p>
-
-            {/* The bar only appears once the selection actually differs from what is
-                saved. Floating a permanent "Zapisz wybór" over the cards implied
-                there was always something pending, and covered a card to say it. */}
-            {hasUnsavedChoice ? (
-              <div className="border-line bg-surface sticky bottom-4 z-10 -mx-2 flex flex-col gap-4 rounded-2xl border-t px-2 pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-ink-muted text-sm leading-6">
-                  {selectedModality ? (
-                    <>
-                      <span className="text-ink font-semibold">
-                        Zaznaczono: {getDisplayName(selectedModality.avatarName)}.
-                      </span>{" "}
-                      Wybór zacznie obowiązywać po zapisaniu — od kolejnej rozmowy.
-                    </>
-                  ) : (
-                    "Zaznacz perspektywę, żeby ją zapisać."
-                  )}
-                </p>
-                <button
-                  type="submit"
-                  suppressHydrationWarning
-                  className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-                >
-                  <Save aria-hidden="true" className="h-4 w-4" />
-                  Zapisz wybór
-                </button>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
       </div>
+
+      {/* The bar only appears once the selection actually differs from what is
+          saved. A permanent "Zapisz wybór" implied there was always something
+          pending. */}
+      {hasUnsavedChoice ? (
+        <div className="border-line-strong bg-surface/95 sticky bottom-0 z-10 mt-6 flex flex-col gap-4 rounded-t-2xl border-t px-1 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <p className="text-ink-muted text-sm leading-6">
+            {selectedModality ? (
+              <>
+                <span className="text-ink font-semibold">
+                  Zaznaczono: {getDisplayName(selectedModality.avatarName)}.
+                </span>{" "}
+                Wybór zacznie obowiązywać po zapisaniu — od kolejnej rozmowy.
+              </>
+            ) : (
+              "Zaznacz perspektywę, żeby ją zapisać."
+            )}
+          </p>
+          <button
+            type="submit"
+            suppressHydrationWarning
+            className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            <Save aria-hidden="true" className="h-4 w-4" />
+            Zapisz wybór
+          </button>
+        </div>
+      ) : null}
     </form>
   );
 }

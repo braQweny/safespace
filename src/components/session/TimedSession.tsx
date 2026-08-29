@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { History } from "lucide-react";
+import { ChevronDown, DoorOpen, History, Loader2 } from "lucide-react";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
@@ -84,6 +84,10 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
   const { kind, session, messages, draft, isEnding, isMessagePending, pendingUserText, notice } = state;
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const [isCrisisHelpOpen, setIsCrisisHelpOpen] = useState(false);
+  // Granice muszą być na widoku przez całą rozmowę, ale na telefonie trzy
+  // linijki nad polem pisania zabierały ekran rozmowie. Zwinięte do jednej,
+  // rozwijane jednym dotknięciem — ten sam tekst, nie skrócona obietnica.
+  const [areBoundariesOpen, setAreBoundariesOpen] = useState(false);
   const { summaryState, summaryStatus, summaryErrorCode, generateSummary, approveSummary } =
     useSessionSummary(initialSummary);
   const confirmEndRef = useRef<HTMLDivElement | null>(null);
@@ -116,6 +120,11 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
   const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
   // Pusta rozmowa nie ma czego streszczać, a aktywna wciąż trwa.
   const canSummarizeSession = showHistoryCta && messages.length > 0;
+  // Podpowiedzi startowe pomagają przy pierwszym zdaniu, więc znikają dopiero
+  // wtedy, gdy użytkownik sam coś napisze — nie wtedy, gdy w rozmowie pojawi
+  // się cokolwiek. Sesja startuje z wiadomością otwierającą awatara, więc
+  // warunek „brak wiadomości” chował je zawsze.
+  const hasUserMessage = messages.some((message) => message.role === "user");
 
   function handleGenerateSummary() {
     if (!session) {
@@ -146,15 +155,15 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
     // bez bocznego panelu. Wszystko, co nie jest rozmową (granice, pomoc,
     // czas), siedzi w cienkim pasku u góry albo w jednej linijce pod polem.
     <div className={cn("flex h-full w-full flex-col", !isChatLayout && "overflow-y-auto")}>
-      <header className="border-line bg-surface/70 shrink-0 border-b backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
+      <header className="border-line bg-surface/70 relative shrink-0 border-b backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5 sm:gap-x-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
             <img
               src={avatar.assetPath}
               alt=""
               width="96"
               height="96"
-              className="h-9 w-9 shrink-0 rounded-full object-cover"
+              className="h-7 w-7 shrink-0 rounded-full object-cover sm:h-9 sm:w-9"
               loading="lazy"
             />
             <div className="min-w-0">
@@ -165,7 +174,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:gap-3">
             {canEndSession ? (
               <>
                 {/* Stan czyta się z pierścienia; czytnik ekranu dostaje go słowami. */}
@@ -190,13 +199,17 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                     setIsConfirmingEnd(true);
                   }}
                   disabled={isEnding || isMessagePending || isConfirmingEnd}
-                  className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Zakończ sesję"
+                  className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-full px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:px-3.5"
                 >
                   {isEnding ? (
-                    "Kończenie…"
+                    <>
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin sm:hidden" />
+                      <span className="hidden sm:inline">Kończenie…</span>
+                    </>
                   ) : (
                     <>
-                      <span className="sm:hidden">Zakończ</span>
+                      <DoorOpen aria-hidden="true" className="h-4 w-4 sm:hidden" />
                       <span className="hidden sm:inline">Zakończ sesję</span>
                     </>
                   )}
@@ -312,7 +325,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <a
                   href="/dashboard"
-                  className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wróć do panelu
                 </a>
@@ -365,7 +378,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
       {session && kind === "active" ? (
         <div className="border-line shrink-0 border-t px-4 pt-3 pb-4 sm:px-6">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-            {messages.length === 0 && !pendingUserText && draft.length === 0 ? (
+            {!hasUserMessage && !pendingUserText && draft.length === 0 ? (
               <SessionStarterPrompts isDisabled={!composerAvailable || isMessagePending} onSelect={setDraft} />
             ) : null}
             <SessionComposer
@@ -380,9 +393,22 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             />
             {/* Jedna cicha linijka zamiast bocznego panelu: granice są zawsze na
                 widoku, ale nie konkurują z rozmową. */}
-            <p className="text-ink-muted text-xs leading-5">
-              <span className="text-ink-soft font-medium">Granice rozmowy:</span> {SESSION_BOUNDARIES_COPY}
-            </p>
+            <button
+              type="button"
+              aria-expanded={areBoundariesOpen}
+              onClick={() => {
+                setAreBoundariesOpen((open) => !open);
+              }}
+              className="text-ink-muted hover:text-ink focus-visible:ring-brand-ring flex items-start gap-1.5 rounded text-left text-xs leading-5 transition-colors focus:outline-none focus-visible:ring-2"
+            >
+              <span className={cn(!areBoundariesOpen && "line-clamp-1")}>
+                <span className="text-ink-soft font-medium">Granice rozmowy:</span> {SESSION_BOUNDARIES_COPY}
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 transition-transform", areBoundariesOpen && "rotate-180")}
+              />
+            </button>
           </div>
         </div>
       ) : null}

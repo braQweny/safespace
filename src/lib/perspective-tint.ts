@@ -12,6 +12,8 @@ export interface PerspectiveTint {
   soft: string;
   /** Obwódka pod zaznaczenie. */
   border: string;
+  /** Pierścień pod zaznaczenie tam, gdzie nie ma ramki (przełącznik twarzy). */
+  ring: string;
 }
 
 export const PERSPECTIVE_TINTS: Record<ModalityId, PerspectiveTint> = {
@@ -19,26 +21,31 @@ export const PERSPECTIVE_TINTS: Record<ModalityId, PerspectiveTint> = {
     text: "text-persp-psychodynamic",
     soft: "bg-persp-psychodynamic-soft",
     border: "border-persp-psychodynamic",
+    ring: "ring-persp-psychodynamic",
   },
   cbt: {
     text: "text-persp-cbt",
     soft: "bg-persp-cbt-soft",
     border: "border-persp-cbt",
+    ring: "ring-persp-cbt",
   },
   humanistic_experiential: {
     text: "text-persp-humanistic",
     soft: "bg-persp-humanistic-soft",
     border: "border-persp-humanistic",
+    ring: "ring-persp-humanistic",
   },
   systemic: {
     text: "text-persp-systemic",
     soft: "bg-persp-systemic-soft",
     border: "border-persp-systemic",
+    ring: "ring-persp-systemic",
   },
   integrative: {
     text: "text-persp-integrative",
     soft: "bg-persp-integrative-soft",
     border: "border-persp-integrative",
+    ring: "ring-persp-integrative",
   },
 };
 

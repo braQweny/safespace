@@ -15,6 +15,7 @@ const detail: SessionHistoryDetail = {
     expiresAt: "2026-06-07T08:15:00.000Z",
     durationBucketSeconds: 900,
     isTrial: true,
+    summaryState: "none",
     createdAt: "2026-06-07T08:00:00.000Z",
     updatedAt: "2026-06-07T08:12:00.000Z",
   },
@@ -43,6 +44,11 @@ function renderPanel(props: Partial<Parameters<typeof SessionHistoryDetailPanel>
       onGenerateSummary={() => undefined}
       onApproveSummary={() => undefined}
       onClose={() => undefined}
+      isConfirmingDelete={false}
+      isDeleting={false}
+      onRequestDelete={() => undefined}
+      onCancelDelete={() => undefined}
+      onConfirmDelete={() => undefined}
       {...props}
     />,
   );
@@ -72,5 +78,34 @@ describe("SessionHistoryDetailPanel", () => {
     expect(html).not.toMatch(/class="[^"]*(?<![@\w:-])max-h-\[70vh\]/);
     expect(html).not.toMatch(/class="[^"]*(?<![@\w:-])overflow-y-auto/);
     expect(html).toContain("Pelny zapis rozmowy widoczny tylko po otwarciu.");
+  });
+
+  it("owns the delete action, so a conversation is removed with its content on screen", () => {
+    const html = renderPanel();
+
+    expect(html).toContain("Usuń rozmowę");
+    expect(html).not.toContain("Potwierdź usunięcie rozmowy");
+  });
+
+  it("renders the delete confirmation as a labelled, focusable group", () => {
+    const html = renderPanel({ isConfirmingDelete: true });
+    const headingIdMatch = /aria-labelledby="([^"]+)"/.exec(html);
+
+    expect(headingIdMatch).not.toBeNull();
+    expect(html).toContain('role="group"');
+    expect(html).toContain('tabindex="-1"');
+
+    const headingId = headingIdMatch?.[1] ?? "";
+
+    expect(html).toContain(`<p id="${headingId}" class="font-semibold">Potwierdź usunięcie rozmowy</p>`);
+    expect(html).toContain("Anuluj");
+    expect(html).toContain("Potwierdź usunięcie");
+    expect(html).toContain("nie przywraca darmowej próby");
+  });
+
+  it("hides the delete action while no conversation is loaded", () => {
+    const html = renderPanel({ detail: null, detailStatus: "loading" });
+
+    expect(html).not.toContain("Usuń rozmowę");
   });
 });

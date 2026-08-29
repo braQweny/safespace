@@ -5,6 +5,8 @@ import {
   type ModalityAvatar,
   type SelectedModalityAvatar,
 } from "@/lib/modalities";
+import { getPerspectiveTint } from "@/lib/perspective-tint";
+import { cn } from "@/lib/utils";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 import AvatarSessionHistory from "./AvatarSessionHistory";
 
@@ -21,9 +23,9 @@ interface DashboardSessionHistoryProps {
 }
 
 /**
- * Nazwy awatarów mają postać „Imię, rola”, a natywny select nie zawija tekstu —
- * pełna nazwa z dopiskiem „(wybrany)” ucinała się w połowie słowa. Rola i nurt
- * stoją w nagłówku tej samej sekcji, więc na liście wystarczy imię.
+ * Nazwy awatarów mają postać „Imię, rola”. Przełącznik pokazuje same twarze, a
+ * imię jest ich dostępną nazwą — rola i nurt stoją w nagłówku tej samej sekcji,
+ * więc w kontrolce wystarczy imię.
  */
 export function getAvatarFirstName(avatarName: string) {
   const [firstName] = avatarName.split(",");
@@ -109,27 +111,59 @@ export default function DashboardSessionHistory({
           : "Oglądasz zapisy innej perspektywy niż ta wybrana do kolejnej rozmowy. Sam podgląd niczego nie zmienia."
       }
       controls={
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <label htmlFor="history-avatar" className="text-ink-muted shrink-0 text-sm">
-            Perspektywa
-          </label>
-          {/* Historia jest zapisywana osobno dla każdej perspektywy. Bez tego
-              przełącznika zmiana awatara wyglądała jak zniknięcie rozmów. */}
-          <select
-            id="history-avatar"
-            value={viewedAvatar.avatarId}
-            onChange={(event) => {
-              changeViewedAvatar(event.target.value as AvatarId);
-            }}
-            className="border-line-accent bg-surface text-ink focus-visible:ring-brand-ring h-10 w-full min-w-0 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 sm:w-auto"
-          >
-            {modalities.map((modality) => (
-              <option key={modality.avatarId} value={modality.avatarId}>
-                {getAvatarFirstName(modality.avatarName)}
-                {modality.avatarId === selectedAvatar.avatarId ? " (wybrany)" : ""}
-              </option>
-            ))}
-          </select>
+        /*
+          Historia jest zapisywana osobno dla każdej perspektywy, więc
+          przełącznik pokazuje twarze, nie listę rozwijaną: widać naraz, ile
+          perspektyw ma swoje zapisy i czyje właśnie oglądasz.
+        */
+        <div className="flex w-full items-center gap-3 sm:w-auto">
+          <span id="history-avatar-label" className="text-ink-faint shrink-0 text-xs">
+            Zapisy
+          </span>
+          <div role="radiogroup" aria-labelledby="history-avatar-label" className="flex flex-wrap gap-2">
+            {modalities.map((modality) => {
+              const isViewed = modality.avatarId === viewedAvatar.avatarId;
+              const isSaved = modality.avatarId === selectedAvatar.avatarId;
+              const tint = getPerspectiveTint(modality.modalityId);
+
+              return (
+                <label
+                  key={modality.avatarId}
+                  className="focus-within:ring-brand-ring relative cursor-pointer rounded-full focus-within:ring-2 focus-within:ring-offset-2 focus-within:outline-none"
+                >
+                  <input
+                    type="radio"
+                    name="history-avatar"
+                    value={modality.avatarId}
+                    checked={isViewed}
+                    onChange={() => {
+                      changeViewedAvatar(modality.avatarId);
+                    }}
+                    className="peer sr-only"
+                  />
+                  <img
+                    src={modality.assetPath}
+                    alt={`${getAvatarFirstName(modality.avatarName)}${isSaved ? " (wybrany)" : ""}`}
+                    width="384"
+                    height="384"
+                    loading="lazy"
+                    className={cn(
+                      "h-9 w-9 rounded-full object-cover transition-opacity",
+                      isViewed
+                        ? cn("ring-offset-surface opacity-100 ring-2 ring-offset-2", tint.ring)
+                        : "opacity-55 hover:opacity-100",
+                    )}
+                  />
+                  {isSaved ? (
+                    <span
+                      aria-hidden="true"
+                      className="bg-brand ring-surface absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full ring-2"
+                    />
+                  ) : null}
+                </label>
+              );
+            })}
+          </div>
         </div>
       }
     />

@@ -8,6 +8,7 @@ import {
   type SessionDataContext,
   type SessionMessageRecord,
   type SessionMetadata,
+  type SessionSummaryStateKind,
 } from "@/lib/session-data/types";
 import {
   parseSessionHistoryPage,
@@ -89,6 +90,7 @@ function createRepository(overrides: Partial<SessionHistoryRepository> = {}): Se
         }),
       ),
     ),
+    listOwnedSessionSummaryStates: vi.fn(() => Promise.resolve(ok(new Map<string, SessionSummaryStateKind>()))),
     ...overrides,
   };
 }
@@ -190,6 +192,7 @@ describe("readSessionHistoryList", () => {
         expiresAt: "2026-06-07T10:15:00.000Z",
         durationBucketSeconds: 900,
         isTrial: true,
+        summaryState: "none",
         createdAt: "2026-06-07T10:59:00.000Z",
         updatedAt: "2026-06-07T10:12:00.000Z",
       });
@@ -376,5 +379,43 @@ describe("toSessionHistoryDeleteSuccessResponse", () => {
     expect(response.deletedSession).not.toHaveProperty("modalityId");
     expect(response.deletedSession).not.toHaveProperty("avatarId");
     expect(response.deletedSession).not.toHaveProperty("content");
+  });
+});
+
+describe("session history summary markers", () => {
+  it("carries the summary state onto list items so a row can say what passes on", async () => {
+    const repository = createRepository({
+      listOwnedSessionSummaryStates: vi.fn(() =>
+        Promise.resolve(ok(new Map<string, SessionSummaryStateKind>([[baseSession.id, "approved"]]))),
+      ),
+    });
+
+    const result = await readSessionHistoryList(context, { avatar: "cbt-guide", page: "1" }, repository);
+
+    expect(result.ok).toBe(true);
+
+    if (result.ok) {
+      expect(result.items[0]?.summaryState).toBe("approved");
+      // Stan to nie treść: lista nadal nie wozi ani słowa z podsumowania.
+      expect(result.items[0]).not.toHaveProperty("summaryText");
+      expect(result.items[0]).not.toHaveProperty("summary");
+    }
+  });
+
+  it("still returns the history when the marker read fails", async () => {
+    // Znacznik jest dodatkiem do listy, nie jej warunkiem — awaria odczytu
+    // stanów gasi znaczniki, ale nie zabiera użytkownikowi historii.
+    const repository = createRepository({
+      listOwnedSessionSummaryStates: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
+    });
+
+    const result = await readSessionHistoryList(context, { avatar: "cbt-guide", page: "1" }, repository);
+
+    expect(result.ok).toBe(true);
+
+    if (result.ok) {
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.summaryState).toBe("none");
+    }
   });
 });

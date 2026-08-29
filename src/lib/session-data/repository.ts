@@ -36,6 +36,7 @@ export {
   getNextSessionSummaryRevision,
   listNewestApprovedSessionSummaryContexts,
   listOwnedSessionSummaries,
+  listOwnedSessionSummaryStates,
   markOlderSessionSummaryRevisionsStale,
   purgeOwnedSessionSummaries,
   saveGeneratedVisibleSessionSummary,
@@ -43,5 +44,7 @@ export {
   toApprovedSessionSummaryContexts,
   toLatestSessionSummaryState,
   toSessionSummaryPreview,
+  toSessionSummaryStateKind,
+  toSessionSummaryStatesBySession,
 } from "./summaries";
 export { claimFreeTrialSessionAtomic, createSessionTrialClaim, getTrialAvailability } from "./trial-claims";

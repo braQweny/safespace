@@ -4,7 +4,16 @@
  * Import from `./repository` outside this directory.
  */
 import { mapSupabaseReadError, mapSupabaseWriteError, ok, sessionDataError, type SessionDataResult } from "./errors";
-import { SUMMARY_SELECT, SUMMARY_WITH_SESSION_SELECT, coerceSummaryRow, coerceSummaryRows, mapSummary } from "./rows";
+import {
+  SUMMARY_SELECT,
+  SUMMARY_STATE_SELECT,
+  SUMMARY_WITH_SESSION_SELECT,
+  coerceSummaryRow,
+  coerceSummaryRows,
+  coerceSummaryStateRows,
+  mapSummary,
+  type SessionSummaryStateRow,
+} from "./rows";
 import { ensureOwnedNonDeletedSession, getOwnedSessionMetadata } from "./sessions";
 import type {
   ApprovedSessionSummaryContext,
@@ -18,6 +27,8 @@ import type {
   SessionId,
   SessionSummaryPreview,
   SessionSummaryRecord,
+  SessionSummaryStateKind,
+  SessionSummaryStatus,
 } from "./types";
 import { APPROVED_SESSION_SUMMARY_CONTEXT_LIMIT as DEFAULT_APPROVED_SUMMARY_CONTEXT_LIMIT } from "./types";
 
@@ -75,6 +86,20 @@ export function toSessionSummaryPreview(summary: SessionSummaryRecord): SessionS
   };
 }
 
+/**
+ * Jedna reguła tłumaczenia statusu wiersza na stan widoczny dla właściciela —
+ * używana i przez pełny podgląd (z treścią), i przez listę historii (bez niej).
+ */
+export function toSessionSummaryStateKind(
+  status: Exclude<SessionSummaryStatus, "deleted">,
+): Exclude<SessionSummaryStateKind, "none"> {
+  if (status === "draft") {
+    return "preview";
+  }
+
+  return status === "ready" ? "approved" : "stale";
+}
+
 export function toLatestSessionSummaryState(summaries: readonly SessionSummaryRecord[]): LatestSessionSummaryState {
   const latest = [...summaries]
     .map(toSessionSummaryPreview)
@@ -88,24 +113,66 @@ export function toLatestSessionSummaryState(summaries: readonly SessionSummaryRe
     };
   }
 
-  if (latest.status === "draft") {
-    return {
-      kind: "preview",
-      summary: latest,
-    };
-  }
-
-  if (latest.status === "ready") {
-    return {
-      kind: "approved",
-      summary: latest,
-    };
-  }
-
   return {
-    kind: "stale",
+    kind: toSessionSummaryStateKind(latest.status),
     summary: latest,
   };
+}
+
+/**
+ * Najwyższa widoczna rewizja wygrywa — ta sama zasada co w
+ * `toLatestSessionSummaryState`, tylko dla wielu rozmów naraz i bez treści.
+ */
+export function toSessionSummaryStatesBySession(
+  rows: readonly SessionSummaryStateRow[],
+): Map<SessionId, SessionSummaryStateKind> {
+  const latestBySession = new Map<SessionId, SessionSummaryStateRow>();
+
+  for (const row of rows) {
+    if (!row.is_visible || row.status === "deleted") {
+      continue;
+    }
+
+    const current = latestBySession.get(row.session_id);
+
+    if (!current || row.revision > current.revision) {
+      latestBySession.set(row.session_id, row);
+    }
+  }
+
+  return new Map(
+    [...latestBySession].map(([sessionId, row]) => [
+      sessionId,
+      toSessionSummaryStateKind(row.status as Exclude<SessionSummaryStatus, "deleted">),
+    ]),
+  );
+}
+
+/**
+ * Stany podsumowań dla całej strony historii jednym zapytaniem. RLS i jawny
+ * `user_id` trzymają odczyt przy właścicielu; select nie niesie `summary_text`.
+ */
+export async function listOwnedSessionSummaryStates(
+  context: SessionDataContext,
+  sessionIds: readonly SessionId[],
+): Promise<SessionDataResult<Map<SessionId, SessionSummaryStateKind>>> {
+  if (sessionIds.length === 0) {
+    return ok(new Map());
+  }
+
+  const { data, error } = await context.supabase
+    .from("session_summaries")
+    .select(SUMMARY_STATE_SELECT)
+    .eq("user_id", context.user.id)
+    .in("session_id", [...sessionIds])
+    .eq("is_visible", true)
+    .neq("status", "deleted");
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  return ok(toSessionSummaryStatesBySession(coerceSummaryStateRows(data)));
 }
 
 export function toApprovedSessionSummaryContexts(

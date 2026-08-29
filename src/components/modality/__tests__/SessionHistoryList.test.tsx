@@ -6,6 +6,7 @@ import SessionHistoryList, {
   formatDateTime,
   getDurationLabel,
   getOpenDetailButtonId,
+  groupSessionHistoryItemsByDay,
   sessionStatusLegend,
 } from "../SessionHistoryList";
 
@@ -18,6 +19,7 @@ function createItem(overrides: Partial<SessionHistoryListItem> = {}): SessionHis
     expiresAt: "2026-06-07T08:15:00.000Z",
     durationBucketSeconds: 900,
     isTrial: true,
+    summaryState: "none",
     createdAt: "2026-06-07T08:00:00.000Z",
     updatedAt: "2026-06-07T08:12:00.000Z",
     ...overrides,
@@ -72,17 +74,7 @@ describe("formatDateTime", () => {
 
 function renderList(props: Partial<Parameters<typeof SessionHistoryList>[0]> = {}) {
   return renderToStaticMarkup(
-    <SessionHistoryList
-      items={[createItem()]}
-      selectedSessionId={null}
-      pendingDeleteId={null}
-      deletingId={null}
-      onOpenDetail={() => undefined}
-      onRequestDelete={() => undefined}
-      onCancelDelete={() => undefined}
-      onConfirmDelete={() => undefined}
-      {...props}
-    />,
+    <SessionHistoryList items={[createItem()]} selectedSessionId={null} onOpenDetail={() => undefined} {...props} />,
   );
 }
 
@@ -111,11 +103,18 @@ describe("sessionStatusLegend", () => {
 });
 
 describe("SessionHistoryList", () => {
-  it("puts the legend explanation on the status badge as a title", () => {
-    const html = renderList();
+  it("badges only the statuses that differ from an ordinary finished conversation", () => {
+    const interrupted = renderList({ items: [createItem({ status: "interrupted" })] });
 
-    expect(html).toContain(`title="${sessionStatusLegend.completed.description}"`);
-    expect(html).toContain(">Zakończona<");
+    expect(interrupted).toContain(`title="${sessionStatusLegend.interrupted.description}"`);
+    expect(interrupted).toContain(">Przerwana<");
+
+    // A completed conversation is the default: date, time and duration say
+    // everything, so the row stays free of chrome.
+    const completed = renderList();
+
+    expect(completed).not.toContain(">Zakończona<");
+    expect(completed).not.toContain(`title="${sessionStatusLegend.completed.description}"`);
   });
 
   it("titles an active row that already ran out of time as expired", () => {
@@ -134,37 +133,56 @@ describe("SessionHistoryList", () => {
     expect(html).toContain('<button id="session-history-open-session-1" type="button"');
   });
 
-  it("renders the delete confirmation as a labelled, focusable group", () => {
-    const html = renderList({ pendingDeleteId: "session-1" });
-    const headingIdMatch = /aria-labelledby="([^"]+)"/.exec(html);
+  it("keeps one action per row and no delete control on the list", () => {
+    const html = renderList();
+    const buttonCount = html.match(/<button/g)?.length ?? 0;
 
-    expect(headingIdMatch).not.toBeNull();
-    expect(html).toContain('role="group"');
-    expect(html).toContain('tabindex="-1"');
-
-    const headingId = headingIdMatch?.[1] ?? "";
-
-    expect(html).toContain(`<p id="${headingId}" class="font-semibold">Potwierdź usunięcie rozmowy</p>`);
-    expect(html).toContain("Anuluj");
-    expect(html).toContain("Potwierdź usunięcie");
+    expect(buttonCount).toBe(1);
+    expect(html).not.toContain("Usuń rozmowę");
+    expect(html).not.toContain("Potwierdź usunięcie");
   });
 
-  it("uses distinct confirmation heading ids per row", () => {
+  it("moves the date into a day heading so rows differ by time, not by a repeated date", () => {
+    const today = new Date("2026-06-07T20:00:00.000Z");
     const html = renderList({
-      items: [createItem({ id: "session-1" }), createItem({ id: "session-2" })],
-      pendingDeleteId: "session-2",
+      items: [
+        createItem({ id: "session-1", startedAt: "2026-06-07T08:00:00.000Z" }),
+        createItem({ id: "session-2", startedAt: "2026-06-07T06:30:00.000Z" }),
+        createItem({ id: "session-3", startedAt: "2026-05-30T20:02:00.000Z" }),
+      ],
+    });
+    const groups = groupSessionHistoryItemsByDay(
+      [
+        createItem({ id: "session-1", startedAt: "2026-06-07T08:00:00.000Z" }),
+        createItem({ id: "session-2", startedAt: "2026-06-07T06:30:00.000Z" }),
+        createItem({ id: "session-3", startedAt: "2026-05-30T20:02:00.000Z" }),
+      ],
+      today,
+    );
+
+    expect(groups.map((group) => group.items.length)).toEqual([2, 1]);
+    expect(groups[0]?.label).toBe("Dzisiaj");
+    expect(groups[1]?.label).not.toMatch(/Dzisiaj|Wczoraj/);
+    expect(html.match(/<h3/g)?.length).toBe(2);
+  });
+
+  it("marks what carries over without showing any of its text", () => {
+    const approved = renderList({ items: [createItem({ summaryState: "approved" })] });
+    const stale = renderList({ items: [createItem({ summaryState: "stale" })] });
+    const none = renderList();
+
+    expect(approved).toContain("Przechodzi dalej");
+    expect(stale).toContain("Podsumowanie nieaktualne");
+    expect(none).not.toContain("Przechodzi dalej");
+    expect(none).not.toContain("Podsumowanie");
+  });
+
+  it("keeps the way back into a running conversation on its row", () => {
+    const html = renderList({
+      items: [createItem({ status: "active", endedAt: null, expiresAt: "2999-01-01T00:00:00.000Z" })],
     });
 
-    expect(html).toContain('aria-labelledby="session-history-delete-heading-session-2"');
-    expect(html).not.toContain('aria-labelledby="session-history-delete-heading-session-1"');
-    expect(html).toContain('id="session-history-open-session-1"');
-    expect(html).toContain('id="session-history-open-session-2"');
-  });
-
-  it("does not render the confirmation group until a delete is requested", () => {
-    const html = renderList();
-
-    expect(html).not.toContain('role="group"');
-    expect(html).not.toContain("Potwierdź usunięcie rozmowy");
+    expect(html).toContain("Wróć do rozmowy");
+    expect(html).toContain("/dashboard/session?sessionId=session-1");
   });
 });

@@ -8,3 +8,10 @@ export const SESSION_BOUNDARIES_COPY =
 
 export const SESSION_PERSPECTIVE_COPY =
   "Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które samodzielnie zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.";
+
+/**
+ * Etykieta decyzji o tym, co przechodzi do następnej rozmowy. Cytuje ją strona
+ * prywatności, więc obietnica i przycisk muszą brzmieć tak samo — rozjazd tych
+ * dwóch miejsc byłby rozjazdem obietnicy produktu.
+ */
+export const SUMMARY_APPROVE_LABEL = "Przepuść do następnej rozmowy";
