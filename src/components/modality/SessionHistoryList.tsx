@@ -203,8 +203,9 @@ export function groupSessionHistoryItemsByDay(
 
 /**
  * `durationBucketSeconds` is a privacy bucket (0/300/900/1800/3600), not the real
- * length — every trial session carries 900, so the list showed "15 min" next to a
- * two-minute conversation. Prefer the actual span and mark the bucket as a bound.
+ * length — it carries the budget the session was started with (900 on a free
+ * plan, 3600 on premium), so the list showed "15 min" next to a two-minute
+ * conversation. Prefer the actual span and mark the bucket as a bound.
  */
 export function getDurationLabel(item: SessionHistoryListItem) {
   if (item.startedAt && item.endedAt) {

@@ -42,6 +42,7 @@ export async function claimFreeTrialSessionAtomic(
     p_avatar_id: input.avatarId ?? null,
     p_started_at: input.startedAt ?? null,
     p_expires_at: input.expiresAt ?? null,
+    p_duration_bucket_seconds: input.durationBucketSeconds ?? 900,
   })) as { data: unknown; error: unknown };
   const { data, error } = response;
 

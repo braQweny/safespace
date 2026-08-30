@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
 import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
-import { FREE_TRIAL_DURATION_SECONDS, toSessionView } from "@/lib/session-flow/session-state";
+import { toSessionView } from "@/lib/session-flow/session-state";
+import { resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { readSessionQuota } from "@/lib/session-data/quota";
 import {
   createPendingSession,
@@ -162,8 +163,11 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, "no_context_not_confirmed", 409, "/dashboard/session?context=missing");
   }
 
+  // Pinned at start from the plan read above, so a grant or revoke mid-session
+  // never stretches or cuts a conversation already under way.
+  const durationSeconds = resolveSessionDurationSeconds(quota.data.plan);
   const startedAt = new Date();
-  const expiresAt = addSeconds(startedAt, FREE_TRIAL_DURATION_SECONDS);
+  const expiresAt = addSeconds(startedAt, durationSeconds);
   const startedAtIso = startedAt.toISOString();
   const expiresAtIso = expiresAt.toISOString();
   const session = await createPendingSession(sessionContext.data, {
@@ -172,7 +176,7 @@ export const POST: APIRoute = async (context) => {
     modalityId: avatarChoice.data.modality.modalityId,
     avatarId: avatarChoice.data.modality.avatarId,
     isTrial: false,
-    durationBucketSeconds: FREE_TRIAL_DURATION_SECONDS,
+    durationBucketSeconds: durationSeconds,
     // Pinned at start so a summary approved mid-conversation cannot add context
     // the user chose not to carry over.
     usesApprovedContext: !startWithoutContext,
@@ -197,7 +201,7 @@ export const POST: APIRoute = async (context) => {
     nextStatus: "active",
     startedAt: startedAtIso,
     expiresAt: expiresAtIso,
-    durationBucketSeconds: FREE_TRIAL_DURATION_SECONDS,
+    durationBucketSeconds: durationSeconds,
   });
 
   if (!activeSession.ok) {

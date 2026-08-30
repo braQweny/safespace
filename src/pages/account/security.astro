@@ -10,7 +10,7 @@ import { readSessionQuota } from "@/lib/session-data/quota";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { readActiveSessionBadge, type ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 import { formatPlanName, formatSessionAllowance, PREMIUM_HOW_TO_COPY } from "@/lib/session-flow/plan-copy";
-import { formatSessionBudgetMinutes } from "@/lib/session-flow/session-budget";
+import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { getSupportContact } from "@/lib/support-contact";
 
 const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
@@ -39,7 +39,7 @@ if (sessionContext.ok) {
 }
 
 const support = getSupportContact();
-const sessionBudgetMinutes = formatSessionBudgetMinutes();
+const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSeconds(quota?.plan));
 ---
 
 <Layout title="Konto - SafeSpace" lang="pl">

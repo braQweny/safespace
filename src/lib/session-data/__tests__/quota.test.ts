@@ -111,6 +111,7 @@ describe("session trial quota helpers", () => {
       avatarId: "cbt-guide",
       startedAt: "2026-06-06T10:00:00.000Z",
       expiresAt: "2026-06-06T10:15:00.000Z",
+      durationBucketSeconds: null,
     });
   });
 
@@ -127,6 +128,7 @@ describe("session trial quota helpers", () => {
       avatarId: null,
       startedAt: null,
       expiresAt: null,
+      durationBucketSeconds: null,
     });
   });
 

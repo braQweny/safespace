@@ -4,7 +4,11 @@ import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions, PREMIUM_HOW_TO_COPY } from "@/lib/session-flow/plan-copy";
-import { formatSessionBudgetCopy, formatSessionBudgetMinutes } from "@/lib/session-flow/session-budget";
+import {
+  formatSessionBudgetCopy,
+  formatSessionBudgetMinutes,
+  resolveSessionDurationSeconds,
+} from "@/lib/session-flow/session-budget";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +34,6 @@ const FOLLOWUP_COPY = "Rozmowa ma limit czasu i zaczyna się dopiero po kliknię
 
 const LIMIT_REACHED_COPY =
   "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już wykorzystane na tym koncie. Dalsze rozmowy są dostępne w planie premium. Zapisy dotychczasowych rozmów znajdziesz w historii poniżej.";
-
-const SESSION_BUDGET_COPY = formatSessionBudgetCopy();
-const SESSION_BUDGET_MINUTES = formatSessionBudgetMinutes();
 
 export function buildSessionHref(sessionId: string) {
   return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
@@ -94,6 +95,11 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
     initialState.canStartWithoutContext && (skipContext || !hasApprovedSummaries) && kind === "followup_ready";
   const canStart = kind === "ready" || kind === "followup_ready";
   const remainingCopy = formatRemainingFreeSessions(initialState.sessionQuota);
+  // Rozmowa premium trwa dłużej, więc obietnica czasu musi iść za planem —
+  // to samo źródło, z którego trasa startu liczy `expires_at`.
+  const sessionDurationSeconds = resolveSessionDurationSeconds(initialState.sessionQuota?.plan);
+  const sessionBudgetCopy = formatSessionBudgetCopy(sessionDurationSeconds);
+  const sessionBudgetMinutes = formatSessionBudgetMinutes(sessionDurationSeconds);
 
   if (kind === "session_limit_reached") {
     // Koniec puli nie może być ślepym zaułkiem: użytkownik ma wiedzieć, co
@@ -131,7 +137,7 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
   return (
     <div className="mt-6 flex flex-col gap-5">
       <p className="text-ink-muted text-sm leading-6">
-        {getStartCopy(kind, initialState.sessionQuota)} {SESSION_BUDGET_COPY}
+        {getStartCopy(kind, initialState.sessionQuota)} {sessionBudgetCopy}
       </p>
 
       {kind === "followup_ready" ? (
@@ -243,7 +249,7 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
           </span>
           {isStarting ? null : (
             <>
-              <span className="font-normal opacity-80">do {SESSION_BUDGET_MINUTES}</span>
+              <span className="font-normal opacity-80">do {sessionBudgetMinutes}</span>
               <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </>
           )}

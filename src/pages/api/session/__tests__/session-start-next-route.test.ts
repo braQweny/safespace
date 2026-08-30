@@ -380,6 +380,37 @@ describe("POST /api/session/start-next", () => {
     expect(createPendingSession).toHaveBeenCalledOnce();
   });
 
+  it("gives premium follow-ups the 60-minute budget", async () => {
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "premium",
+        sessionLimit: null,
+        usedSessions: 25,
+        remainingSessions: null,
+        canStartSession: true,
+      }),
+    );
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    expect(createPendingSession).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({
+        startedAt: "2026-06-07T10:00:00.000Z",
+        expiresAt: "2026-06-07T11:00:00.000Z",
+        durationBucketSeconds: 3600,
+      }),
+    );
+    expect(transitionSessionLifecycle).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({
+        expiresAt: "2026-06-07T11:00:00.000Z",
+        durationBucketSeconds: 3600,
+      }),
+    );
+  });
+
   it("does not create trial claims or reset trial state", async () => {
     await POST(createContext() as never);
 

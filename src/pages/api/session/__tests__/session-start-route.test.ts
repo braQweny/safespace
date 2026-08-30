@@ -272,6 +272,7 @@ describe("POST /api/session/start", () => {
       expiresAt: "2026-06-07T10:15:00.000Z",
       modalityId: "cbt",
       avatarId: "cbt-guide",
+      durationBucketSeconds: 900,
     });
     expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
       sessionId: "session-1",
@@ -388,6 +389,39 @@ describe("POST /api/session/start", () => {
 
     expect(response.status).toBe(201);
     expect(claimFreeTrialSession).toHaveBeenCalledOnce();
+  });
+
+  it("claims the premium first session with the 60-minute budget", async () => {
+    // The first session of a premium account is still the trial claim, so the
+    // longer budget has to reach both the claim and the activation — a mismatch
+    // between them is what the trial duration constraint rejects.
+    readSessionQuota.mockResolvedValue(
+      ok({
+        plan: "premium",
+        sessionLimit: null,
+        usedSessions: 0,
+        remainingSessions: null,
+        canStartSession: true,
+      }),
+    );
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(201);
+    expect(claimFreeTrialSession).toHaveBeenCalledWith(contextData, {
+      startedAt: "2026-06-07T10:00:00.000Z",
+      expiresAt: "2026-06-07T11:00:00.000Z",
+      modalityId: "cbt",
+      avatarId: "cbt-guide",
+      durationBucketSeconds: 3600,
+    });
+    expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
+      sessionId: "session-1",
+      nextStatus: "active",
+      startedAt: "2026-06-07T10:00:00.000Z",
+      expiresAt: "2026-06-07T11:00:00.000Z",
+      durationBucketSeconds: 3600,
+    });
   });
 
   it("does not call the claim helper when availability already shows a used trial", async () => {

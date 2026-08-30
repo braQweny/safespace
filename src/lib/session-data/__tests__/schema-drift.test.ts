@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
 import { FREE_PLAN_SESSION_LIMIT } from "../quota";
+import { FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 import type {
   SessionAvatarId,
   SessionDeletionReasonCode,
@@ -26,6 +27,11 @@ const BOUNDARY_MIGRATION_PATH = resolve(
 const FREE_PLAN_LIMIT_MIGRATION_PATH = resolve(
   __dirname,
   "../../../../supabase/migrations/20260822120000_add_account_plans_and_free_session_limit.sql",
+);
+
+const PREMIUM_DURATION_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260830150000_scale_premium_session_duration.sql",
 );
 
 const TS_LIFECYCLE_STATUSES = [
@@ -171,5 +177,35 @@ describe("free-plan session limit vs limit migration", () => {
   it("enforces the limit on every session insert, not only on the trial claim", () => {
     expect(sql).toContain("create trigger therapy_sessions_enforce_free_plan_limit");
     expect(sql).toMatch(/before insert on public\.therapy_sessions/);
+  });
+});
+
+describe("per-plan session duration vs premium duration migration", () => {
+  const sql = readFileSync(PREMIUM_DURATION_MIGRATION_PATH, "utf8");
+
+  it("lets a trial-flagged session carry exactly the two budgets the code can start", () => {
+    // The first session of any account is the free-trial claim, premium
+    // included, so this constraint has to admit both plans' budgets — no more
+    // and no less, or a start silently fails at insert time.
+    const body = extractConstraintBody(sql, "therapy_sessions_trial_duration_check");
+
+    expect(new Set(extractNumericListValues(body))).toEqual(
+      new Set([FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS]),
+    );
+  });
+
+  it("keeps the claim function's guard equal to the same two budgets", () => {
+    const guard = /p_duration_bucket_seconds not in \(([\d\s,]+)\)/.exec(sql);
+
+    expect(guard, "duration guard not found in claim_free_trial_session").not.toBeNull();
+    expect(new Set(guard?.[1].split(",").map((value) => Number(value.trim())))).toEqual(
+      new Set([FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS]),
+    );
+  });
+
+  it("keeps the new claim parameter trailing and defaulted so the pre-deploy call still works", () => {
+    // CI applies migrations before deploying code: during that window the old
+    // four-argument call must still resolve and still mean a 15-minute trial.
+    expect(sql).toMatch(new RegExp(`p_duration_bucket_seconds integer default ${FREE_TRIAL_DURATION_SECONDS}`));
   });
 });

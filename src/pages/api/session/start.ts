@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
 import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
-import { FREE_TRIAL_DURATION_SECONDS, toSessionView } from "@/lib/session-flow/session-state";
+import { toSessionView } from "@/lib/session-flow/session-state";
+import { resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { claimFreeTrialSession, readSessionQuota, readTrialAvailability } from "@/lib/session-data/quota";
 import { transitionSessionLifecycle } from "@/lib/session-data/repository";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
@@ -135,8 +136,11 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, "trial_already_claimed", 409, "/dashboard/session?trial=used");
   }
 
+  // Pinned at start from the plan read above, so a grant or revoke mid-session
+  // never stretches or cuts a conversation already under way.
+  const durationSeconds = resolveSessionDurationSeconds(quota.data.plan);
   const startedAt = new Date();
-  const expiresAt = addSeconds(startedAt, FREE_TRIAL_DURATION_SECONDS);
+  const expiresAt = addSeconds(startedAt, durationSeconds);
   const startedAtIso = startedAt.toISOString();
   const expiresAtIso = expiresAt.toISOString();
   const claim = await claimFreeTrialSession(sessionContext.data, {
@@ -144,6 +148,7 @@ export const POST: APIRoute = async (context) => {
     expiresAt: expiresAtIso,
     modalityId: avatarChoice.data.modality.modalityId,
     avatarId: avatarChoice.data.modality.avatarId,
+    durationBucketSeconds: durationSeconds,
   });
 
   if (!claim.ok) {
@@ -171,7 +176,7 @@ export const POST: APIRoute = async (context) => {
     nextStatus: "active",
     startedAt: startedAtIso,
     expiresAt: expiresAtIso,
-    durationBucketSeconds: FREE_TRIAL_DURATION_SECONDS,
+    durationBucketSeconds: durationSeconds,
   });
 
   if (!activeSession.ok) {

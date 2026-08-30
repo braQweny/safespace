@@ -21,7 +21,7 @@ import { readActiveSessionBadge, toActiveSessionBadge } from "@/lib/session-flow
 import { readCurrentAvatarChoice, type CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-flow/session-history";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
-import { formatSessionBudgetMinutes } from "@/lib/session-flow/session-budget";
+import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { readSessionStartPageState, type SessionStartPageState } from "@/lib/session-flow/session-state";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
 import { getSupportContact } from "@/lib/support-contact";
@@ -141,7 +141,11 @@ const otherPerspectiveName = otherPerspectiveSession?.avatarId
   ? (getModalityByAvatarId(otherPerspectiveSession.avatarId)?.avatarName ?? null)
   : null;
 const support = getSupportContact();
-const sessionBudgetMinutes = formatSessionBudgetMinutes();
+// Karta pierwszych kroków pada przed wyborem perspektywy, więc plan bierzemy
+// z tej quoty, która na danej ścieżce w ogóle została odczytana.
+const sessionBudgetMinutes = formatSessionBudgetMinutes(
+  resolveSessionDurationSeconds(startPageState?.sessionQuota?.plan ?? firstStepsQuota?.plan),
+);
 // Karta startu pokazuje, jak ta perspektywa słucha — zdanie z katalogu, nie z
 // zapisanego wyboru (ten niesie tylko identyfikatory i nazwy).
 const currentModality = currentSelection ? getModalityByAvatarId(currentSelection.avatarId) : null;

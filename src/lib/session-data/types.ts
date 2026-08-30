@@ -189,6 +189,12 @@ export interface ClaimFreeTrialSessionInput {
   avatarId?: SessionAvatarId | null;
   startedAt?: string | null;
   expiresAt?: string | null;
+  /**
+   * Time budget of the claimed session. Omitted means the 15-minute free-plan
+   * trial; premium accounts claim their first session at 3600. The database
+   * function rejects anything else, so the budget cannot drift per caller.
+   */
+  durationBucketSeconds?: Extract<SessionDurationBucketSeconds, 900 | 3600> | null;
 }
 
 export interface ClaimFreeTrialSessionResult {

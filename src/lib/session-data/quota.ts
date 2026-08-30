@@ -56,6 +56,7 @@ export function claimFreeTrialSession(
     avatarId: input.avatarId ?? null,
     startedAt: input.startedAt ?? null,
     expiresAt: input.expiresAt ?? null,
+    durationBucketSeconds: input.durationBucketSeconds ?? null,
   });
 }
 
