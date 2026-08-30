@@ -1,4 +1,5 @@
 ---
+import AppHeader from "@/components/AppHeader.astro";
 import Layout from "@/layouts/Layout.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
@@ -13,19 +14,20 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
 
 <Layout title={`${heading} - SafeSpace`} lang="pl">
   <div class="bg-paper text-ink flex min-h-screen flex-col">
+    <AppHeader />
+
     <main class="flex flex-1 items-center justify-center px-4 py-10">
-      <section class="border-line-strong shadow-card w-full max-w-md rounded-lg border bg-white p-6 text-center sm:p-8">
-        <a href="/" class="text-brand hover:text-brand-strong text-sm font-medium transition-colors hover:underline">
-          SafeSpace
-        </a>
-        <h1 class="text-ink mt-3 text-3xl leading-tight">{heading}</h1>
+      <section
+        class="border-line-strong bg-surface shadow-card w-full max-w-md rounded-[20px] border p-6 text-center sm:p-8"
+      >
+        <h1 class="text-ink text-3xl leading-tight">{heading}</h1>
         {
           isSignedIn ? (
             <>
               <p class="text-ink-muted mt-3 text-sm leading-6">Możesz przejść do prywatnej części SafeSpace.</p>
               <a
                 href="/dashboard"
-                class="bg-brand hover:bg-brand-strong focus:ring-brand-ring mt-6 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-6 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-[15px] font-semibold transition-colors focus:outline-none focus-visible:ring-2"
               >
                 Przejdź do panelu
               </a>
@@ -49,7 +51,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
               {wasResent ? (
                 <div
                   role="status"
-                  class="border-brand-soft text-brand-deep bg-brand-tint mt-6 rounded-lg border p-4 text-left text-sm leading-6"
+                  class="border-brand-soft text-brand-deep bg-brand-tint mt-6 rounded-2xl border p-4 text-left text-sm leading-6"
                 >
                   Jeśli ten adres czeka na potwierdzenie, wysłaliśmy wiadomość ponownie. Sprawdź też folder ze spamem.
                 </div>
@@ -58,7 +60,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
               <form
                 method="POST"
                 action="/api/auth/resend-confirmation"
-                class="border-line mt-6 space-y-4 rounded-lg border p-4 text-left"
+                class="border-line mt-6 space-y-4 rounded-2xl border p-4 text-left"
                 aria-labelledby="resend-confirmation-heading"
                 data-remembered-email-form
                 data-has-error={error ? "true" : "false"}
@@ -70,7 +72,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                 {error ? (
                   <p
                     role="alert"
-                    class="border-danger-line bg-danger-soft text-danger rounded-lg border p-3 text-sm leading-6"
+                    class="border-danger-line bg-danger-soft text-danger rounded-xl border p-3.5 text-sm leading-6"
                   >
                     {error}
                   </p>
@@ -86,19 +88,19 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                     type="email"
                     required
                     autocomplete="email"
-                    class="border-brand-soft text-ink focus:ring-brand-ring mt-1 h-11 w-full rounded-lg border bg-white px-3 text-sm focus:ring-2 focus:outline-none"
+                    class="border-line-strong bg-surface text-ink focus-visible:ring-brand-ring placeholder:text-ink-muted mt-1.5 h-12 w-full rounded-[14px] border px-3.5 text-[15px] focus:ring-2 focus:outline-none"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  class="bg-brand hover:bg-brand-strong focus:ring-brand-ring inline-flex h-11 w-full items-center justify-center rounded-lg px-5 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+                  class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 w-full items-center justify-center rounded-[14px] px-6 text-[15px] font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wyślij ponownie
                 </button>
               </form>
 
-              <div class="text-ink-faint my-6 flex items-center gap-3 text-xs font-medium">
+              <div class="text-ink-muted my-6 flex items-center gap-3 text-xs font-medium">
                 <span class="bg-line h-px flex-1" />
                 <span>lub</span>
                 <span class="bg-line h-px flex-1" />
@@ -109,7 +111,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                   <form method="POST" action="/api/auth/google">
                     <button
                       type="submit"
-                      class="border-brand-soft text-brand-deep hover:bg-surface-hover focus:ring-brand-ring flex h-11 w-full items-center justify-center gap-3 rounded-lg border bg-white px-4 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                      class="border-line-accent text-brand-deep hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface flex h-12 w-full items-center justify-center gap-3 rounded-[14px] border px-4 text-[15px] font-medium transition-colors focus:outline-none focus-visible:ring-2"
                     >
                       <span class="text-brand border-line-strong flex size-6 items-center justify-center rounded-full border text-sm font-semibold">
                         G
@@ -120,7 +122,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                 ))}
                 <a
                   href="/auth/signin"
-                  class="border-line-accent text-brand hover:bg-surface-hover focus:ring-brand-ring inline-flex h-11 w-full items-center justify-center rounded-lg border bg-white px-5 text-sm font-medium transition-colors focus:ring-2 focus:outline-none"
+                  class="border-line-accent text-brand hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface inline-flex h-12 w-full items-center justify-center rounded-[14px] border px-6 text-[15px] font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wróć do logowania
                 </a>

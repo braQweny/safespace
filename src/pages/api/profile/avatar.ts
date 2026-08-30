@@ -47,6 +47,13 @@ export const POST: APIRoute = async (context) => {
 
   const form = await context.request.formData();
   const selectedChoice = getModalityById(getFormString(form, "modalityId"));
+  /*
+   * Wybór perspektywy i start rozmowy to jedna decyzja („chcę rozmawiać z tą
+   * osobą”), więc ekran wyboru oferuje też drugi przycisk. Sam start zostaje
+   * tam, gdzie był — w panelu, na `/api/session/start*` z całą kontrolą puli i
+   * limitów; ten endpoint tylko przekazuje intencję dalej adresem.
+   */
+  const shouldStartAfterSave = getFormString(form, "intent") === "save_and_start";
 
   if (!selectedChoice) {
     logOperationalEvent(
@@ -101,5 +108,5 @@ export const POST: APIRoute = async (context) => {
     operationalContext,
   );
 
-  return context.redirect("/dashboard?avatar=updated", 303);
+  return context.redirect(shouldStartAfterSave ? "/dashboard?start=now" : "/dashboard?avatar=updated", 303);
 };

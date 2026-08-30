@@ -84,7 +84,7 @@ export function CrisisContactList({ regions, className }: CrisisContactListProps
               </li>
             ))}
           </ul>
-          <p className="text-ink-faint mt-2 text-xs leading-5">{region.note}</p>
+          <p className="text-ink-muted mt-2 text-xs leading-5">{region.note}</p>
         </div>
       ))}
     </div>

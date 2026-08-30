@@ -157,13 +157,35 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
     <div className={cn("flex h-full w-full flex-col", !isChatLayout && "overflow-y-auto")}>
       <header className="border-line bg-surface/70 relative shrink-0 border-b backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5 sm:gap-x-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            {/*
+              Ten pasek jest jedynym nagłówkiem strony rozmowy. Wcześniej stał pod
+              `AppHeader`, więc na telefonie 120 px znikało na dwa paski, zanim
+              pojawiło się słowo rozmowy — a jedyne, co robił ten drugi, to powrót
+              do panelu. Łuk przejmuje dokładnie to zadanie.
+            */}
+            <a
+              href="/dashboard"
+              aria-label="Wróć do panelu"
+              className="border-line-strong bg-surface hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="h-[22px] w-[22px]">
+                <path
+                  d="M4.5 21.5V12a7.5 7.5 0 0 1 15 0v9.5Z"
+                  className="fill-brand-soft stroke-brand"
+                  strokeWidth="1.75"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+            {/* Twarz stoi przy każdej wypowiedzi w zapisie, więc na telefonie
+                w pasku jest zbędna — tam liczy się każdy piksel szerokości. */}
             <img
               src={avatar.assetPath}
               alt=""
               width="96"
               height="96"
-              className="h-7 w-7 shrink-0 rounded-full object-cover sm:h-9 sm:w-9"
+              className="hidden h-9 w-9 shrink-0 rounded-full object-cover sm:block"
               loading="lazy"
             />
             <div className="min-w-0">
@@ -200,7 +222,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                   }}
                   disabled={isEnding || isMessagePending || isConfirmingEnd}
                   aria-label="Zakończ sesję"
-                  className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center gap-2 rounded-full px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:px-3.5"
+                  className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3.5"
                 >
                   {isEnding ? (
                     <>
@@ -264,14 +286,14 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                     void endSession();
                   }}
                   disabled={isEnding || isMessagePending}
-                  className="bg-brand-deep text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="bg-brand-deep text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Zakończ teraz
                 </button>
                 <button
                   type="button"
                   onClick={cancelEndConfirmation}
-                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wróć do rozmowy
                 </button>
@@ -298,7 +320,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             </p>
             <a
               href="/dashboard"
-              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-5 inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
               Wróć do panelu
             </a>
@@ -325,13 +347,13 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <a
                   href="/dashboard"
-                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wróć do panelu
                 </a>
                 <a
                   href={historyHref}
-                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <History aria-hidden="true" className="h-4 w-4" />
                   Otwórz w historii

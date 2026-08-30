@@ -14,6 +14,9 @@ import { buildOperationalRequestContext } from "@/lib/operational-visibility/req
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readActiveSessionBadge, type ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
+import { readSessionQuota } from "@/lib/session-data/quota";
+import type { SessionQuota } from "@/lib/session-data/types";
+import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 
 const queryErrorCode = parseAvatarChoiceErrorCode(Astro.url.searchParams.get(AVATAR_CHOICE_ERROR_PARAM));
 const operationalContext = await buildOperationalRequestContext(Astro);
@@ -21,6 +24,7 @@ const sessionContext = getSessionDataContext(Astro);
 
 let currentSelection: SelectedModalityAvatar | null = null;
 let activeSession: ActiveSessionBadge | null = null;
+let sessionQuota: SessionQuota | null = null;
 let pageError = queryErrorCode ? getAvatarChoiceErrorMessage(queryErrorCode) : null;
 
 if (!sessionContext.ok) {
@@ -84,7 +88,23 @@ if (!sessionContext.ok) {
   // Rozmowa w toku może należeć do innej perspektywy niż ta właśnie zapisana —
   // ostrzeżenie i pill w nagłówku mają ją pokazać tak czy inaczej.
   activeSession = await readActiveSessionBadge(sessionContext.data);
+
+  const quota = await readSessionQuota(sessionContext.data);
+
+  sessionQuota = quota.ok ? quota.data : null;
 }
+
+/*
+ * Wybór perspektywy może od razu prowadzić do rozmowy, ale tylko wtedy, gdy jest
+ * co zaczynać: żadna rozmowa nie trwa i pula nie została wyczerpana. Właściwą
+ * bramką pozostaje panel i trasy startu — to jest wyłącznie decyzja o tym, czy
+ * obiecywać start drugim przyciskiem.
+ */
+const canStartConversation =
+  activeSession === null &&
+  sessionQuota !== null &&
+  (sessionQuota.plan === "premium" || (sessionQuota.remainingSessions ?? 0) > 0);
+const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSeconds(sessionQuota?.plan));
 ---
 
 <Layout title="Wybór perspektywy - SafeSpace" lang="pl">
@@ -170,7 +190,13 @@ if (!sessionContext.ok) {
           ) : null
         }
 
-        <AvatarChoiceForm client:load modalities={MVP_MODALITIES} currentSelection={currentSelection} />
+        <AvatarChoiceForm
+          client:load
+          modalities={MVP_MODALITIES}
+          currentSelection={currentSelection}
+          canStartConversation={canStartConversation}
+          sessionBudgetMinutes={sessionBudgetMinutes}
+        />
       </section>
     </main>
 

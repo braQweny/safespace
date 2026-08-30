@@ -13,7 +13,7 @@ const navItems = [
 ---
 
 <main class="text-ink bg-paper min-h-screen">
-  <header class="border-line border-b bg-white">
+  <header class="border-line bg-surface border-b">
     <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -35,7 +35,7 @@ const navItems = [
           <form method="POST" action="/api/auth/signout">
             <button
               type="submit"
-              class="border-line text-ink-muted hover:bg-surface-soft focus:ring-brand-ring inline-flex h-9 items-center rounded-lg border bg-white px-3 text-sm transition-colors focus:ring-2 focus:outline-none"
+              class="border-line text-ink-muted hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface inline-flex h-11 items-center rounded-lg border px-3.5 text-sm transition-colors focus:outline-none focus-visible:ring-2"
             >
               Wyloguj się
             </button>
@@ -49,10 +49,10 @@ const navItems = [
               href={item.href}
               aria-current={active === item.id ? "page" : undefined}
               class:list={[
-                "inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium transition-colors",
+                "inline-flex h-11 items-center justify-center rounded-md border px-3.5 text-sm font-medium transition-colors",
                 active === item.id
-                  ? "border-brand-strong bg-brand-strong text-white"
-                  : "border-brand-soft hover:bg-surface-hover text-brand bg-white",
+                  ? "border-brand-strong bg-brand-strong text-surface"
+                  : "border-brand-soft hover:bg-surface-hover text-brand bg-surface",
               ]}
             >
               {item.label}

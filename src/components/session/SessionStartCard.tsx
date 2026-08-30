@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Mail } from "lucide-react";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
@@ -37,6 +37,33 @@ const LIMIT_REACHED_COPY =
 
 export function buildSessionHref(sessionId: string) {
   return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
+}
+
+/**
+ * Decyzja o starcie po „Zapisz i zacznij rozmowę” z ekranu wyboru perspektywy:
+ * zapis wraca na panel z `?start=now`, bo kliknięcie padło już przy wyborze.
+ *
+ * `nextSearch` to adres bez tego parametru i musi zostać zapisany ZANIM poleci
+ * żądanie startu — inaczej odświeżenie panelu zużyłoby kolejną rozmowę z puli.
+ * Przy wyczerpanej puli żądanie zostaje rozpoznane (`isRequested`), ale start
+ * nie następuje: panel ma wtedy pokazać stan limitu, a nie startować mimo woli.
+ */
+export function resolveAutoStartRequest(search: string, canStart: boolean) {
+  const params = new URLSearchParams(search);
+
+  if (params.get("start") !== "now") {
+    return { isRequested: false, shouldStart: false, nextSearch: search };
+  }
+
+  params.delete("start");
+
+  const remaining = params.toString();
+
+  return {
+    isRequested: true,
+    shouldStart: canStart,
+    nextSearch: remaining.length > 0 ? `?${remaining}` : "",
+  };
 }
 
 function getStartCopy(kind: SessionStartPageState["kind"], quota: SessionQuota | null) {
@@ -95,6 +122,31 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
     initialState.canStartWithoutContext && (skipContext || !hasApprovedSummaries) && kind === "followup_ready";
   const canStart = kind === "ready" || kind === "followup_ready";
   const remainingCopy = formatRemainingFreeSessions(initialState.sessionQuota);
+
+  // Bez JS `?start=now` nic nie robi i zostaje zwykły przycisk startu — czyli
+  // dokładnie dotychczasowe zachowanie panelu.
+  const autoStartHandledRef = useRef(false);
+
+  useEffect(() => {
+    if (autoStartHandledRef.current || !isHydrated || isStarting || typeof window === "undefined") {
+      return;
+    }
+
+    const autoStart = resolveAutoStartRequest(window.location.search, canStart);
+
+    if (!autoStart.isRequested) {
+      return;
+    }
+
+    autoStartHandledRef.current = true;
+    window.history.replaceState({}, "", `${window.location.pathname}${autoStart.nextSearch}${window.location.hash}`);
+
+    if (!autoStart.shouldStart) {
+      return;
+    }
+
+    void startSession({ withoutContext: startsWithoutContext });
+  }, [canStart, isHydrated, isStarting, startSession, startsWithoutContext]);
   // Rozmowa premium trwa dłużej, więc obietnica czasu musi iść za planem —
   // to samo źródło, z którego trasa startu liczy `expires_at`.
   const sessionDurationSeconds = resolveSessionDurationSeconds(initialState.sessionQuota?.plan);
@@ -114,7 +166,7 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
         {supportEmail ? (
           <a
             href={`mailto:${supportEmail}?subject=${encodeURIComponent("SafeSpace — dostęp do planu premium")}`}
-            className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+            className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             <Mail aria-hidden="true" className="text-brand h-4 w-4" />
             Napisz w sprawie premium
@@ -236,7 +288,7 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
             void startSession({ withoutContext: startsWithoutContext });
           }}
           disabled={!isHydrated || isStarting}
-          className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:bg-brand-disabled inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-2xl px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
+          className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-2xl border border-transparent px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
         >
           <span>
             {isStarting

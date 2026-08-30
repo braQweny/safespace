@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SessionQuota } from "@/lib/session-data/types";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
-import SessionStartCard, { formatRemainingFreeSessions } from "../SessionStartCard";
+import SessionStartCard, { formatRemainingFreeSessions, resolveAutoStartRequest } from "../SessionStartCard";
 
 const freeQuota: SessionQuota = {
   plan: "free",
@@ -275,5 +275,48 @@ describe("SessionStartCard", () => {
     });
 
     expect(html).toContain("disabled");
+  });
+});
+
+/*
+ * „Zapisz i zacznij rozmowę” wraca na panel z `?start=now`. Najgroźniejszy błąd
+ * tej ścieżki to zużycie kolejnej rozmowy z puli przy zwykłym odświeżeniu, więc
+ * parametr musi znikać z adresu także wtedy, gdy start w ogóle nie następuje.
+ */
+describe("resolveAutoStartRequest", () => {
+  it("ignores a panel opened without the start request", () => {
+    expect(resolveAutoStartRequest("?avatar=updated", true)).toEqual({
+      isRequested: false,
+      shouldStart: false,
+      nextSearch: "?avatar=updated",
+    });
+  });
+
+  it("starts once and strips the parameter from the address", () => {
+    expect(resolveAutoStartRequest("?start=now", true)).toEqual({
+      isRequested: true,
+      shouldStart: true,
+      nextSearch: "",
+    });
+  });
+
+  it("keeps the remaining query while dropping the start request", () => {
+    expect(resolveAutoStartRequest("?historyAvatar=cbt-guide&start=now", true)).toEqual({
+      isRequested: true,
+      shouldStart: true,
+      nextSearch: "?historyAvatar=cbt-guide",
+    });
+  });
+
+  it("strips the parameter but does not start when the allowance is used up", () => {
+    expect(resolveAutoStartRequest("?start=now", false)).toEqual({
+      isRequested: true,
+      shouldStart: false,
+      nextSearch: "",
+    });
+  });
+
+  it("ignores any other value of the parameter", () => {
+    expect(resolveAutoStartRequest("?start=later", true).isRequested).toBe(false);
   });
 });

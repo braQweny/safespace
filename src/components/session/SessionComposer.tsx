@@ -44,6 +44,16 @@ export function shouldSubmitSessionComposerFromKeyboard(
   return event.ctrlKey && !event.metaKey;
 }
 
+/**
+ * Czy to jest ten moment, w którym ktoś szuka sposobu wysłania: sam Enter, bez
+ * modyfikatorów, w polu, w którym coś już stoi. Shift + Enter to świadoma nowa
+ * linia, a puste pole nie ma czego wysyłać — w obu przypadkach podpowiedź
+ * byłaby zaczepianiem.
+ */
+export function shouldHintSubmitShortcut(event: SessionComposerKeyboardEvent, hasText: boolean) {
+  return hasText && event.key === "Enter" && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey;
+}
+
 export function appendTranscriptionToDraft(draft: string, transcription: string, maxChars = SESSION_MESSAGE_MAX_CHARS) {
   const text = transcription.trim();
 
@@ -84,6 +94,7 @@ export default function SessionComposer({
 }: SessionComposerProps) {
   const [dictationStatus, setDictationStatus] = useState<DictationStatus>("idle");
   const [dictationError, setDictationError] = useState<string | null>(null);
+  const [isShortcutHintVisible, setIsShortcutHintVisible] = useState(false);
   const latestValueRef = useRef(value);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -97,6 +108,21 @@ export default function SessionComposer({
   useEffect(() => {
     latestValueRef.current = value;
   }, [value]);
+
+  // Podpowiedź gaśnie sama — ma pomóc raz, a nie zostać ostrzeżeniem nad polem.
+  useEffect(() => {
+    if (!isShortcutHintVisible) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setIsShortcutHintVisible(false);
+    }, 4_000);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isShortcutHintVisible]);
 
   const clearRecordingTimeout = useCallback(() => {
     if (recordingTimeoutRef.current === null) {
@@ -283,21 +309,41 @@ export default function SessionComposer({
           }}
           onKeyDown={(event) => {
             if (!canSubmit || !shouldSubmitSessionComposerFromKeyboard(event)) {
+              /*
+               * Sam Enter zostaje nową linią: w rozmowie, do której wraca się
+               * w połowie zdania, wysłanie w pół myśli jest gorsze niż jedno
+               * nieudane naciśnięcie. Ale odruch z komunikatorów jest silny,
+               * więc dokładnie w tym momencie podpowiedź o skrócie zapala się
+               * zamiast siedzieć szarym drobnym drukiem.
+               */
+              if (shouldHintSubmitShortcut(event, trimmedValue.length > 0)) {
+                setIsShortcutHintVisible(true);
+              }
+
               return;
             }
 
+            setIsShortcutHintVisible(false);
             event.preventDefault();
             onSubmit();
           }}
           placeholder="Napisz, od czego chcesz zacząć…"
-          className="text-ink placeholder:text-ink-faint block max-h-60 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-base leading-relaxed outline-none disabled:cursor-not-allowed sm:min-h-[4.5rem]"
+          className="text-ink placeholder:text-ink-muted block max-h-60 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-base leading-relaxed outline-none disabled:cursor-not-allowed sm:min-h-[4.5rem]"
         />
         <div className="flex items-center justify-between gap-3 px-2.5 pb-2.5 pl-4">
           {/* The hint used to be *replaced* by the counter, so it disappeared exactly
               when a long message made "how do I send this?" pressing. Show both —
               but not the keyboard shortcut on phones, where there is no Cmd key. */}
-          <p className={cn("text-ink-faint text-xs", !isNearCharLimit && "hidden sm:block")}>
-            <span className="hidden sm:inline">Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.</span>
+          <p
+            className={cn(
+              "text-xs transition-colors",
+              isShortcutHintVisible ? "text-ink font-medium" : "text-ink-muted",
+              !isNearCharLimit && !isShortcutHintVisible && "hidden sm:block",
+            )}
+          >
+            <span className={cn("hidden sm:inline", isShortcutHintVisible && "inline")}>
+              Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.
+            </span>
             {isNearCharLimit ? (
               <span className="text-ink-muted font-medium tabular-nums sm:ml-2">
                 {trimmedValue.length}/{SESSION_MESSAGE_MAX_CHARS}
@@ -317,7 +363,7 @@ export default function SessionComposer({
 
                 void startRecording();
               }}
-              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {dictationStatus === "recording" ? (
                 <Square aria-hidden="true" className="text-clay h-4 w-4 fill-current" />
@@ -335,7 +381,7 @@ export default function SessionComposer({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:bg-brand-disabled inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
+              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex h-11 items-center justify-center gap-2 rounded-full border border-transparent px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
             >
               {isPending ? (
                 <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />

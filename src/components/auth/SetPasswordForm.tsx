@@ -104,10 +104,10 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
 
       {serverSuccess ? (
         <p
-          className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          className="border-brand-soft bg-brand-tint text-brand-deep flex items-start gap-2 rounded-xl border px-3.5 py-3 text-sm leading-6"
           role="status"
         >
-          <CheckCircle2 className="size-4 shrink-0" />
+          <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {serverSuccess}
         </p>
       ) : null}

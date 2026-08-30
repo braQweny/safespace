@@ -17,7 +17,8 @@
 @import "@fontsource-variable/newsreader/opsz.css";
 @import "@fontsource-variable/newsreader/opsz-italic.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Motyw wieczorny włącza `data-theme` na <html>; `.dark` zostaje dla shadcn/ui. */
+@custom-variant dark (&:is(.dark *, [data-theme="dark"] *));
 
 /*
  * Paleta SafeSpace — kierunek „Cichy pokój”.
@@ -48,6 +49,12 @@
   --color-brand-ring: #4f8f80;
   --color-brand-soft: #d9e7e0;
   --color-brand-tint: #eaf1ed;
+  /*
+   * Obrys przycisku, który jeszcze nie działa. Jako tło pod białym napisem
+   * dawał 1,96:1 — przycisk startu bywa wyłączony do czasu hydratacji wyspy,
+   * więc to był pierwszy, nieczytelny stan panelu. Stan „niegotowy” jest teraz
+   * własnym stanem: `bg-brand-soft` + `text-brand-deep` (7,81:1) w tej ramce.
+   */
   --color-brand-disabled: #9dbbb1;
 
   /* Glina: tylko „Pomoc teraz” i domykanie rozmowy — nigdy jako dekoracja. */
@@ -58,8 +65,21 @@
 
   --color-ink: #1e2622;
   --color-ink-soft: #46514b;
-  --color-ink-muted: #6b756f;
-  --color-ink-faint: #8f9893;
+  /*
+   * Tekst pomocniczy. Poprzednie #6b756f trzymało próg tylko na najjaśniejszym
+   * papierze (4,54:1), a wypadało pod nim na tle strony i na ciepłych kartach
+   * (4,24:1 / 4,02:1) — czyli dokładnie tam, gdzie stoi go najwięcej. Ten odcień
+   * ma 5,58 / 5,21 / 4,94:1, więc czyta się na wszystkich trzech tłach.
+   */
+  --color-ink-muted: #5d6761;
+  /*
+   * Nie ma tu `ink-faint` (#8f9893) i nie należy go przywracać: miał 2,82:1 na
+   * papierze i 2,50:1 na ciepłym tle, więc wypadał poniżej nawet luźniejszego
+   * progu 3:1 dla dużego tekstu — a niósł m.in. zachętę „Napisz, od czego chcesz
+   * zacząć…”, nagłówki dni w historii i adres e-mail w menu konta.
+   * Najsłabszy dopuszczalny tekst to `ink-muted`; na kreski i obrysy jest
+   * `line-accent`.
+   */
 
   --color-danger: #7a3530;
   --color-danger-strong: #9c463f;
@@ -132,7 +152,8 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
+.dark,
+:root[data-theme="dark"] {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -209,9 +230,207 @@
  * to jeden kafelek SVG liczony raz przez przeglądarkę — daje głębię bez
  * gradientów i bez obrazka do pobrania.
  */
+/*
+ * Ziarno papieru: jeden kafelek SVG liczony raz przez przeglądarkę — głębia bez
+ * gradientów i bez obrazka do pobrania. Po zmroku ziarno musi rozjaśniać, bo
+ * ciemne na ciemnym tle jest po prostu niewidoczne.
+ */
+:root {
+  --paper-grain: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.22 0 0 0 0 0.2 0 0 0 0 0.15 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper-grain: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.96 0 0 0 0 0.93 0 0 0 0 0.86 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper-grain: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.96 0 0 0 0 0.93 0 0 0 0 0.86 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 @utility bg-paper {
   background-color: var(--color-canvas);
-  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.22 0 0 0 0 0.2 0 0 0 0 0.15 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-image: var(--paper-grain);
+}
+
+/*
+ * ── Wieczorna cisza ─────────────────────────────────────────────────────────
+ *
+ * Po tę aplikację sięga się najczęściej wieczorem, w łóżku, przy zgaszonym
+ * świetle — a rozmowa zajmuje wtedy cały ekran telefonu jasnym papierem.
+ * To ten sam pokój po zmroku, nie inny motyw: ciepły ton zostaje, odwraca się
+ * jasność. Nigdzie czysta czerń ani czysta biel — czarne tło z białym tekstem
+ * daje o tej porze halo wokół liter.
+ *
+ * Wartości są dobrane pod te same progi, których pilnuje jasna paleta: każdy
+ * tekst ma co najmniej 4,5:1 na swoim tle (najsłabszy, `ink-muted` na
+ * `surface-hover`, ma 5,79:1), a obrysy i ikony co najmniej 3:1.
+ *
+ * Zmienne `--evening-*` trzymają wartości w jednym miejscu; oba selektory niżej
+ * tylko je podstawiają — raz dla systemowego trybu ciemnego (działa bez JS),
+ * raz dla ręcznego wyboru z menu konta.
+ */
+:root {
+  --evening-canvas: #15130f;
+  --evening-surface: #1c1a15;
+  --evening-surface-soft: #24211b;
+  --evening-surface-hover: #2c2820;
+
+  --evening-line: #2f2b23;
+  --evening-line-strong: #3a352c;
+  --evening-line-accent: #726957;
+
+  --evening-brand: #6bb3a0;
+  --evening-brand-strong: #82c3b1;
+  --evening-brand-deep: #9ad3c2;
+  --evening-brand-ring: #6bb3a0;
+  --evening-brand-soft: #24382f;
+  --evening-brand-tint: #1e2d27;
+  --evening-brand-disabled: #5d8677;
+
+  --evening-clay: #dd9166;
+  --evening-clay-strong: #eaa87f;
+  --evening-clay-line: #5c4030;
+  --evening-clay-soft: #2b1f17;
+
+  --evening-ink: #f2eee6;
+  --evening-ink-soft: #d5cec2;
+  --evening-ink-muted: #a9a294;
+
+  --evening-danger: #f0a99f;
+  --evening-danger-strong: #f5bdb4;
+  --evening-danger-line: #5e332d;
+  --evening-danger-soft: #2a1917;
+
+  --evening-warn: #e5c485;
+  --evening-warn-strong: #f0d5a2;
+  --evening-warn-line: #544324;
+  --evening-warn-soft: #2a2216;
+
+  --evening-speaker: #f2eee6;
+  --evening-speaker-line: #3a352c;
+  --evening-speaker-soft: #2c2820;
+
+  --evening-persp-psychodynamic: #6fb3a2;
+  --evening-persp-psychodynamic-soft: #22322c;
+  --evening-persp-cbt: #8ab0dd;
+  --evening-persp-cbt-soft: #212b38;
+  --evening-persp-humanistic: #dda182;
+  --evening-persp-humanistic-soft: #33241c;
+  --evening-persp-systemic: #7fb9c6;
+  --evening-persp-systemic-soft: #1f2e33;
+  --evening-persp-integrative: #b4a0d8;
+  --evening-persp-integrative-soft: #2a2436;
+}
+
+/*
+ * Jedno źródło przypisań dla obu ścieżek. `@media` obsługuje ustawienie systemu
+ * (i działa bez JS), `[data-theme="dark"]` — świadomy wybór z menu konta.
+ * `:not([data-theme="light"])` pozwala wymusić jasny motyw mimo ciemnego systemu.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --color-canvas: var(--evening-canvas);
+    --color-surface: var(--evening-surface);
+    --color-surface-soft: var(--evening-surface-soft);
+    --color-surface-hover: var(--evening-surface-hover);
+    --color-line: var(--evening-line);
+    --color-line-strong: var(--evening-line-strong);
+    --color-line-accent: var(--evening-line-accent);
+    --color-brand: var(--evening-brand);
+    --color-brand-strong: var(--evening-brand-strong);
+    --color-brand-deep: var(--evening-brand-deep);
+    --color-brand-ring: var(--evening-brand-ring);
+    --color-brand-soft: var(--evening-brand-soft);
+    --color-brand-tint: var(--evening-brand-tint);
+    --color-brand-disabled: var(--evening-brand-disabled);
+    --color-clay: var(--evening-clay);
+    --color-clay-strong: var(--evening-clay-strong);
+    --color-clay-line: var(--evening-clay-line);
+    --color-clay-soft: var(--evening-clay-soft);
+    --color-ink: var(--evening-ink);
+    --color-ink-soft: var(--evening-ink-soft);
+    --color-ink-muted: var(--evening-ink-muted);
+    --color-danger: var(--evening-danger);
+    --color-danger-strong: var(--evening-danger-strong);
+    --color-danger-line: var(--evening-danger-line);
+    --color-danger-soft: var(--evening-danger-soft);
+    --color-warn: var(--evening-warn);
+    --color-warn-strong: var(--evening-warn-strong);
+    --color-warn-line: var(--evening-warn-line);
+    --color-warn-soft: var(--evening-warn-soft);
+    --color-speaker: var(--evening-speaker);
+    --color-speaker-line: var(--evening-speaker-line);
+    --color-speaker-soft: var(--evening-speaker-soft);
+    --color-persp-psychodynamic: var(--evening-persp-psychodynamic);
+    --color-persp-psychodynamic-soft: var(--evening-persp-psychodynamic-soft);
+    --color-persp-cbt: var(--evening-persp-cbt);
+    --color-persp-cbt-soft: var(--evening-persp-cbt-soft);
+    --color-persp-humanistic: var(--evening-persp-humanistic);
+    --color-persp-humanistic-soft: var(--evening-persp-humanistic-soft);
+    --color-persp-systemic: var(--evening-persp-systemic);
+    --color-persp-systemic-soft: var(--evening-persp-systemic-soft);
+    --color-persp-integrative: var(--evening-persp-integrative);
+    --color-persp-integrative-soft: var(--evening-persp-integrative-soft);
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-rail: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-float: 0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-canvas: var(--evening-canvas);
+  --color-surface: var(--evening-surface);
+  --color-surface-soft: var(--evening-surface-soft);
+  --color-surface-hover: var(--evening-surface-hover);
+  --color-line: var(--evening-line);
+  --color-line-strong: var(--evening-line-strong);
+  --color-line-accent: var(--evening-line-accent);
+  --color-brand: var(--evening-brand);
+  --color-brand-strong: var(--evening-brand-strong);
+  --color-brand-deep: var(--evening-brand-deep);
+  --color-brand-ring: var(--evening-brand-ring);
+  --color-brand-soft: var(--evening-brand-soft);
+  --color-brand-tint: var(--evening-brand-tint);
+  --color-brand-disabled: var(--evening-brand-disabled);
+  --color-clay: var(--evening-clay);
+  --color-clay-strong: var(--evening-clay-strong);
+  --color-clay-line: var(--evening-clay-line);
+  --color-clay-soft: var(--evening-clay-soft);
+  --color-ink: var(--evening-ink);
+  --color-ink-soft: var(--evening-ink-soft);
+  --color-ink-muted: var(--evening-ink-muted);
+  --color-danger: var(--evening-danger);
+  --color-danger-strong: var(--evening-danger-strong);
+  --color-danger-line: var(--evening-danger-line);
+  --color-danger-soft: var(--evening-danger-soft);
+  --color-warn: var(--evening-warn);
+  --color-warn-strong: var(--evening-warn-strong);
+  --color-warn-line: var(--evening-warn-line);
+  --color-warn-soft: var(--evening-warn-soft);
+  --color-speaker: var(--evening-speaker);
+  --color-speaker-line: var(--evening-speaker-line);
+  --color-speaker-soft: var(--evening-speaker-soft);
+  --color-persp-psychodynamic: var(--evening-persp-psychodynamic);
+  --color-persp-psychodynamic-soft: var(--evening-persp-psychodynamic-soft);
+  --color-persp-cbt: var(--evening-persp-cbt);
+  --color-persp-cbt-soft: var(--evening-persp-cbt-soft);
+  --color-persp-humanistic: var(--evening-persp-humanistic);
+  --color-persp-humanistic-soft: var(--evening-persp-humanistic-soft);
+  --color-persp-systemic: var(--evening-persp-systemic);
+  --color-persp-systemic-soft: var(--evening-persp-systemic-soft);
+  --color-persp-integrative: var(--evening-persp-integrative);
+  --color-persp-integrative-soft: var(--evening-persp-integrative-soft);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-rail: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-float: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
 @layer base {

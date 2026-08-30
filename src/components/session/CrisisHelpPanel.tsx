@@ -25,7 +25,7 @@ export function CrisisHelpTrigger({ isOpen, onToggle }: CrisisHelpTriggerProps) 
       onClick={onToggle}
       aria-expanded={isOpen}
       aria-controls="crisis-help-panel"
-      className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 sm:h-10 sm:gap-2 sm:px-3.5"
+      className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 sm:gap-2 sm:px-4"
     >
       {/* Glina tylko na ikonie: przycisk ma być znajdowalny, nie alarmujący. */}
       <Phone aria-hidden="true" className="text-clay h-4 w-4" />
@@ -77,7 +77,7 @@ export function CrisisHelpPanel({ onClose }: CrisisHelpPanelProps) {
           type="button"
           onClick={onClose}
           aria-label="Zamknij kontakty pomocy"
-          className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring -mt-1 -mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2"
+          className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring -mt-1 -mr-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2"
         >
           <X aria-hidden="true" className="h-4 w-4" />
         </button>

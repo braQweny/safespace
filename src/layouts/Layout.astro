@@ -31,6 +31,25 @@ const showConfigBanners = import.meta.env.DEV;
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>{title}</title>
+    <script is:inline>
+      /*
+       * Motyw musi być ustawiony przed pierwszym malowaniem — inaczej osoba,
+       * która wybrała wieczorny, dostaje w twarz błysk jasnego ekranu. Bez
+       * zapisanego wyboru nie ustawiamy niczego i decyduje `prefers-color-scheme`,
+       * więc telefon w trybie nocnym trafia na ciemną paletę także bez JS.
+       */
+      (() => {
+        try {
+          const stored = localStorage.getItem("safespace-theme");
+
+          if (stored === "dark" || stored === "light") {
+            document.documentElement.dataset.theme = stored;
+          }
+        } catch {
+          // Prywatne okno albo zablokowane dane witryny — zostaje ustawienie systemu.
+        }
+      })();
+    </script>
   </head>
   <body>
     {

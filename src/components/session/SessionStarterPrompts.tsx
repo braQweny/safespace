@@ -32,7 +32,7 @@ export default function SessionStarterPrompts({ isDisabled, onSelect }: SessionS
               onClick={() => {
                 onSelect(prompt);
               }}
-              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex min-h-10 items-center rounded-full border px-3.5 py-2 text-sm whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 sm:whitespace-normal"
+              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded-full border px-3.5 py-2 text-sm whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 sm:whitespace-normal"
             >
               {prompt}
             </button>

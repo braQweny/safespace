@@ -42,7 +42,7 @@ const SORT_OPTIONS: { value: AdminUserSort; label: string }[] = [
 ];
 
 const SELECT_CLASS_NAME =
-  "border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm outline-none focus:ring-2";
+  "border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-surface px-3 text-sm outline-none focus:ring-2";
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -95,7 +95,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
   return (
     <section className="space-y-4">
       <form
-        className="border-line grid gap-3 rounded-lg border bg-white p-4 lg:grid-cols-[minmax(0,1fr)_160px_160px_220px_auto]"
+        className="border-line bg-surface grid gap-3 rounded-lg border p-4 lg:grid-cols-[minmax(0,1fr)_160px_160px_220px_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           void refreshUsers(1);
@@ -166,7 +166,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
         </label>
         <button
           type="submit"
-          className="bg-brand-strong focus:ring-line-accent hover:bg-brand-deep inline-flex h-10 items-center justify-center gap-2 self-end rounded-md px-4 text-sm font-medium text-white transition-colors focus:ring-2 focus:outline-none"
+          className="bg-brand-strong text-surface focus-visible:ring-brand-ring hover:bg-brand-deep inline-flex h-11 items-center justify-center gap-2 self-end rounded-md px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
         >
           <Search aria-hidden="true" className="size-4" />
           Szukaj
@@ -175,7 +175,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
 
       {errorCode ? <ErrorNotice code={errorCode} /> : null}
 
-      <div className="border-line overflow-hidden rounded-lg border bg-white">
+      <div className="border-line bg-surface overflow-hidden rounded-lg border">
         <table aria-label="Lista użytkowników" className="w-full min-w-[1000px] border-collapse text-left text-sm">
           <thead className="text-ink-soft bg-brand-tint">
             <tr>
@@ -243,7 +243,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                           onClick={() => {
                             void togglePlan(user);
                           }}
-                          className="border-brand-soft text-brand-strong hover:bg-surface-hover inline-flex h-9 items-center justify-center gap-2 rounded-md border bg-white px-3 text-xs font-medium transition-colors disabled:opacity-50"
+                          className="border-brand-soft text-brand-strong hover:bg-surface-hover bg-surface inline-flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-medium transition-colors disabled:opacity-50"
                         >
                           {isPremium ? (
                             <CircleMinus aria-hidden="true" className="size-4" />
@@ -259,7 +259,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                             onChange={(event) => {
                               setReason(user.profile.userId, event.target.value as AdminBlockReasonCode);
                             }}
-                            className="border-brand-soft text-ink h-9 rounded-md border bg-white px-2 text-xs"
+                            className="border-brand-soft text-ink bg-surface h-11 rounded-md border px-2 text-xs"
                           >
                             {REASON_OPTIONS.map((option) => (
                               <option key={option.value} value={option.value}>
@@ -274,7 +274,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                           onClick={() => {
                             void toggleBlock(user);
                           }}
-                          className="border-brand-soft text-brand-strong hover:bg-surface-hover inline-flex h-9 items-center justify-center gap-2 rounded-md border bg-white px-3 text-xs font-medium transition-colors disabled:opacity-50"
+                          className="border-brand-soft text-brand-strong hover:bg-surface-hover bg-surface inline-flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-medium transition-colors disabled:opacity-50"
                         >
                           {isBlocked ? (
                             <RotateCcw aria-hidden="true" className="size-4" />
@@ -304,7 +304,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onClick={() => {
               void refreshUsers(result.pagination.page - 1);
             }}
-            className="border-brand-soft text-brand-strong h-9 rounded-md border bg-white px-3 text-sm font-medium disabled:opacity-50"
+            className="border-brand-soft text-brand-strong bg-surface h-11 rounded-md border px-3 text-sm font-medium disabled:opacity-50"
           >
             Poprzednia
           </button>
@@ -314,7 +314,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             onClick={() => {
               void refreshUsers(result.pagination.page + 1);
             }}
-            className="border-brand-soft text-brand-strong h-9 rounded-md border bg-white px-3 text-sm font-medium disabled:opacity-50"
+            className="border-brand-soft text-brand-strong bg-surface h-11 rounded-md border px-3 text-sm font-medium disabled:opacity-50"
           >
             Następna
           </button>

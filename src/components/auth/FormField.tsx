@@ -2,8 +2,14 @@ import type { ReactNode } from "react";
 import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/*
+ * Papier i promienie jak w reszcie aplikacji — te ekrany stały wcześniej na
+ * czystej bieli z promieniem 10 px, więc pierwszy ekran nowej osoby wyglądał
+ * jak inny produkt. Placeholder miał twardo wpisane #87968f (3,09:1) zamiast
+ * tokenu; teraz to `ink-muted`, czyli 5,58:1.
+ */
 const inputBase =
-  "w-full rounded-lg border bg-white px-3 py-2 pl-10 text-ink placeholder-[#87968f] transition-colors focus:outline-none focus:ring-2";
+  "w-full rounded-[14px] border bg-surface px-3.5 pl-11 h-12 text-ink placeholder:text-ink-muted transition-colors focus:outline-none focus:ring-2";
 
 interface FormFieldProps {
   id: string;
@@ -38,7 +44,7 @@ export function FormField({
         {label}
       </label>
       <div className="relative">
-        <span className="text-ink-faint absolute top-1/2 left-3 size-4 -translate-y-1/2">{icon}</span>
+        <span className="text-ink-muted absolute top-1/2 left-3 size-4 -translate-y-1/2">{icon}</span>
         <input
           id={id}
           name={name ?? id}
@@ -52,14 +58,14 @@ export function FormField({
           aria-describedby={error ? `${id}-error` : undefined}
           className={cn(
             inputBase,
-            error ? "border-red-400 focus:ring-red-200" : "border-brand-soft focus:ring-line-accent",
+            error ? "border-danger focus:ring-danger-line" : "border-line-strong focus:ring-brand-ring",
           )}
         />
         {endContent}
       </div>
       {error ? (
-        <p id={`${id}-error`} className="mt-1 flex items-center gap-1 text-xs text-red-700">
-          <CircleAlert aria-hidden="true" className="size-3" />
+        <p id={`${id}-error`} className="text-danger mt-1.5 flex items-center gap-1.5 text-xs">
+          <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />
           {error}
         </p>
       ) : (

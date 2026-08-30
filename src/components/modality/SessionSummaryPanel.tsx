@@ -56,7 +56,7 @@ const summaryGateStates: Record<Exclude<LatestSessionSummaryState["kind"], "none
   },
   stale: {
     badge: "Ta wersja została zastąpiona",
-    badgeClassName: "bg-surface-soft text-ink-faint",
+    badgeClassName: "bg-surface-soft text-ink-muted",
     consequence: "Nie przejdzie do następnej rozmowy. Zostaje w historii tej rozmowy.",
     arch: "dashed",
     paperClassName: "bg-surface-soft",
@@ -156,7 +156,7 @@ export default function SessionSummaryPanel({
             type="button"
             disabled={!canSummarize || summaryIsBusy}
             onClick={onGenerate}
-            className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:bg-brand-disabled inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
+            className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex h-11 items-center justify-center gap-2 rounded-full border border-transparent px-5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
           >
             {summaryStatus === "generating" ? (
               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -172,10 +172,10 @@ export default function SessionSummaryPanel({
               disabled={isApproved || summaryIsBusy}
               onClick={onApprove}
               className={cn(
-                "inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2",
+                "inline-flex h-11 items-center justify-center gap-2 rounded-full border border-transparent px-5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2",
                 isApproved
                   ? "bg-brand-tint text-brand-deep cursor-default"
-                  : "bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:bg-brand-disabled disabled:cursor-not-allowed",
+                  : "bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep disabled:cursor-not-allowed",
               )}
             >
               {summaryStatus === "approving" ? (

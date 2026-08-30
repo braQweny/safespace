@@ -9,10 +9,10 @@ export function ServerError({ message }: ServerErrorProps) {
 
   return (
     <p
-      className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+      className="border-danger-line bg-danger-soft text-danger flex items-start gap-2 rounded-xl border px-3.5 py-3 text-sm leading-6"
       role="alert"
     >
-      <CircleAlert className="size-4 shrink-0" />
+      <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       {message}
     </p>
   );

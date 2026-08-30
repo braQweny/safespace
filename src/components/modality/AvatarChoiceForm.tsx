@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Save } from "lucide-react";
+import { ArrowRight, Check, Save } from "lucide-react";
 import {
   getPerspectiveLabel,
   type AvatarId,
@@ -14,6 +14,14 @@ import { cn } from "@/lib/utils";
 interface AvatarChoiceFormProps {
   modalities: readonly ModalityAvatar[];
   currentSelection: SelectedModalityAvatar | null;
+  /**
+   * Czy jest co zaczynać: brak rozmowy w toku i niewyczerpana pula. Decyduje
+   * wyłącznie o tym, czy pasek obiecuje start — bramką pozostaje panel i trasy
+   * startu, które i tak sprawdzają limit po swojemu.
+   */
+  canStartConversation?: boolean;
+  /** „do 15 min” / „do 60 min” — ta sama obietnica, co na przycisku w panelu. */
+  sessionBudgetMinutes?: string;
 }
 
 /**
@@ -35,7 +43,12 @@ function getDisplayName(avatarName: string) {
   return avatarName.split(",")[0]?.trim() || avatarName;
 }
 
-export default function AvatarChoiceForm({ modalities, currentSelection }: AvatarChoiceFormProps) {
+export default function AvatarChoiceForm({
+  modalities,
+  currentSelection,
+  canStartConversation = false,
+  sessionBudgetMinutes,
+}: AvatarChoiceFormProps) {
   const [selectedModalityId, setSelectedModalityId] = useState<ModalityId | "">(currentSelection?.modalityId ?? "");
   const isHydrated = useIsHydrated();
   const selectedModality = modalities.find((modality) => modality.modalityId === selectedModalityId) ?? null;
@@ -164,14 +177,44 @@ export default function AvatarChoiceForm({ modalities, currentSelection }: Avata
               "Zaznacz perspektywę, żeby ją zapisać."
             )}
           </p>
-          <button
-            type="submit"
-            suppressHydrationWarning
-            className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-          >
-            <Save aria-hidden="true" className="h-4 w-4" />
-            Zapisz wybór
-          </button>
+          {/*
+            Kto właśnie wybrał, z kim chce rozmawiać, tym samym zdecydował, że chce
+            rozmawiać — powrót do panelu tylko po to, żeby nacisnąć drugi przycisk,
+            był krokiem bez decyzji. Start zostaje osobnym, nazwanym kliknięciem
+            i nadal niesie obietnicę czasu, tak jak przycisk w panelu.
+          */}
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              type="submit"
+              name="intent"
+              value="save"
+              suppressHydrationWarning
+              className={cn(
+                "focus-visible:ring-brand-ring inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2",
+                canStartConversation
+                  ? "border-line-accent bg-surface text-ink hover:bg-surface-soft border"
+                  : "bg-brand hover:bg-brand-strong text-surface",
+              )}
+            >
+              <Save aria-hidden="true" className="h-4 w-4" />
+              Zapisz wybór
+            </button>
+            {canStartConversation ? (
+              <button
+                type="submit"
+                name="intent"
+                value="save_and_start"
+                suppressHydrationWarning
+                className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+              >
+                Zapisz i zacznij rozmowę
+                {sessionBudgetMinutes ? (
+                  <span className="text-[15px] font-normal opacity-80">do {sessionBudgetMinutes}</span>
+                ) : null}
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </form>

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import SessionComposer, {
   appendTranscriptionToDraft,
   getSupportedWebmMimeType,
+  shouldHintSubmitShortcut,
   shouldSubmitSessionComposerFromKeyboard,
 } from "../SessionComposer";
 
@@ -107,5 +108,34 @@ describe("SessionComposer dictation controls", () => {
         isTypeSupported: () => false,
       }),
     ).toBeNull();
+  });
+});
+
+/*
+ * Enter nie wysyła i nie ma wysyłać — w rozmowie, do której wraca się w połowie
+ * zdania, wysłanie w pół myśli jest gorsze niż jedno nieudane naciśnięcie. Ale
+ * odruch z komunikatorów jest silny, więc dokładnie w tym naciśnięciu podpowiedź
+ * o skrócie ma się zapalić zamiast siedzieć szarym drobnym drukiem.
+ */
+describe("shouldHintSubmitShortcut", () => {
+  it("lights the hint on a bare Enter with something written", () => {
+    expect(shouldHintSubmitShortcut(keyboardEvent(), true)).toBe(true);
+  });
+
+  it("stays quiet when the field is empty", () => {
+    expect(shouldHintSubmitShortcut(keyboardEvent(), false)).toBe(false);
+  });
+
+  it("stays quiet on a deliberate new line", () => {
+    expect(shouldHintSubmitShortcut(keyboardEvent({ shiftKey: true }), true)).toBe(false);
+  });
+
+  it("stays quiet while the message is actually being sent", () => {
+    expect(shouldHintSubmitShortcut(keyboardEvent({ metaKey: true }), true)).toBe(false);
+    expect(shouldHintSubmitShortcut(keyboardEvent({ ctrlKey: true }), true)).toBe(false);
+  });
+
+  it("ignores other keys", () => {
+    expect(shouldHintSubmitShortcut(keyboardEvent({ key: "a" }), true)).toBe(false);
   });
 });

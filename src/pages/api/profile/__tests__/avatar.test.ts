@@ -102,4 +102,27 @@ describe("POST /api/profile/avatar", () => {
       { onConflict: "user_id" },
     );
   });
+
+  /*
+   * Ekran wyboru perspektywy oferuje też start rozmowy. Zapis nie startuje sesji
+   * sam — przekazuje intencję adresem, a pulą i limitami zarządzają trasy startu.
+   */
+  it("sends the user to the panel with the start request after save-and-start", async () => {
+    const response = await POST(createContext({ modalityId: "psychodynamic", intent: "save_and_start" }));
+
+    expect(response.status).toBe(303);
+    expect(location(response)).toBe("/dashboard?start=now");
+  });
+
+  it("keeps the plain save on the confirmation path", async () => {
+    const response = await POST(createContext({ modalityId: "psychodynamic", intent: "save" }));
+
+    expect(location(response)).toBe("/dashboard?avatar=updated");
+  });
+
+  it("treats an unknown intent as a plain save", async () => {
+    const response = await POST(createContext({ modalityId: "psychodynamic", intent: "start_everything" }));
+
+    expect(location(response)).toBe("/dashboard?avatar=updated");
+  });
 });

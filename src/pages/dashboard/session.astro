@@ -1,6 +1,5 @@
 ---
 import Layout from "@/layouts/Layout.astro";
-import AppHeader from "@/components/AppHeader.astro";
 import TimedSession from "@/components/session/TimedSession";
 import { getLatestOwnedSessionSummaryState } from "@/lib/session-data/repository";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
@@ -47,9 +46,16 @@ if (activeSession && pageState.kind !== "active") {
 ---
 
 <Layout title="Rozmowa - SafeSpace" lang="pl">
+  {
+    /*
+    Jedyna strona bez `AppHeader`: rozmowa ma własny pasek, a dwa nagłówki jeden
+    nad drugim zabierały na telefonie 120 z 844 px, zanim cokolwiek się zaczęło.
+    Powrót do panelu — jedyne, co robił tu nagłówek aplikacji — przejął łuk
+    w pasku rozmowy. Konto i wylogowanie zostają w panelu; rozmowa jest jednym
+    zadaniem i nie potrzebuje menu.
+  */
+  }
   <div class="bg-paper text-ink flex h-[100dvh] flex-col">
-    <AppHeader />
-
     {/* `display: contents` na wyspie Astro, żeby wysokość 100dvh dochodziła do layoutu rozmowy. */}
     <main class="min-h-0 flex-1 overflow-hidden [&>astro-island]:contents">
       <TimedSession client:load initialState={pageState} initialSummary={initialSummary} />

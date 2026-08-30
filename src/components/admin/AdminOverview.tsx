@@ -19,10 +19,10 @@ function formatCount(count: PrivacySafeCount | number) {
 
 function StatTile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <section className="border-line rounded-lg border bg-white p-4">
+    <section className="border-line bg-surface rounded-lg border p-4">
       <p className="text-ink-muted text-sm font-medium">{label}</p>
       <p className="text-ink mt-2 text-3xl font-semibold">{value}</p>
-      {note ? <p className="text-ink-faint mt-2 text-sm leading-5">{note}</p> : null}
+      {note ? <p className="text-ink-muted mt-2 text-sm leading-5">{note}</p> : null}
     </section>
   );
 }
@@ -45,7 +45,7 @@ export default function AdminOverview({ metrics }: AdminOverviewProps) {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="border-line rounded-lg border bg-white p-4">
+        <div className="border-line bg-surface rounded-lg border p-4">
           <h2 className="text-ink text-base font-semibold">Statusy sesji</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {lifecycleEntries.map(([status, count]) => (
@@ -57,7 +57,7 @@ export default function AdminOverview({ metrics }: AdminOverviewProps) {
           </div>
         </div>
 
-        <div className="border-line rounded-lg border bg-white p-4">
+        <div className="border-line bg-surface rounded-lg border p-4">
           <h2 className="text-ink text-base font-semibold">Pozostałe liczniki</h2>
           <dl className="mt-4 space-y-3">
             <div className="flex items-center justify-between gap-3">

@@ -89,7 +89,7 @@ const boundaries = [
         <div class="mt-2 flex min-w-0 flex-col gap-3 sm:flex-row">
           <a
             href={primaryCta.href}
-            class="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-13 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2"
+            class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-13 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
           >
             {primaryCta.label}
             <svg
@@ -197,7 +197,7 @@ const boundaries = [
           <div
             class="border-line-strong bg-surface mx-4 mb-4 flex items-center justify-between gap-3 rounded-2xl border py-2.5 pr-2.5 pl-4"
           >
-            <span class="text-ink-faint text-sm">Napisz…</span>
+            <span class="text-ink-muted text-sm">Napisz…</span>
             <span class="bg-brand flex h-[34px] w-[34px] items-center justify-center rounded-full">
               <svg
                 viewBox="0 0 24 24"
@@ -206,7 +206,7 @@ const boundaries = [
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
-                class="h-4 w-4 text-white"
+                class="text-surface h-4 w-4"
               >
                 <path d="M12 19V5M5 12l7-7 7 7"></path>
               </svg>
@@ -278,15 +278,15 @@ const boundaries = [
       </div>
     </section>
 
-    <section class="bg-brand-deep text-white">
+    <section class="bg-brand-deep text-canvas">
       <div class="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pt-16 pb-14 sm:px-6 lg:px-8">
         <div class="grid gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
           <div class="flex flex-col gap-3">
             <p class="text-brand-soft text-xs font-semibold tracking-[0.08em] uppercase">Granice bezpieczeństwa</p>
-            <h2 class="font-serif text-3xl leading-tight font-medium tracking-tight text-white sm:text-4xl">
+            <h2 class="text-canvas font-serif text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
               Zanim zaczniesz, wiedz, czego SafeSpace nie robi
             </h2>
-            <p class="text-base leading-7 text-white/80">
+            <p class="text-canvas/85 text-base leading-7">
               SafeSpace ma pomagać w przygotowaniu do realnej rozmowy i edukacyjnie pokazywać możliwe sposoby pracy. Nie
               ma zastępować kontaktu z wykwalifikowaną osobą.
             </p>
@@ -294,17 +294,18 @@ const boundaries = [
           <div class="grid gap-4 sm:grid-cols-2">
             {
               boundaries.map((boundary) => (
-                <p class="rounded-[14px] border border-white/15 px-5 py-4 text-[15px] leading-6 text-white/90">
+                <p class="border-canvas/20 text-canvas/90 rounded-[14px] border px-5 py-4 text-[15px] leading-6">
                   {boundary}
                 </p>
               ))
             }
           </div>
         </div>
-        <p class="text-clay-soft border-t border-white/15 pt-6 text-[15px] leading-6">
+        <p class="text-clay-soft border-canvas/20 border-t pt-6 text-[15px] leading-6">
           Jeśli jesteś w bezpośrednim niebezpieczeństwie, zadzwoń pod{" "}
-          <strong class="font-semibold text-white">{emergencyContact?.value ?? "112"}</strong> albo skontaktuj się z lokalną
-          pomocą kryzysową (<strong class="font-semibold text-white">{crisisLineContact?.value ?? "800 70 2222"}</strong
+          <strong class="text-canvas font-semibold">{emergencyContact?.value ?? "112"}</strong> albo skontaktuj się z lokalną
+          pomocą kryzysową (<strong class="text-canvas font-semibold"
+            >{crisisLineContact?.value ?? "800 70 2222"}</strong
           >), telefonem zaufania lub specjalistą. Nie czekaj na odpowiedź aplikacji.
         </p>
       </div>
@@ -327,7 +328,7 @@ const boundaries = [
       </div>
       <a
         href={primaryCta.href}
-        class="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-13 shrink-0 items-center justify-center gap-2.5 self-start rounded-[14px] px-6 text-base font-semibold text-white transition-colors focus:outline-none focus-visible:ring-2 lg:self-auto"
+        class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-13 shrink-0 items-center justify-center gap-2.5 self-start rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 lg:self-auto"
       >
         {primaryCta.label}
         <svg

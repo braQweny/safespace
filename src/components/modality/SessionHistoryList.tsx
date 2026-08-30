@@ -249,7 +249,7 @@ const summaryMarkCopy: Partial<Record<SessionHistoryListItem["summaryState"], Su
   },
   stale: {
     label: "Podsumowanie nieaktualne",
-    className: "text-ink-faint",
+    className: "text-ink-muted",
     dashed: true,
   },
 };
@@ -364,7 +364,7 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
             </div>
             <a
               href={getActiveSessionHref(item.id)}
-              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2"
+              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
               <PlayCircle aria-hidden="true" className="h-3.5 w-3.5" />
               Wróć do rozmowy
@@ -385,7 +385,7 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
           onClick={() => {
             onOpenDetail(item.id);
           }}
-          className="text-ink-muted hover:bg-surface hover:text-ink focus-visible:ring-brand-ring inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="text-ink-muted hover:bg-surface hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span className="hidden sm:inline">Otwórz</span>
           <ChevronRight aria-hidden="true" className="h-4 w-4" />
@@ -408,7 +408,7 @@ export default function SessionHistoryList({
       {groups.map((group) => (
         <section key={group.key}>
           <div className="flex items-center gap-3">
-            <h3 className="text-ink-faint text-xs font-semibold tracking-[0.08em] uppercase">{group.label}</h3>
+            <h3 className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">{group.label}</h3>
             <span aria-hidden="true" className="bg-line h-px flex-1" />
           </div>
           <ol className="mt-1.5 space-y-0.5">

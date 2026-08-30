@@ -117,7 +117,7 @@ export default function DashboardSessionHistory({
           perspektyw ma swoje zapisy i czyje właśnie oglądasz.
         */
         <div className="flex w-full items-center gap-3 sm:w-auto">
-          <span id="history-avatar-label" className="text-ink-faint shrink-0 text-xs">
+          <span id="history-avatar-label" className="text-ink-muted shrink-0 text-xs">
             Zapisy
           </span>
           <div role="radiogroup" aria-labelledby="history-avatar-label" className="flex flex-wrap gap-2">
