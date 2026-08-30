@@ -1,10 +1,13 @@
 // @ts-check
+import { readFileSync } from "node:fs";
 import { defineConfig, envField } from "astro/config";
 
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import cloudflare from "@astrojs/cloudflare";
+import { loadEnv } from "vite";
+import { buildFormActionDirective, collectInlineScriptHashes } from "./src/lib/security/csp.mjs";
 
 // Finalna domena nie jest jeszcze wybrana (context/deployment/deploy-plan.md),
 // a `@astrojs/sitemap` bez `site` po cichu nic nie generuje i tylko zgłasza
@@ -12,6 +15,19 @@ import cloudflare from "@astrojs/cloudflare";
 // build dostanie `SITE_URL` — do tego czasu nie udaje, że działa.
 const configuredSiteUrl = process.env.SITE_URL?.trim();
 const siteUrl = configuredSiteUrl && configuredSiteUrl.length > 0 ? configuredSiteUrl : undefined;
+
+// CSP powstaje w czasie budowania, więc adres projektu Supabase też musi być
+// znany wtedy. `loadEnv` z pustym prefiksem czyta i `.env` (praca lokalna),
+// i zmienne procesu (CI ma `SUPABASE_URL` w sekretach builda).
+const buildEnv = loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), "");
+const formActionDirective = buildFormActionDirective(buildEnv.SUPABASE_URL);
+
+// Skrypt ustawiający motyw jest wstawiony wprost w `Layout.astro` (`is:inline`),
+// a takich Astro nie hashuje samo — bez tego wpisu CSP go blokuje i zapisany
+// wybór motywu przestaje działać po przeładowaniu strony.
+const inlineScriptHashes = collectInlineScriptHashes(
+  readFileSync(new URL("./src/layouts/Layout.astro", import.meta.url), "utf8"),
+);
 
 // https://astro.build/config
 export default defineConfig({
@@ -29,11 +45,14 @@ export default defineConfig({
       directives: [
         "default-src 'self'",
         "base-uri 'self'",
-        "form-action 'self'",
+        formActionDirective,
         "frame-ancestors 'none'",
         "object-src 'none'",
         "img-src 'self' data:",
       ],
+      scriptDirective: {
+        hashes: inlineScriptHashes,
+      },
     },
   },
   integrations: [react(), ...(siteUrl ? [sitemap()] : [])],

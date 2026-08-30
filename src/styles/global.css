@@ -444,4 +444,21 @@
   h1 {
     @apply font-serif font-medium tracking-tight;
   }
+
+  /*
+   * Preflight Tailwinda 4 zostawia na przyciskach `cursor: default` (w wersji 3
+   * przywracał `pointer`), więc bez tej reguły nic poza linkami nie mówiło
+   * kursorem, że jest klikalne — a `cursor-pointer` doklejany ręcznie w kilku
+   * miejscach tylko pogłębiał niespójność. Sterowanie wyłączone zostaje przy
+   * kursorze domyślnym: „tego nie kliknę” to też informacja.
+   */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
