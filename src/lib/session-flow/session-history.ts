@@ -46,6 +46,13 @@ export interface ReadSessionHistoryDetailInput {
 
 type PageParseResult = { ok: true; page: number } | { ok: false; code: "invalid_page" };
 
+/**
+ * Upper bound for the `page` query. With `SESSION_HISTORY_PAGE_SIZE` rows per
+ * page no real account gets anywhere near it; it exists so an arbitrary
+ * number cannot turn into an arbitrary `OFFSET` in the repository query.
+ */
+export const MAX_SESSION_HISTORY_PAGE = 1000;
+
 const defaultSessionHistoryRepository: SessionHistoryRepository = {
   listOwnedSessionHistoryPage,
   getOwnedSessionHistoryDetail,
@@ -99,7 +106,7 @@ export function parseSessionHistoryPage(value: unknown): PageParseResult {
         ? Number(normalized)
         : Number.NaN;
 
-  if (!Number.isSafeInteger(page) || page < 1) {
+  if (!Number.isSafeInteger(page) || page < 1 || page > MAX_SESSION_HISTORY_PAGE) {
     return {
       ok: false,
       code: "invalid_page",

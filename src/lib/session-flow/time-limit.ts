@@ -43,11 +43,25 @@ export function isSessionExpired(session: Pick<SessionMetadata, "expiresAt">, no
   return remainingMs !== null && remainingMs <= 0;
 }
 
-export function getProviderTimeoutWithinSessionMs(session: Pick<SessionMetadata, "expiresAt">, now: Date = new Date()) {
+/**
+ * Provider timeout for one reply, clipped to the session's remaining time.
+ * `maxTimeoutMs` is the ceiling the caller can afford for this turn (it grows
+ * with a forced reasoning effort — see `resolveSessionReasoningTimeoutMs`);
+ * the remaining session budget minus a reserve always wins when it is shorter.
+ */
+export function getProviderTimeoutWithinSessionMs(
+  session: Pick<SessionMetadata, "expiresAt">,
+  now: Date = new Date(),
+  maxTimeoutMs: number = PROVIDER_TIMEOUT_MAX_MS,
+) {
+  const ceilingMs =
+    Number.isFinite(maxTimeoutMs) && maxTimeoutMs >= PROVIDER_TIMEOUT_MIN_MS
+      ? Math.floor(maxTimeoutMs)
+      : PROVIDER_TIMEOUT_MAX_MS;
   const remainingMs = getRemainingSessionTimeMs(session, now);
 
   if (remainingMs === null) {
-    return PROVIDER_TIMEOUT_MAX_MS;
+    return ceilingMs;
   }
 
   const safeBudgetMs = remainingMs - PROVIDER_TIMEOUT_RESERVE_MS;
@@ -56,7 +70,7 @@ export function getProviderTimeoutWithinSessionMs(session: Pick<SessionMetadata,
     return 0;
   }
 
-  return Math.min(PROVIDER_TIMEOUT_MAX_MS, Math.floor(safeBudgetMs));
+  return Math.min(ceilingMs, Math.floor(safeBudgetMs));
 }
 
 export async function expireOwnedSession(

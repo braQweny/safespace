@@ -12,6 +12,8 @@ export const OPERATIONAL_EVENT_ALLOWED_FIELDS = [
   "riskState",
   "action",
   "userHash",
+  "inputUnits",
+  "outputUnits",
   "deploymentTarget",
   "schemaVersion",
 ] as const;

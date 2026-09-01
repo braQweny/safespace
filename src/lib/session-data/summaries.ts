@@ -208,26 +208,25 @@ export async function saveVisibleSessionSummary(
   context: SessionDataContext,
   input: SaveVisibleSessionSummaryInput,
 ): Promise<SessionDataResult<SessionSummaryRecord>> {
+  // Plain insert on purpose: the revision is computed from a read, so two
+  // generations racing each other would both target the same number. The
+  // unique (session_id, revision) constraint then rejects the second one
+  // instead of an upsert silently overwriting the first summary's text.
   const { data, error } = await context.supabase
     .from("session_summaries")
-    .upsert(
-      {
-        session_id: input.sessionId,
-        user_id: context.user.id,
-        summary_text: input.summaryText,
-        status: input.status,
-        is_visible: input.isVisible,
-        revision: input.revision,
-      },
-      {
-        onConflict: "session_id,revision",
-      },
-    )
+    .insert({
+      session_id: input.sessionId,
+      user_id: context.user.id,
+      summary_text: input.summaryText,
+      status: input.status,
+      is_visible: input.isVisible,
+      revision: input.revision,
+    })
     .select(SUMMARY_SELECT)
     .single();
 
   if (error) {
-    return sessionDataError(mapSupabaseWriteError(error));
+    return sessionDataError(mapSupabaseWriteError(error, { conflictCode: "write_failed" }));
   }
 
   const row = coerceSummaryRow(data);
@@ -400,21 +399,4 @@ export async function listNewestApprovedSessionSummaryContexts(
   }
 
   return ok(toApprovedSessionSummaryContexts(coerceSummaryRows(data).map(mapSummary), limit));
-}
-
-export async function purgeOwnedSessionSummaries(
-  context: SessionDataContext,
-  sessionId: SessionId,
-): Promise<SessionDataResult<null>> {
-  const { error } = await context.supabase
-    .from("session_summaries")
-    .delete()
-    .eq("session_id", sessionId)
-    .eq("user_id", context.user.id);
-
-  if (error) {
-    return sessionDataError(mapSupabaseWriteError(error));
-  }
-
-  return ok(null);
 }

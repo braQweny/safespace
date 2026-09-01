@@ -12,6 +12,10 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    # Kolejny push na tę samą gałąź/PR unieważnia poprzedni przebieg testów.
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +37,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: ci
     runs-on: ubuntu-latest
+    # Migracja i deploy dzielą jedną grupę i nigdy nie są przerywane w połowie:
+    # kolejny push na main czeka, aż poprzednie wdrożenie się skończy.
+    concurrency:
+      group: deploy-main
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -77,6 +86,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: migrate
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-main
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -1,12 +1,18 @@
-import { useCallback, useMemo, useReducer } from "react";
-import { isRateLimitedApiResult, requestApiJson } from "@/lib/api-client";
+import { useCallback, useReducer } from "react";
+import { isRateLimitedApiResult, isTimedOutApiResult, requestApiJson } from "@/lib/api-client";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
+import { SESSION_TURN_COPY } from "@/lib/session-copy";
 import {
   isSendSessionMessageResponse,
   type SendSessionMessageSuccessResponse,
 } from "@/lib/session-flow/message-contract";
-import { appendSuccessfulTurn, isComposerAvailable, type UiSessionMessage } from "@/lib/session-flow/message-state";
+import {
+  appendSuccessfulTurn,
+  isComposerAvailable,
+  isTerminalSessionKind,
+  type UiSessionMessage,
+} from "@/lib/session-flow/message-state";
 import { isCompleteSessionResponse } from "@/lib/session-flow/session-completion-contract";
 import {
   toSessionStartPageStateKind,
@@ -14,6 +20,20 @@ import {
   type SessionStartPageStateKind,
   type SessionView,
 } from "@/lib/session-flow/session-state";
+
+/**
+ * Twardy limit na jedną turę. Model z włączonym rozumowaniem potrafi
+ * odpowiadać po minucie, więc limit jest hojny — ale bez niego zawieszony
+ * provider zostawiał ekran z wirującym wskaźnikiem aż do odświeżenia strony.
+ */
+export const SESSION_MESSAGE_TIMEOUT_MS = 80_000;
+
+/**
+ * Po tylu milisekundach czekania wskaźnik „myśli” dostaje drugą linijkę.
+ * Zwykła odpowiedź przychodzi szybciej; cisza dłuższa niż to zaczyna wyglądać
+ * jak awaria, a jedno zdanie mówi, że to jeszcze nie ona.
+ */
+export const SLOW_RESPONSE_THRESHOLD_MS = 12_000;
 
 export interface SafetyNoticeState {
   variant: "hard_stop" | "retry" | "info";
@@ -28,9 +48,18 @@ export interface TimedSessionUiState {
   draft: string;
   isEnding: boolean;
   isMessagePending: boolean;
+  /** Tura trwa dłużej niż `SLOW_RESPONSE_THRESHOLD_MS`; gaśnie razem z turą. */
+  isResponseSlow: boolean;
   isClientExpired: boolean;
   isHardStopped: boolean;
   pendingUserText: string | null;
+  /**
+   * Słowa użytkownika, które nie doszły do serwera, zanim rozmowa się
+   * skończyła: wiadomość odrzucona po wygaśnięciu albo szkic zastany przez
+   * koniec czasu. Karta zamknięcia pokazuje je do skopiowania — nigdy po
+   * zatrzymaniu bezpieczeństwa.
+   */
+  unsentText: string | null;
   notice: SafetyNoticeState | null;
 }
 
@@ -42,11 +71,14 @@ export type TimedSessionAction =
   | { type: "end_failed"; notice: SafetyNoticeState }
   | { type: "end_settled" }
   | { type: "message_requested"; text: string }
+  | { type: "message_slow" }
   | { type: "turn_succeeded"; turn: SendSessionMessageSuccessResponse["messages"]; session: SessionView }
   | { type: "hard_stopped"; notice: SafetyNoticeState }
   | { type: "session_expired"; session: SessionView; notice: SafetyNoticeState }
   | { type: "message_failed"; draft: string; notice: SafetyNoticeState }
   | { type: "message_settled" };
+
+export type TimedSessionDispatch = (action: TimedSessionAction) => void;
 
 function buildGenericNotice(title: string, body: string): SafetyNoticeState {
   return {
@@ -59,6 +91,23 @@ function buildGenericNotice(title: string, body: string): SafetyNoticeState {
   };
 }
 
+function buildExpiredNotice() {
+  return buildGenericNotice("Limit czasu został osiągnięty", "Nowe wiadomości są już blokowane w tej sesji.");
+}
+
+function nonEmpty(text: string) {
+  const trimmed = text.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Czy pole pisania nadal stoi na ekranie. Gdy nie — nieudana wiadomość nie ma
+ * dokąd wrócić i trafia do `unsentText` zamiast do szkicu.
+ */
+function isConversationOpen(state: TimedSessionUiState) {
+  return !isTerminalSessionKind(state.kind) && !state.isClientExpired && !state.isHardStopped;
+}
+
 export function getInitialTimedSessionState(initialState: SessionStartPageState): TimedSessionUiState {
   return {
     kind: initialState.kind,
@@ -67,9 +116,11 @@ export function getInitialTimedSessionState(initialState: SessionStartPageState)
     draft: "",
     isEnding: false,
     isMessagePending: false,
+    isResponseSlow: false,
     isClientExpired: initialState.session?.remainingSeconds === 0,
     isHardStopped: initialState.kind === "interrupted",
     pendingUserText: null,
+    unsentText: null,
     notice: null,
   };
 }
@@ -79,7 +130,14 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
     case "draft_changed":
       return { ...state, draft: action.draft };
     case "client_expired":
-      return { ...state, kind: "expired", isClientExpired: true };
+      // Szkic zastany przez koniec czasu nie znika razem z polem pisania.
+      return {
+        ...state,
+        kind: "expired",
+        isClientExpired: true,
+        draft: "",
+        unsentText: nonEmpty(state.draft) ?? state.unsentText,
+      };
     case "end_requested":
       return { ...state, isEnding: true, notice: null };
     case "end_succeeded":
@@ -88,6 +146,7 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
         session: action.session,
         kind: "completed",
         draft: "",
+        unsentText: nonEmpty(state.draft) ?? state.unsentText,
         isClientExpired: false,
         isHardStopped: false,
         notice: null,
@@ -97,8 +156,27 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
     case "end_settled":
       return { ...state, isEnding: false };
     case "message_requested":
-      return { ...state, isMessagePending: true, draft: "", pendingUserText: action.text, notice: null };
-    case "turn_succeeded":
+      return {
+        ...state,
+        isMessagePending: true,
+        isResponseSlow: false,
+        draft: "",
+        pendingUserText: action.text,
+        notice: null,
+      };
+    case "message_slow":
+      return state.isMessagePending ? { ...state, isResponseSlow: true } : state;
+    case "turn_succeeded": {
+      // Odpowiedź, która dotarła po zakończeniu rozmowy (koniec kliknięty w
+      // trakcie tury), dopisuje się do zapisu, ale nie otwiera rozmowy na nowo.
+      if (isTerminalSessionKind(state.kind)) {
+        return {
+          ...state,
+          messages: appendSuccessfulTurn(state.messages, action.turn),
+          pendingUserText: null,
+        };
+      }
+
       return {
         ...state,
         messages: appendSuccessfulTurn(state.messages, action.turn),
@@ -108,8 +186,17 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
         pendingUserText: null,
         notice: null,
       };
+    }
     case "hard_stopped":
-      return { ...state, kind: "interrupted", isHardStopped: true, pendingUserText: null, notice: action.notice };
+      return {
+        ...state,
+        kind: "interrupted",
+        isHardStopped: true,
+        draft: "",
+        pendingUserText: null,
+        unsentText: null,
+        notice: action.notice,
+      };
     case "session_expired":
       return {
         ...state,
@@ -117,29 +204,271 @@ export function timedSessionReducer(state: TimedSessionUiState, action: TimedSes
         session: action.session,
         isClientExpired: true,
         pendingUserText: null,
+        unsentText: state.pendingUserText ?? state.unsentText,
         notice: action.notice,
       };
-    case "message_failed":
-      return { ...state, draft: action.draft, pendingUserText: null, notice: action.notice };
+    case "message_failed": {
+      if (isConversationOpen(state)) {
+        return { ...state, draft: action.draft, pendingUserText: null, notice: action.notice };
+      }
+
+      return {
+        ...state,
+        pendingUserText: null,
+        unsentText: state.isHardStopped ? null : (nonEmpty(action.draft) ?? state.unsentText),
+      };
+    }
     case "message_settled":
-      return { ...state, isMessagePending: false, pendingUserText: null };
+      return { ...state, isMessagePending: false, isResponseSlow: false, pendingUserText: null };
+  }
+}
+
+/**
+ * Odpowiedź 401/403 w trakcie rozmowy to nie „spróbuj ponownie”: sesja
+ * logowania wygasła albo konto zostało zablokowane, i żadna ponowna wysyłka
+ * tego nie zmieni. Użytkownik trafia tam, gdzie coś może zrobić.
+ */
+export function getSessionAccessRedirectHref(code: string): string | null {
+  if (code === "missing_auth") {
+    return "/auth/signin";
+  }
+
+  if (code === "account_blocked") {
+    return "/account/blocked";
+  }
+
+  return null;
+}
+
+export interface TimedSessionTransport {
+  request: typeof requestApiJson;
+  navigate: (href: string) => void;
+}
+
+const defaultTransport: TimedSessionTransport = {
+  request: requestApiJson,
+  navigate: (href) => {
+    window.location.assign(href);
+  },
+};
+
+/**
+ * Pełna tura po stronie klienta, bez Reacta: od `message_requested` do
+ * `message_settled`. Wyciągnięta z hooka, żeby dało się ją przetestować z
+ * fałszywymi zegarami i bez DOM-u.
+ */
+export async function sendTimedSessionMessage(
+  input: { sessionId: string; text: string },
+  dispatch: TimedSessionDispatch,
+  transport: TimedSessionTransport = defaultTransport,
+) {
+  const text = input.text.trim();
+
+  if (!text) {
+    return;
+  }
+
+  dispatch({ type: "message_requested", text });
+
+  const slowTimeoutId = setTimeout(() => {
+    dispatch({ type: "message_slow" });
+  }, SLOW_RESPONSE_THRESHOLD_MS);
+
+  try {
+    const result = await transport.request("/api/session/message", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: input.sessionId,
+        message: text,
+      }),
+      timeoutMs: SESSION_MESSAGE_TIMEOUT_MS,
+    });
+
+    if (isTimedOutApiResult(result)) {
+      dispatch({
+        type: "message_failed",
+        draft: text,
+        notice: buildGenericNotice(SESSION_TURN_COPY.timeoutTitle, SESSION_TURN_COPY.timeoutBody),
+      });
+      return;
+    }
+
+    if (result.kind === "network_error") {
+      dispatch({
+        type: "message_failed",
+        draft: text,
+        notice: buildGenericNotice(
+          "Nie udało się wysłać wiadomości",
+          "Połączenie z serwerem jest chwilowo niedostępne.",
+        ),
+      });
+      return;
+    }
+
+    if (isRateLimitedApiResult(result)) {
+      dispatch({
+        type: "message_failed",
+        draft: text,
+        notice: buildGenericNotice(
+          "Zwolnij na chwilę",
+          "Wysyłasz wiadomości zbyt szybko. Odczekaj około minuty i spróbuj ponownie — treść wiadomości została zachowana.",
+        ),
+      });
+      return;
+    }
+
+    const body = result.body;
+
+    if (!isSendSessionMessageResponse(body)) {
+      dispatch({
+        type: "message_failed",
+        draft: text,
+        notice: buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."),
+      });
+      return;
+    }
+
+    if (body.ok) {
+      dispatch({ type: "turn_succeeded", turn: body.messages, session: body.session });
+      return;
+    }
+
+    if (body.type === "missing_or_unauthorized") {
+      const redirectHref = getSessionAccessRedirectHref(body.code);
+
+      if (redirectHref) {
+        transport.navigate(redirectHref);
+        return;
+      }
+    }
+
+    if (body.type === "hard_stop") {
+      dispatch({
+        type: "hard_stopped",
+        notice: {
+          variant: "hard_stop",
+          copy: body.copy,
+          crisisResources: body.crisisResources,
+        },
+      });
+      return;
+    }
+
+    if (body.type === "expired") {
+      dispatch({ type: "session_expired", session: body.session, notice: buildExpiredNotice() });
+      return;
+    }
+
+    if (body.type === "ai_retry") {
+      dispatch({
+        type: "message_failed",
+        draft: text,
+        notice: {
+          variant: "retry",
+          copy: body.copy,
+        },
+      });
+      return;
+    }
+
+    dispatch({
+      type: "message_failed",
+      draft: text,
+      notice: buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."),
+    });
+  } finally {
+    clearTimeout(slowTimeoutId);
+    dispatch({ type: "message_settled" });
+  }
+}
+
+export async function endTimedSession(
+  input: { sessionId: string },
+  dispatch: TimedSessionDispatch,
+  transport: TimedSessionTransport = defaultTransport,
+) {
+  dispatch({ type: "end_requested" });
+
+  try {
+    const result = await transport.request("/api/session/end", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: input.sessionId,
+      }),
+    });
+
+    if (result.kind === "network_error") {
+      dispatch({
+        type: "end_failed",
+        notice: buildGenericNotice("Nie udało się zakończyć sesji", "Połączenie z serwerem jest chwilowo niedostępne."),
+      });
+      return;
+    }
+
+    if (isRateLimitedApiResult(result)) {
+      dispatch({
+        type: "end_failed",
+        notice: buildGenericNotice(
+          "Za dużo prób w krótkim czasie",
+          "Odczekaj około minuty i spróbuj ponownie zakończyć sesję.",
+        ),
+      });
+      return;
+    }
+
+    const body = result.body;
+
+    if (!isCompleteSessionResponse(body)) {
+      dispatch({
+        type: "end_failed",
+        notice: buildGenericNotice("Nie udało się zakończyć sesji", "Spróbuj ponownie za chwilę."),
+      });
+      return;
+    }
+
+    if (body.ok) {
+      dispatch({ type: "end_succeeded", session: body.session });
+      return;
+    }
+
+    if (body.type === "expired") {
+      dispatch({ type: "session_expired", session: body.session, notice: buildExpiredNotice() });
+      return;
+    }
+
+    const redirectHref = getSessionAccessRedirectHref(body.code);
+
+    if (redirectHref) {
+      transport.navigate(redirectHref);
+      return;
+    }
+
+    dispatch({
+      type: "end_failed",
+      notice: buildGenericNotice(
+        body.code === "session_not_active" ? "Sesja nie jest już aktywna" : "Nie udało się zakończyć sesji",
+        body.code === "session_not_active"
+          ? "Odśwież widok historii, żeby zobaczyć aktualny status rozmowy."
+          : "Spróbuj ponownie za chwilę.",
+      ),
+    });
+  } finally {
+    dispatch({ type: "end_settled" });
   }
 }
 
 export function useTimedSession(initialState: SessionStartPageState) {
   const [state, dispatch] = useReducer(timedSessionReducer, initialState, getInitialTimedSessionState);
 
-  const composerAvailable = useMemo(
-    () =>
-      !state.isEnding &&
-      isComposerAvailable({
-        session: state.session,
-        isPending: state.isMessagePending,
-        isHardStopped: state.isHardStopped,
-        isClientExpired: state.isClientExpired,
-      }),
-    [state.isClientExpired, state.isEnding, state.isHardStopped, state.isMessagePending, state.session],
-  );
+  // Tura w locie nie zamyka pola — jest wtedy tylko do odczytu (patrz
+  // `SessionComposer`), więc `isMessagePending` nie jest częścią dostępności.
+  const composerAvailable =
+    !state.isEnding &&
+    isComposerAvailable({
+      session: state.session,
+      isHardStopped: state.isHardStopped,
+      isClientExpired: state.isClientExpired,
+    });
 
   const handleExpired = useCallback(() => {
     dispatch({ type: "client_expired" });
@@ -152,183 +481,22 @@ export function useTimedSession(initialState: SessionStartPageState) {
   async function sendMessage() {
     const trimmedDraft = state.draft.trim();
 
-    if (!state.session || !trimmedDraft || !composerAvailable) {
+    if (!state.session || !trimmedDraft || !composerAvailable || state.isMessagePending) {
       return;
     }
 
-    dispatch({ type: "message_requested", text: trimmedDraft });
-
-    try {
-      const result = await requestApiJson("/api/session/message", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: state.session.id,
-          message: trimmedDraft,
-        }),
-      });
-
-      if (result.kind === "network_error") {
-        dispatch({
-          type: "message_failed",
-          draft: trimmedDraft,
-          notice: buildGenericNotice(
-            "Nie udało się wysłać wiadomości",
-            "Połączenie z serwerem jest chwilowo niedostępne.",
-          ),
-        });
-        return;
-      }
-
-      if (isRateLimitedApiResult(result)) {
-        dispatch({
-          type: "message_failed",
-          draft: trimmedDraft,
-          notice: buildGenericNotice(
-            "Zwolnij na chwilę",
-            "Wysyłasz wiadomości zbyt szybko. Odczekaj około minuty i spróbuj ponownie — treść wiadomości została zachowana.",
-          ),
-        });
-        return;
-      }
-
-      const body = result.body;
-
-      if (!isSendSessionMessageResponse(body)) {
-        dispatch({
-          type: "message_failed",
-          draft: trimmedDraft,
-          notice: buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."),
-        });
-        return;
-      }
-
-      if (body.ok) {
-        dispatch({ type: "turn_succeeded", turn: body.messages, session: body.session });
-        return;
-      }
-
-      if (body.type === "hard_stop") {
-        dispatch({
-          type: "hard_stopped",
-          notice: {
-            variant: "hard_stop",
-            copy: body.copy,
-            crisisResources: body.crisisResources,
-          },
-        });
-        return;
-      }
-
-      if (body.type === "expired") {
-        dispatch({
-          type: "session_expired",
-          session: body.session,
-          notice: buildGenericNotice("Limit czasu został osiągnięty", "Nowe wiadomości są już blokowane w tej sesji."),
-        });
-        return;
-      }
-
-      if (body.type === "ai_retry") {
-        dispatch({
-          type: "message_failed",
-          draft: trimmedDraft,
-          notice: {
-            variant: "retry",
-            copy: body.copy,
-          },
-        });
-        return;
-      }
-
-      dispatch({
-        type: "message_failed",
-        draft: trimmedDraft,
-        notice: buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."),
-      });
-    } finally {
-      dispatch({ type: "message_settled" });
-    }
+    await sendTimedSessionMessage({ sessionId: state.session.id, text: trimmedDraft }, dispatch);
   }
 
   async function endSession() {
-    if (
-      !state.session ||
-      state.kind !== "active" ||
-      state.session.status !== "active" ||
-      state.isEnding ||
-      state.isMessagePending
-    ) {
+    // Tura w locie nie blokuje zakończenia: serwer sprawdza status sesji,
+    // zanim zapisze odpowiedź, więc użytkownik nie musi czekać na model,
+    // żeby wyjść z rozmowy.
+    if (!state.session || state.kind !== "active" || state.session.status !== "active" || state.isEnding) {
       return;
     }
 
-    dispatch({ type: "end_requested" });
-
-    try {
-      const result = await requestApiJson("/api/session/end", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: state.session.id,
-        }),
-      });
-
-      if (result.kind === "network_error") {
-        dispatch({
-          type: "end_failed",
-          notice: buildGenericNotice(
-            "Nie udało się zakończyć sesji",
-            "Połączenie z serwerem jest chwilowo niedostępne.",
-          ),
-        });
-        return;
-      }
-
-      if (isRateLimitedApiResult(result)) {
-        dispatch({
-          type: "end_failed",
-          notice: buildGenericNotice(
-            "Za dużo prób w krótkim czasie",
-            "Odczekaj około minuty i spróbuj ponownie zakończyć sesję.",
-          ),
-        });
-        return;
-      }
-
-      const body = result.body;
-
-      if (!isCompleteSessionResponse(body)) {
-        dispatch({
-          type: "end_failed",
-          notice: buildGenericNotice("Nie udało się zakończyć sesji", "Spróbuj ponownie za chwilę."),
-        });
-        return;
-      }
-
-      if (body.ok) {
-        dispatch({ type: "end_succeeded", session: body.session });
-        return;
-      }
-
-      if (body.type === "expired") {
-        dispatch({
-          type: "session_expired",
-          session: body.session,
-          notice: buildGenericNotice("Limit czasu został osiągnięty", "Nowe wiadomości są już blokowane w tej sesji."),
-        });
-        return;
-      }
-
-      dispatch({
-        type: "end_failed",
-        notice: buildGenericNotice(
-          body.code === "session_not_active" ? "Sesja nie jest już aktywna" : "Nie udało się zakończyć sesji",
-          body.code === "session_not_active"
-            ? "Odśwież widok historii, żeby zobaczyć aktualny status rozmowy."
-            : "Spróbuj ponownie za chwilę.",
-        ),
-      });
-    } finally {
-      dispatch({ type: "end_settled" });
-    }
+    await endTimedSession({ sessionId: state.session.id }, dispatch);
   }
 
   return {

@@ -5,7 +5,6 @@
  * i `[tool:pytest]` razem z ostrzeżeniem esbuilda o nieznanej właściwości CSS.
  */
 @import "tailwindcss" source("..");
-@import "tw-animate-css";
 
 /*
  * Fonty są serwowane z własnego hosta (fontsource), nie z Google Fonts:
@@ -17,8 +16,23 @@
 @import "@fontsource-variable/newsreader/opsz.css";
 @import "@fontsource-variable/newsreader/opsz-italic.css";
 
-/* Motyw wieczorny włącza `data-theme` na <html>; `.dark` zostaje dla shadcn/ui. */
-@custom-variant dark (&:is(.dark *, [data-theme="dark"] *));
+/*
+ * Wariant `dark:` musi zapalać się dokładnie wtedy, kiedy tokeny `--evening-*`
+ * niżej: przy ręcznym wyborze (`data-theme="dark"`, `.dark` dla shadcn/ui) i przy
+ * systemowym trybie ciemnym bez wymuszonego jasnego. Bez gałęzi `@media`
+ * utilities `dark:` ignorowały ustawienie telefonu, choć paleta je respektowała.
+ */
+@custom-variant dark {
+  &:is(.dark *, [data-theme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:is(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
 
 /*
  * Paleta SafeSpace — kierunek „Cichy pokój”.
@@ -460,5 +474,23 @@
   input[type="radio"]:not(:disabled),
   input[type="file"]:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+/*
+ * Ograniczony ruch: kto wyłączył animacje w systemie, nie ma dostawać
+ * wirującego `animate-spin` ani płynnych przejść kolorów. Czas jest skrócony
+ * niemal do zera zamiast zerowany, żeby `transitionend`/`animationend` nadal
+ * dochodziły do skryptów, które na nie czekają. `!important`, bo reguła musi
+ * wygrać z utilities Tailwinda w ich warstwie.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

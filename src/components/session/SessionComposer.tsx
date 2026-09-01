@@ -1,18 +1,27 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { ArrowUp, Loader2, Mic, Square } from "lucide-react";
 import { requestApiJson } from "@/lib/api-client";
+import { DICTATION_COPY } from "@/lib/session-copy";
 import { SESSION_MESSAGE_MAX_CHARS } from "@/lib/session-flow/message-contract";
 import {
+  isSessionTranscriptionFailure,
   isSessionTranscriptionSuccess,
   SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES,
   SESSION_TRANSCRIPTION_MAX_RECORDING_MS,
 } from "@/lib/session-flow/session-transcription-contract";
+import { isRecord } from "@/lib/type-guards";
 import { cn } from "@/lib/utils";
 
 interface SessionComposerProps {
   sessionId: string;
   value: string;
+  /** Pole jest zamknięte: koniec sesji, zatrzymanie, kończenie. */
   isDisabled: boolean;
+  /**
+   * Tura w locie. Pole zostaje otwarte, ale tylko do odczytu — wyłączony
+   * `textarea` gubił fokus po każdej wiadomości, więc rozmowa na klawiaturze
+   * zaczynała się od nowa od szukania pola.
+   */
   isPending: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void;
@@ -25,9 +34,8 @@ type SessionComposerKeyboardEvent = Pick<
 
 type DictationStatus = "idle" | "recording" | "transcribing";
 
-const DICTATION_ERROR_COPY = "Nie udało się przepisać nagrania. Spróbuj ponownie albo wpisz tekst.";
-const DICTATION_TOO_LONG_COPY =
-  "Transkrypcja przekroczyła limit wiadomości. Skróć tekst albo nagraj krótszą wypowiedź.";
+const COARSE_POINTER_QUERY = "(pointer: coarse)";
+const RECORDING_TICK_MS = 1_000;
 
 export function shouldSubmitSessionComposerFromKeyboard(
   event: SessionComposerKeyboardEvent,
@@ -84,6 +92,98 @@ export function getSupportedWebmMimeType(mediaRecorder: Pick<typeof MediaRecorde
   return ["audio/webm;codecs=opus", "audio/webm"].find((mimeType) => mediaRecorder.isTypeSupported(mimeType)) ?? null;
 }
 
+/**
+ * Dyktowanie wymaga i nagrywarki, i mikrofonu, i formatu, który serwer
+ * przyjmuje. Safari na iOS ma nagrywarkę, ale nie WebM — tam przycisk po
+ * prostu nie istnieje, zamiast obiecywać i kończyć ogólnym błędem.
+ */
+export function getDictationSupport(input: {
+  mediaRecorder: Pick<typeof MediaRecorder, "isTypeSupported"> | undefined;
+  mediaDevices: Pick<MediaDevices, "getUserMedia"> | undefined;
+}) {
+  return (
+    typeof input.mediaDevices?.getUserMedia === "function" && getSupportedWebmMimeType(input.mediaRecorder) !== null
+  );
+}
+
+/**
+ * Nazwa wyjątku z `getUserMedia` mówi, co poszło nie tak; ogólne „nie udało
+ * się przepisać” było fałszywe, bo nic jeszcze nie zostało nagrane.
+ */
+export function getDictationErrorCopy(error: unknown) {
+  const name = getErrorName(error);
+
+  if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
+    return DICTATION_COPY.microphoneDenied;
+  }
+
+  if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError") {
+    return DICTATION_COPY.microphoneMissing;
+  }
+
+  return DICTATION_COPY.microphoneUnavailable;
+}
+
+export function formatRecordingProgress(
+  elapsedSeconds: number,
+  maxRecordingMs = SESSION_TRANSCRIPTION_MAX_RECORDING_MS,
+) {
+  const maxSeconds = Math.round(maxRecordingMs / 1000);
+  const shownSeconds = Math.min(maxSeconds, Math.max(0, Math.floor(elapsedSeconds)));
+
+  return `Nagrywanie… ${shownSeconds} s / ${maxSeconds} s`;
+}
+
+/**
+ * „Cmd/Ctrl + Enter wysyła” nie ma sensu na ekranowej klawiaturze, a sam
+ * rozmiar okna tego nie rozstrzyga: tablet w poziomie jest szeroki jak laptop.
+ */
+export function readCoarsePointerPreference(matchMedia: ((query: string) => { matches: boolean }) | undefined) {
+  return typeof matchMedia === "function" && matchMedia(COARSE_POINTER_QUERY).matches;
+}
+
+const subscribeNever = () => () => {
+  // Wsparcie dyktowania nie zmienia się po hydratacji.
+};
+
+function readClientDictationSupport() {
+  return getDictationSupport({
+    mediaRecorder: typeof MediaRecorder === "undefined" ? undefined : MediaRecorder,
+    mediaDevices: getMediaDevices(),
+  });
+}
+
+const readServerFalse = () => false;
+
+/**
+ * `false` w SSR i podczas hydratacji, prawdziwa odpowiedź od pierwszego
+ * renderu klienta — bez rozjazdu znaczników i bez `setState` w efekcie.
+ */
+function useDictationSupport() {
+  return useSyncExternalStore(subscribeNever, readClientDictationSupport, readServerFalse);
+}
+
+function subscribeToCoarsePointer(onChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const media = window.matchMedia(COARSE_POINTER_QUERY);
+  media.addEventListener("change", onChange);
+
+  return () => {
+    media.removeEventListener("change", onChange);
+  };
+}
+
+function readClientCoarsePointer() {
+  return readCoarsePointerPreference(typeof window === "undefined" ? undefined : window.matchMedia.bind(window));
+}
+
+function useIsCoarsePointer() {
+  return useSyncExternalStore(subscribeToCoarsePointer, readClientCoarsePointer, readServerFalse);
+}
+
 export default function SessionComposer({
   sessionId,
   value,
@@ -94,16 +194,22 @@ export default function SessionComposer({
 }: SessionComposerProps) {
   const [dictationStatus, setDictationStatus] = useState<DictationStatus>("idle");
   const [dictationError, setDictationError] = useState<string | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isShortcutHintVisible, setIsShortcutHintVisible] = useState(false);
+  const isDictationSupported = useDictationSupport();
+  const isCoarsePointer = useIsCoarsePointer();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const latestValueRef = useRef(value);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trimmedValue = value.trim();
   const isNearCharLimit = trimmedValue.length > SESSION_MESSAGE_MAX_CHARS * 0.8;
   const canSubmit = !isDisabled && !isPending && dictationStatus === "idle" && trimmedValue.length > 0;
   const canUseDictation = !isDisabled && !isPending && dictationStatus !== "transcribing";
+  const showsShortcutHint = !isCoarsePointer;
 
   useEffect(() => {
     latestValueRef.current = value;
@@ -124,13 +230,16 @@ export default function SessionComposer({
     };
   }, [isShortcutHintVisible]);
 
-  const clearRecordingTimeout = useCallback(() => {
-    if (recordingTimeoutRef.current === null) {
-      return;
+  const clearRecordingTimers = useCallback(() => {
+    if (recordingTimeoutRef.current !== null) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
     }
 
-    clearTimeout(recordingTimeoutRef.current);
-    recordingTimeoutRef.current = null;
+    if (recordingTickRef.current !== null) {
+      clearInterval(recordingTickRef.current);
+      recordingTickRef.current = null;
+    }
   }, []);
 
   const cleanupRecordingStream = useCallback(() => {
@@ -151,7 +260,7 @@ export default function SessionComposer({
   }, []);
 
   const handleRecordingStop = useCallback(async () => {
-    clearRecordingTimeout();
+    clearRecordingTimers();
     cleanupRecordingStream();
 
     const chunks = chunksRef.current;
@@ -160,9 +269,15 @@ export default function SessionComposer({
 
     const audio = new Blob(chunks, { type: "audio/webm" });
 
-    if (audio.size <= 0 || audio.size > SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES) {
+    if (audio.size <= 0) {
       setDictationStatus("idle");
-      setDictationError(DICTATION_ERROR_COPY);
+      setDictationError(DICTATION_COPY.transcriptionFailed);
+      return;
+    }
+
+    if (audio.size > SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES) {
+      setDictationStatus("idle");
+      setDictationError(DICTATION_COPY.recordingTooLarge);
       return;
     }
 
@@ -180,26 +295,31 @@ export default function SessionComposer({
         }),
       });
 
+      if (result.kind === "json" && (result.status === 413 || isAudioTooLargeFailure(result.body))) {
+        setDictationError(DICTATION_COPY.recordingTooLarge);
+        return;
+      }
+
       if (result.kind !== "json" || result.status !== 200 || !isSessionTranscriptionSuccess(result.body)) {
-        setDictationError(DICTATION_ERROR_COPY);
+        setDictationError(DICTATION_COPY.transcriptionFailed);
         return;
       }
 
       const appendedDraft = appendTranscriptionToDraft(latestValueRef.current, result.body.text);
 
       if (!appendedDraft.didAppend) {
-        setDictationError(DICTATION_TOO_LONG_COPY);
+        setDictationError(DICTATION_COPY.transcriptionTooLong);
         return;
       }
 
       onChange(appendedDraft.value);
-      setDictationError(appendedDraft.wasTruncated ? DICTATION_TOO_LONG_COPY : null);
+      setDictationError(appendedDraft.wasTruncated ? DICTATION_COPY.transcriptionTooLong : null);
     } catch {
-      setDictationError(DICTATION_ERROR_COPY);
+      setDictationError(DICTATION_COPY.transcriptionFailed);
     } finally {
       setDictationStatus("idle");
     }
-  }, [cleanupRecordingStream, clearRecordingTimeout, onChange, sessionId]);
+  }, [cleanupRecordingStream, clearRecordingTimers, onChange, sessionId]);
 
   const startRecording = useCallback(async () => {
     if (!canUseDictation) {
@@ -208,17 +328,17 @@ export default function SessionComposer({
 
     setDictationError(null);
 
-    const mediaDevices = typeof navigator === "undefined" ? undefined : navigator.mediaDevices;
+    const mediaDevices = getMediaDevices();
 
     if (typeof MediaRecorder === "undefined" || typeof mediaDevices?.getUserMedia !== "function") {
-      setDictationError(DICTATION_ERROR_COPY);
+      setDictationError(DICTATION_COPY.microphoneUnavailable);
       return;
     }
 
     const mimeType = getSupportedWebmMimeType(MediaRecorder);
 
     if (!mimeType) {
-      setDictationError(DICTATION_ERROR_COPY);
+      setDictationError(DICTATION_COPY.microphoneUnavailable);
       return;
     }
 
@@ -235,34 +355,39 @@ export default function SessionComposer({
         }
       };
       recorder.onerror = () => {
-        clearRecordingTimeout();
+        clearRecordingTimers();
         cleanupRecordingStream();
         chunksRef.current = [];
         recorderRef.current = null;
         setDictationStatus("idle");
-        setDictationError(DICTATION_ERROR_COPY);
+        setDictationError(DICTATION_COPY.transcriptionFailed);
       };
       recorder.onstop = () => {
         void handleRecordingStop();
       };
 
       recorder.start();
+      const startedAtMs = Date.now();
+      setRecordingSeconds(0);
       setDictationStatus("recording");
+      recordingTickRef.current = setInterval(() => {
+        setRecordingSeconds(Math.floor((Date.now() - startedAtMs) / 1000));
+      }, RECORDING_TICK_MS);
       recordingTimeoutRef.current = setTimeout(() => {
         stopRecording();
       }, SESSION_TRANSCRIPTION_MAX_RECORDING_MS);
-    } catch {
+    } catch (error) {
       cleanupRecordingStream();
       chunksRef.current = [];
       recorderRef.current = null;
       setDictationStatus("idle");
-      setDictationError(DICTATION_ERROR_COPY);
+      setDictationError(getDictationErrorCopy(error));
     }
-  }, [canUseDictation, cleanupRecordingStream, clearRecordingTimeout, handleRecordingStop, stopRecording]);
+  }, [canUseDictation, cleanupRecordingStream, clearRecordingTimers, handleRecordingStop, stopRecording]);
 
   useEffect(() => {
     return () => {
-      clearRecordingTimeout();
+      clearRecordingTimers();
 
       const recorder = recorderRef.current;
 
@@ -275,16 +400,33 @@ export default function SessionComposer({
       chunksRef.current = [];
       recorderRef.current = null;
     };
-  }, [cleanupRecordingStream, clearRecordingTimeout]);
+  }, [cleanupRecordingStream, clearRecordingTimers]);
+
+  function submitAndKeepFocus() {
+    setIsShortcutHintVisible(false);
+    onSubmit();
+    // Kliknięcie „Wyślij” przenosi fokus na przycisk, który za chwilę będzie
+    // wyłączony — wracamy do pola, żeby następne zdanie zaczynało się od pisania.
+    textareaRef.current?.focus();
+  }
 
   const dictationStatusCopy =
-    dictationStatus === "recording" ? "Nagrywanie…" : dictationStatus === "transcribing" ? "Przepisywanie…" : null;
+    dictationStatus === "recording"
+      ? formatRecordingProgress(recordingSeconds)
+      : dictationStatus === "transcribing"
+        ? "Przepisywanie…"
+        : null;
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit();
+
+        if (!canSubmit) {
+          return;
+        }
+
+        submitAndKeepFocus();
       }}
       className="mx-auto w-full max-w-3xl"
     >
@@ -300,10 +442,13 @@ export default function SessionComposer({
         )}
       >
         <textarea
+          ref={textareaRef}
           id="session-message"
           value={value}
           maxLength={SESSION_MESSAGE_MAX_CHARS}
           disabled={isDisabled}
+          readOnly={isPending}
+          aria-busy={isPending || undefined}
           onChange={(event) => {
             onChange(event.target.value);
           }}
@@ -316,16 +461,15 @@ export default function SessionComposer({
                * więc dokładnie w tym momencie podpowiedź o skrócie zapala się
                * zamiast siedzieć szarym drobnym drukiem.
                */
-              if (shouldHintSubmitShortcut(event, trimmedValue.length > 0)) {
+              if (showsShortcutHint && !isPending && shouldHintSubmitShortcut(event, trimmedValue.length > 0)) {
                 setIsShortcutHintVisible(true);
               }
 
               return;
             }
 
-            setIsShortcutHintVisible(false);
             event.preventDefault();
-            onSubmit();
+            submitAndKeepFocus();
           }}
           placeholder="Napisz, od czego chcesz zacząć…"
           className="text-ink placeholder:text-ink-muted block max-h-60 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-base leading-relaxed outline-none disabled:cursor-not-allowed sm:min-h-[4.5rem]"
@@ -333,7 +477,7 @@ export default function SessionComposer({
         <div className="flex items-center justify-between gap-3 px-2.5 pb-2.5 pl-4">
           {/* The hint used to be *replaced* by the counter, so it disappeared exactly
               when a long message made "how do I send this?" pressing. Show both —
-              but not the keyboard shortcut on phones, where there is no Cmd key. */}
+              but not the keyboard shortcut on touch screens, where there is no Cmd key. */}
           <p
             className={cn(
               "text-xs transition-colors",
@@ -341,9 +485,11 @@ export default function SessionComposer({
               !isNearCharLimit && !isShortcutHintVisible && "hidden sm:block",
             )}
           >
-            <span className={cn("hidden sm:inline", isShortcutHintVisible && "inline")}>
-              Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.
-            </span>
+            {showsShortcutHint ? (
+              <span className={cn("hidden sm:inline", isShortcutHintVisible && "inline")}>
+                Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.
+              </span>
+            ) : null}
             {isNearCharLimit ? (
               <span className="text-ink-muted font-medium tabular-nums sm:ml-2">
                 {trimmedValue.length}/{SESSION_MESSAGE_MAX_CHARS}
@@ -351,33 +497,35 @@ export default function SessionComposer({
             ) : null}
           </p>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              disabled={!canUseDictation}
-              aria-pressed={dictationStatus === "recording"}
-              onClick={() => {
-                if (dictationStatus === "recording") {
-                  stopRecording();
-                  return;
-                }
+            {isDictationSupported ? (
+              <button
+                type="button"
+                disabled={!canUseDictation}
+                aria-pressed={dictationStatus === "recording"}
+                onClick={() => {
+                  if (dictationStatus === "recording") {
+                    stopRecording();
+                    return;
+                  }
 
-                void startRecording();
-              }}
-              className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {dictationStatus === "recording" ? (
-                <Square aria-hidden="true" className="text-clay h-4 w-4 fill-current" />
-              ) : dictationStatus === "transcribing" ? (
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              ) : (
-                <Mic aria-hidden="true" className="h-4 w-4" />
-              )}
-              {dictationStatus === "recording"
-                ? "Zatrzymaj"
-                : dictationStatus === "transcribing"
-                  ? "Przepisywanie…"
-                  : "Dyktuj"}
-            </button>
+                  void startRecording();
+                }}
+                className="border-line-accent bg-surface text-ink-soft hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {dictationStatus === "recording" ? (
+                  <Square aria-hidden="true" className="text-clay h-4 w-4 fill-current" />
+                ) : dictationStatus === "transcribing" ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mic aria-hidden="true" className="h-4 w-4" />
+                )}
+                {dictationStatus === "recording"
+                  ? "Zatrzymaj"
+                  : dictationStatus === "transcribing"
+                    ? "Przepisywanie…"
+                    : "Dyktuj"}
+              </button>
+            ) : null}
             <button
               type="submit"
               disabled={!canSubmit}
@@ -400,6 +548,32 @@ export default function SessionComposer({
       )}
     </form>
   );
+}
+
+function isAudioTooLargeFailure(body: unknown) {
+  return isSessionTranscriptionFailure(body) && body.code === "audio_too_large";
+}
+
+function getErrorName(error: unknown) {
+  if (error instanceof Error) {
+    return error.name;
+  }
+
+  return isRecord(error) && typeof error.name === "string" ? error.name : "";
+}
+
+/**
+ * `navigator.mediaDevices` nie istnieje w niezabezpieczonym kontekście ani w
+ * starszych WebView, choć typy DOM deklarują je jako zawsze obecne.
+ */
+function getMediaDevices(): MediaDevices | undefined {
+  if (typeof navigator === "undefined") {
+    return undefined;
+  }
+
+  const browserNavigator: Partial<Pick<Navigator, "mediaDevices">> = navigator;
+
+  return browserNavigator.mediaDevices;
 }
 
 async function blobToBase64(blob: Blob) {

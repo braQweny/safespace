@@ -27,6 +27,12 @@ const PLAN_REASON_CODES = ["subscription_paid", "subscription_ended", "owner_req
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
+// `auth.users.id` is a Postgres uuid. Anything else can never name an account,
+// so it is refused up front as `target_not_found` instead of reaching the RPC
+// (where a malformed uuid surfaces as a cast error and would map to
+// `write_failed`, the wrong status).
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface RpcResult {
   data: unknown;
   error: unknown;
@@ -118,6 +124,16 @@ function isBlockReasonCode(value: string): value is AdminBlockReasonCode {
 
 function isPlanReasonCode(value: string): value is AdminPlanReasonCode {
   return PLAN_REASON_CODES.includes(value as AdminPlanReasonCode);
+}
+
+function parseTargetUserId(value: string | undefined): AdminUserId | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return UUID_PATTERN.test(trimmed) ? trimmed : null;
 }
 
 function normalizePage(value: string | null) {
@@ -225,7 +241,13 @@ export function parseAdminUserBlockInput(
   targetUserId: string | undefined,
   body: unknown,
 ): AdminResult<AdminUserBlockInput> {
-  if (!targetUserId || !isRecord(body)) {
+  const parsedTargetUserId = parseTargetUserId(targetUserId);
+
+  if (!parsedTargetUserId) {
+    return adminError("target_not_found");
+  }
+
+  if (!isRecord(body)) {
     return adminError("invalid_filter");
   }
 
@@ -241,7 +263,7 @@ export function parseAdminUserBlockInput(
   }
 
   return adminOk({
-    targetUserId,
+    targetUserId: parsedTargetUserId,
     action,
     reasonCode,
   });
@@ -251,7 +273,13 @@ export function parseAdminUserPlanInput(
   targetUserId: string | undefined,
   body: unknown,
 ): AdminResult<AdminUserPlanInput> {
-  if (!targetUserId || !isRecord(body)) {
+  const parsedTargetUserId = parseTargetUserId(targetUserId);
+
+  if (!parsedTargetUserId) {
+    return adminError("target_not_found");
+  }
+
+  if (!isRecord(body)) {
     return adminError("invalid_filter");
   }
 
@@ -263,10 +291,20 @@ export function parseAdminUserPlanInput(
   }
 
   return adminOk({
-    targetUserId,
+    targetUserId: parsedTargetUserId,
     action,
     reasonCode,
   });
+}
+
+/**
+ * An admin never acts on their own account: self-block would lock the panel
+ * behind the very admin who could lift it, and self-granted premium has no
+ * second pair of eyes. Checked here, in front of both mutations, so every
+ * route answers with the same stable code before any write.
+ */
+function isSelfTarget(context: AdminContext, targetUserId: AdminUserId) {
+  return context.user.id === targetUserId;
 }
 
 export function toAdminUserListResult(
@@ -386,6 +424,10 @@ export async function setAdminUserBlockState(
   input: AdminUserBlockInput,
   repository: Pick<AdminUserMutationRepository, "mutateBlockState"> = defaultAdminUserMutationRepository,
 ): Promise<AdminResult<AdminUserBlockResult>> {
+  if (isSelfTarget(context, input.targetUserId)) {
+    return adminError("self_target_forbidden");
+  }
+
   return repository.mutateBlockState(context, input);
 }
 
@@ -399,5 +441,9 @@ export async function setAdminUserPlanState(
   input: AdminUserPlanInput,
   repository: Pick<AdminUserMutationRepository, "mutatePlanState"> = defaultAdminUserMutationRepository,
 ): Promise<AdminResult<AdminUserPlanResult>> {
+  if (isSelfTarget(context, input.targetUserId)) {
+    return adminError("self_target_forbidden");
+  }
+
   return repository.mutatePlanState(context, input);
 }

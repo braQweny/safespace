@@ -33,7 +33,7 @@ const avatar = {
       "Marek mówi konkretnie i po ludzku, bez tonu trenera. Najpierw przyjmuje uczucie, potem porządkuje jedną sytuację i może zaproponować mały, dobrowolny krok. Jeśli wolisz zostać przy przeżywaniu zamiast porządkować, bliżej Ci może być do Nadii.",
     sessionStyleHint: "Uzywa jasnej struktury.",
     summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-    assetPath: "/avatars/cbt-guide.png",
+    assetPath: "/avatars/cbt-guide.webp",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
   selected: {
@@ -41,7 +41,7 @@ const avatar = {
     avatarId: "cbt-guide",
     modalityName: "Podejście poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
-    assetPath: "/avatars/cbt-guide.png",
+    assetPath: "/avatars/cbt-guide.webp",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
 } satisfies SessionStartPageState["avatar"];

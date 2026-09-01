@@ -20,17 +20,20 @@ const filters = {
   pageSize: 10,
 } as const;
 
+const TARGET_USER_ID = "11111111-2222-4333-8444-555555555555";
+const ADMIN_USER_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
 function createAdminContext(rpc = vi.fn()): AdminContext {
   return {
     supabase: {
       rpc,
     },
     user: {
-      id: "admin-1",
+      id: ADMIN_USER_ID,
       email: "admin@example.com",
     },
     account: {
-      userId: "admin-1",
+      userId: ADMIN_USER_ID,
       status: "active",
       blockedAt: null,
       blockReasonCode: null,
@@ -274,20 +277,62 @@ describe("admin users list", () => {
 
 describe("admin block actions", () => {
   it("parses explicit block and unblock payloads", () => {
-    expect(parseAdminUserBlockInput("user-1", { action: "block", reasonCode: "policy_violation" })).toEqual({
+    expect(parseAdminUserBlockInput(TARGET_USER_ID, { action: "block", reasonCode: "policy_violation" })).toEqual({
       ok: true,
       data: {
-        targetUserId: "user-1",
+        targetUserId: TARGET_USER_ID,
         action: "block",
         reasonCode: "policy_violation",
       },
     });
-    expect(parseAdminUserBlockInput("user-1", { action: "delete", reasonCode: "policy_violation" })).toEqual({
+    expect(parseAdminUserBlockInput(TARGET_USER_ID, { action: "delete", reasonCode: "policy_violation" })).toEqual({
       ok: false,
       error: {
         code: "invalid_filter",
       },
     });
+  });
+
+  it("refuses a target that is not a uuid as not found, before looking at the body", () => {
+    for (const targetUserId of [undefined, "", "user-1", "missing", "1; drop table", `${TARGET_USER_ID}x`]) {
+      expect(parseAdminUserBlockInput(targetUserId, { action: "block", reasonCode: "policy_violation" })).toEqual({
+        ok: false,
+        error: {
+          code: "target_not_found",
+        },
+      });
+      expect(parseAdminUserPlanInput(targetUserId, { action: "grant", reasonCode: "subscription_paid" })).toEqual({
+        ok: false,
+        error: {
+          code: "target_not_found",
+        },
+      });
+    }
+
+    // Case and surrounding whitespace are tolerated; the id is normalized.
+    expect(
+      parseAdminUserBlockInput(` ${TARGET_USER_ID.toUpperCase()} `, { action: "block", reasonCode: "other" }),
+    ).toMatchObject({
+      ok: true,
+      data: { targetUserId: TARGET_USER_ID.toUpperCase() },
+    });
+  });
+
+  it("refuses to block or unblock the admin's own account without touching the repository", async () => {
+    const mutateBlockState = vi.fn();
+
+    const result = await setAdminUserBlockState(
+      createAdminContext(),
+      {
+        targetUserId: ADMIN_USER_ID,
+        action: "block",
+        reasonCode: "policy_violation",
+      },
+      { mutateBlockState },
+    );
+
+    expect(result).toEqual({ ok: false, error: { code: "self_target_forbidden" } });
+    expect(mutateBlockState).not.toHaveBeenCalled();
   });
 
   it("calls the transactional database RPC and maps its safe response", async () => {
@@ -297,7 +342,7 @@ describe("admin block actions", () => {
     });
 
     const result = await setAdminUserBlockState(createAdminContext(rpc), {
-      targetUserId: "user-1",
+      targetUserId: TARGET_USER_ID,
       action: "block",
       reasonCode: "policy_violation",
     });
@@ -310,7 +355,7 @@ describe("admin block actions", () => {
       },
     });
     expect(rpc).toHaveBeenCalledWith("set_private_admin_user_block_state", {
-      input_target_user_id: "user-1",
+      input_target_user_id: TARGET_USER_ID,
       input_action: "block",
       input_reason_code: "policy_violation",
     });
@@ -408,39 +453,52 @@ describe("admin block actions", () => {
 
 describe("admin plan actions", () => {
   it("parses explicit grant and revoke payloads with plan reason codes only", () => {
-    expect(parseAdminUserPlanInput("user-1", { action: "grant", reasonCode: "subscription_paid" })).toEqual({
+    expect(parseAdminUserPlanInput(TARGET_USER_ID, { action: "grant", reasonCode: "subscription_paid" })).toEqual({
       ok: true,
       data: {
-        targetUserId: "user-1",
+        targetUserId: TARGET_USER_ID,
         action: "grant",
         reasonCode: "subscription_paid",
       },
     });
-    expect(parseAdminUserPlanInput("user-1", { action: "revoke", reasonCode: "subscription_ended" })).toMatchObject({
+    expect(
+      parseAdminUserPlanInput(TARGET_USER_ID, { action: "revoke", reasonCode: "subscription_ended" }),
+    ).toMatchObject({
       ok: true,
       data: {
         action: "revoke",
       },
     });
     // Block-only reasons are not valid plan reasons, and vice versa.
-    expect(parseAdminUserPlanInput("user-1", { action: "grant", reasonCode: "policy_violation" })).toEqual({
+    expect(parseAdminUserPlanInput(TARGET_USER_ID, { action: "grant", reasonCode: "policy_violation" })).toEqual({
       ok: false,
       error: {
         code: "invalid_filter",
       },
     });
-    expect(parseAdminUserPlanInput("user-1", { action: "block", reasonCode: "subscription_paid" })).toEqual({
+    expect(parseAdminUserPlanInput(TARGET_USER_ID, { action: "block", reasonCode: "subscription_paid" })).toEqual({
       ok: false,
       error: {
         code: "invalid_filter",
       },
     });
-    expect(parseAdminUserPlanInput(undefined, { action: "grant", reasonCode: "subscription_paid" })).toEqual({
-      ok: false,
-      error: {
-        code: "invalid_filter",
+  });
+
+  it("refuses to change the plan of the admin's own account without touching the repository", async () => {
+    const mutatePlanState = vi.fn();
+
+    const result = await setAdminUserPlanState(
+      createAdminContext(),
+      {
+        targetUserId: ADMIN_USER_ID,
+        action: "grant",
+        reasonCode: "subscription_paid",
       },
-    });
+      { mutatePlanState },
+    );
+
+    expect(result).toEqual({ ok: false, error: { code: "self_target_forbidden" } });
+    expect(mutatePlanState).not.toHaveBeenCalled();
   });
 
   it("grants premium and writes a premium_granted audit event", async () => {

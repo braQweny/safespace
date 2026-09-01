@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { SessionSafetyDecision } from "@/lib/session-safety/types";
 import {
   buildSessionAiProviderFailedEvent,
+  buildSessionAiTurnCompletedEvent,
   buildSessionCompletedEvent,
   buildSessionSafetyEvaluatedEvent,
   buildSessionSafetyEvaluatedEventFromDecision,
   buildSessionStartAttemptedEvent,
   buildSessionTimeLimitReachedEvent,
+  buildSessionTranscriptionFailedEvent,
 } from "../session-events";
 
 describe("session operational event builders", () => {
@@ -111,6 +113,45 @@ describe("session operational event builders", () => {
       outcome: "success",
       durationMs: 120_000,
       reasonCode: "completed",
+    });
+  });
+
+  it("builds turn-completed and transcription-failed events with counts, never content", () => {
+    expect(
+      buildSessionAiTurnCompletedEvent({
+        requestId: "req-1",
+        durationMs: 4_200,
+        inputUnits: 1_200,
+        outputUnits: 340,
+      }),
+    ).toEqual({
+      event: "session.ai_turn_completed",
+      level: "info",
+      requestId: "req-1",
+      outcome: "success",
+      durationMs: 4_200,
+      provider: "openrouter",
+      inputUnits: 1_200,
+      outputUnits: 340,
+    });
+
+    expect(buildSessionAiTurnCompletedEvent({ inputUnits: -1, outputUnits: 1.5 })).not.toHaveProperty("inputUnits");
+    expect(buildSessionAiTurnCompletedEvent({ inputUnits: -1, outputUnits: 1.5 })).not.toHaveProperty("outputUnits");
+
+    expect(
+      buildSessionTranscriptionFailedEvent({
+        requestId: "req-1",
+        reasonCode: "provider_rate_limited",
+        durationMs: 80,
+      }),
+    ).toEqual({
+      event: "session.transcription_failed",
+      level: "warn",
+      requestId: "req-1",
+      outcome: "failure",
+      durationMs: 80,
+      provider: "openrouter",
+      reasonCode: "provider_rate_limited",
     });
   });
 

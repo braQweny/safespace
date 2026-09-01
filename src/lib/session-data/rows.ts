@@ -84,7 +84,7 @@ export interface SessionTrialClaimRow {
   id: TrialClaimId;
   session_id: SessionId;
   user_id: UserId;
-  trial_duration_seconds: 900;
+  trial_duration_seconds: 900 | 3600;
   claimed_at: string;
   created_at: string;
 }

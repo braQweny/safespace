@@ -17,6 +17,7 @@ const generateSessionResponse = vi.fn();
 const persistSuccessfulMessageTurn = vi.fn();
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
+const getOpenRouterSessionConfig = vi.fn();
 
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
@@ -49,6 +50,11 @@ vi.mock("@/lib/session-ai/provider", () => ({
   generateSessionResponse,
 }));
 
+vi.mock("@/lib/session-ai/env", () => ({
+  getOpenRouterSessionConfig,
+  resolveSessionModel: (modelOverride?: string | null) => modelOverride ?? "openai/gpt-4o-mini",
+}));
+
 vi.mock("@/lib/session-flow/message-persistence", () => ({
   persistSuccessfulMessageTurn,
 }));
@@ -70,8 +76,11 @@ const contextData = {
   },
 } as SessionDataContext;
 
+// Session ids are Postgres uuids; the contract rejects anything else up front.
+const SESSION_ID = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
+
 const activeSession: SessionMetadata = {
-  id: "session-1",
+  id: SESSION_ID,
   userId: "user-1",
   modalityId: "cbt",
   avatarId: "cbt-guide",
@@ -91,7 +100,7 @@ const activeSession: SessionMetadata = {
 
 const existingMessage: SessionMessageRecord = {
   id: "message-0",
-  sessionId: "session-1",
+  sessionId: SESSION_ID,
   userId: "user-1",
   role: "user",
   sequenceIndex: 0,
@@ -171,7 +180,7 @@ const failClosedDecision = {
   reasonCode: "provider_unavailable",
 } satisfies SessionSafetyDecision;
 
-function createContext(body: unknown = { sessionId: "session-1", message: "Chce uporzadkowac mysli." }) {
+function createContext(body: unknown = { sessionId: SESSION_ID, message: "Chce uporzadkowac mysli." }) {
   return {
     request: new Request("https://safespace.local/api/session/message", {
       method: "POST",
@@ -209,6 +218,11 @@ describe("POST /api/session/message", () => {
       userHash: "hash-1",
     });
     getSessionDataContext.mockReturnValue(ok(contextData));
+    getOpenRouterSessionConfig.mockReturnValue({
+      apiKey: "test-openrouter-key",
+      model: "openai/gpt-4o-mini",
+      reasoningEffort: undefined,
+    });
     requireActiveAccountAccess.mockResolvedValue({
       ok: true,
       data: {
@@ -286,7 +300,7 @@ describe("POST /api/session/message", () => {
       timeoutMs: 12000,
     });
     expect(persistSuccessfulMessageTurn).toHaveBeenCalledWith(contextData, {
-      sessionId: "session-1",
+      sessionId: SESSION_ID,
       userMessage: "Chce uporzadkowac mysli.",
       assistantMessage: "Mozemy zaczac od nazwania najwazniejszych faktow.",
     });
@@ -380,24 +394,128 @@ describe("POST /api/session/message", () => {
       contextData,
       expect.objectContaining({ nextStatus: "interrupted" }),
     );
-    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
     expect(generateSessionResponse).not.toHaveBeenCalled();
     expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
   });
 
-  it("fails closed without storing raw text when safety is unavailable", async () => {
+  it("fails closed for the turn without ending the session when safety is unavailable", async () => {
     evaluateSessionSafety.mockResolvedValue(failClosedDecision);
 
     const response = await POST(createContext() as never);
 
-    expect(response.status).toBe(423);
+    // A transient boundary outage is retryable: the draft stays with the user
+    // and the session keeps its status — `interrupted` has no way back and
+    // would burn a free-plan slot on a provider blip.
+    expect(response.status).toBe(503);
     await expect(readJson(response)).resolves.toMatchObject({
       ok: false,
-      type: "hard_stop",
-      code: "safety_stop",
+      type: "ai_retry",
+      code: "ai_retry",
+      category: "provider_unavailable",
+      copy: {
+        title: "Nie możemy teraz bezpiecznie kontynuować",
+      },
     });
+    expect(transitionSessionLifecycle).not.toHaveBeenCalled();
     expect(generateSessionResponse).not.toHaveBeenCalled();
     expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
+  });
+
+  it("raises the provider ceiling with the configured reasoning effort while the budget allows it", async () => {
+    getOpenRouterSessionConfig.mockReturnValue({
+      apiKey: "test-openrouter-key",
+      model: "openai/gpt-5.6-luna",
+      reasoningEffort: "xhigh",
+    });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    const optionsArg = generateSessionResponse.mock.calls[0]?.[2] as { timeoutMs: number };
+    // 13 minutes remain, so the 60 s extra-high ceiling is what reaches the provider.
+    expect(optionsArg.timeoutMs).toBe(60_000);
+  });
+
+  it("still clips a raised ceiling to the session's remaining time", async () => {
+    getOpenRouterSessionConfig.mockReturnValue({
+      apiKey: "test-openrouter-key",
+      model: "openai/gpt-5.6-luna",
+      reasoningEffort: "xhigh",
+    });
+    vi.setSystemTime(new Date("2026-06-07T10:14:30.000Z"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    const optionsArg = generateSessionResponse.mock.calls[0]?.[2] as { timeoutMs: number };
+    // 30 s remain minus the 1 s reserve.
+    expect(optionsArg.timeoutMs).toBe(29_000);
+  });
+
+  it("hands the classifier the user's own recent turns as context", async () => {
+    listRecentOwnedSessionMessages.mockResolvedValue(
+      ok([
+        existingMessage,
+        { ...existingMessage, id: "message-0b", role: "assistant", sequenceIndex: 1, content: "Odpowiedz asystenta." },
+      ]),
+    );
+
+    await POST(createContext() as never);
+
+    expect(evaluateSessionSafety).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentUserMessage: "Chce uporzadkowac mysli.",
+        recentUserMessages: ["Poprzednia spokojna wiadomosc."],
+      }),
+    );
+  });
+
+  it("does not land a reply on a session that ended while the model was working", async () => {
+    getOwnedSessionMetadata
+      .mockResolvedValueOnce(ok(activeSession))
+      .mockResolvedValueOnce(ok({ ...activeSession, status: "completed", endedAt: "2026-06-07T10:02:30.000Z" }));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(409);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: false,
+      type: "session_not_active",
+      code: "session_not_active",
+    });
+    expect(generateSessionResponse).toHaveBeenCalledOnce();
+    expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
+  });
+
+  it("logs the token cost of a completed turn without any content", async () => {
+    generateSessionResponse.mockResolvedValue({
+      assistantText: "Mozemy zaczac od nazwania najwazniejszych faktow.",
+      providerMetadata: {
+        provider: "openrouter",
+        model: "openai/gpt-4o-mini",
+        usage: { promptTokens: 1200, completionTokens: 340, totalTokens: 1540 },
+      },
+    });
+
+    await POST(createContext() as never);
+
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "session.ai_turn_completed",
+        inputUnits: 1200,
+        outputUnits: 340,
+      }),
+      expect.anything(),
+    );
+    const loggedEvents = logOperationalEvent.mock.calls.map((call) => JSON.stringify(call[0]));
+    expect(loggedEvents.some((event) => event.includes("uporzadkowac"))).toBe(false);
+  });
+
+  it("rejects a malformed session id before any lookup", async () => {
+    const response = await POST(createContext({ sessionId: "session-1", message: "Czesc." }) as never);
+
+    expect(response.status).toBe(400);
+    expect(getOwnedSessionMetadata).not.toHaveBeenCalled();
   });
 
   it("returns unavailable when approved summary context cannot be loaded after safety allow", async () => {
@@ -453,7 +571,7 @@ describe("POST /api/session/message", () => {
   });
 
   it("rejects invalid messages before session lookup", async () => {
-    const response = await POST(createContext({ sessionId: "session-1", message: "   " }) as never);
+    const response = await POST(createContext({ sessionId: SESSION_ID, message: "   " }) as never);
 
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toMatchObject({

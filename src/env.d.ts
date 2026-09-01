@@ -1,5 +1,6 @@
 interface SafespaceCloudflareEnv {
   SESSION_RATE_LIMITER?: import("@/lib/rate-limit").RateLimiterBinding;
+  AUTH_RATE_LIMITER?: import("@/lib/rate-limit").RateLimiterBinding;
 }
 
 declare module "cloudflare:workers" {

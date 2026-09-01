@@ -1,9 +1,16 @@
 import type { APIRoute } from "astro";
 import { SessionAiError, type SessionAiErrorCategory } from "@/lib/session-ai/errors";
+import { getOpenRouterSessionConfig } from "@/lib/session-ai/env";
+import { resolveSessionReasoningTimeoutMs } from "@/lib/session-ai/openrouter-request-params";
 import { generateSessionResponse } from "@/lib/session-ai/provider";
-import { getSessionAiFailureCopy } from "@/lib/session-ai/session-response-copy";
+import { getSafetyBoundaryUnavailableCopy, getSessionAiFailureCopy } from "@/lib/session-ai/session-response-copy";
 import { getValidAvatarChoice } from "@/lib/modalities";
 import { evaluateSessionSafety } from "@/lib/session-safety/evaluate-session-safety";
+import {
+  isFailClosedSessionSafetyReasonCode,
+  type FailClosedSessionSafetyReasonCode,
+} from "@/lib/session-safety/reason-codes";
+import { MAX_SAFETY_RECENT_USER_MESSAGES } from "@/lib/session-safety/classifier-prompt";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import {
   getOwnedSessionMetadata,
@@ -21,9 +28,11 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
 import {
   buildSessionAiProviderFailedEvent,
+  buildSessionAiTurnCompletedEvent,
   buildSessionSafetyEvaluatedEventFromDecision,
   buildSessionTimeLimitReachedEvent,
 } from "@/lib/operational-visibility/session-events";
+import { resolveRecentMessageContextLimit } from "@/lib/session-flow/context-window";
 import {
   buildValidationFailureResponse,
   parseSendSessionMessageRequest,
@@ -36,8 +45,6 @@ import { resolveSessionPhase } from "@/lib/session-flow/session-phase";
 import { toSessionView } from "@/lib/session-flow/session-state";
 
 export const prerender = false;
-
-const RECENT_MESSAGE_CONTEXT_LIMIT = 8;
 
 function jsonResponse(body: SendSessionMessageResponse, status: number) {
   return Response.json(body, { status });
@@ -73,12 +80,45 @@ function toRecentSessionAiMessages(messages: readonly SessionMessageRecord[]) {
     }));
 }
 
+// The classifier sees the user's own last turns so a message that only reads
+// as risky in sequence is not judged in isolation. Bounded here and again in
+// the prompt builder; assistant turns never reach the classifier.
+function toRecentSafetyUserMessages(messages: readonly SessionMessageRecord[]) {
+  return messages
+    .filter((message) => message.role === "user")
+    .slice(-MAX_SAFETY_RECENT_USER_MESSAGES)
+    .map((message) => message.content);
+}
+
 function unavailableResponse(): SendSessionMessageFailureResponse {
   return {
     ok: false,
     type: "session_not_active",
     code: "session_unavailable",
   };
+}
+
+function expiredResponse(session: SessionMetadata, now: Date) {
+  return jsonResponse(
+    {
+      ok: false,
+      type: "expired",
+      code: "session_expired",
+      session: toSessionView(session, now),
+    },
+    409,
+  );
+}
+
+function notActiveResponse() {
+  return jsonResponse(
+    {
+      ok: false,
+      type: "session_not_active",
+      code: "session_not_active",
+    },
+    409,
+  );
 }
 
 // A session started without context never reads approved summaries — not even
@@ -99,6 +139,10 @@ async function markInterrupted(context: SessionDataContext, session: SessionMeta
     endedAt: new Date().toISOString(),
     durationBucketSeconds: session.durationBucketSeconds,
   });
+}
+
+function toSafetyBoundaryFailureCategory(reasonCode: FailClosedSessionSafetyReasonCode): SessionAiErrorCategory {
+  return reasonCode;
 }
 
 export const POST: APIRoute = async (context) => {
@@ -128,26 +172,7 @@ export const POST: APIRoute = async (context) => {
   const now = new Date();
 
   if (session.status !== "active") {
-    if (session.status === "expired") {
-      return jsonResponse(
-        {
-          ok: false,
-          type: "expired",
-          code: "session_expired",
-          session: toSessionView(session, now),
-        },
-        409,
-      );
-    }
-
-    return jsonResponse(
-      {
-        ok: false,
-        type: "session_not_active",
-        code: "session_not_active",
-      },
-      409,
-    );
+    return session.status === "expired" ? expiredResponse(session, now) : notActiveResponse();
   }
 
   if (isSessionExpired(session, now)) {
@@ -182,24 +207,31 @@ export const POST: APIRoute = async (context) => {
 
   // Ownership was already resolved through `getOwnedSessionMetadata` above, so
   // this reads only the bounded tail the model context needs instead of the
-  // whole transcript.
+  // whole transcript. The tail grows with the session's own budget.
   const recentMessages = await listRecentOwnedSessionMessages(
     sessionContext.data,
     session.id,
-    RECENT_MESSAGE_CONTEXT_LIMIT,
+    resolveRecentMessageContextLimit(session.durationBucketSeconds),
   );
 
   if (!recentMessages.ok) {
     return jsonResponse(unavailableResponse(), 503);
   }
 
+  // The safety decision gates everything below; the summary read is independent
+  // of it and only costs a database round trip, so both run at once. Nothing is
+  // generated or stored until the decision is in.
   const safetyStartedAtMs = performance.now();
-  const decision = await evaluateSessionSafety({
-    currentUserMessage: messageRequest.message,
-    metadata: {
-      locale: "pl",
-    },
-  });
+  const [decision, approvedSummaries] = await Promise.all([
+    evaluateSessionSafety({
+      currentUserMessage: messageRequest.message,
+      recentUserMessages: toRecentSafetyUserMessages(recentMessages.data),
+      metadata: {
+        locale: "pl",
+      },
+    }),
+    loadApprovedSummaryContext(sessionContext.data, session),
+  ]);
 
   logOperationalEvent(
     {
@@ -213,6 +245,23 @@ export const POST: APIRoute = async (context) => {
   );
 
   if (decision.action === "hard_stop") {
+    // The boundary could not decide (outage, malformed reply, missing config):
+    // fail closed for this turn only. Nothing is generated or stored, but the
+    // session stays open — `interrupted` has no way back and counts against
+    // the free-plan cap, so a transient blip must not end the conversation.
+    if (isFailClosedSessionSafetyReasonCode(decision.reasonCode)) {
+      return jsonResponse(
+        {
+          ok: false,
+          type: "ai_retry",
+          code: "ai_retry",
+          category: toSafetyBoundaryFailureCategory(decision.reasonCode),
+          copy: getSafetyBoundaryUnavailableCopy(),
+        },
+        503,
+      );
+    }
+
     await markInterrupted(sessionContext.data, session);
 
     return jsonResponse(
@@ -227,7 +276,18 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
-  const providerTimeoutMs = getProviderTimeoutWithinSessionMs(session, new Date());
+  if (!approvedSummaries.ok) {
+    return jsonResponse(unavailableResponse(), 503);
+  }
+
+  // The ceiling follows the configured reasoning effort (a forced `xhigh`
+  // thinks for a long time before the first token); the remaining session
+  // budget still wins whenever it is shorter.
+  const providerTimeoutMs = getProviderTimeoutWithinSessionMs(
+    session,
+    new Date(),
+    resolveSessionReasoningTimeoutMs(getOpenRouterSessionConfig().reasoningEffort),
+  );
 
   if (providerTimeoutMs <= 0) {
     const expired = await expireOwnedSession(sessionContext.data, session, new Date());
@@ -253,12 +313,6 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
-  const approvedSummaries = await loadApprovedSummaryContext(sessionContext.data, session);
-
-  if (!approvedSummaries.ok) {
-    return jsonResponse(unavailableResponse(), 503);
-  }
-
   // Resolved from this session's own budget, so the arc holds for a short trial
   // session and for a longer one alike.
   const sessionPhase = resolveSessionPhase(session, {
@@ -267,6 +321,8 @@ export const POST: APIRoute = async (context) => {
   });
 
   let assistantText: string;
+  let inputUnits: number | undefined;
+  let outputUnits: number | undefined;
 
   try {
     const response = await generateSessionResponse(
@@ -295,6 +351,8 @@ export const POST: APIRoute = async (context) => {
     );
 
     assistantText = response.assistantText;
+    inputUnits = response.providerMetadata.usage?.promptTokens;
+    outputUnits = response.providerMetadata.usage?.completionTokens;
   } catch (error) {
     const category = getSessionAiErrorCategory(error);
 
@@ -321,6 +379,21 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
+  // The reply took real time; the owner may have ended the session meanwhile
+  // (from another tab, or with the "end" button while waiting). A turn must not
+  // land on a completed or expired session, so the status is re-read first.
+  const latestSession = await getOwnedSessionMetadata(sessionContext.data, session.id);
+
+  if (!latestSession.ok) {
+    return jsonResponse(unavailableResponse(), 503);
+  }
+
+  if (latestSession.data.status !== "active") {
+    return latestSession.data.status === "expired"
+      ? expiredResponse(latestSession.data, new Date())
+      : notActiveResponse();
+  }
+
   const persistedTurn = await persistSuccessfulMessageTurn(sessionContext.data, {
     sessionId: session.id,
     userMessage: messageRequest.message,
@@ -338,13 +411,26 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
+  logOperationalEvent(
+    {
+      ...buildSessionAiTurnCompletedEvent({
+        provider: "openrouter",
+        durationMs: getOperationalDurationMs(startedAtMs),
+        inputUnits,
+        outputUnits,
+      }),
+      status: 200,
+    },
+    operationalContext,
+  );
+
   return jsonResponse(
     {
       ok: true,
       type: decision.action === "allow_with_constraints" ? "caution" : "success",
       messages: persistedTurn.data,
       caution: null,
-      session: toSessionView(session, new Date()),
+      session: toSessionView(latestSession.data, new Date()),
     },
     200,
   );

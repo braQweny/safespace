@@ -39,13 +39,34 @@ function sanitizeShortString(value: unknown, maxLength = MAX_SAFE_STRING_LENGTH)
   return trimmed;
 }
 
+const UUID_SEGMENT_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Long hex / base64url runs are opaque identifiers or tokens, never a static
+// route name (the longest static segment, `resend-confirmation`, is 19 chars).
+const OPAQUE_ID_SEGMENT_PATTERN = /^[A-Za-z0-9_-]{20,}$/;
+const ROUTE_ID_PLACEHOLDER = ":id";
+
+function isIdentifierSegment(segment: string) {
+  return UUID_SEGMENT_PATTERN.test(segment) || OPAQUE_ID_SEGMENT_PATTERN.test(segment);
+}
+
+/**
+ * Keeps the route shape but never a concrete identifier: session ids in
+ * `/api/session/summary/<uuid>` or admin targets in
+ * `/api/admin/users/<uuid>/block` would otherwise let hosted logs be joined
+ * against private tables.
+ */
 function sanitizeRoute(value: unknown) {
   const route = sanitizeShortString(value);
   if (!route?.startsWith("/")) {
     return undefined;
   }
 
-  return route.split("?")[0];
+  const pathname = route.split("?")[0];
+
+  return pathname
+    .split("/")
+    .map((segment) => (isIdentifierSegment(segment) ? ROUTE_ID_PLACEHOLDER : segment))
+    .join("/");
 }
 
 function sanitizeMethod(value: unknown) {
@@ -79,6 +100,17 @@ function sanitizeDuration(value: unknown) {
   }
 
   return Math.round(value);
+}
+
+// Token counters: whole, non-negative, and bounded well above any real call.
+const MAX_UNIT_COUNT = 10_000_000;
+
+function sanitizeUnitCount(value: unknown) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > MAX_UNIT_COUNT) {
+    return undefined;
+  }
+
+  return value;
 }
 
 function sanitizeSchemaVersion(value: unknown) {
@@ -118,6 +150,9 @@ function sanitizeFieldValue(field: OperationalEventAllowedField, value: unknown)
       return sanitizeEnum(value, SAFETY_ACTION_SET);
     case "userHash":
       return sanitizeShortString(value, MAX_USER_HASH_LENGTH);
+    case "inputUnits":
+    case "outputUnits":
+      return sanitizeUnitCount(value);
     case "deploymentTarget":
       return sanitizeShortString(value);
     case "schemaVersion":

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
 const createClient = vi.fn();
+const requireActiveAccountAccess = vi.fn();
 
 vi.mock("@/lib/operational-visibility/request-context", () => ({
   buildOperationalRequestContext,
@@ -14,6 +15,10 @@ vi.mock("@/lib/operational-visibility/logger", () => ({
 
 vi.mock("@/lib/supabase", () => ({
   createClient,
+}));
+
+vi.mock("@/lib/admin/account-access", () => ({
+  requireActiveAccountAccess,
 }));
 
 const [{ POST: SIGNIN }, { POST: SIGNUP }, { POST: SIGNOUT }, { POST: PASSWORD }, { POST: RESET }, { POST: GOOGLE }] =
@@ -46,19 +51,36 @@ const supabaseStub = {
   },
 };
 
-function createContext(fields: Record<string, string> = {}, path = "/api/auth/signin") {
+interface ContextOptions {
+  path?: string;
+  user?: { id: string } | null;
+}
+
+function createContext(fields: Record<string, string> = {}, options: ContextOptions = {}) {
   const form = new FormData();
 
   for (const [field, value] of Object.entries(fields)) {
     form.append(field, value);
   }
 
-  const url = new URL(`https://safespace.local${path}`);
+  return createContextWithBody(form, options);
+}
+
+function createJsonContext(payload: unknown, options: ContextOptions = {}) {
+  return createContextWithBody(JSON.stringify(payload), { ...options, contentType: "application/json" });
+}
+
+function createContextWithBody(body: BodyInit, options: ContextOptions & { contentType?: string } = {}) {
+  const url = new URL(`https://safespace.local${options.path ?? "/api/auth/signin"}`);
 
   return {
-    request: new Request(url, { method: "POST", body: form }),
+    request: new Request(url, {
+      method: "POST",
+      body,
+      ...(options.contentType ? { headers: { "Content-Type": options.contentType } } : {}),
+    }),
     cookies: {},
-    locals: {},
+    locals: { user: options.user ?? null },
     url,
     redirect: vi.fn(
       (target: string, status?: number) =>
@@ -78,6 +100,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   buildOperationalRequestContext.mockResolvedValue({ requestId: "req-1" });
   createClient.mockReturnValue(supabaseStub);
+  requireActiveAccountAccess.mockResolvedValue({ ok: true, data: { status: "active" } });
 });
 
 describe("POST /api/auth/signin", () => {
@@ -103,6 +126,14 @@ describe("POST /api/auth/signin", () => {
     const response = await SIGNIN(createContext({ email: "user@example.com" }));
 
     expect(location(response)).toBe("/auth/signin?error=missing_password");
+  });
+
+  it("treats a JSON body like an empty form instead of crashing", async () => {
+    const response = await SIGNIN(createJsonContext({ email: "user@example.com", password: "haslo123" }));
+
+    expect(response.status).toBe(303);
+    expect(location(response)).toBe("/auth/signin?error=invalid_email");
+    expect(signInWithPassword).not.toHaveBeenCalled();
   });
 
   it("fails closed when supabase is not configured", async () => {
@@ -158,6 +189,13 @@ describe("POST /api/auth/signup", () => {
     const response = await SIGNUP(createContext({ ...validFields, confirmPassword: "inne-haslo" }));
 
     expect(location(response)).toBe("/auth/signup?error=passwords_do_not_match");
+  });
+
+  it("treats a JSON body like an empty form instead of crashing", async () => {
+    const response = await SIGNUP(createJsonContext(validFields, { path: "/api/auth/signup" }));
+
+    expect(location(response)).toBe("/auth/signup?error=invalid_email");
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("maps provider errors to stable codes", async () => {
@@ -220,37 +258,69 @@ describe("POST /api/auth/signout", () => {
 
 describe("POST /api/auth/password", () => {
   const validFields = { password: "noweHaslo1", confirmPassword: "noweHaslo1" };
-
-  beforeEach(() => {
-    getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-  });
+  const signedIn = { path: "/api/auth/password", user: { id: "user-1" } };
 
   it("sends an unauthenticated user to signin without an error code", async () => {
-    getUser.mockResolvedValue({ data: { user: null } });
-
-    const response = await PASSWORD(createContext(validFields));
+    const response = await PASSWORD(createContext(validFields, { path: "/api/auth/password", user: null }));
 
     expect(response.status).toBe(303);
     expect(location(response)).toBe("/auth/signin");
     expect(logOperationalEvent).toHaveBeenCalledWith(expect.objectContaining({ reasonCode: "missing_auth" }), {
       requestId: "req-1",
     });
+    expect(requireActiveAccountAccess).not.toHaveBeenCalled();
+    // The user comes from the middleware-resolved locals, not a second lookup.
+    expect(getUser).not.toHaveBeenCalled();
+  });
+
+  it("sends a blocked account to the blocked page before reading the form", async () => {
+    requireActiveAccountAccess.mockResolvedValue({ ok: false, error: { code: "account_blocked" } });
+
+    const response = await PASSWORD(createContext(validFields, signedIn));
+
+    expect(response.status).toBe(303);
+    expect(location(response)).toBe("/account/blocked");
+    expect(requireActiveAccountAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ locals: { user: { id: "user-1" } } }),
+      supabaseStub,
+    );
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ reasonCode: "account_blocked", outcome: "blocked" }),
+      { requestId: "req-1" },
+    );
+  });
+
+  it("fails closed when the account state cannot be read", async () => {
+    requireActiveAccountAccess.mockResolvedValue({ ok: false, error: { code: "account_access_unavailable" } });
+
+    const response = await PASSWORD(createContext(validFields, signedIn));
+
+    expect(location(response)).toBe("/account/blocked?state=unavailable");
+    expect(updateUser).not.toHaveBeenCalled();
   });
 
   it("validates the new password before calling supabase", async () => {
-    const tooShort = await PASSWORD(createContext({ password: "abc", confirmPassword: "abc" }));
+    const tooShort = await PASSWORD(createContext({ password: "abc", confirmPassword: "abc" }, signedIn));
     expect(location(tooShort)).toBe("/account/security?error=password_too_short");
 
-    const mismatch = await PASSWORD(createContext({ password: "noweHaslo1", confirmPassword: "inne" }));
+    const mismatch = await PASSWORD(createContext({ password: "noweHaslo1", confirmPassword: "inne" }, signedIn));
     expect(location(mismatch)).toBe("/account/security?error=passwords_do_not_match");
 
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it("treats a JSON body like an empty form instead of crashing", async () => {
+    const response = await PASSWORD(createJsonContext(validFields, signedIn));
+
+    expect(location(response)).toBe("/account/security?error=missing_password");
     expect(updateUser).not.toHaveBeenCalled();
   });
 
   it("maps a rate-limited update to its stable code", async () => {
     updateUser.mockResolvedValue({ error: { message: "Rate limit exceeded" } });
 
-    const response = await PASSWORD(createContext(validFields));
+    const response = await PASSWORD(createContext(validFields, signedIn));
 
     expect(location(response)).toBe("/account/security?error=rate_limited");
   });
@@ -258,7 +328,7 @@ describe("POST /api/auth/password", () => {
   it("confirms a successful update on the security page", async () => {
     updateUser.mockResolvedValue({ error: null });
 
-    const response = await PASSWORD(createContext(validFields));
+    const response = await PASSWORD(createContext(validFields, signedIn));
 
     expect(location(response)).toBe("/account/security?status=password_updated");
     expect(updateUser).toHaveBeenCalledWith({ password: "noweHaslo1" });
@@ -271,6 +341,16 @@ describe("POST /api/auth/reset-password", () => {
 
     expect(response.status).toBe(302);
     expect(location(response)).toBe("/auth/forgot-password?error=invalid_email");
+  });
+
+  it("treats a JSON body like an empty form instead of crashing", async () => {
+    const response = await RESET(
+      createJsonContext({ email: "user@example.com" }, { path: "/api/auth/reset-password" }),
+    );
+
+    expect(response.status).toBe(302);
+    expect(location(response)).toBe("/auth/forgot-password?error=invalid_email");
+    expect(resetPasswordForEmail).not.toHaveBeenCalled();
   });
 
   it("maps provider errors to stable codes", async () => {

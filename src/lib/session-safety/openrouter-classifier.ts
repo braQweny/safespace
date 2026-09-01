@@ -14,6 +14,14 @@ import type { SessionSafetyInput } from "./types";
 
 const OPENROUTER_SAFETY_DEFAULT_MODEL = "openai/gpt-4o-mini";
 const OPENROUTER_SAFETY_TIMEOUT_MS = 8_000;
+// One extra attempt after a fast provider-side failure (5xx / 429). A timeout
+// is not retried: it already spent the whole budget, and a fail-closed reply
+// beats doubling the wait. Without this a single blip ended the user's turn.
+const OPENROUTER_SAFETY_MAX_ATTEMPTS = 2;
+const OPENROUTER_SAFETY_RETRYABLE_CATEGORIES = new Set<OpenRouterChatError["category"]>([
+  "provider_unavailable",
+  "provider_rate_limited",
+]);
 const OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS = 64;
 // Reasoning models spend hidden reasoning tokens from the same completion
 // budget; with the 64-token cap that risks finish_reason "length" and a
@@ -95,27 +103,48 @@ export async function classifySessionSafetyWithOpenRouter(
   options: OpenRouterSafetyClassifierOptions = {},
 ): Promise<ProviderSafetyDecision> {
   const apiKey = options.apiKey ?? getOpenRouterEnv().apiKey;
+  const chatRequest = buildOpenRouterSafetyRequest(input, options.model);
+  const timeoutMs = resolveTimeoutMs(options.timeoutMs);
+  let lastError: unknown;
 
-  try {
-    const response = await sendOpenRouterChat({
-      apiKey,
-      chatRequest: buildOpenRouterSafetyRequest(input, options.model),
-      fetcher: options.fetcher,
-      timeoutMs: resolveTimeoutMs(options.timeoutMs),
-    });
+  for (let attempt = 1; attempt <= OPENROUTER_SAFETY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await sendOpenRouterChat({
+        apiKey,
+        chatRequest,
+        fetcher: options.fetcher,
+        timeoutMs,
+      });
 
-    return parseProviderSafetyDecision(response);
-  } catch (error) {
-    if (error instanceof ProviderSafetyError) {
-      throw error;
+      return parseProviderSafetyDecision(response);
+    } catch (error) {
+      if (error instanceof ProviderSafetyError) {
+        throw error;
+      }
+
+      lastError = error;
+
+      if (attempt < OPENROUTER_SAFETY_MAX_ATTEMPTS && isRetryableOpenRouterError(error)) {
+        continue;
+      }
+
+      throw toProviderSafetyError(error);
     }
-
-    if (error instanceof OpenRouterChatError) {
-      throw new ProviderSafetyError(mapOpenRouterSafetyErrorCategory(error.category));
-    }
-
-    throw new ProviderSafetyError("provider_unavailable");
   }
+
+  throw toProviderSafetyError(lastError);
+}
+
+function isRetryableOpenRouterError(error: unknown) {
+  return error instanceof OpenRouterChatError && OPENROUTER_SAFETY_RETRYABLE_CATEGORIES.has(error.category);
+}
+
+function toProviderSafetyError(error: unknown) {
+  if (error instanceof OpenRouterChatError) {
+    return new ProviderSafetyError(mapOpenRouterSafetyErrorCategory(error.category));
+  }
+
+  return new ProviderSafetyError("provider_unavailable");
 }
 
 export const openRouterSafetyProvider = {

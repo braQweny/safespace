@@ -6,8 +6,10 @@ import {
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
   isOpenRouterGemini37FlashModel,
+  isOpenRouterGpt56LunaModel,
   isOpenRouterOxAlphaModel,
   supportsOpenRouterTemperature,
+  usesOpenRouterReasoningBudget,
 } from "@/lib/session-ai/openrouter-request-params";
 import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
@@ -28,10 +30,14 @@ import type {
 } from "./types";
 
 const OPENROUTER_SUMMARY_TIMEOUT_MS = 12_000;
+// A model that thinks before it writes needs longer than a plain chat model;
+// nothing in the session budget constrains a summary, so it can wait.
+const OPENROUTER_REASONING_SUMMARY_TIMEOUT_MS = 25_000;
 const OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS = 320;
 const OPENROUTER_GEMINI_3_5_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 800;
 const OPENROUTER_GEMINI_3_7_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 1_600;
 const OPENROUTER_OX_ALPHA_SUMMARY_MAX_COMPLETION_TOKENS = 2_400;
+const OPENROUTER_GPT_5_6_LUNA_SUMMARY_MAX_COMPLETION_TOKENS = 2_400;
 const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
 
 interface OpenRouterSummaryOptions {
@@ -69,7 +75,7 @@ export async function generateSessionSummaryWithOpenRouter(
       apiKey,
       chatRequest: buildOpenRouterSummaryRequest(input, model),
       fetcher: options.fetcher,
-      timeoutMs: resolveTimeoutMs(options.timeoutMs),
+      timeoutMs: resolveTimeoutMs(options.timeoutMs, model),
     });
 
     return {
@@ -97,7 +103,7 @@ export function buildOpenRouterSummaryRequest(
     model,
     messages: [...buildSessionSummaryMessages(input)],
     ...buildOptionalSamplingParameters(model),
-    ...buildOpenRouterReasoningParameter(model),
+    ...buildOpenRouterReasoningParameter(model, resolveSummaryReasoningEffort(model)),
     ...buildOpenRouterTokenLimitParameter(model, resolveSummaryMaxCompletionTokens(model)),
     stream: false,
     provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
@@ -116,6 +122,10 @@ function resolveSummaryMaxCompletionTokens(model: string) {
     return OPENROUTER_OX_ALPHA_SUMMARY_MAX_COMPLETION_TOKENS;
   }
 
+  if (isOpenRouterGpt56LunaModel(model)) {
+    return OPENROUTER_GPT_5_6_LUNA_SUMMARY_MAX_COMPLETION_TOKENS;
+  }
+
   if (isOpenRouterGemini37FlashModel(model)) {
     return OPENROUTER_GEMINI_3_7_FLASH_SUMMARY_MAX_COMPLETION_TOKENS;
   }
@@ -125,6 +135,15 @@ function resolveSummaryMaxCompletionTokens(model: string) {
   }
 
   return OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS;
+}
+
+/**
+ * A summary is a short, factual condensation — the Luna family gets `low`
+ * instead of its `medium` session default, which keeps hidden thinking (and
+ * the bill) small without dropping the parameter that pins the budget.
+ */
+function resolveSummaryReasoningEffort(model: string): OpenRouterReasoningEffort | undefined {
+  return isOpenRouterGpt56LunaModel(model) ? "low" : undefined;
 }
 
 function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSummaryRequestBody, "temperature"> {
@@ -137,9 +156,11 @@ function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSummaryR
   };
 }
 
-function resolveTimeoutMs(timeoutMs: number | undefined) {
+function resolveTimeoutMs(timeoutMs: number | undefined, model: string) {
   if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    return OPENROUTER_SUMMARY_TIMEOUT_MS;
+    return usesOpenRouterReasoningBudget(model, resolveSummaryReasoningEffort(model))
+      ? OPENROUTER_REASONING_SUMMARY_TIMEOUT_MS
+      : OPENROUTER_SUMMARY_TIMEOUT_MS;
   }
 
   return Math.round(timeoutMs);

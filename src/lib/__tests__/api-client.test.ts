@@ -1,10 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isRateLimitedApiResult, requestApiJson } from "@/lib/api-client";
+import { isRateLimitedApiResult, isTimedOutApiResult, requestApiJson } from "@/lib/api-client";
 
 function stubFetch(impl: (input: string, init?: RequestInit) => Promise<Response>) {
   const fetchMock = vi.fn(impl);
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+/** `fetch`, który nigdy nie odpowiada sam z siebie — tylko odrzuca po przerwaniu. */
+function stubHangingFetch() {
+  return stubFetch(
+    (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      }),
+  );
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -18,6 +30,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("requestApiJson", () => {
@@ -105,6 +118,72 @@ describe("requestApiJson", () => {
     const result = await requestApiJson("/api/example");
 
     expect(result).toEqual({ kind: "network_error" });
+    expect(isTimedOutApiResult(result)).toBe(false);
+  });
+});
+
+/*
+ * Bez limitu po stronie klienta zawieszony provider zostawiał wyspę z
+ * wirującym wskaźnikiem aż do odświeżenia strony. Limit ma przerwać żądanie,
+ * nazwać przyczynę i nie zostawić po sobie tykającego zegara.
+ */
+describe("requestApiJson timeoutMs", () => {
+  it("aborts the request after the deadline and reports it as a timeout", async () => {
+    vi.useFakeTimers();
+    const fetchMock = stubHangingFetch();
+
+    const pending = requestApiJson("/api/session/message", { method: "POST", timeoutMs: 1_000 });
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await pending;
+
+    expect(result).toEqual({ kind: "network_error", reason: "timeout" });
+    expect(isTimedOutApiResult(result)).toBe(true);
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  });
+
+  it("does not pass timeoutMs through to fetch", async () => {
+    const fetchMock = stubFetch(() => Promise.resolve(jsonResponse({ ok: true })));
+
+    await requestApiJson("/api/example", { timeoutMs: 5_000 });
+
+    expect(fetchMock.mock.calls[0][1]).not.toHaveProperty("timeoutMs");
+  });
+
+  it("clears the deadline once the response arrives", async () => {
+    vi.useFakeTimers();
+    stubFetch(() => Promise.resolve(jsonResponse({ ok: true })));
+
+    const result = await requestApiJson("/api/example", { timeoutMs: 5_000 });
+
+    expect(result.kind).toBe("json");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("keeps a caller-side abort distinct from a timeout", async () => {
+    vi.useFakeTimers();
+    stubHangingFetch();
+    const controller = new AbortController();
+
+    const pending = requestApiJson("/api/example", { signal: controller.signal, timeoutMs: 5_000 });
+    controller.abort();
+    const result = await pending;
+
+    expect(result).toEqual({ kind: "network_error" });
+    expect(isTimedOutApiResult(result)).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("ignores a non-positive deadline", async () => {
+    vi.useFakeTimers();
+    stubFetch(() => Promise.resolve(jsonResponse({ ok: true })));
+
+    const result = await requestApiJson("/api/example", { timeoutMs: 0 });
+
+    expect(result.kind).toBe("json");
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 

@@ -409,6 +409,36 @@ describe("admin API routes", () => {
     });
   });
 
+  it("answers a self-targeted block or plan change with a stable 400", async () => {
+    setAdminUserBlockState.mockResolvedValueOnce(adminError("self_target_forbidden"));
+
+    const selfBlock = await POST_BLOCK(
+      createContext("https://safespace.local/api/admin/users/admin-1/block", {
+        action: "block",
+        reasonCode: "policy_violation",
+      }) as never,
+    );
+
+    expect(selfBlock.status).toBe(400);
+    await expect(readJson(selfBlock)).resolves.toEqual({
+      ok: false,
+      type: "admin_error",
+      code: "self_target_forbidden",
+    });
+
+    setAdminUserPlanState.mockResolvedValueOnce(adminError("self_target_forbidden"));
+
+    const selfPlan = await POST_PLAN(
+      createContext("https://safespace.local/api/admin/users/admin-1/plan", {
+        action: "grant",
+        reasonCode: "subscription_paid",
+      }) as never,
+    );
+
+    expect(selfPlan.status).toBe(400);
+    await expect(readJson(selfPlan)).resolves.toMatchObject({ code: "self_target_forbidden" });
+  });
+
   it("maps target not found and write failures without raw errors", async () => {
     setAdminUserBlockState.mockResolvedValueOnce(adminError("target_not_found"));
 

@@ -29,17 +29,30 @@
   "observability": {
     "enabled": true,
   },
-  // Per-user rate limit for AI-backed session endpoints. Counters are kept
-  // per Cloudflare location (approximate, not global) — good enough for cost
-  // and abuse protection. The "unsafe" prefix means open-beta API, not danger.
+  // Rate limits. Counters are kept per Cloudflare location (approximate, not
+  // global) — good enough for cost and abuse protection. The "unsafe" prefix
+  // means open-beta API, not danger.
   "unsafe": {
     "bindings": [
+      // Per-user cap on AI-backed session endpoints (fail-closed in prod).
       {
         "name": "SESSION_RATE_LIMITER",
         "type": "ratelimit",
         "namespace_id": "1001",
         "simple": {
           "limit": 20,
+          "period": 60,
+        },
+      },
+      // Per-IP cap on the credential-handling auth forms (signin, signup,
+      // reset/resend, password change). Always fail-open — see
+      // `src/lib/rate-limit.ts`.
+      {
+        "name": "AUTH_RATE_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "1002",
+        "simple": {
+          "limit": 10,
           "period": 60,
         },
       },

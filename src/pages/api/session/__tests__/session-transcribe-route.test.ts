@@ -8,6 +8,17 @@ const requireSessionRouteAccess = vi.fn();
 const transcribeSessionAudio = vi.fn();
 const getOwnedSessionMetadata = vi.fn();
 const expireOwnedSession = vi.fn();
+const buildOperationalRequestContext = vi.fn();
+const logOperationalEvent = vi.fn();
+
+vi.mock("@/lib/operational-visibility/request-context", () => ({
+  buildOperationalRequestContext,
+  getOperationalDurationMs: () => 12,
+}));
+
+vi.mock("@/lib/operational-visibility/logger", () => ({
+  logOperationalEvent,
+}));
 
 vi.mock("@/lib/session-flow/route-access", () => ({
   requireSessionRouteAccess,
@@ -82,6 +93,11 @@ async function readJson(response: Response) {
 
 describe("POST /api/session/transcribe", () => {
   beforeEach(() => {
+    buildOperationalRequestContext.mockResolvedValue({
+      requestId: "req-1",
+      route: "/api/session/transcribe",
+      method: "POST",
+    });
     vi.clearAllMocks();
     requireSessionRouteAccess.mockResolvedValue({
       ok: true,
@@ -205,5 +221,14 @@ describe("POST /api/session/transcribe", () => {
       type: "session_transcription_error",
       code: "provider_rate_limited",
     });
+
+    // The failure leaves an operational trace with a category only — never the
+    // audio, never the provider body.
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "session.transcription_failed", provider: "openrouter" }),
+      expect.anything(),
+    );
+    const loggedEvents = logOperationalEvent.mock.calls.map((call) => JSON.stringify(call[0]));
+    expect(loggedEvents.some((event) => event.includes("UklGRg=="))).toBe(false);
   });
 });

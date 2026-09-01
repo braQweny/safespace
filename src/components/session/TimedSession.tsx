@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, DoorOpen, History, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { ChevronDown, Copy, DoorOpen, History, Loader2 } from "lucide-react";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
-import { SESSION_BOUNDARIES_COPY, SESSION_PERSPECTIVE_COPY } from "@/lib/session-copy";
+import { SESSION_BOUNDARIES_COPY, SESSION_PERSPECTIVE_COPY, SESSION_TURN_COPY } from "@/lib/session-copy";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 import { CrisisHelpPanel, CrisisHelpTrigger } from "./CrisisHelpPanel";
@@ -64,6 +64,69 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
 };
 
+const subscribeNever = () => () => {
+  // Dostępność schowka nie zmienia się po hydratacji.
+};
+
+const readServerFalse = () => false;
+
+function readClientClipboardSupport() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  // Schowka nie ma w niezabezpieczonym kontekście i w części WebView, choć
+  // typy DOM deklarują go jako zawsze obecny.
+  const browserNavigator: Partial<Pick<Navigator, "clipboard">> = navigator;
+
+  return typeof browserNavigator.clipboard?.writeText === "function";
+}
+
+/**
+ * Słowa, które nie zdążyły wyjść przed końcem czasu, wracają do użytkownika
+ * na karcie zamknięcia — do skopiowania, jeśli przeglądarka na to pozwala, a
+ * przynajmniej do przeczytania. Nigdy po zatrzymaniu bezpieczeństwa.
+ */
+export function UnsentMessageNotice({ text }: { text: string }) {
+  const canCopy = useSyncExternalStore(subscribeNever, readClientClipboardSupport, readServerFalse);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  async function copyUnsentText() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+  }
+
+  return (
+    <div className="border-line-accent bg-surface-soft mt-4 rounded-2xl border p-4 sm:p-5">
+      <p className="text-ink-soft text-sm font-medium">{SESSION_TURN_COPY.unsentMessage}</p>
+      <blockquote className="text-ink mt-2 text-base leading-relaxed whitespace-pre-wrap">{text}</blockquote>
+      {canCopy ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={copyUnsentText}
+            className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            <Copy aria-hidden="true" className="h-4 w-4" />
+            {copyStatus === "copied" ? SESSION_TURN_COPY.copiedUnsent : SESSION_TURN_COPY.copyUnsent}
+          </button>
+          <p role="status" className={cn("text-ink-muted text-xs", copyStatus !== "failed" && "sr-only")}>
+            {copyStatus === "copied"
+              ? SESSION_TURN_COPY.copiedUnsent
+              : copyStatus === "failed"
+                ? SESSION_TURN_COPY.copyUnsentFailed
+                : null}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function getSessionTotalSeconds(session: SessionView | null) {
   if (!session?.startedAt || !session.expiresAt) {
     return null;
@@ -81,7 +144,18 @@ function getSessionTotalSeconds(session: SessionView | null) {
 
 export default function TimedSession({ initialState, initialSummary = null }: TimedSessionProps) {
   const { state, composerAvailable, handleExpired, setDraft, sendMessage, endSession } = useTimedSession(initialState);
-  const { kind, session, messages, draft, isEnding, isMessagePending, pendingUserText, notice } = state;
+  const {
+    kind,
+    session,
+    messages,
+    draft,
+    isEnding,
+    isMessagePending,
+    isResponseSlow,
+    pendingUserText,
+    unsentText,
+    notice,
+  } = state;
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const [isCrisisHelpOpen, setIsCrisisHelpOpen] = useState(false);
   // Granice muszą być na widoku przez całą rozmowę, ale na telefonie trzy
@@ -93,6 +167,8 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
   const confirmEndRef = useRef<HTMLDivElement | null>(null);
   const endButtonRef = useRef<HTMLButtonElement | null>(null);
   const restoreEndFocusRef = useRef(false);
+  const crisisTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const restoreCrisisFocusRef = useRef(false);
 
   useEffect(() => {
     if (isConfirmingEnd) {
@@ -113,10 +189,43 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
     restoreEndFocusRef.current = true;
     setIsConfirmingEnd(false);
   }, []);
+  // Ten sam wzorzec co przy dialogu zakończenia: po Escape albo „Zamknij”
+  // fokus wraca na „Pomoc”, a nie na początek dokumentu.
+  useEffect(() => {
+    if (isCrisisHelpOpen || !restoreCrisisFocusRef.current) {
+      return;
+    }
+
+    restoreCrisisFocusRef.current = false;
+    crisisTriggerRef.current?.focus();
+  }, [isCrisisHelpOpen]);
   const closeCrisisHelp = useCallback(() => {
+    restoreCrisisFocusRef.current = true;
     setIsCrisisHelpOpen(false);
   }, []);
+  const toggleCrisisHelp = useCallback(() => {
+    setIsCrisisHelpOpen((open) => !open);
+  }, []);
   const canEndSession = kind === "active" && session?.status === "active";
+  // Zamknięcie karty z niewysłanym zdaniem w polu kasuje je bez śladu, więc
+  // przeglądarka pyta — dopóki rozmowa trwa i coś w polu stoi.
+  const shouldGuardDraft = canEndSession && draft.trim().length > 0;
+
+  useEffect(() => {
+    if (!shouldGuardDraft) {
+      return;
+    }
+
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+
+    window.addEventListener("beforeunload", warnBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+  }, [shouldGuardDraft]);
   const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
   // Pusta rozmowa nie ma czego streszczać, a aktywna wciąż trwa.
   const canSummarizeSession = showHistoryCta && messages.length > 0;
@@ -208,19 +317,16 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                   totalSeconds={getSessionTotalSeconds(session)}
                   onExpired={handleExpired}
                 />
-                <CrisisHelpTrigger
-                  isOpen={isCrisisHelpOpen}
-                  onToggle={() => {
-                    setIsCrisisHelpOpen((open) => !open);
-                  }}
-                />
+                <CrisisHelpTrigger ref={crisisTriggerRef} isOpen={isCrisisHelpOpen} onToggle={toggleCrisisHelp} />
+                {/* Tura w locie nie blokuje wyjścia: serwer sam sprawdza status
+                    sesji, zanim zapisze odpowiedź. */}
                 <button
                   ref={endButtonRef}
                   type="button"
                   onClick={() => {
                     setIsConfirmingEnd(true);
                   }}
-                  disabled={isEnding || isMessagePending || isConfirmingEnd}
+                  disabled={isEnding || isConfirmingEnd}
                   aria-label="Zakończ sesję"
                   className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3.5"
                 >
@@ -243,12 +349,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                   <span aria-hidden="true" className="bg-clay h-2 w-2 shrink-0 rounded-full" />
                   {stateCopy[kind].title}
                 </p>
-                <CrisisHelpTrigger
-                  isOpen={isCrisisHelpOpen}
-                  onToggle={() => {
-                    setIsCrisisHelpOpen((open) => !open);
-                  }}
-                />
+                <CrisisHelpTrigger ref={crisisTriggerRef} isOpen={isCrisisHelpOpen} onToggle={toggleCrisisHelp} />
               </>
             )}
           </div>
@@ -285,7 +386,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                     setIsConfirmingEnd(false);
                     void endSession();
                   }}
-                  disabled={isEnding || isMessagePending}
+                  disabled={isEnding}
                   className="bg-brand-deep text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Zakończ teraz
@@ -344,6 +445,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             <div className="border-line-strong bg-surface shadow-card rounded-2xl border p-5 sm:p-6">
               <h2 className="text-ink font-serif text-2xl leading-tight font-medium">{stateCopy[kind].title}</h2>
               <p className="text-ink-soft mt-2 text-sm leading-6">{stateCopy[kind].body}</p>
+              {unsentText && kind !== "interrupted" ? <UnsentMessageNotice text={unsentText} /> : null}
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <a
                   href="/dashboard"
@@ -391,6 +493,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             variant="live"
             messages={messages}
             isPending={isMessagePending}
+            isResponseSlow={isResponseSlow}
             pendingUserText={pendingUserText}
             assistantAvatar={avatar}
           />

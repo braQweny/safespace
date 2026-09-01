@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { mapSignInError } from "@/lib/auth-errors";
-import { createAuthRoute } from "@/lib/auth-route";
+import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { getSafeAuthRedirect } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, getFormString } from "@/lib/auth-validation";
 
@@ -8,7 +8,7 @@ export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
   const route = await createAuthRoute(context, "auth.signin");
-  const form = await context.request.formData();
+  const form = await readFormData(context.request);
   const email = getFormString(form, "email");
   const password = getFormString(form, "password", false);
   const redirectTo = getSafeAuthRedirect(form.get("redirectTo") ?? context.url.searchParams.get("redirectTo"));

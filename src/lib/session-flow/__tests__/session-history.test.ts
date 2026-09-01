@@ -11,6 +11,7 @@ import {
   type SessionSummaryStateKind,
 } from "@/lib/session-data/types";
 import {
+  MAX_SESSION_HISTORY_PAGE,
   parseSessionHistoryPage,
   readSessionHistoryDetail,
   readSessionHistoryList,
@@ -106,6 +107,16 @@ describe("session history input parsing", () => {
     expect(parseSessionHistoryPage("-1")).toEqual({ ok: false, code: "invalid_page" });
     expect(parseSessionHistoryPage("1.5")).toEqual({ ok: false, code: "invalid_page" });
     expect(parseSessionHistoryPage("abc")).toEqual({ ok: false, code: "invalid_page" });
+  });
+
+  it("caps the page so an arbitrary number cannot become an arbitrary offset", () => {
+    expect(parseSessionHistoryPage(String(MAX_SESSION_HISTORY_PAGE))).toEqual({
+      ok: true,
+      page: MAX_SESSION_HISTORY_PAGE,
+    });
+    expect(parseSessionHistoryPage(String(MAX_SESSION_HISTORY_PAGE + 1))).toEqual({ ok: false, code: "invalid_page" });
+    expect(parseSessionHistoryPage(MAX_SESSION_HISTORY_PAGE + 1)).toEqual({ ok: false, code: "invalid_page" });
+    expect(parseSessionHistoryPage("99999999999")).toEqual({ ok: false, code: "invalid_page" });
   });
 });
 

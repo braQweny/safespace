@@ -15,11 +15,9 @@ export {
   listOwnedActiveSessionMetadata,
   listOwnedSessionHistoryPage,
   listOwnedSessionMetadata,
-  markOwnedSessionDeleted,
   purgeAndTombstoneOwnedSession,
   readSafeSessionTombstone,
   transitionSessionLifecycle,
-  updateSessionTombstone,
 } from "./sessions";
 export {
   appendSessionMessage,
@@ -28,7 +26,6 @@ export {
   getOwnedSessionHistoryDetail,
   listOwnedSessionMessages,
   listRecentOwnedSessionMessages,
-  purgeOwnedSessionMessages,
 } from "./messages";
 export {
   approveOwnedSessionSummaryRevision,
@@ -38,7 +35,6 @@ export {
   listOwnedSessionSummaries,
   listOwnedSessionSummaryStates,
   markOlderSessionSummaryRevisionsStale,
-  purgeOwnedSessionSummaries,
   saveGeneratedVisibleSessionSummary,
   saveVisibleSessionSummary,
   toApprovedSessionSummaryContexts,

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { SESSION_TURN_COPY } from "@/lib/session-copy";
 import type { UiSessionMessage } from "@/lib/session-flow/message-state";
 import { parseMessageMarkdown, type MessageMarkdownInline } from "@/lib/session-flow/message-markdown";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
@@ -7,6 +8,8 @@ import { cn } from "@/lib/utils";
 interface SessionMessagesProps {
   messages: readonly UiSessionMessage[];
   isPending?: boolean;
+  /** Tura trwa dłużej niż zwykle — wskaźnik dostaje drugą, uspokajającą linijkę. */
+  isResponseSlow?: boolean;
   pendingUserText?: string | null;
   assistantAvatar: SelectedModalityAvatar;
   emptyCopy?: string;
@@ -121,21 +124,36 @@ function MessageHeader({
   );
 }
 
-function PendingAssistantStatus({ assistantAvatar }: { assistantAvatar: SelectedModalityAvatar }) {
+function PendingAssistantStatus({
+  assistantAvatar,
+  isResponseSlow,
+}: {
+  assistantAvatar: SelectedModalityAvatar;
+  isResponseSlow: boolean;
+}) {
   const assistantName = getAssistantDisplayName(assistantAvatar);
 
   return (
-    <div
-      className="text-ink-muted mt-6 inline-flex items-center gap-1.5 text-sm"
-      role="status"
-      aria-label={`${assistantName} myśli...`}
-    >
-      <span>{assistantName} myśli</span>
-      <span aria-hidden="true" className="inline-flex items-center gap-0.5">
-        <span className="animate-pulse motion-reduce:animate-none">.</span>
-        <span className="animate-pulse [animation-delay:150ms] motion-reduce:animate-none">.</span>
-        <span className="animate-pulse [animation-delay:300ms] motion-reduce:animate-none">.</span>
-      </span>
+    <div className="mt-6 flex flex-col gap-1">
+      <div
+        className="text-ink-muted inline-flex items-center gap-1.5 text-sm"
+        role="status"
+        aria-label={`${assistantName} myśli...`}
+      >
+        <span>{assistantName} myśli</span>
+        <span aria-hidden="true" className="inline-flex items-center gap-0.5">
+          <span className="animate-pulse motion-reduce:animate-none">.</span>
+          <span className="animate-pulse [animation-delay:150ms] motion-reduce:animate-none">.</span>
+          <span className="animate-pulse [animation-delay:300ms] motion-reduce:animate-none">.</span>
+        </span>
+      </div>
+      {/* Osobny region: pojawia się po kilkunastu sekundach, więc czytnik
+          ekranu ma go ogłosić jako nową informację, nie jako zmianę „myśli”. */}
+      {isResponseSlow ? (
+        <p role="status" aria-live="polite" className="text-ink-muted text-xs">
+          {SESSION_TURN_COPY.slowResponse}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -147,6 +165,7 @@ function prefersReducedMotion() {
 export default function SessionMessages({
   messages,
   isPending = false,
+  isResponseSlow = false,
   pendingUserText = null,
   assistantAvatar,
   emptyCopy = "Pierwsza wiadomość może być krótka. Opisz sytuację, którą chcesz spokojnie uporządkować.",
@@ -172,11 +191,14 @@ export default function SessionMessages({
   }, [isLive, isPending, lastMessageId, pendingUserText]);
 
   return (
+    // Tylko trwająca rozmowa jest dziennikiem na żywo. Podgląd historii to
+    // statyczny zapis — `aria-live` kazałby czytnikowi ekranu odczytać całą
+    // rozmowę przy każdym otwarciu.
     <div
       ref={scrollRef}
-      role="log"
-      aria-live="polite"
-      aria-label="Przebieg rozmowy"
+      role={isLive ? "log" : undefined}
+      aria-live={isLive ? "polite" : undefined}
+      aria-label={isLive ? "Przebieg rozmowy" : undefined}
       onScroll={
         isLive
           ? (event) => {
@@ -230,7 +252,9 @@ export default function SessionMessages({
           </ol>
         )}
 
-        {isPending ? <PendingAssistantStatus assistantAvatar={assistantAvatar} /> : null}
+        {isPending ? (
+          <PendingAssistantStatus assistantAvatar={assistantAvatar} isResponseSlow={isResponseSlow} />
+        ) : null}
       </div>
     </div>
   );

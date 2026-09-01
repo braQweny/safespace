@@ -34,6 +34,25 @@ const PREMIUM_DURATION_MIGRATION_PATH = resolve(
   "../../../../supabase/migrations/20260830150000_scale_premium_session_duration.sql",
 );
 
+const PRIVILEGE_HARDENING_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260901120000_harden_session_privileges_and_budget.sql",
+);
+
+// Every table the app touches through PostgREST with a user JWT. Supabase's
+// default privileges grant `anon`/`authenticated` ALL on new tables, so a
+// column-level grant only means something after a table-level revoke.
+const PRIVATE_TABLES = [
+  "public.therapy_sessions",
+  "public.session_messages",
+  "public.session_summaries",
+  "public.session_trial_claims",
+  "public.user_avatar_choices",
+  "public.admin_users",
+  "public.admin_user_profiles",
+  "public.admin_audit_events",
+] as const;
+
 const TS_LIFECYCLE_STATUSES = [
   "created",
   "active",
@@ -207,5 +226,43 @@ describe("per-plan session duration vs premium duration migration", () => {
     // CI applies migrations before deploying code: during that window the old
     // four-argument call must still resolve and still mean a 15-minute trial.
     expect(sql).toMatch(new RegExp(`p_duration_bucket_seconds integer default ${FREE_TRIAL_DURATION_SECONDS}`));
+  });
+});
+
+describe("privilege hardening migration", () => {
+  const sql = readFileSync(PRIVILEGE_HARDENING_MIGRATION_PATH, "utf8");
+
+  it("revokes the default table privileges from anon and authenticated on every private table", () => {
+    const revokeIndex = sql.indexOf("revoke all privileges on table");
+    expect(revokeIndex).toBeGreaterThanOrEqual(0);
+
+    const revokeStatement = sql.slice(revokeIndex, sql.indexOf(";", revokeIndex));
+    for (const table of PRIVATE_TABLES) {
+      expect(revokeStatement, `${table} is missing from the revoke`).toContain(table);
+    }
+    expect(revokeStatement).toContain("from anon, authenticated");
+  });
+
+  it("re-grants updates on therapy_sessions without the perspective columns", () => {
+    const grantIndex = sql.indexOf("grant update (", sql.indexOf("public.therapy_sessions to authenticated"));
+    const grantStatement = sql.slice(grantIndex, sql.indexOf(";", grantIndex));
+
+    expect(grantStatement).toContain("expires_at");
+    expect(grantStatement).not.toContain("modality_id");
+    expect(grantStatement).not.toContain("avatar_id");
+  });
+
+  it("guards the time budget with the free-plan budget the code uses", () => {
+    expect(sql).toContain(`v_free_plan_max_seconds constant integer := ${FREE_TRIAL_DURATION_SECONDS}`);
+    expect(sql).toContain("errcode = 'P0006'");
+    expect(sql).toContain("if old.status <> 'created' then");
+  });
+
+  it("lets the trial claim record both budgets a trial can get", () => {
+    const body = extractConstraintBody(sql, "session_trial_claims_trial_duration_seconds_check");
+
+    expect(new Set(extractNumericListValues(body))).toEqual(
+      new Set([FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS]),
+    );
   });
 });

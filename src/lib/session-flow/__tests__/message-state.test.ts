@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   appendSuccessfulTurn,
   computeClientRemainingSeconds,
+  computeServerClockOffsetMs,
   formatRemainingTime,
   isComposerAvailable,
+  isTerminalSessionKind,
 } from "../message-state";
 import type { SessionView } from "../session-state";
 
@@ -27,27 +29,52 @@ describe("message-state timer helpers", () => {
     expect(formatRemainingTime(null)).toBe("--:--");
   });
 
-  it("disables the composer when pending, expired, hard-stopped, or not active", () => {
+  /*
+   * Serwer powiedział „zostało 600 s”, ale zegar klienta jest przestawiony o
+   * pięć minut do przodu. Bez korekty odliczanie startowałoby od 300 s i
+   * kończyło rozmowę w połowie; z korektą klient liczy tak jak serwer.
+   */
+  it("corrects a client clock that runs ahead of the server", () => {
+    const expiresAt = "2026-06-07T10:15:00.000Z";
+    const serverNowMs = Date.parse("2026-06-07T10:05:00.000Z");
+    const clientNowMs = serverNowMs + 5 * 60 * 1000;
+
+    const offsetMs = computeServerClockOffsetMs(expiresAt, 600, clientNowMs);
+
+    expect(offsetMs).toBe(-5 * 60 * 1000);
+    expect(computeClientRemainingSeconds(expiresAt, clientNowMs)).toBe(300);
+    expect(computeClientRemainingSeconds(expiresAt, clientNowMs + offsetMs)).toBe(600);
+    // Minutę później klient nadal liczy zegarem serwera.
+    expect(computeClientRemainingSeconds(expiresAt, clientNowMs + 60_000 + offsetMs)).toBe(540);
+  });
+
+  it("corrects a client clock that runs behind the server", () => {
+    const expiresAt = "2026-06-07T10:15:00.000Z";
+    const serverNowMs = Date.parse("2026-06-07T10:14:00.000Z");
+    const clientNowMs = serverNowMs - 10 * 60 * 1000;
+
+    const offsetMs = computeServerClockOffsetMs(expiresAt, 60, clientNowMs);
+
+    expect(computeClientRemainingSeconds(expiresAt, clientNowMs + offsetMs)).toBe(60);
+  });
+
+  it("falls back to no offset without server data", () => {
+    expect(computeServerClockOffsetMs(null, 600, 0)).toBe(0);
+    expect(computeServerClockOffsetMs("2026-06-07T10:15:00.000Z", null, 0)).toBe(0);
+    expect(computeServerClockOffsetMs("not-a-date", 600, 0)).toBe(0);
+  });
+
+  it("keeps the composer open during a pending turn and closes it when the session is over", () => {
     expect(
       isComposerAvailable({
         session: activeSession,
-        isPending: false,
         isHardStopped: false,
         isClientExpired: false,
       }),
     ).toBe(true);
     expect(
       isComposerAvailable({
-        session: activeSession,
-        isPending: true,
-        isHardStopped: false,
-        isClientExpired: false,
-      }),
-    ).toBe(false);
-    expect(
-      isComposerAvailable({
         session: { ...activeSession, remainingSeconds: 0 },
-        isPending: false,
         isHardStopped: false,
         isClientExpired: false,
       }),
@@ -55,11 +82,39 @@ describe("message-state timer helpers", () => {
     expect(
       isComposerAvailable({
         session: { ...activeSession, status: "expired" },
-        isPending: false,
         isHardStopped: false,
         isClientExpired: false,
       }),
     ).toBe(false);
+    expect(
+      isComposerAvailable({
+        session: activeSession,
+        isHardStopped: true,
+        isClientExpired: false,
+      }),
+    ).toBe(false);
+    expect(
+      isComposerAvailable({
+        session: activeSession,
+        isHardStopped: false,
+        isClientExpired: true,
+      }),
+    ).toBe(false);
+    expect(
+      isComposerAvailable({
+        session: null,
+        isHardStopped: false,
+        isClientExpired: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("names the states a conversation never returns from", () => {
+    expect(isTerminalSessionKind("completed")).toBe(true);
+    expect(isTerminalSessionKind("expired")).toBe(true);
+    expect(isTerminalSessionKind("interrupted")).toBe(true);
+    expect(isTerminalSessionKind("active")).toBe(false);
+    expect(isTerminalSessionKind("ready")).toBe(false);
   });
 
   it("keeps successful turn ordering stable", () => {

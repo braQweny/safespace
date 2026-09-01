@@ -90,7 +90,7 @@ export function getAdminApiFailureStatus(code: AdminApiFailureCode) {
     return 403;
   }
 
-  if (code === "invalid_filter") {
+  if (code === "invalid_filter" || code === "self_target_forbidden") {
     return 400;
   }
 

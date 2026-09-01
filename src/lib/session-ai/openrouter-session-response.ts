@@ -13,8 +13,10 @@ import {
   buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
+  isOpenRouterGpt56LunaModel,
   isOpenRouterOxAlphaModel,
   isOpenRouterGemini37FlashModel,
+  resolveSessionReasoningTimeoutMs,
   supportsOpenRouterTemperature,
 } from "./openrouter-request-params";
 import { buildSessionResponseMessages } from "./session-response-prompt";
@@ -27,7 +29,6 @@ import type {
   SessionResponsePromptMessage,
 } from "./types";
 
-const OPENROUTER_SESSION_TIMEOUT_MS = 12_000;
 const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 800;
 // Gemini Flash thinking models spend hidden reasoning tokens from the same
 // output budget, so they get a larger cap than plain chat models.
@@ -36,14 +37,16 @@ const OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS = 1_600;
 // zużywa więcej niż Gemini Flash. Zapas jest darmowy (model bez opłat), a za mały
 // budżet wraca jako `finish_reason: "length"` i psuje całą odpowiedź.
 const OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
+// Cała rodzina GPT-5.6 Luna rozumuje przed odpowiedzią (domyślnie `medium`,
+// patrz `openrouter-request-params.ts`), więc dostaje ten sam zapas co Ox Alpha.
+const OPENROUTER_GPT_5_6_LUNA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
 // Wymuszony wysoki poziom rozumowania (`OPENROUTER_SESSION_REASONING_EFFORT`)
 // myśli dłużej niż jakikolwiek domyślny profil modelu: ukryte tokeny idą w
 // tysiące, a zbyt ciasny limit wraca jako `finish_reason: "length"` i psuje
-// całą turę. Budżet i timeout rosną razem z poziomem.
+// całą turę. Budżet i timeout (`resolveSessionReasoningTimeoutMs`) rosną razem
+// z poziomem.
 const OPENROUTER_HIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS = 6_000;
 const OPENROUTER_XHIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS = 16_000;
-const OPENROUTER_HIGH_REASONING_SESSION_TIMEOUT_MS = 30_000;
-const OPENROUTER_XHIGH_REASONING_SESSION_TIMEOUT_MS = 60_000;
 const OPENROUTER_SESSION_TEMPERATURE = 0.7;
 
 interface OpenRouterSessionResponseOptions {
@@ -137,6 +140,10 @@ function resolveSessionMaxCompletionTokens(model: string, reasoningEffort?: Open
     return OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS;
   }
 
+  if (isOpenRouterGpt56LunaModel(model)) {
+    return OPENROUTER_GPT_5_6_LUNA_SESSION_MAX_COMPLETION_TOKENS;
+  }
+
   if (isOpenRouterGemini35FlashModel(model) || isOpenRouterGemini37FlashModel(model)) {
     return OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS;
   }
@@ -156,27 +163,15 @@ function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSessionR
 
 function resolveTimeoutMs(timeoutMs: number | undefined, reasoningEffort?: OpenRouterReasoningEffort) {
   if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    return resolveDefaultTimeoutMs(reasoningEffort);
+    return resolveSessionReasoningTimeoutMs(reasoningEffort);
   }
 
   return Math.round(timeoutMs);
 }
 
-function resolveDefaultTimeoutMs(reasoningEffort?: OpenRouterReasoningEffort) {
-  if (reasoningEffort === "xhigh") {
-    return OPENROUTER_XHIGH_REASONING_SESSION_TIMEOUT_MS;
-  }
-
-  if (reasoningEffort === "high") {
-    return OPENROUTER_HIGH_REASONING_SESSION_TIMEOUT_MS;
-  }
-
-  return OPENROUTER_SESSION_TIMEOUT_MS;
-}
-
 function extractAssistantText(responseBody: ChatResult) {
   const choice = extractFirstChoice(responseBody);
-  rejectTruncatedAssistantResponse(choice.finishReason);
+  rejectIncompleteAssistantResponse(choice.finishReason);
 
   const content: unknown = choice.message.content;
 
@@ -193,8 +188,10 @@ function extractAssistantText(responseBody: ChatResult) {
   return assistantText;
 }
 
-function rejectTruncatedAssistantResponse(finishReason: string | null) {
-  if (finishReason === "length") {
+// Mirrors the summary path: a truncated, filtered or tool-call reply is never
+// persisted as if it were a complete assistant turn.
+function rejectIncompleteAssistantResponse(finishReason: string | null) {
+  if (finishReason === "length" || finishReason === "content_filter" || finishReason === "tool_calls") {
     throw new SessionAiError("invalid_provider_response");
   }
 }

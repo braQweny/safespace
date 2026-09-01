@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adminApiFailure,
+  getAdminApiFailureStatus,
   isAdminApiFailure,
   isAdminUserBlockSuccess,
   isAdminUsersSuccess,
@@ -29,5 +30,15 @@ describe("admin api response guards", () => {
     for (const value of nonResponses) {
       expect(isAdminApiFailure(value)).toBe(false);
     }
+  });
+});
+
+describe("admin api failure statuses", () => {
+  it("maps the self-target refusal to a client error, next to invalid input", () => {
+    expect(getAdminApiFailureStatus("self_target_forbidden")).toBe(400);
+    expect(getAdminApiFailureStatus("invalid_filter")).toBe(400);
+    expect(getAdminApiFailureStatus("target_not_found")).toBe(404);
+    expect(getAdminApiFailureStatus("write_failed")).toBe(409);
+    expect(getAdminApiFailureStatus("admin_data_unavailable")).toBe(503);
   });
 });

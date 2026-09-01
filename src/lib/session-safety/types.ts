@@ -48,6 +48,12 @@ export interface SessionSafetyInputMetadata {
 
 export interface SessionSafetyInput {
   currentUserMessage: string;
+  /**
+   * The user's own most recent earlier turns of this session (newest last),
+   * already bounded by the caller. Context only: it lets the classifier notice
+   * gradual escalation instead of judging every message in isolation.
+   */
+  recentUserMessages?: readonly string[];
   metadata?: SessionSafetyInputMetadata;
 }
 

@@ -21,7 +21,6 @@ import {
 import type {
   CreatePendingSessionInput,
   DeletedSessionTombstone,
-  DeleteOwnedSessionInput,
   ListActiveSessionMetadataInput,
   ListOwnedSessionHistoryInput,
   ListSessionMetadataOptions,
@@ -263,39 +262,6 @@ export async function readSafeSessionTombstone(
 
   const tombstone = toDeletedSessionTombstone(session.data);
   return tombstone ? ok(tombstone) : sessionDataError("invalid_lifecycle_transition");
-}
-
-export async function updateSessionTombstone(
-  context: SessionDataContext,
-  input: UpdateSessionTombstoneInput,
-): Promise<SessionDataResult<DeletedSessionTombstone>> {
-  const { data, error } = await context.supabase
-    .from("therapy_sessions")
-    .update({
-      status: "deleted",
-      ended_at: input.endedAt ?? null,
-      deletion_reason_code: input.deletionReasonCode,
-      duration_bucket_seconds: input.durationBucketSeconds ?? null,
-    })
-    .eq("id", input.sessionId)
-    .eq("user_id", context.user.id)
-    .select(SESSION_SELECT)
-    .single();
-
-  if (error) {
-    return sessionDataError(mapSupabaseWriteError(error));
-  }
-
-  const row = coerceSessionRow(data);
-  const tombstone = row ? toDeletedSessionTombstone(mapSession(row)) : null;
-  return tombstone ? ok(tombstone) : sessionDataError("delete_failed");
-}
-
-export async function markOwnedSessionDeleted(
-  context: SessionDataContext,
-  input: DeleteOwnedSessionInput,
-): Promise<SessionDataResult<DeletedSessionTombstone>> {
-  return updateSessionTombstone(context, input);
 }
 
 export async function purgeAndTombstoneOwnedSession(

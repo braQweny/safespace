@@ -257,7 +257,9 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.model).toBe("openai/gpt-5.6-luna-pro:batch");
     expect(request).not.toHaveProperty("temperature");
     expect(request.stream).toBe(false);
-    expect(request.maxCompletionTokens).toBe(800);
+    // Hidden reasoning shares the completion budget, so the plain chat cap
+    // would come back as finish_reason "length".
+    expect(request.maxCompletionTokens).toBe(2_400);
     expect(request).not.toHaveProperty("maxTokens");
     expect(request.reasoning).toEqual({
       effort: "medium",
@@ -265,13 +267,18 @@ describe("buildOpenRouterSessionRequest", () => {
     expect(request.provider.requireParameters).toBe(true);
   });
 
-  it("leaves GPT-5.6 Luna on the provider's own reasoning default without a configured effort", () => {
+  it("pins GPT-5.6 Luna to medium reasoning with room for hidden thinking without a configured effort", () => {
+    // The whole Luna family reasons; leaving the provider's default in place
+    // made the hidden-token budget unpredictable and the 800-token chat cap
+    // truncated replies. The classifier, session and summary paths now agree.
     const request = buildOpenRouterSessionRequest(input, "openai/gpt-5.6-luna");
 
     expect(request.model).toBe("openai/gpt-5.6-luna");
-    expect(request).not.toHaveProperty("reasoning");
+    expect(request.reasoning).toEqual({
+      effort: "medium",
+    });
     expect(request).not.toHaveProperty("temperature");
-    expect(request.maxCompletionTokens).toBe(800);
+    expect(request.maxCompletionTokens).toBe(2_400);
     expect(request).not.toHaveProperty("maxTokens");
   });
 
@@ -432,6 +439,29 @@ describe("generateSessionResponseWithOpenRouter", () => {
       generateSessionResponseWithOpenRouter(input, {
         apiKey: "test-openrouter-key",
         model: "google/gemini-3.1-flash-lite",
+        fetcher: fetcher as unknown as Fetcher,
+      }),
+    ).rejects.toMatchObject({
+      category: "invalid_provider_response",
+    });
+  });
+
+  it("rejects content-filtered responses like the summary path instead of persisting partial text", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve(
+        createJsonResponse(
+          createChatCompletionResponse("Fragment przed odcieciem przez filtr", {
+            model: "openai/gpt-4o-mini",
+            finishReason: "content_filter",
+          }),
+        ),
+      ),
+    );
+
+    await expect(
+      generateSessionResponseWithOpenRouter(input, {
+        apiKey: "test-openrouter-key",
+        model: "openai/gpt-4o-mini",
         fetcher: fetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({

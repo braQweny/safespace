@@ -53,6 +53,35 @@ export function buildFormActionDirective(supabaseUrl) {
   return `form-action ${[...new Set(sources)].join(" ")}`;
 }
 
+/**
+ * Bez `SUPABASE_URL` w czasie budowania `buildFormActionDirective` po prostu
+ * pomija origin Supabase: build przechodzi, a na produkcji przycisk
+ * „Kontynuuj z Google” umiera bez żadnego komunikatu. Produkcyjny build ma się
+ * więc zatrzymać tutaj, z jasnym powodem. `astro dev`, `astro sync` i testy nie
+ * wysyłają CSP, więc dla nich brak zmiennej jest w porządku.
+ *
+ * @param {unknown} supabaseUrl wartość `SUPABASE_URL` z czasu budowania
+ * @param {readonly string[]} argv argumenty procesu (`process.argv`); `build`
+ *   wśród nich oznacza `astro build`
+ * @returns {void}
+ * @throws {Error} gdy to produkcyjny build, a adresu Supabase nie da się rozpoznać
+ */
+export function assertBuildSupabaseOrigin(supabaseUrl, argv) {
+  if (!argv.includes("build")) {
+    return;
+  }
+
+  if (resolveOrigin(supabaseUrl) !== null) {
+    return;
+  }
+
+  throw new Error(
+    "Produkcyjny build wymaga SUPABASE_URL: dyrektywa CSP `form-action` musi zawierać origin projektu Supabase, " +
+      "inaczej logowanie przez Google przestaje działać bez komunikatu. Ustaw SUPABASE_URL w `.env` albo w " +
+      "środowisku procesu (CI ma ją w sekretach builda).",
+  );
+}
+
 const INLINE_SCRIPT_PATTERN = /<script is:inline>([\s\S]*?)<\/script>/g;
 
 /**

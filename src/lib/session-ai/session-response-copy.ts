@@ -34,3 +34,16 @@ const SESSION_AI_FAILURE_COPY = {
 export function getSessionAiFailureCopy(category: SessionAiErrorCategory): SessionAiFailureCopy {
   return SESSION_AI_FAILURE_COPY[category];
 }
+
+/**
+ * The safety boundary (not the reply model) was unavailable for this turn.
+ * Nothing was generated or stored and the session stays open, so the copy has
+ * to promise exactly that: the text is still in the composer, try again.
+ */
+export function getSafetyBoundaryUnavailableCopy(): SessionAiFailureCopy {
+  return {
+    title: "Nie możemy teraz bezpiecznie kontynuować",
+    body: "Sprawdzenie bezpieczeństwa jest chwilowo niedostępne, więc ta wiadomość nie została wysłana ani zapisana. Treść zostaje w polu — spróbuj ponownie za chwilę.",
+    retryLabel: RETRY_LABEL,
+  };
+}

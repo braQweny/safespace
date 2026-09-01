@@ -7,6 +7,8 @@ export const ADMIN_ERROR_CODES = {
   admin_data_unavailable: "admin_data_unavailable",
   target_not_found: "target_not_found",
   invalid_filter: "invalid_filter",
+  /** The admin tried to block/unblock or change the plan of their own account. */
+  self_target_forbidden: "self_target_forbidden",
   write_failed: "write_failed",
 } as const;
 

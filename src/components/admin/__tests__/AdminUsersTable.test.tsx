@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { AdminUsersResponse } from "@/lib/admin/contracts";
-import AdminUsersTable from "../AdminUsersTable";
+import AdminUsersTable, { getAdminUsersErrorMessage } from "../AdminUsersTable";
 
 const usersResponse: AdminUsersResponse = {
   ok: true,
@@ -139,6 +139,29 @@ describe("AdminUsersTable", () => {
     });
 
     expect(errorHtml).toContain("kod: not_admin");
+    expect(errorHtml).toContain("nie ma uprawnień administratora");
     expect(emptyHtml).toContain("Brak użytkowników dla wybranych filtrów");
+  });
+
+  it("explains every failure code in Polish and falls back to a generic line", () => {
+    expect(getAdminUsersErrorMessage("self_target_forbidden")).toBe(
+      "Nie możesz zmienić blokady ani planu własnego konta.",
+    );
+    expect(getAdminUsersErrorMessage("target_not_found")).toContain("Nie znaleziono takiego konta");
+    expect(getAdminUsersErrorMessage("write_failed")).toContain("Nie udało się zapisać zmiany");
+    expect(getAdminUsersErrorMessage("account_blocked")).toBe(
+      "Nie udało się pobrać danych administracyjnych. Spróbuj ponownie za chwilę.",
+    );
+  });
+
+  it("lets the wide table scroll instead of clipping it, and keeps self-actions disabled", () => {
+    const html = renderUsers();
+
+    expect(html).toContain("overflow-x-auto");
+    expect(html).not.toContain("overflow-hidden");
+    // The signed-in admin (admin-1) cannot block or change the plan of their own row.
+    const [, ownRow] = html.split("data-admin-user-row");
+    expect(ownRow).toContain("admin@example.com");
+    expect((ownRow.match(/<button[^>]*disabled=""/g) ?? []).length).toBe(2);
   });
 });

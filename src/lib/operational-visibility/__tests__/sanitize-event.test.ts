@@ -37,6 +37,25 @@ describe("sanitizeOperationalEvent", () => {
     expect(event).not.toHaveProperty("nested");
   });
 
+  it("keeps whole non-negative token counters and still denies anything named like a token", () => {
+    const event = sanitizeOperationalEvent({
+      event: "session.ai_turn_completed",
+      inputUnits: 1200,
+      outputUnits: 340,
+    });
+
+    expect(event).toMatchObject({ inputUnits: 1200, outputUnits: 340 });
+    expect(sanitizeOperationalEvent({ event: "session.ai_turn_completed", inputUnits: -3 })).not.toHaveProperty(
+      "inputUnits",
+    );
+    expect(sanitizeOperationalEvent({ event: "session.ai_turn_completed", outputUnits: 12.5 })).not.toHaveProperty(
+      "outputUnits",
+    );
+    expect(sanitizeOperationalEvent({ event: "session.ai_turn_completed", accessToken: "abc" })).toMatchObject({
+      reasonCode: "private_field_denied",
+    });
+  });
+
   it("marks denied private field names without preserving their values", () => {
     const event = sanitizeOperationalEvent({
       event: "session.safety_evaluated",
@@ -87,5 +106,29 @@ describe("sanitizeOperationalEvent", () => {
     expect(event).toEqual({
       schemaVersion: 1,
     });
+  });
+});
+
+describe("sanitizeOperationalEvent route identifiers", () => {
+  function routeOf(route: string) {
+    return sanitizeOperationalEvent({ event: "route.request_rejected", route }).route;
+  }
+
+  it("masks uuid path segments so session and account ids never reach the logs", () => {
+    expect(routeOf("/api/session/summary/123e4567-e89b-42d3-a456-426614174000")).toBe("/api/session/summary/:id");
+    expect(routeOf("/api/session/history/123E4567-E89B-42D3-A456-426614174000")).toBe("/api/session/history/:id");
+    expect(routeOf("/api/admin/users/123e4567-e89b-42d3-a456-426614174000/block")).toBe("/api/admin/users/:id/block");
+  });
+
+  it("masks long hex and base64url segments (tokens, opaque ids)", () => {
+    expect(routeOf("/auth/callback/9f86d081884c7d659a2feaa0c55ad015")).toBe("/auth/callback/:id");
+    expect(routeOf("/x/AbC123_-xyz789QWErty0")).toBe("/x/:id");
+  });
+
+  it("keeps static route names intact, including the longest ones and query stripping", () => {
+    expect(routeOf("/api/auth/resend-confirmation?next=/dashboard")).toBe("/api/auth/resend-confirmation");
+    expect(routeOf("/api/session/start-next")).toBe("/api/session/start-next");
+    expect(routeOf("/dashboard/session")).toBe("/dashboard/session");
+    expect(routeOf("/")).toBe("/");
   });
 });

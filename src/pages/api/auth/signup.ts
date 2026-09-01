@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { mapSignUpError } from "@/lib/auth-errors";
-import { createAuthRoute } from "@/lib/auth-route";
+import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { getAuthCallbackUrl, getSafeAuthRedirect } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, MIN_PASSWORD_LENGTH, getFormString } from "@/lib/auth-validation";
 
@@ -8,7 +8,7 @@ export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
   const route = await createAuthRoute(context, "auth.signup");
-  const form = await context.request.formData();
+  const form = await readFormData(context.request);
   const email = getFormString(form, "email");
   const password = getFormString(form, "password", false);
   const confirmPassword = getFormString(form, "confirmPassword", false);

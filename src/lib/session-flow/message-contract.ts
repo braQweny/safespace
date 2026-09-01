@@ -3,6 +3,7 @@ import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import type { SessionMessageRole } from "@/lib/session-data/types";
+import { parseSessionIdParam } from "./session-id";
 import type { SessionView } from "./session-state";
 import { isRecord } from "@/lib/type-guards";
 
@@ -110,7 +111,9 @@ export async function parseSendSessionMessageRequest(request: Request) {
     return null;
   }
 
-  const sessionId = normalizeString(body.sessionId);
+  // Same shape check every other session route applies to its path param: a
+  // malformed id is a 400 here instead of a Postgres cast error downstream.
+  const sessionId = parseSessionIdParam(typeof body.sessionId === "string" ? body.sessionId : undefined);
   const message = normalizeString(body.message);
 
   if (!sessionId || !message || message.length > SESSION_MESSAGE_MAX_CHARS) {

@@ -84,11 +84,21 @@ export type SessionTimeLimitReachedEventMetadata = SessionEventBaseMetadata;
 
 export type SessionCompletedEventMetadata = SessionEventBaseMetadata;
 
+export interface SessionAiTurnCompletedEventMetadata extends SessionEventBaseMetadata {
+  provider?: SessionAiProvider;
+  inputUnits?: number;
+  outputUnits?: number;
+}
+
+export type SessionTranscriptionFailedEventMetadata = SessionProviderFailedEventMetadata;
+
 type SessionEventName = Extract<
   OperationalEvent["event"],
   | "session.start_attempted"
   | "session.safety_evaluated"
   | "session.ai_provider_failed"
+  | "session.ai_turn_completed"
+  | "session.transcription_failed"
   | "session.time_limit_reached"
   | "session.completed"
   | "session.opening_failed"
@@ -112,6 +122,14 @@ function sanitizeShortString(value: unknown) {
 
   const trimmed = value.trim();
   return trimmed.length > 0 && trimmed.length <= 96 ? trimmed : undefined;
+}
+
+function sanitizeUnitCount(value: unknown) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    return undefined;
+  }
+
+  return value;
 }
 
 function sanitizeDurationMs(value: unknown) {
@@ -266,6 +284,48 @@ export function buildSessionAiProviderFailedEvent(metadata: SessionProviderFaile
 
   return {
     ...buildSessionEvent("session.ai_provider_failed", "error", {
+      requestId: metadata.requestId,
+      outcome: metadata.outcome ?? "failure",
+      durationMs: metadata.durationMs,
+      userHash: metadata.userHash,
+    }),
+    provider,
+    reasonCode,
+  };
+}
+
+/**
+ * One successful reply turn. The only place cost becomes visible: the
+ * provider's token counts, never the text they were spent on.
+ */
+export function buildSessionAiTurnCompletedEvent(metadata: SessionAiTurnCompletedEventMetadata = {}): OperationalEvent {
+  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
+  const inputUnits = sanitizeUnitCount(metadata.inputUnits);
+  const outputUnits = sanitizeUnitCount(metadata.outputUnits);
+
+  return {
+    ...buildSessionEvent("session.ai_turn_completed", "info", {
+      requestId: metadata.requestId,
+      outcome: metadata.outcome ?? "success",
+      durationMs: metadata.durationMs,
+      userHash: metadata.userHash,
+    }),
+    provider,
+    ...(inputUnits !== undefined ? { inputUnits } : {}),
+    ...(outputUnits !== undefined ? { outputUnits } : {}),
+  };
+}
+
+export function buildSessionTranscriptionFailedEvent(
+  metadata: SessionTranscriptionFailedEventMetadata,
+): OperationalEvent {
+  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
+  const reasonCode = hasAllowedValue(SESSION_PROVIDER_FAILURE_REASON_CODES, metadata.reasonCode)
+    ? metadata.reasonCode
+    : "provider_unavailable";
+
+  return {
+    ...buildSessionEvent("session.transcription_failed", "warn", {
       requestId: metadata.requestId,
       outcome: metadata.outcome ?? "failure",
       durationMs: metadata.durationMs,

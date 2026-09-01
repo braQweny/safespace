@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
-import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import type {
   SessionHistoryFailureCode,
   SessionHistoryListResponse,
@@ -24,8 +23,6 @@ interface AvatarSessionHistoryProps {
   page: number;
   onPageChange: (page: number) => void;
   initialHistory?: SessionHistoryListResponse | null;
-  initialDetail?: SessionHistoryDetail | null;
-  initialConfirmSessionId?: string | null;
   /** Session to open on mount, so a link from a finished session lands on its summary. */
   autoOpenSessionId?: string | null;
   /** Sterowanie zakresem listy (np. przełącznik perspektywy) renderowane w nagłówku sekcji. */
@@ -53,8 +50,6 @@ export default function AvatarSessionHistory({
   page,
   onPageChange,
   initialHistory = null,
-  initialDetail = null,
-  initialConfirmSessionId = null,
   autoOpenSessionId = null,
   controls = null,
   contextNotice = null,
@@ -74,11 +69,13 @@ export default function AvatarSessionHistory({
     initialHistory,
   });
 
+  // Podgląd i podsumowanie zaczynają puste: rozmowę otwiera się świadomie z
+  // listy (albo z linku po zakończonej sesji przez `autoOpenSessionId`), więc
+  // serwer nigdy nie wkłada treści rozmowy w pierwszy render tej sekcji.
   const { summaryState, summaryStatus, summaryErrorCode, generateSummary, approveSummary, syncSummary, resetSummary } =
-    useSessionSummary(initialDetail?.summary ?? null);
+    useSessionSummary();
 
   const { detail, detailStatus, openDetail, clearDetail } = useSessionHistoryDetail({
-    initialDetail,
     onDetailLoaded: (loadedDetail) => {
       syncSummary(loadedDetail.summary);
     },
@@ -89,7 +86,6 @@ export default function AvatarSessionHistory({
   });
 
   const { pendingDeleteId, deletingId, requestDelete, cancelDelete, confirmDelete } = useSessionDeletion({
-    initialConfirmSessionId,
     onDeleted: async (sessionId) => {
       setNotice("Zapis rozmowy został usunięty.");
       removeHistoryItem(sessionId);

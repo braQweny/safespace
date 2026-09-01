@@ -157,7 +157,15 @@ const activeSessionHref = activeSession
     }
 
     for (const menu of menus) {
+      if (!menu.open) {
+        continue;
+      }
+
       menu.open = false;
+      // Zamknięte menu zabiera ze sobą element, na którym stał fokus — bez
+      // tego ląduje on na <body> i klawiatura zaczyna od początku strony.
+      // Wraca więc na przycisk, który menu otworzył.
+      menu.querySelector<HTMLElement>("summary")?.focus();
     }
   });
 

@@ -49,7 +49,7 @@ export const MVP_MODALITIES = [
       "Summarize through a psychodynamic lens: recurring emotional themes, ambivalence, relational patterns, and what seemed hard to say.",
       "Stay descriptive — no interpretations, causes, or claims about the user's past.",
     ].join(" "),
-    assetPath: "/avatars/psychodynamic-listener.png",
+    assetPath: "/avatars/psychodynamic-listener.webp",
     altText: "Ilustracyjny portret neutralnej awatarki Leny na spokojnym tle",
   },
   {
@@ -101,7 +101,7 @@ export const MVP_MODALITIES = [
       "Summarize through a cognitive-behavioral lens: the concrete situations discussed, the thoughts and interpretations that showed up, the emotions and reactions tied to them, and any small observation the user considered.",
       "Describe what was said — do not evaluate the thoughts or prescribe next steps.",
     ].join(" "),
-    assetPath: "/avatars/cbt-guide.png",
+    assetPath: "/avatars/cbt-guide.webp",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
   {
@@ -155,7 +155,7 @@ export const MVP_MODALITIES = [
       "Summarize through a humanistic, experiential lens: what the user felt and sensed, what mattered to them, and any needs or values they named.",
       "Stay in the user's own words — no analysis, causes, or conclusions about what their experience means.",
     ].join(" "),
-    assetPath: "/avatars/experiential-companion.png",
+    assetPath: "/avatars/experiential-companion.webp",
     altText: "Ilustracyjny portret neutralnej awatarki Nadii w ciepłych kolorach",
   },
   {
@@ -208,7 +208,7 @@ export const MVP_MODALITIES = [
       "Summarize through a systemic lens: the relationships and situations discussed, the interaction patterns the user described, the roles and expectations that came up.",
       "Attribute every statement about other people to the user's account — never as fact, diagnosis, or judgment about them.",
     ].join(" "),
-    assetPath: "/avatars/systemic-connector.png",
+    assetPath: "/avatars/systemic-connector.webp",
     altText: "Ilustracyjny portret neutralnego awatara Olka z motywem połączonych kształtów",
   },
   {
@@ -261,7 +261,7 @@ export const MVP_MODALITIES = [
       "Summarize through an integrative lens: the main thread of the conversation, which angle turned out most useful (emotions, thoughts, relationships, body, meaning, or practical matters), and what remained open.",
       "Describe the conversation — do not add recommendations.",
     ].join(" "),
-    assetPath: "/avatars/integrative-guide.png",
+    assetPath: "/avatars/integrative-guide.webp",
     altText: "Ilustracyjny portret neutralnej awatarki Igi z prostymi geometrycznymi detalami",
   },
 ] as const;

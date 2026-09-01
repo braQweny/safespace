@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type Ref } from "react";
 import { Phone, X } from "lucide-react";
 import { CRISIS_RESOURCE_REGIONS } from "@/lib/session-safety/crisis-resources";
 import { CrisisContactList } from "./crisis-contact";
@@ -16,11 +16,14 @@ import { CrisisContactList } from "./crisis-contact";
 interface CrisisHelpTriggerProps {
   isOpen: boolean;
   onToggle: () => void;
+  /** Panel po zamknięciu oddaje fokus temu przyciskowi. */
+  ref?: Ref<HTMLButtonElement>;
 }
 
-export function CrisisHelpTrigger({ isOpen, onToggle }: CrisisHelpTriggerProps) {
+export function CrisisHelpTrigger({ isOpen, onToggle, ref }: CrisisHelpTriggerProps) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onToggle}
       aria-expanded={isOpen}

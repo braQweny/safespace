@@ -1,4 +1,10 @@
 import type { APIRoute } from "astro";
+import { logOperationalEvent } from "@/lib/operational-visibility/logger";
+import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
+import {
+  buildSessionTranscriptionFailedEvent,
+  type SessionProviderFailureReasonCode,
+} from "@/lib/operational-visibility/session-events";
 import { SessionTranscriptionError } from "@/lib/session-transcription/errors";
 import { transcribeSessionAudio } from "@/lib/session-transcription/provider";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
@@ -54,6 +60,16 @@ function getFailureStatus(code: SessionTranscriptionFailureCode) {
   return 503;
 }
 
+// Provider failures are the only thing worth an operational trace here; the
+// audio itself is conversation content and never reaches a log.
+function toProviderFailureReasonCode(error: unknown): SessionProviderFailureReasonCode {
+  if (error instanceof SessionTranscriptionError) {
+    return error.category;
+  }
+
+  return "provider_unavailable";
+}
+
 function toTranscriptionFailureCode(error: unknown): SessionTranscriptionFailureCode {
   if (!(error instanceof SessionTranscriptionError)) {
     return "provider_unavailable";
@@ -67,6 +83,8 @@ function toTranscriptionFailureCode(error: unknown): SessionTranscriptionFailure
 }
 
 export const POST: APIRoute = async (context) => {
+  const startedAtMs = performance.now();
+  const operationalContext = await buildOperationalRequestContext(context);
   const sessionContext = await requireSessionRouteAccess(context);
 
   if (!sessionContext.ok) {
@@ -108,7 +126,20 @@ export const POST: APIRoute = async (context) => {
     return jsonResponse(sessionTranscriptionSuccess(transcription.text), 200);
   } catch (error) {
     const code = toTranscriptionFailureCode(error);
+    const status = getFailureStatus(code);
 
-    return jsonResponse(sessionTranscriptionFailure(code), getFailureStatus(code));
+    logOperationalEvent(
+      {
+        ...buildSessionTranscriptionFailedEvent({
+          provider: "openrouter",
+          reasonCode: toProviderFailureReasonCode(error),
+          durationMs: getOperationalDurationMs(startedAtMs),
+        }),
+        status,
+      },
+      operationalContext,
+    );
+
+    return jsonResponse(sessionTranscriptionFailure(code), status);
   }
 };

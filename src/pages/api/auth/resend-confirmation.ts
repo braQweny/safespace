@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { mapResendConfirmationError } from "@/lib/auth-errors";
-import { createAuthRoute } from "@/lib/auth-route";
+import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, getFormString } from "@/lib/auth-validation";
 
@@ -15,7 +15,7 @@ const RESENT_PATH = `${CONFIRM_EMAIL_PATH}?resent=1`;
 
 export const POST: APIRoute = async (context) => {
   const route = await createAuthRoute(context, "auth.resend_confirmation");
-  const form = await context.request.formData();
+  const form = await readFormData(context.request);
   const email = getFormString(form, "email");
 
   if (!EMAIL_PATTERN.test(email)) {

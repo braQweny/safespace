@@ -55,7 +55,7 @@ const listResponse = {
     avatarId: "cbt-guide",
     modalityName: "Podejście poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
-    assetPath: "/avatars/cbt-guide.png",
+    assetPath: "/avatars/cbt-guide.webp",
     altText: "Awatar Marka",
   },
   items: [

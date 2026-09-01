@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
+import { SESSION_TURN_COPY } from "@/lib/session-copy";
 import SessionMessages from "../SessionMessages";
 
 const assistantAvatar: SelectedModalityAvatar = {
@@ -8,8 +9,16 @@ const assistantAvatar: SelectedModalityAvatar = {
   avatarId: "cbt-guide",
   modalityName: "Podejście poznawczo-behawioralne",
   avatarName: "Marek, praktyczny przewodnik",
-  assetPath: "/avatars/cbt-guide.png",
+  assetPath: "/avatars/cbt-guide.webp",
   altText: "Awatar Marka",
+};
+
+const assistantMessage = {
+  id: "message-1",
+  role: "assistant" as const,
+  sequenceIndex: 1,
+  content: "Od czego chcesz zacząć?",
+  createdAt: "2026-06-07T10:00:00.000Z",
 };
 
 describe("SessionMessages", () => {
@@ -63,5 +72,45 @@ describe("SessionMessages", () => {
     expect(html).not.toContain("Odpowiedź trwa");
     expect(html).not.toContain("niestreamingową odpowiedź");
     expect(html).not.toContain("granic bezpieczeństwa");
+  });
+
+  it("adds a calm note once the response is taking longer than usual", () => {
+    const html = renderToStaticMarkup(
+      <SessionMessages assistantAvatar={assistantAvatar} isPending isResponseSlow messages={[]} />,
+    );
+
+    expect(html).toContain("Marek myśli");
+    expect(html).toContain(
+      `role="status" aria-live="polite" class="text-ink-muted text-xs">${SESSION_TURN_COPY.slowResponse}`,
+    );
+  });
+
+  it("drops the slow note together with the pending state", () => {
+    const html = renderToStaticMarkup(
+      <SessionMessages assistantAvatar={assistantAvatar} isPending={false} isResponseSlow messages={[]} />,
+    );
+
+    expect(html).not.toContain(SESSION_TURN_COPY.slowResponse);
+  });
+
+  /*
+   * Tylko trwająca rozmowa jest dziennikiem na żywo. Podgląd historii to
+   * statyczny zapis — `aria-live` kazałby czytnikowi ekranu odczytać całą
+   * rozmowę przy każdym otwarciu.
+   */
+  it("announces new messages only in the live conversation", () => {
+    const live = renderToStaticMarkup(
+      <SessionMessages variant="live" assistantAvatar={assistantAvatar} messages={[assistantMessage]} />,
+    );
+    const preview = renderToStaticMarkup(
+      <SessionMessages assistantAvatar={assistantAvatar} messages={[assistantMessage]} />,
+    );
+
+    expect(live).toContain('role="log"');
+    expect(live).toContain('aria-live="polite"');
+    expect(live).toContain('aria-label="Przebieg rozmowy"');
+    expect(preview).not.toContain('role="log"');
+    expect(preview).not.toContain("aria-live");
+    expect(preview).toContain("Od czego chcesz zacząć?");
   });
 });

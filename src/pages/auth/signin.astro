@@ -50,7 +50,7 @@ if (shouldRedirectToDashboard) {
               <span class="bg-line h-px flex-1" />
             </div>
 
-            <SignInForm serverError={error} client:load />
+            <SignInForm serverError={error} client:idle />
 
             <p class="text-ink-muted mt-4 text-center text-sm">
               <a href="/auth/forgot-password" class="text-brand font-medium hover:underline">

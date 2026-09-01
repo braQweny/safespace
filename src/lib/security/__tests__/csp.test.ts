@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildFormActionDirective, collectInlineScriptHashes, GOOGLE_AUTH_ORIGIN } from "@/lib/security/csp.mjs";
+import {
+  assertBuildSupabaseOrigin,
+  buildFormActionDirective,
+  collectInlineScriptHashes,
+  GOOGLE_AUTH_ORIGIN,
+} from "@/lib/security/csp.mjs";
 
 const LAYOUT_PATH = new URL("../../../layouts/Layout.astro", import.meta.url);
 
@@ -28,6 +33,35 @@ describe("buildFormActionDirective", () => {
       const directive = buildFormActionDirective(value);
 
       expect(directive).toBe(`form-action 'self' ${GOOGLE_AUTH_ORIGIN}`);
+    }
+  });
+});
+
+describe("assertBuildSupabaseOrigin", () => {
+  const buildArgv = ["/usr/bin/node", "/repo/node_modules/.bin/astro", "build"];
+
+  it("zatrzymuje produkcyjny build bez rozpoznawalnego SUPABASE_URL", () => {
+    for (const value of ["", "   ", "nie-adres", undefined, null, 42]) {
+      expect(() => {
+        assertBuildSupabaseOrigin(value, buildArgv);
+      }).toThrow(/SUPABASE_URL/);
+    }
+  });
+
+  it("przepuszcza produkcyjny build z adresem projektu", () => {
+    expect(() => {
+      assertBuildSupabaseOrigin("https://przyklad.supabase.co", buildArgv);
+    }).not.toThrow();
+    expect(() => {
+      assertBuildSupabaseOrigin("http://127.0.0.1:54321", buildArgv);
+    }).not.toThrow();
+  });
+
+  it("nie blokuje dev, sync ani preview — te nie wysyłają CSP", () => {
+    for (const command of ["dev", "sync", "preview", "check"]) {
+      expect(() => {
+        assertBuildSupabaseOrigin(undefined, ["/usr/bin/node", "/repo/astro", command]);
+      }).not.toThrow();
     }
   });
 });

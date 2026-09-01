@@ -7,7 +7,11 @@ import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import cloudflare from "@astrojs/cloudflare";
 import { loadEnv } from "vite";
-import { buildFormActionDirective, collectInlineScriptHashes } from "./src/lib/security/csp.mjs";
+import {
+  assertBuildSupabaseOrigin,
+  buildFormActionDirective,
+  collectInlineScriptHashes,
+} from "./src/lib/security/csp.mjs";
 
 // Finalna domena nie jest jeszcze wybrana (context/deployment/deploy-plan.md),
 // a `@astrojs/sitemap` bez `site` po cichu nic nie generuje i tylko zgłasza
@@ -20,6 +24,12 @@ const siteUrl = configuredSiteUrl && configuredSiteUrl.length > 0 ? configuredSi
 // znany wtedy. `loadEnv` z pustym prefiksem czyta i `.env` (praca lokalna),
 // i zmienne procesu (CI ma `SUPABASE_URL` w sekretach builda).
 const buildEnv = loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), "");
+
+// Bez adresu dyrektywa po cichu wypadłaby bez originu Supabase i logowanie
+// przez Google umarłoby dopiero na produkcji — produkcyjny build zatrzymuje się
+// tu z jasnym komunikatem. Dev, sync i testy nie wysyłają CSP, więc ich to nie
+// dotyczy.
+assertBuildSupabaseOrigin(buildEnv.SUPABASE_URL, process.argv);
 const formActionDirective = buildFormActionDirective(buildEnv.SUPABASE_URL);
 
 // Skrypt ustawiający motyw jest wstawiony wprost w `Layout.astro` (`is:inline`),

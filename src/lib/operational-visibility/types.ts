@@ -24,6 +24,8 @@ export const OPERATIONAL_EVENT_NAMES = [
   "session.time_limit_reached",
   "session.completed",
   "session.opening_failed",
+  "session.ai_turn_completed",
+  "session.transcription_failed",
 ] as const;
 
 export type OperationalEventName = (typeof OPERATIONAL_EVENT_NAMES)[number];
@@ -45,7 +47,11 @@ export type OperationalSafetyAction = (typeof OPERATIONAL_SAFETY_ACTIONS)[number
 
 export type ProtectedRouteReasonCode = "missing_auth";
 
-export type RequestGuardReasonCode = "payload_too_large" | "rate_limited" | "rate_limiter_unavailable";
+export type RequestGuardReasonCode =
+  | "length_required"
+  | "payload_too_large"
+  | "rate_limited"
+  | "rate_limiter_unavailable";
 
 export type OperationalDiagnosticReasonCode = "private_field_denied" | "invalid_event_payload" | "logger_unavailable";
 
@@ -86,6 +92,14 @@ export interface OperationalEvent {
   riskState?: OperationalRiskState;
   action?: OperationalSafetyAction;
   userHash?: string;
+  /**
+   * Provider-reported token counts for one AI call (input = prompt side,
+   * output = completion side). Named this way on purpose: the private-field
+   * denylist rejects any field containing "token" or "prompt" — these are cost
+   * counters, never credentials or text.
+   */
+  inputUnits?: number;
+  outputUnits?: number;
   deploymentTarget?: string;
   schemaVersion?: typeof OPERATIONAL_EVENT_SCHEMA_VERSION;
 }

@@ -11,7 +11,7 @@ import { SESSION_AI_ERROR_CATEGORIES } from "../session-ai/errors";
 import { getSessionAiFailureCopy } from "../session-ai/session-response-copy";
 import { CRISIS_RESOURCE_CATALOG } from "../session-safety/crisis-resources";
 import { getCrisisSafetyCopy, getSafetyUnavailableCopy } from "../session-safety/safety-copy";
-import { SESSION_BOUNDARIES_COPY, SESSION_PERSPECTIVE_COPY } from "../session-copy";
+import { DICTATION_COPY, SESSION_BOUNDARIES_COPY, SESSION_PERSPECTIVE_COPY, SESSION_TURN_COPY } from "../session-copy";
 
 // Polish words that cannot be spelled without a diacritic. A match means the
 // copy was written with ASCII substitutes ("sie" for "się", "haslo" for "hasło").
@@ -104,6 +104,15 @@ describe("Polish user-facing copy", () => {
   it("spells the shared session boundary copy with diacritics", () => {
     expectProperPolish("sessionBoundaries", SESSION_BOUNDARIES_COPY);
     expectProperPolish("sessionPerspective", SESSION_PERSPECTIVE_COPY);
+  });
+
+  it("spells the turn and dictation copy with diacritics", () => {
+    for (const [label, value] of [
+      ...collectStrings("sessionTurn", SESSION_TURN_COPY),
+      ...collectStrings("dictation", DICTATION_COPY),
+    ]) {
+      expectProperPolish(label, value);
+    }
   });
 
   it("spells auth and avatar error copy with diacritics", () => {

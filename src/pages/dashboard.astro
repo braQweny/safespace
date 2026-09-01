@@ -17,7 +17,11 @@ import { readSessionQuota } from "@/lib/session-data/quota";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
 import { SESSION_BOUNDARIES_COPY } from "@/lib/session-copy";
-import { readActiveSessionBadge, toActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+import {
+  readActiveSessionBadge,
+  toActiveSessionBadge,
+  type ActiveSessionBadge,
+} from "@/lib/session-flow/active-session-badge";
 import { readCurrentAvatarChoice, type CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { parseSessionHistoryPage, readSessionHistoryList } from "@/lib/session-flow/session-history";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
@@ -33,7 +37,11 @@ const viewedModality = getModalityByAvatarId(Astro.url.searchParams.get("history
 const viewedAvatar = viewedModality ? toSelectedModalityAvatar(viewedModality) : null;
 const queryPage = parseSessionHistoryPage(Astro.url.searchParams.get("page"));
 const initialHistoryPage = queryPage.ok ? queryPage.page : 1;
-const operationalContext = await buildOperationalRequestContext(Astro);
+// Link z zakończonej rozmowy prowadzi tu z `?session=`, a historia ma tę
+// rozmowę sama otworzyć. Wtedy wyspa nie może czekać, aż ktoś do niej
+// przewinie (na telefonie stoi pod kartą startu) — hydratuje się od razu.
+// Bez takiego linku wystarczy hydratacja, gdy sekcja wejdzie w kadr.
+const requestsHistorySession = (Astro.url.searchParams.get("session") ?? "").length > 0;
 const sessionContext = getSessionDataContext(Astro);
 
 let currentAvatarChoice: CurrentAvatarChoice | null = null;
@@ -47,9 +55,16 @@ let initialHistory: SessionHistoryListResponse | null = queryPage.ok
     };
 let choiceFetchFailed = false;
 
-if (sessionContext.ok) {
-  const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
+// Kontekst logów (hash użytkownika) i zapisana perspektywa nie zależą od
+// siebie, więc idą równolegle zamiast jedno po drugim.
+const [operationalContext, avatarChoice] = await Promise.all([
+  buildOperationalRequestContext(Astro),
+  sessionContext.ok ? readCurrentAvatarChoice(sessionContext.data) : null,
+]);
 
+if (!sessionContext.ok) {
+  choiceFetchFailed = sessionContext.error.code !== "missing_auth";
+} else if (avatarChoice) {
   if (avatarChoice.ok) {
     currentAvatarChoice = avatarChoice.data;
     currentSelection = avatarChoice.data.selected;
@@ -88,18 +103,9 @@ if (sessionContext.ok) {
       operationalContext,
     );
   }
-} else {
-  choiceFetchFailed = sessionContext.error.code !== "missing_auth";
 }
 
 const historyAvatar = viewedAvatar ?? currentSelection;
-
-if (!initialHistory && sessionContext.ok && historyAvatar) {
-  initialHistory = await readSessionHistoryList(sessionContext.data, {
-    avatar: historyAvatar.avatarId,
-    page: String(initialHistoryPage),
-  });
-}
 
 // Rozmowa zaczyna się tutaj, więc panel czyta ten sam stan startu, z którego
 // wcześniej korzystał osobny ekran wstępny. Wiadomości zostają na stronie
@@ -110,29 +116,52 @@ let startStateFailed = false;
 // więc na tej ścieżce quota jest czytana osobno — stan startu wymaga zapisanej
 // perspektywy, a ta jeszcze nie istnieje.
 let firstStepsQuota: SessionQuota | null = null;
+// Rozmowa w toku z dowolną perspektywą — dla nagłówka i bloku obok karty.
+let anyOwnedActiveSession: ActiveSessionBadge | null = null;
 
-if (sessionContext.ok && !currentAvatarChoice) {
-  const quota = await readSessionQuota(sessionContext.data);
+if (sessionContext.ok) {
+  // Po poznaniu perspektywy żaden z tych odczytów nie zależy od pozostałych,
+  // więc zamiast czterech rund do bazy po kolei jest jedna. Znaczek rozmowy w
+  // toku jest czytany zawsze: gdy stan startu sam ją niesie, wynik i tak
+  // zostanie nadpisany, ale czekanie na ten stan kosztowałoby osobną rundę.
+  const [historyResult, quotaResult, startStateResult, activeBadge] = await Promise.all([
+    !initialHistory && historyAvatar
+      ? readSessionHistoryList(sessionContext.data, {
+          avatar: historyAvatar.avatarId,
+          page: String(initialHistoryPage),
+        })
+      : null,
+    currentAvatarChoice ? null : readSessionQuota(sessionContext.data),
+    currentAvatarChoice
+      ? readSessionStartPageState(sessionContext.data, {
+          avatar: currentAvatarChoice,
+          includeMessagesForActive: false,
+        })
+      : null,
+    readActiveSessionBadge(sessionContext.data),
+  ]);
 
-  firstStepsQuota = quota.ok ? quota.data : null;
-}
+  if (historyResult) {
+    initialHistory = historyResult;
+  }
 
-if (sessionContext.ok && currentAvatarChoice) {
-  const state = await readSessionStartPageState(sessionContext.data, {
-    avatar: currentAvatarChoice,
-    includeMessagesForActive: false,
-  });
+  if (quotaResult) {
+    firstStepsQuota = quotaResult.ok ? quotaResult.data : null;
+  }
 
-  startPageState = state.ok ? state.data : null;
-  startStateFailed = !state.ok;
+  if (startStateResult) {
+    startPageState = startStateResult.ok ? startStateResult.data : null;
+    startStateFailed = !startStateResult.ok;
+  }
+
+  anyOwnedActiveSession = activeBadge;
 }
 
 // Rozmowa w toku z zapisaną perspektywą blokuje kartę startu. Rozmowa w toku
 // z inną perspektywą (użytkownik zmienił awatara w trakcie) nie może zniknąć z
 // nagłówka i panelu — inaczej nie byłoby dokąd wrócić.
 const activeSession = startPageState?.kind === "active" ? toActiveSessionBadge(startPageState.session) : null;
-const anyActiveSession =
-  activeSession ?? (sessionContext.ok ? await readActiveSessionBadge(sessionContext.data) : null);
+const anyActiveSession = activeSession ?? anyOwnedActiveSession;
 const otherPerspectiveSession =
   !activeSession && anyActiveSession && anyActiveSession.avatarId !== currentSelection?.avatarId
     ? anyActiveSession
@@ -161,6 +190,18 @@ const currentTint = currentSelection ? getPerspectiveTint(currentSelection.modal
 const panelGridClass = currentSelection
   ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-[auto_1fr]"
   : "lg:grid-cols-[minmax(0,1fr)_360px]";
+// Jeden zestaw propsów dla obu wariantów hydratacji historii (patrz
+// `requestsHistorySession`), żeby nie rozjechały się przy edycji.
+const historyProps = currentSelection
+  ? {
+      className: "mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-3",
+      selectedAvatar: currentSelection,
+      initialViewedAvatarId: viewedAvatar?.avatarId ?? null,
+      modalities: MVP_MODALITIES,
+      initialHistoryPage,
+      initialHistory,
+    }
+  : null;
 ---
 
 <Layout title="Panel - SafeSpace" lang="pl">
@@ -202,10 +243,11 @@ const panelGridClass = currentSelection
                     <img
                       src={currentSelection.assetPath}
                       alt={currentSelection.altText}
-                      width="384"
-                      height="384"
+                      width="256"
+                      height="256"
                       class="aspect-square w-28 shrink-0 rounded-2xl object-cover sm:w-32"
-                      loading="lazy"
+                      loading="eager"
+                      decoding="async"
                     />
                     <div class="min-w-0">
                       <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">
@@ -293,9 +335,10 @@ const panelGridClass = currentSelection
                         <img
                           src={modality.assetPath}
                           alt=""
-                          width="384"
-                          height="384"
+                          width="256"
+                          height="256"
                           loading="lazy"
+                          decoding="async"
                           class="h-14 w-14 rounded-full object-cover"
                         />
                         <span class="text-ink-muted text-[13px] leading-4">{modality.avatarName.split(",")[0]}</span>
@@ -401,16 +444,12 @@ const panelGridClass = currentSelection
           </aside>
 
           {
-            currentSelection ? (
-              <DashboardSessionHistory
-                client:load
-                className="mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-3"
-                selectedAvatar={currentSelection}
-                initialViewedAvatarId={viewedAvatar?.avatarId ?? null}
-                modalities={MVP_MODALITIES}
-                initialHistoryPage={initialHistoryPage}
-                initialHistory={initialHistory}
-              />
+            historyProps ? (
+              requestsHistorySession ? (
+                <DashboardSessionHistory client:load {...historyProps} />
+              ) : (
+                <DashboardSessionHistory client:visible {...historyProps} />
+              )
             ) : null
           }
         </div>

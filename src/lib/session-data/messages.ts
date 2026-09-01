@@ -188,20 +188,3 @@ export async function getOwnedSessionHistoryDetail(
     messages: messages.data,
   });
 }
-
-export async function purgeOwnedSessionMessages(
-  context: SessionDataContext,
-  sessionId: SessionId,
-): Promise<SessionDataResult<null>> {
-  const { error } = await context.supabase
-    .from("session_messages")
-    .delete()
-    .eq("session_id", sessionId)
-    .eq("user_id", context.user.id);
-
-  if (error) {
-    return sessionDataError(mapSupabaseWriteError(error));
-  }
-
-  return ok(null);
-}

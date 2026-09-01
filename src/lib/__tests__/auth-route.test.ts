@@ -16,7 +16,7 @@ vi.mock("@/lib/supabase", () => ({
   createClient,
 }));
 
-const { createAuthRoute } = await import("@/lib/auth-route");
+const { createAuthRoute, readFormData } = await import("@/lib/auth-route");
 
 const operationalContext = { requestId: "req-1", route: "/api/auth/signin", method: "POST" };
 
@@ -161,5 +161,31 @@ describe("createAuthRoute", () => {
       expect.objectContaining({ provider: "google" }),
       operationalContext,
     );
+  });
+});
+
+describe("readFormData", () => {
+  it("returns the parsed form for a form-encoded body", async () => {
+    const form = new FormData();
+    form.append("email", "user@example.com");
+
+    const parsed = await readFormData(
+      new Request("https://safespace.local/api/auth/signin", { method: "POST", body: form }),
+    );
+
+    expect(parsed.get("email")).toBe("user@example.com");
+  });
+
+  it("treats a body that is not a form as an empty form instead of throwing", async () => {
+    const parsed = await readFormData(
+      new Request("https://safespace.local/api/auth/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "user@example.com" }),
+      }),
+    );
+
+    expect(parsed).toBeInstanceOf(FormData);
+    expect([...parsed.keys()]).toEqual([]);
   });
 });

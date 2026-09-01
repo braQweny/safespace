@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
 const createClient = vi.fn();
+const requireActiveAccountAccess = vi.fn();
 
 vi.mock("@/lib/operational-visibility/request-context", () => ({
   buildOperationalRequestContext,
@@ -14,6 +15,10 @@ vi.mock("@/lib/operational-visibility/logger", () => ({
 
 vi.mock("@/lib/supabase", () => ({
   createClient,
+}));
+
+vi.mock("@/lib/admin/account-access", () => ({
+  requireActiveAccountAccess,
 }));
 
 const { POST } = await import("@/pages/api/profile/avatar");
@@ -28,10 +33,22 @@ function createContext(fields: Record<string, string> = {}, user: { id: string }
     form.append(field, value);
   }
 
+  return createContextWithBody(form, user);
+}
+
+function createJsonContext(payload: unknown, user: { id: string } | null = { id: "user-1" }) {
+  return createContextWithBody(JSON.stringify(payload), user, "application/json");
+}
+
+function createContextWithBody(body: BodyInit, user: { id: string } | null, contentType?: string) {
   const url = new URL("https://safespace.local/api/profile/avatar");
 
   return {
-    request: new Request(url, { method: "POST", body: form }),
+    request: new Request(url, {
+      method: "POST",
+      body,
+      ...(contentType ? { headers: { "Content-Type": contentType } } : {}),
+    }),
     cookies: {},
     locals: { user },
     url,
@@ -55,6 +72,7 @@ describe("POST /api/profile/avatar", () => {
     buildOperationalRequestContext.mockResolvedValue({ requestId: "req-1" });
     createClient.mockReturnValue({ from });
     upsert.mockResolvedValue({ error: null });
+    requireActiveAccountAccess.mockResolvedValue({ ok: true, data: { status: "active" } });
   });
 
   it("fails closed when supabase is not configured", async () => {
@@ -70,6 +88,43 @@ describe("POST /api/profile/avatar", () => {
     const response = await POST(createContext({ modalityId: "psychodynamic" }, null));
 
     expect(location(response)).toBe("/dashboard/avatar?avatarError=missing_auth");
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("sends a blocked account to the blocked page without saving", async () => {
+    requireActiveAccountAccess.mockResolvedValue({ ok: false, error: { code: "account_blocked" } });
+
+    const response = await POST(createContext({ modalityId: "psychodynamic" }));
+
+    expect(response.status).toBe(303);
+    expect(location(response)).toBe("/account/blocked");
+    expect(requireActiveAccountAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ locals: { user: { id: "user-1" } } }),
+      {
+        from,
+      },
+    );
+    expect(from).not.toHaveBeenCalled();
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "avatar.save", reasonCode: "account_blocked", outcome: "blocked" }),
+      { requestId: "req-1" },
+    );
+  });
+
+  it("fails closed when the account state cannot be read", async () => {
+    requireActiveAccountAccess.mockResolvedValue({ ok: false, error: { code: "account_access_unavailable" } });
+
+    const response = await POST(createContext({ modalityId: "psychodynamic" }));
+
+    expect(location(response)).toBe("/account/blocked?state=unavailable");
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("treats a JSON body like an empty form instead of crashing", async () => {
+    const response = await POST(createJsonContext({ modalityId: "psychodynamic" }));
+
+    expect(response.status).toBe(303);
+    expect(location(response)).toBe("/dashboard/avatar?avatarError=invalid_choice");
     expect(from).not.toHaveBeenCalled();
   });
 

@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { SESSION_TURN_COPY } from "@/lib/session-copy";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
-import TimedSession from "../TimedSession";
+import TimedSession, { UnsentMessageNotice } from "../TimedSession";
 
 const avatar = {
   modality: {
@@ -16,7 +17,7 @@ const avatar = {
       "Marek mówi konkretnie i po ludzku, bez tonu trenera. Najpierw przyjmuje uczucie, potem porządkuje jedną sytuację i może zaproponować mały, dobrowolny krok. Jeśli wolisz zostać przy przeżywaniu zamiast porządkować, bliżej Ci może być do Nadii.",
     sessionStyleHint: "Uzywa jasnej struktury.",
     summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-    assetPath: "/avatars/cbt-guide.png",
+    assetPath: "/avatars/cbt-guide.webp",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
   selected: {
@@ -24,7 +25,7 @@ const avatar = {
     avatarId: "cbt-guide",
     modalityName: "Podejście poznawczo-behawioralne",
     avatarName: "Marek, praktyczny przewodnik",
-    assetPath: "/avatars/cbt-guide.png",
+    assetPath: "/avatars/cbt-guide.webp",
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
 } satisfies SessionStartPageState["avatar"];
@@ -189,5 +190,52 @@ describe("TimedSession", () => {
     // a dashboard list where the user has to find it again.
     expect(html).toContain("/dashboard?session=5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a");
     expect(html).not.toContain("Wyślij");
+  });
+
+  it("never shows unsent text on a fresh render, even for an expired session", () => {
+    const html = renderSession({
+      kind: "expired",
+      trialAvailable: false,
+      avatar,
+      session: {
+        id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+        status: "expired",
+        startedAt: "2026-06-12T10:00:00.000Z",
+        endedAt: null,
+        expiresAt: "2026-06-12T10:15:00.000Z",
+        remainingSeconds: 0,
+        isTrial: true,
+        durationBucketSeconds: 900,
+      },
+      messages: [],
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+      sessionQuota: null,
+    });
+
+    expect(html).toContain("Limit czasu został osiągnięty");
+    expect(html).not.toContain(SESSION_TURN_COPY.unsentMessage);
+  });
+});
+
+/*
+ * Słowa, które nie zdążyły wyjść przed końcem czasu, wracają na karcie
+ * zamknięcia. Przycisk kopiowania czeka na potwierdzenie, że schowek istnieje —
+ * w SSR go nie ma, więc zostaje sam tekst do przeczytania.
+ */
+describe("UnsentMessageNotice", () => {
+  it("shows the unsent text with its label", () => {
+    const html = renderToStaticMarkup(<UnsentMessageNotice text="Chciałem jeszcze dodać, że…" />);
+
+    expect(html).toContain(SESSION_TURN_COPY.unsentMessage);
+    expect(html).toContain("Chciałem jeszcze dodać, że…");
+    expect(html).toContain("whitespace-pre-wrap");
+  });
+
+  it("offers copying only once the clipboard is known to exist", () => {
+    const html = renderToStaticMarkup(<UnsentMessageNotice text="tekst" />);
+
+    expect(html).not.toContain(SESSION_TURN_COPY.copyUnsent);
   });
 });

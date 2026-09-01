@@ -1,7 +1,9 @@
 import type { APIRoute } from "astro";
+import { requireActiveAccountAccess } from "@/lib/admin/account-access";
 import { mapPasswordUpdateError } from "@/lib/auth-errors";
-import { createAuthRoute } from "@/lib/auth-route";
+import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { MIN_PASSWORD_LENGTH, getFormString } from "@/lib/auth-validation";
+import { getAccountAccessRedirectPath } from "@/lib/request-guards";
 
 export const prerender = false;
 
@@ -14,16 +16,29 @@ export const POST: APIRoute = async (context) => {
     return route.failureRedirect(SECURITY_PATH, "auth_not_configured", { level: "error", provider: "supabase" });
   }
 
-  const {
-    data: { user },
-  } = await route.supabase.auth.getUser();
+  // The middleware resolves the user on every request; the security page that
+  // hosts this form is itself a protected route.
+  const { user } = context.locals;
 
   if (!user) {
     route.logFailure("missing_auth");
     return context.redirect("/auth/signin", 303);
   }
 
-  const form = await context.request.formData();
+  // `/account/security` (the page) sits behind the middleware's block check,
+  // but this API path does not, so the write has to gate itself the same way
+  // the session routes do: a blocked account keeps its password as it is.
+  const access = await requireActiveAccountAccess(context, route.supabase);
+
+  if (!access.ok) {
+    route.logFailure(access.error.code, {
+      outcome: access.error.code === "account_blocked" ? "blocked" : "failure",
+      provider: "supabase",
+    });
+    return context.redirect(getAccountAccessRedirectPath(access.error.code), 303);
+  }
+
+  const form = await readFormData(context.request);
   const password = getFormString(form, "password", false);
   const confirmPassword = getFormString(form, "confirmPassword", false);
 

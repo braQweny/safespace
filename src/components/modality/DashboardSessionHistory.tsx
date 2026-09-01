@@ -144,9 +144,10 @@ export default function DashboardSessionHistory({
                   <img
                     src={modality.assetPath}
                     alt={`${getAvatarFirstName(modality.avatarName)}${isSaved ? " (wybrany)" : ""}`}
-                    width="384"
-                    height="384"
+                    width="256"
+                    height="256"
                     loading="lazy"
+                    decoding="async"
                     className={cn(
                       "h-9 w-9 rounded-full object-cover transition-opacity",
                       isViewed

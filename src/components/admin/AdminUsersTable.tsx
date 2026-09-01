@@ -64,10 +64,27 @@ function getPlanLabel(user: AdminUserListItem) {
   return user.plan === "premium" ? "Premium" : "Bezpłatny";
 }
 
+const ERROR_MESSAGES: Partial<Record<AdminApiFailureCode, string>> = {
+  missing_auth: "Sesja administratora wygasła. Zaloguj się ponownie.",
+  not_admin: "To konto nie ma uprawnień administratora.",
+  blocked_admin: "To konto administratora jest zablokowane.",
+  invalid_filter: "Nieprawidłowe parametry żądania. Sprawdź filtry i spróbuj ponownie.",
+  target_not_found: "Nie znaleziono takiego konta. Odśwież listę i spróbuj ponownie.",
+  self_target_forbidden: "Nie możesz zmienić blokady ani planu własnego konta.",
+  write_failed: "Nie udało się zapisać zmiany. Spróbuj ponownie za chwilę.",
+  admin_data_unavailable: "Dane administracyjne są chwilowo niedostępne. Spróbuj ponownie za chwilę.",
+};
+
+const DEFAULT_ERROR_MESSAGE = "Nie udało się pobrać danych administracyjnych. Spróbuj ponownie za chwilę.";
+
+export function getAdminUsersErrorMessage(code: AdminApiFailureCode) {
+  return ERROR_MESSAGES[code] ?? DEFAULT_ERROR_MESSAGE;
+}
+
 function ErrorNotice({ code }: { code: AdminApiFailureCode }) {
   return (
     <div className="border-danger-line bg-danger-soft text-danger rounded-lg border p-4 text-sm">
-      Nie udało się pobrać danych administracyjnych (kod: {code}). Spróbuj ponownie za chwilę.
+      {getAdminUsersErrorMessage(code)} (kod: {code})
     </div>
   );
 }
@@ -175,7 +192,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
 
       {errorCode ? <ErrorNotice code={errorCode} /> : null}
 
-      <div className="border-line bg-surface overflow-hidden rounded-lg border">
+      <div className="border-line bg-surface overflow-x-auto rounded-lg border">
         <table aria-label="Lista użytkowników" className="w-full min-w-[1000px] border-collapse text-left text-sm">
           <thead className="text-ink-soft bg-brand-tint">
             <tr>
@@ -239,7 +256,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          disabled={isPending}
+                          disabled={isSelf || isPending}
                           onClick={() => {
                             void togglePlan(user);
                           }}

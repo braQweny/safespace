@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowRight, Check, Save } from "lucide-react";
 import {
   getPerspectiveLabel,
@@ -7,7 +7,6 @@ import {
   type ModalityId,
   type SelectedModalityAvatar,
 } from "@/lib/modalities";
-import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +42,59 @@ function getDisplayName(avatarName: string) {
   return avatarName.split(",")[0]?.trim() || avatarName;
 }
 
+/** Zdanie w pasku zapisu, gdy nie wiadomo (albo nie da się śledzić), co zaznaczono. */
+export const SAVE_BAR_FALLBACK_MESSAGE = "Wybór zacznie obowiązywać po zapisaniu — od kolejnej rozmowy.";
+
+interface SaveBarProps {
+  message: ReactNode;
+  canStartConversation: boolean;
+  sessionBudgetMinutes?: string;
+}
+
+function SaveBar({ message, canStartConversation, sessionBudgetMinutes }: SaveBarProps) {
+  return (
+    <div className="border-line-strong bg-surface/95 sticky bottom-0 z-10 mt-6 flex flex-col gap-4 rounded-t-2xl border-t px-1 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-4">
+      <p className="text-ink-muted text-sm leading-6">{message}</p>
+      {/*
+        Kto właśnie wybrał, z kim chce rozmawiać, tym samym zdecydował, że chce
+        rozmawiać — powrót do panelu tylko po to, żeby nacisnąć drugi przycisk,
+        był krokiem bez decyzji. Start zostaje osobnym, nazwanym kliknięciem
+        i nadal niesie obietnicę czasu, tak jak przycisk w panelu.
+      */}
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+        <button
+          type="submit"
+          name="intent"
+          value="save"
+          className={cn(
+            "focus-visible:ring-brand-ring inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2",
+            canStartConversation
+              ? "border-line-accent bg-surface text-ink hover:bg-surface-soft border"
+              : "bg-brand hover:bg-brand-strong text-surface",
+          )}
+        >
+          <Save aria-hidden="true" className="h-4 w-4" />
+          Zapisz wybór
+        </button>
+        {canStartConversation ? (
+          <button
+            type="submit"
+            name="intent"
+            value="save_and_start"
+            className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            Zapisz i zacznij rozmowę
+            {sessionBudgetMinutes ? (
+              <span className="text-[15px] font-normal opacity-80">do {sessionBudgetMinutes}</span>
+            ) : null}
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function AvatarChoiceForm({
   modalities,
   currentSelection,
@@ -50,12 +102,11 @@ export default function AvatarChoiceForm({
   sessionBudgetMinutes,
 }: AvatarChoiceFormProps) {
   const [selectedModalityId, setSelectedModalityId] = useState<ModalityId | "">(currentSelection?.modalityId ?? "");
-  const isHydrated = useIsHydrated();
   const selectedModality = modalities.find((modality) => modality.modalityId === selectedModalityId) ?? null;
-  // Without JavaScript the radios still work but React never re-renders, so the
-  // save bar has to stay in the server-rendered markup or the form is unusable.
-  const hasUnsavedChoice =
-    !isHydrated || (selectedModality !== null && selectedModality.modalityId !== currentSelection?.modalityId);
+  // Na serwerze i w pierwszym renderze klienta zaznaczenie równa się zapisowi,
+  // więc pasek nie stoi w HTML i nie znika po hydratacji — nic się nie
+  // przesuwa. Pojawia się dopiero po realnej zmianie wyboru.
+  const hasUnsavedChoice = selectedModality !== null && selectedModality.modalityId !== currentSelection?.modalityId;
 
   return (
     <form method="POST" action="/api/profile/avatar" className="mt-8">
@@ -95,9 +146,10 @@ export default function AvatarChoiceForm({
                 <img
                   src={modality.assetPath}
                   alt={modality.altText}
-                  width="384"
-                  height="384"
+                  width="256"
+                  height="256"
                   loading="lazy"
+                  decoding="async"
                   className="h-16 w-16 shrink-0 rounded-full object-cover"
                 />
                 <span className="flex min-w-0 flex-1 flex-col">
@@ -164,59 +216,31 @@ export default function AvatarChoiceForm({
           saved. A permanent "Zapisz wybór" implied there was always something
           pending. */}
       {hasUnsavedChoice ? (
-        <div className="border-line-strong bg-surface/95 sticky bottom-0 z-10 mt-6 flex flex-col gap-4 rounded-t-2xl border-t px-1 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-4">
-          <p className="text-ink-muted text-sm leading-6">
-            {selectedModality ? (
-              <>
-                <span className="text-ink font-semibold">
-                  Zaznaczono: {getDisplayName(selectedModality.avatarName)}.
-                </span>{" "}
-                Wybór zacznie obowiązywać po zapisaniu — od kolejnej rozmowy.
-              </>
-            ) : (
-              "Zaznacz perspektywę, żeby ją zapisać."
-            )}
-          </p>
-          {/*
-            Kto właśnie wybrał, z kim chce rozmawiać, tym samym zdecydował, że chce
-            rozmawiać — powrót do panelu tylko po to, żeby nacisnąć drugi przycisk,
-            był krokiem bez decyzji. Start zostaje osobnym, nazwanym kliknięciem
-            i nadal niesie obietnicę czasu, tak jak przycisk w panelu.
-          */}
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
-            <button
-              type="submit"
-              name="intent"
-              value="save"
-              suppressHydrationWarning
-              className={cn(
-                "focus-visible:ring-brand-ring inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2",
-                canStartConversation
-                  ? "border-line-accent bg-surface text-ink hover:bg-surface-soft border"
-                  : "bg-brand hover:bg-brand-strong text-surface",
-              )}
-            >
-              <Save aria-hidden="true" className="h-4 w-4" />
-              Zapisz wybór
-            </button>
-            {canStartConversation ? (
-              <button
-                type="submit"
-                name="intent"
-                value="save_and_start"
-                suppressHydrationWarning
-                className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-              >
-                Zapisz i zacznij rozmowę
-                {sessionBudgetMinutes ? (
-                  <span className="text-[15px] font-normal opacity-80">do {sessionBudgetMinutes}</span>
-                ) : null}
-                <ArrowRight aria-hidden="true" className="h-4 w-4" />
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <SaveBar
+          canStartConversation={canStartConversation}
+          sessionBudgetMinutes={sessionBudgetMinutes}
+          message={
+            <>
+              <span className="text-ink font-semibold">Zaznaczono: {getDisplayName(selectedModality.avatarName)}.</span>{" "}
+              {SAVE_BAR_FALLBACK_MESSAGE}
+            </>
+          }
+        />
       ) : null}
+
+      {/*
+        Bez JavaScriptu radia działają natywnie, ale React nigdy nie
+        wyrenderuje paska — więc zapis dostaje własną kopię tutaj. Przeglądarka
+        z włączonymi skryptami jej nie pokazuje, a React po stronie klienta
+        traktuje <noscript> jako liść i nie hydratuje jego treści.
+      */}
+      <noscript>
+        <SaveBar
+          canStartConversation={canStartConversation}
+          sessionBudgetMinutes={sessionBudgetMinutes}
+          message={SAVE_BAR_FALLBACK_MESSAGE}
+        />
+      </noscript>
     </form>
   );
 }

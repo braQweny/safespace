@@ -164,7 +164,8 @@ export interface SessionTrialClaimState {
   id: TrialClaimId;
   sessionId: SessionId;
   userId: UserId;
-  trialDurationSeconds: 900;
+  /** Budget the trial actually got: the free 15 minutes or the premium hour. */
+  trialDurationSeconds: 900 | 3600;
   claimedAt: string;
   createdAt: string;
 }

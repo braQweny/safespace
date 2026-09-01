@@ -33,10 +33,22 @@ function createContext(fields: Record<string, string> = {}) {
     form.append(field, value);
   }
 
+  return createContextWithBody(form);
+}
+
+function createJsonContext(payload: unknown) {
+  return createContextWithBody(JSON.stringify(payload), "application/json");
+}
+
+function createContextWithBody(body: BodyInit, contentType?: string) {
   const url = new URL("https://safespace.local/api/auth/resend-confirmation");
 
   return {
-    request: new Request(url, { method: "POST", body: form }),
+    request: new Request(url, {
+      method: "POST",
+      body,
+      ...(contentType ? { headers: { "Content-Type": contentType } } : {}),
+    }),
     cookies: {},
     locals: {},
     url,
@@ -77,6 +89,14 @@ describe("POST /api/auth/resend-confirmation", () => {
       },
       { requestId: "req-1" },
     );
+  });
+
+  it("treats a JSON body like an empty form instead of crashing", async () => {
+    const response = await POST(createJsonContext({ email: "user@example.com" }));
+
+    expect(response.status).toBe(303);
+    expect(location(response)).toBe("/auth/confirm-email?error=invalid_email");
+    expect(resend).not.toHaveBeenCalled();
   });
 
   it("fails closed when supabase is not configured", async () => {

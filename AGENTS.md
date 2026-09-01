@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-SafeSpace is an Astro 6 SSR app with React 19 islands, Tailwind 4, Supabase auth, shadcn/ui, and Cloudflare Workers deployment. Communicate with the user in Polish unless they ask otherwise.
+SafeSpace is an Astro 7 SSR app with React 19 islands, Tailwind 4, Supabase auth, shadcn/ui, OpenRouter-backed AI sessions, and Cloudflare Workers deployment. Communicate with the user in Polish unless they ask otherwise. `CLAUDE.md` holds the architecture and privacy-boundary guidance; this file covers conventions and the 10xDevs toolkit.
 
 ## Critical Rules
 
@@ -15,20 +15,23 @@ SafeSpace is an Astro 6 SSR app with React 19 islands, Tailwind 4, Supabase auth
 - `npm run dev` starts the Astro dev server.
 - `npm run build` builds production SSR output for `@astrojs/cloudflare`.
 - `npm run preview` previews the production build.
+- `npm run test` runs Vitest once (`npm run test:watch` for watch mode); `npx vitest run <path>` runs a single file.
+- `npm run typecheck` runs `tsc --noEmit`.
 - `npm run lint` runs ESLint with type-aware TypeScript, Astro, React, hooks, compiler, a11y, and Prettier rules from `@eslint.config.js`.
 - `npm run lint:fix` and `npm run format` apply the repo fixers. Husky runs lint-staged from `@package.json` before commit.
+- `npm run audit:prod` runs `npm audit` for production dependencies at `high` severity or above.
 
 ## Project Structure
 
 - `src/pages/` contains Astro pages and `src/pages/api/` route handlers with uppercase method exports.
 - `src/middleware.ts` resolves Supabase auth and protects `PROTECTED_ROUTES`.
-- `src/lib/` contains helpers such as `createClient()` and `cn()`.
+- `src/lib/` contains the server-side subsystems (`session-data/`, `session-safety/`, `session-ai/`, `session-summary/`, `session-transcription/`, `session-flow/`, `operational-visibility/`, `admin/`, `openrouter/`, `security/`) plus helpers such as `createClient()` and `cn()`; several subsystems carry a `README.md` that is the contract for that boundary. Tests live in `__tests__/` folders next to the code.
 - `src/components/ui/` holds shadcn/ui components configured by `@components.json`; interactive auth components live in `src/components/auth/`.
 - Foundation docs are in `context/foundation/`; deployment notes are in `context/deployment/deploy-plan.md`.
 
 ## Style And Checks
 
-Use the `@/*` alias from `@tsconfig.json`. Prefer Astro components for static layout and React components only for interactive islands. Merge Tailwind classes with `cn()` from `@/lib/utils`. Do not add Next.js directives. No test runner is configured yet; the current CI gate is `npx astro sync`, `npm run lint`, and `npm run build` on push/PR to `main`. Pushes to `main` then run `npx supabase db push` before Cloudflare deploy.
+Use the `@/*` alias from `@tsconfig.json`. Prefer Astro components for static layout and React components only for interactive islands. Merge Tailwind classes with `cn()` from `@/lib/utils`. Do not add Next.js directives. Unit tests run on Vitest (`npm run test`; `*.test.ts` / `*.test.tsx` under `src/lib/**`, `src/components/**`, `src/pages/**`, Node environment) and a new behavior ships with a test. The CI gate on push/PR to `main` (`@.github/workflows/ci.yml`) is, in order: `npm run audit:prod`, `npm run test`, `npx astro sync`, `npm run lint`, `npm run typecheck`, `npm run build` (the build needs `SUPABASE_URL` for the CSP). Pushes to `main` then run `npx supabase db push` before Cloudflare deploy, so every migration must be backward-compatible with the code currently deployed.
 
 ## Commits And PRs
 

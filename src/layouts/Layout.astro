@@ -1,7 +1,18 @@
 ---
 import "../styles/global.css";
+// Fonty są deklarowane w CSS (`global.css`), więc przeglądarka odkrywa je
+// dopiero po pobraniu i sparsowaniu arkusza — stąd błysk zapasowego kroju i
+// przesunięcie układu. Te cztery pliki (łacińskie i łacińskie rozszerzone,
+// czyli polskie znaki) obsługują cały widoczny tekst; import `?url` daje ten
+// sam zhashowany adres, do którego odwołuje się arkusz.
+import newsreaderLatinUrl from "@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2?url";
+import newsreaderLatinExtUrl from "@fontsource-variable/newsreader/files/newsreader-latin-ext-opsz-normal.woff2?url";
+import sourceSansLatinUrl from "@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2?url";
+import sourceSansLatinExtUrl from "@fontsource-variable/source-sans-3/files/source-sans-3-latin-ext-wght-normal.woff2?url";
 import Banner from "@/components/Banner.astro";
 import { missingConfigs } from "@/lib/config-status";
+
+const preloadedFontUrls = [sourceSansLatinUrl, sourceSansLatinExtUrl, newsreaderLatinUrl, newsreaderLatinExtUrl];
 
 interface Props {
   title?: string;
@@ -30,6 +41,7 @@ const showConfigBanners = import.meta.env.DEV;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    {preloadedFontUrls.map((href) => <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />)}
     <title>{title}</title>
     <script is:inline>
       /*

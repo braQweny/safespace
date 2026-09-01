@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { mapResetPasswordError } from "@/lib/auth-errors";
-import { createAuthRoute } from "@/lib/auth-route";
+import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, getFormString } from "@/lib/auth-validation";
 
@@ -14,7 +14,7 @@ const RECOVERY_NEXT_PATH = "/account/security";
 
 export const POST: APIRoute = async (context) => {
   const route = await createAuthRoute(context, "auth.reset_password");
-  const form = await context.request.formData();
+  const form = await readFormData(context.request);
   const email = getFormString(form, "email");
 
   if (!EMAIL_PATTERN.test(email)) {

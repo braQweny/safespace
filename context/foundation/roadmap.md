@@ -3,7 +3,7 @@ project: SafeSpace
 version: 1
 status: draft
 created: 2026-05-31
-updated: 2026-05-31
+updated: 2026-09-01
 prd_version: 1
 main_goal: quality
 top_blocker: decisions
@@ -27,18 +27,18 @@ SafeSpace pomaga dorosłej osobie rozważającej psychoterapię uporządkować m
 
 ## At a glance
 
-| ID   | Change ID                           | Outcome (user can ...)                                                                                                                             | Prerequisites                    | PRD refs                                                                    | Status   |
-| ---- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------- | -------- |
-| F-01 | private-session-data-boundary       | (foundation) prywatna pamięć sesji, podsumowań, usuwania i limitu darmowej sesji ma minimalny kontrakt bezpieczeństwa                              | -                                | FR-003, FR-006, FR-007, FR-010, Access Control, Non-Functional Requirements | ready    |
-| F-02 | safe-ai-session-boundary            | (foundation) rozmowa AI ma minimalną granicę bezpieczeństwa: jasne ograniczenia, przerwanie kryzysu i brak zwykłej symulacji w sytuacji zagrożenia | -                                | FR-005, Non-Functional Requirements, Business Logic                         | ready    |
-| F-03 | privacy-safe-operational-visibility | (foundation) błędy i stan krytycznych przepływów można diagnozować bez logowania treści rozmów                                                     | -                                | Non-Functional Requirements, FR-010                                         | ready    |
-| S-01 | product-landing-and-limits          | użytkownik może zrozumieć ofertę, darmową sesję i granice produktu przed założeniem konta                                                          | -                                | US-01, FR-001, Non-Functional Requirements                                  | ready    |
-| S-02 | required-account-access             | użytkownik może założyć konto albo zalogować się wymaganymi metodami i wejść do prywatnej części produktu                                          | -                                | US-01, FR-002, Access Control                                               | ready    |
-| S-03 | modality-avatar-choice              | użytkownik może wybrać awatara reprezentującego nurt psychoterapii i przeczytać krótkie wyjaśnienie nurtu                                          | S-02, external: lista nurtów MVP | US-01, FR-004, Business Logic                                               | blocked  |
-| S-04 | first-safe-timed-session            | użytkownik może odbyć pierwszą bezpieczną 15-minutową sesję w przeglądarce z widocznym czasem i sygnałem trwania odpowiedzi                        | F-01, F-02, F-03, S-02, S-03     | US-01, FR-003, FR-005, Non-Functional Requirements                          | blocked  |
-| S-05 | session-history-control             | użytkownik może wrócić do historii sesji i usunąć zapis rozmowy                                                                                    | F-01, S-04                       | US-01, FR-006                                                               | proposed |
-| S-06 | summary-backed-next-session         | użytkownik może zobaczyć podsumowanie poprzednich rozmów i rozpocząć kolejną sesję z tym kontekstem                                                | F-01, F-02, S-04, S-05           | US-01, FR-007, Business Logic                                               | proposed |
-| S-07 | private-admin-operations            | admin może oglądać statystyki i zarządzać użytkownikami bez dostępu do prywatnych treści rozmów                                                    | F-01, F-03, S-04                 | FR-009, FR-010, Access Control                                              | blocked  |
+| ID   | Change ID                           | Outcome (user can ...)                                                                                                                             | Prerequisites                    | PRD refs                                                                    | Status |
+| ---- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------- | ------ |
+| F-01 | private-session-data-boundary       | (foundation) prywatna pamięć sesji, podsumowań, usuwania i limitu darmowej sesji ma minimalny kontrakt bezpieczeństwa                              | -                                | FR-003, FR-006, FR-007, FR-010, Access Control, Non-Functional Requirements | done   |
+| F-02 | safe-ai-session-boundary            | (foundation) rozmowa AI ma minimalną granicę bezpieczeństwa: jasne ograniczenia, przerwanie kryzysu i brak zwykłej symulacji w sytuacji zagrożenia | -                                | FR-005, Non-Functional Requirements, Business Logic                         | done   |
+| F-03 | privacy-safe-operational-visibility | (foundation) błędy i stan krytycznych przepływów można diagnozować bez logowania treści rozmów                                                     | -                                | Non-Functional Requirements, FR-010                                         | done   |
+| S-01 | product-landing-and-limits          | użytkownik może zrozumieć ofertę, darmową sesję i granice produktu przed założeniem konta                                                          | -                                | US-01, FR-001, Non-Functional Requirements                                  | done   |
+| S-02 | required-account-access             | użytkownik może założyć konto albo zalogować się wymaganymi metodami i wejść do prywatnej części produktu                                          | -                                | US-01, FR-002, Access Control                                               | done   |
+| S-03 | modality-avatar-choice              | użytkownik może wybrać awatara reprezentującego nurt psychoterapii i przeczytać krótkie wyjaśnienie nurtu                                          | S-02, external: lista nurtów MVP | US-01, FR-004, Business Logic                                               | done   |
+| S-04 | first-safe-timed-session            | użytkownik może odbyć pierwszą bezpieczną 15-minutową sesję w przeglądarce z widocznym czasem i sygnałem trwania odpowiedzi                        | F-01, F-02, F-03, S-02, S-03     | US-01, FR-003, FR-005, Non-Functional Requirements                          | done   |
+| S-05 | session-history-control             | użytkownik może wrócić do historii sesji i usunąć zapis rozmowy                                                                                    | F-01, S-04                       | US-01, FR-006                                                               | done   |
+| S-06 | summary-backed-next-session         | użytkownik może zobaczyć podsumowanie poprzednich rozmów i rozpocząć kolejną sesję z tym kontekstem                                                | F-01, F-02, S-04, S-05           | US-01, FR-007, Business Logic                                               | done   |
+| S-07 | private-admin-operations            | admin może oglądać statystyki i zarządzać użytkownikami bez dostępu do prywatnych treści rozmów                                                    | F-01, F-03, S-04                 | FR-009, FR-010, Access Control                                              | done   |
 
 ## Streams
 
@@ -75,7 +75,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** -
 - **Risk:** Jeśli prywatność i własność danych zostaną dodane dopiero przy historii, późniejsze poprawki mogą naruszyć granicę admina i kasowania rozmów.
-- **Status:** ready
+- **Status:** done
 
 ### F-02: Safe AI session boundary
 
@@ -88,7 +88,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** -
 - **Risk:** Przy celu jakościowym pierwsza rozmowa bez granicy kryzysowej byłaby technicznie efektowna, ale produktowo zbyt ryzykowna.
-- **Status:** ready
+- **Status:** done
 
 ### F-03: Privacy-safe operational visibility
 
@@ -101,7 +101,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** -
 - **Risk:** Bez tej granicy debugowanie pierwszych sesji może przypadkowo utrwalić prywatne wypowiedzi użytkownika.
-- **Status:** ready
+- **Status:** done
 
 ## Slices
 
@@ -115,7 +115,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** -
 - **Risk:** To najmniejszy publiczny fragment produktu; jeśli komunikat o granicach będzie słaby, późniejsza sesja może obiecywać więcej niż PRD pozwala.
-- **Status:** ready
+- **Status:** done
 
 ### S-02: Required account access
 
@@ -127,7 +127,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** -
 - **Risk:** Konto jest potrzebne do ciągłości rozmów, ale metoda logowania musi uwzględniać wrażliwy charakter produktu.
-- **Status:** ready
+- **Status:** done
 
 ### S-03: Modality avatar choice
 
@@ -140,7 +140,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Które nurty psychoterapeutyczne wchodzą do MVP? - Owner: user. Block: yes.
 - **Risk:** Wybór awatara jest pierwszym miejscem, gdzie produkt przestaje być generycznym chatbotem; bez listy nurtów nie da się uczciwie zaplanować treści i testów.
-- **Status:** blocked
+- **Status:** done
 
 ### S-04: First safe timed session
 
@@ -153,7 +153,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Które nurty psychoterapeutyczne wchodzą do MVP i jak wpływają na styl pierwszej rozmowy? - Owner: user. Block: yes.
 - **Risk:** To najważniejszy przepływ jakościowy; musi wejść dopiero po prywatności danych, granicy kryzysowej i wyborze awatara.
-- **Status:** blocked
+- **Status:** done
 
 ### S-05: Session history control
 
@@ -165,7 +165,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** -
 - **Risk:** Historia bez kasowania naruszyłaby zaufanie do produktu, więc kontrola użytkownika wchodzi przed budową kolejnych sesji z kontekstem.
-- **Status:** proposed
+- **Status:** done
 
 ### S-06: Summary-backed next session
 
@@ -177,7 +177,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** -
 - **Risk:** Podsumowania mogą utrwalać błędy z rozmowy, dlatego pojawiają się po ręcznie widocznej historii i po granicy bezpieczeństwa rozmowy.
-- **Status:** proposed
+- **Status:** done
 
 ### S-07: Private admin operations
 
@@ -190,7 +190,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Jakie statystyki produktu admin musi widzieć w MVP, bez dotykania treści rozmów? - Owner: user. Block: yes.
 - **Risk:** Admin bez jasno ograniczonego zakresu łatwo rozlewa się na prywatne dane, więc ten slice zostaje za sesją i za granicą danych.
-- **Status:** blocked
+- **Status:** done
 
 ## Backlog Handoff
 

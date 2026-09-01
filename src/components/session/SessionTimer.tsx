@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { computeClientRemainingSeconds, formatRemainingTime } from "@/lib/session-flow/message-state";
+import {
+  computeClientRemainingSeconds,
+  computeServerClockOffsetMs,
+  formatRemainingTime,
+} from "@/lib/session-flow/message-state";
 import { resolveSessionPhase, type SessionPhase } from "@/lib/session-flow/session-phase";
 import { cn } from "@/lib/utils";
 
@@ -98,8 +102,14 @@ export default function SessionTimer({
       return;
     }
 
+    // Zegar klienta bywa przestawiony o minuty; wiarygodne jest tylko
+    // `remainingSeconds` policzone przez serwer. Przesunięcie liczone raz
+    // (i ponownie, gdy serwer przyśle świeższą wartość po turze), a potem
+    // każdy tick idzie zegarem serwera.
+    const offsetMs = computeServerClockOffsetMs(expiresAt, initialRemainingSeconds);
+
     function updateRemaining() {
-      setRemainingSeconds(computeClientRemainingSeconds(expiresAt));
+      setRemainingSeconds(computeClientRemainingSeconds(expiresAt, Date.now() + offsetMs));
     }
 
     updateRemaining();
@@ -108,7 +118,7 @@ export default function SessionTimer({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [expiresAt]);
+  }, [expiresAt, initialRemainingSeconds]);
 
   useEffect(() => {
     if (remainingSeconds === 0) {
