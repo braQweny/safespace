@@ -66,6 +66,17 @@ describe("buildSessionResponseMessages", () => {
     expect(systemMessage.content).toContain("A reply does not have to end with a question");
     expect(systemMessage.content).toContain("Do not reuse the same openers or signature phrases");
     expect(systemMessage.content).toContain("Vary the length, rhythm, and structure of your replies");
+    expect(systemMessage.content).toContain("Anchor every reply in one concrete detail");
+    expect(systemMessage.content).toContain("Never recap their whole message");
+  });
+
+  it("addresses the user as Ty and mirrors their grammatical gender instead of guessing it", () => {
+    const messages = buildSessionResponseMessages(input);
+    const systemMessage = messages[0];
+
+    expect(systemMessage.content).toContain("mirror the grammatical gender the user has used about themselves");
+    expect(systemMessage.content).toContain("Never guess it from the name, the topic, or the avatar");
+    expect(systemMessage.content).toContain("ordinary Polish capitalisation");
   });
 
   it("moves modality, constraints, and summaries into the system message and keeps the user turn plain", () => {
@@ -242,6 +253,10 @@ describe("MVP_MODALITIES session style hints", () => {
       expect(modality.sessionStyleHint).toContain("Returning to approved summaries:");
       expect(modality.sessionStyleHint).toMatch(/When the user asks/);
       expect(modality.sessionStyleHint).toContain("nie wiem");
+      // The persona is someone who does not know where to start; every avatar
+      // needs its own first move and its own answer to a blank start.
+      expect(modality.sessionStyleHint).toContain("Opening move:");
+      expect(modality.sessionStyleHint).toContain("does not know where to start");
     }
   });
 
@@ -298,6 +313,7 @@ describe("opening mode (avatar-initiated session start)", () => {
     expect(systemContent).toContain("Ask at most one open question");
     expect(systemContent).toContain(input.modality.sessionStyleHint);
     expect(systemContent).toContain("Current phase: opening");
+    expect(systemContent).toContain("describes an opening move, follow it");
   });
 
   it("allows — but does not force — a tentative nod to approved summary continuity", () => {
