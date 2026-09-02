@@ -46,10 +46,7 @@ export type AdminUsersResponse = AdminUsersSuccessResponse | AdminApiFailureResp
 export type AdminUserBlockResponse = AdminUserBlockSuccessResponse | AdminApiFailureResponse;
 export type AdminUserPlanResponse = AdminUserPlanSuccessResponse | AdminApiFailureResponse;
 export type AdminApiResponse =
-  | AdminOverviewResponse
-  | AdminUsersResponse
-  | AdminUserBlockResponse
-  | AdminUserPlanResponse;
+  AdminOverviewResponse | AdminUsersResponse | AdminUserBlockResponse | AdminUserPlanResponse;
 
 export function adminApiFailure(code: AdminApiFailureCode): AdminApiFailureResponse {
   return {

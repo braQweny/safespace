@@ -11,10 +11,7 @@ import type { SessionDataContext } from "@/lib/session-data/types";
  */
 
 export type SessionRouteAccessFailureCode =
-  | "missing_auth"
-  | "account_blocked"
-  | "account_access_unavailable"
-  | "session_data_unavailable";
+  "missing_auth" | "account_blocked" | "account_access_unavailable" | "session_data_unavailable";
 
 export type SessionRouteAccessFailureSource = "session_context" | "account_access";
 
@@ -25,8 +22,7 @@ export interface SessionRouteAccessFailure {
 }
 
 export type SessionRouteAccessResult =
-  | { ok: true; data: SessionDataContext }
-  | { ok: false; error: SessionRouteAccessFailure };
+  { ok: true; data: SessionDataContext } | { ok: false; error: SessionRouteAccessFailure };
 
 export function mapAccountAccessFailureCode(code: AdminErrorCode): SessionRouteAccessFailureCode {
   if (code === "missing_auth" || code === "account_blocked") {

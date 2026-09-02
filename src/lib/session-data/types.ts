@@ -49,11 +49,7 @@ export interface SessionQuota {
 export type SessionModalityId = "psychodynamic" | "cbt" | "humanistic_experiential" | "systemic" | "integrative";
 
 export type SessionAvatarId =
-  | "psychodynamic-listener"
-  | "cbt-guide"
-  | "experiential-companion"
-  | "systemic-connector"
-  | "integrative-guide";
+  "psychodynamic-listener" | "cbt-guide" | "experiential-companion" | "systemic-connector" | "integrative-guide";
 
 export interface SessionDataContext {
   supabase: SessionDataSupabaseClient;

@@ -17,8 +17,7 @@ export interface SessionOpeningOptions {
 }
 
 export type SessionOpeningResult =
-  | { ok: true; message: SessionMessageViewModel | null }
-  | { ok: false; failure: SessionOpeningFailure };
+  { ok: true; message: SessionMessageViewModel | null } | { ok: false; failure: SessionOpeningFailure };
 
 /**
  * Generates and persists the avatar's opening message for a freshly started
