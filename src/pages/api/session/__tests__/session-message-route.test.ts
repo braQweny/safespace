@@ -15,6 +15,8 @@ const transitionSessionLifecycle = vi.fn();
 const evaluateSessionSafety = vi.fn();
 const generateSessionResponse = vi.fn();
 const persistSuccessfulMessageTurn = vi.fn();
+const claimSessionMessageTurn = vi.fn();
+const releaseSessionMessageTurn = vi.fn();
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
 const getOpenRouterSessionConfig = vi.fn();
@@ -28,6 +30,10 @@ vi.mock("@/lib/admin/account-access", () => ({
 }));
 
 vi.mock("@/lib/session-data/repository", () => ({
+  claimSessionMessageTurn,
+  releaseSessionMessageTurn,
+  completeSessionMessageTurn: vi.fn(),
+  getNextSessionMessageSequenceIndex: vi.fn(),
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata: vi.fn(),
   listOwnedSessionMessages: vi.fn(),
@@ -55,7 +61,8 @@ vi.mock("@/lib/session-ai/env", () => ({
   resolveSessionModel: (modelOverride?: string | null) => modelOverride ?? "openai/gpt-4o-mini",
 }));
 
-vi.mock("@/lib/session-flow/message-persistence", () => ({
+vi.mock("@/lib/session-flow/message-persistence", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/session-flow/message-persistence")>()),
   persistSuccessfulMessageTurn,
 }));
 
@@ -210,6 +217,8 @@ describe("POST /api/session/message", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-07T10:02:00.000Z"));
     vi.clearAllMocks();
+    claimSessionMessageTurn.mockResolvedValue(ok({ kind: "claimed", attemptId: "attempt-1" }));
+    releaseSessionMessageTurn.mockResolvedValue(undefined);
 
     buildOperationalRequestContext.mockResolvedValue({
       requestId: "req-1",
@@ -258,6 +267,66 @@ describe("POST /api/session/message", () => {
     persistSuccessfulMessageTurn.mockResolvedValue(ok(persistedTurn));
   });
 
+  it("replays a saved turn without invoking either AI path again", async () => {
+    claimSessionMessageTurn.mockResolvedValue(
+      ok({ kind: "completed", responseType: "caution", messages: [persistedTurn.user, persistedTurn.assistant] }),
+    );
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, status: "completed" }));
+    const response = await POST(createContext() as never);
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({
+      type: "caution",
+      messages: persistedTurn,
+      session: { status: "completed" },
+    });
+    expect(evaluateSessionSafety).not.toHaveBeenCalled();
+    expect(generateSessionResponse).not.toHaveBeenCalled();
+    expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
+    expect(releaseSessionMessageTurn).not.toHaveBeenCalled();
+  });
+
+  it.each(["message_in_progress", "message_request_conflict"] as const)(
+    "refuses %s before any model call",
+    async (code) => {
+      claimSessionMessageTurn.mockResolvedValue(sessionDataError(code));
+      const response = await POST(createContext() as never);
+      expect(response.status).toBe(409);
+      await expect(readJson(response)).resolves.toMatchObject({ type: code });
+      expect(generateSessionResponse).not.toHaveBeenCalled();
+      expect(releaseSessionMessageTurn).not.toHaveBeenCalled();
+    },
+  );
+
+  it("releases the matching lease after a provider failure so a retry can run", async () => {
+    generateSessionResponse.mockRejectedValue(new Error("private provider payload"));
+    const response = await POST(createContext() as never);
+    expect(response.status).toBe(503);
+    expect(releaseSessionMessageTurn).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ attemptId: "attempt-1" }),
+    );
+    expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
+  });
+
+  it.each(["invalid_lifecycle_transition", "session_not_found"] as const)(
+    "handles %s at atomic commit as a closed session",
+    async (code) => {
+      persistSuccessfulMessageTurn.mockResolvedValue(sessionDataError(code));
+      const response = await POST(createContext() as never);
+      expect(response.status).toBe(409);
+      await expect(readJson(response)).resolves.toMatchObject({ type: "session_not_active" });
+      expect(releaseSessionMessageTurn).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("handles expiry detected by the database after generation", async () => {
+    persistSuccessfulMessageTurn.mockResolvedValue(sessionDataError("session_expired"));
+    transitionSessionLifecycle.mockResolvedValue(ok({ ...activeSession, status: "expired" }));
+    const response = await POST(createContext() as never);
+    expect(response.status).toBe(409);
+    await expect(readJson(response)).resolves.toMatchObject({ type: "expired", session: { status: "expired" } });
+  });
+
   it("persists a normal allowed user and assistant turn", async () => {
     const response = await POST(createContext() as never);
 
@@ -301,6 +370,9 @@ describe("POST /api/session/message", () => {
     });
     expect(persistSuccessfulMessageTurn).toHaveBeenCalledWith(contextData, {
       sessionId: SESSION_ID,
+      clientMessageId: expect.any(String) as string,
+      attemptId: "attempt-1",
+      responseType: "success",
       userMessage: "Chce uporzadkowac mysli.",
       assistantMessage: "Mozemy zaczac od nazwania najwazniejszych faktow.",
     });

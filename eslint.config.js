@@ -99,5 +99,8 @@ export default tseslint.config(
   ...eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
   astroPagesConfig,
+  // The disposable PostgreSQL harness runs as native Node JavaScript. Keep
+  // syntax/style checks; the application's type-aware TS rules do not apply.
+  { ...tseslint.configs.disableTypeChecked, files: ["tests/**/*.mjs"] },
   eslintPluginPrettier,
 );
