@@ -103,6 +103,4 @@ export interface HardStopSessionSafetyDecision extends BaseSessionSafetyDecision
 }
 
 export type SessionSafetyDecision =
-  | AllowSessionSafetyDecision
-  | ConstrainedSessionSafetyDecision
-  | HardStopSessionSafetyDecision;
+  AllowSessionSafetyDecision | ConstrainedSessionSafetyDecision | HardStopSessionSafetyDecision;
