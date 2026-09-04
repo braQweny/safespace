@@ -62,13 +62,22 @@ export async function sendOpenRouterChat({
       ...(fetcher ? { httpClient: new HTTPClient({ fetcher }) } : {}),
     });
 
-    return await openRouter.chat.send(
-      { chatRequest },
+    const result = await openRouter.chat.send(
+      { chatRequest: { ...chatRequest, stream: false } },
       {
         ...(typeof timeoutMs === "number" ? { timeoutMs } : {}),
         retries: OPENROUTER_NO_RETRY_OPTIONS,
       },
     );
+
+    // SDK 1.x can return an event stream even for a non-streaming request.
+    // Close an unexpected stream without consuming or exposing its content.
+    if (!("choices" in result)) {
+      await result.cancel().catch(() => undefined);
+      throw new OpenRouterChatError("invalid_provider_response");
+    }
+
+    return result;
   } catch (error) {
     throw mapOpenRouterChatError(error);
   }
