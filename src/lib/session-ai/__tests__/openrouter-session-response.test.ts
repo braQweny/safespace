@@ -394,7 +394,7 @@ describe("generateSessionResponseWithOpenRouter", () => {
     } catch (error) {
       expectSessionAiError(error, category);
       expect(String(error)).not.toContain("raw provider error");
-      expect(fetcher).toHaveBeenCalledOnce();
+      expect(fetcher).toHaveBeenCalledTimes(status === 429 || status === 503 ? 2 : 1);
       return;
     }
 
@@ -421,6 +421,83 @@ describe("generateSessionResponseWithOpenRouter", () => {
     ).rejects.toMatchObject({
       category: "invalid_provider_response",
     });
+  });
+
+  it("recovers a rate-limited turn after one delayed retry", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi
+        .fn()
+        .mockResolvedValueOnce(createJsonResponse({ error: { code: 429, message: "provider busy" } }))
+        .mockResolvedValueOnce(createJsonResponse(createChatCompletionResponse("Odpowiedź po ponowieniu.")));
+      const result = generateSessionResponseWithOpenRouter(input, { apiKey: "test-key", fetcher });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetcher).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(499);
+      expect(fetcher).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await result).toMatchObject({ assistantText: "Odpowiedź po ponowieniu." });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the delayed retry inside the original response deadline", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
+    // Node's native AbortSignal.timeout does not use Vitest's fake timers.
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const controller = new AbortController();
+      setTimeout(() => {
+        controller.abort();
+      }, ms);
+      return controller.signal;
+    });
+    try {
+      let retrySignal: AbortSignal | undefined;
+      const fetcher = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<Response>((resolve) =>
+              setTimeout(() => {
+                resolve(createOpenRouterErrorResponse(503));
+              }, 400),
+            ),
+        )
+        .mockImplementationOnce(
+          (request: Request) =>
+            new Promise<Response>((_resolve, reject) => {
+              retrySignal = request.signal;
+              request.signal.addEventListener("abort", () => {
+                reject(new DOMException("aborted", "AbortError"));
+              });
+            }),
+        );
+      const result = generateSessionResponseWithOpenRouter(input, {
+        apiKey: "test-key",
+        fetcher,
+        timeoutMs: 1_200,
+      }).catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(900);
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(retrySignal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(300);
+      expect(retrySignal?.aborted).toBe(true);
+      expect(await result).toMatchObject({ category: "provider_timeout" });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      timeout.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry when the remaining budget cannot fit the retry delay", async () => {
+    const fetcher = vi.fn(() => Promise.resolve(createOpenRouterErrorResponse(429)));
+    await expect(
+      generateSessionResponseWithOpenRouter(input, { apiKey: "test-key", fetcher, timeoutMs: 100 }),
+    ).rejects.toMatchObject({ category: "provider_rate_limited" });
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 
   it("rejects length-finished responses instead of persisting truncated assistant text", async () => {

@@ -300,9 +300,33 @@ describe("classifySessionSafetyWithOpenRouter", () => {
         fetcher: fetcher as unknown as Fetcher,
       }),
     ).rejects.toMatchObject({
-      category: "provider_unavailable",
+      category: "provider_timeout",
     });
     expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("waits before retrying an HTTP-200 rate-limit envelope and preserves the final category", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn(() =>
+        Promise.resolve(createJsonResponse({ error: { code: 429, message: "private provider error" } })),
+      );
+      const result = classifySessionSafetyWithOpenRouter(input, {
+        apiKey: "test-openrouter-key",
+        fetcher,
+      }).catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetcher).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(499);
+      expect(fetcher).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await result).toMatchObject({ category: "provider_rate_limited" });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(JSON.stringify(await result)).not.toContain("private provider error");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("hands the classifier the user's recent turns as bounded context, newest last", () => {
