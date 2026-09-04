@@ -79,7 +79,7 @@ describe("SessionStartCard", () => {
     expect(html).not.toContain("Z czym zacznie się ta rozmowa");
   });
 
-  it("renders approved summary context before a follow-up start", () => {
+  it("explains automatic memory without a manual approval step", () => {
     const html = renderStartCard({
       kind: "followup_ready",
       trialAvailable: false,
@@ -92,12 +92,12 @@ describe("SessionStartCard", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Z czym zacznie się ta rozmowa");
-    expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
+    expect(html).toContain("Pamięć rozmów z tym awatarem");
+    expect(html).not.toContain("Zatwierdzone podsumowanie widoczne przed startem.");
     expect(html).toContain("Rozpocznij rozmowę");
     // The opt-out has to be reachable next to the context it opts out of.
-    expect(html).toContain("Zacznij bez przekazywania kontekstu");
-    expect(html).toContain('id="skip-approved-context"');
+    expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
+    expect(html).not.toContain('id="skip-approved-context"');
   });
 
   it("omits the opt-out when a context-free start is not offered", () => {
@@ -114,11 +114,11 @@ describe("SessionStartCard", () => {
     });
 
     expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
-    expect(html).toContain("Zatwierdzone podsumowanie widoczne przed startem.");
+    expect(html).not.toContain("Zatwierdzone podsumowanie widoczne przed startem.");
     expect(html).toContain("Rozpocznij rozmowę");
   });
 
-  it("renders an explicit no-context fallback when nothing was approved", () => {
+  it("prepares history even when no summaries were manually approved", () => {
     const html = renderStartCard({
       kind: "followup_ready",
       trialAvailable: false,
@@ -131,7 +131,7 @@ describe("SessionStartCard", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("zacznie się od zera");
+    expect(html).toContain("Nie musisz niczego generować ani zatwierdzać ręcznie");
     expect(html).toContain("Rozpocznij rozmowę");
   });
 

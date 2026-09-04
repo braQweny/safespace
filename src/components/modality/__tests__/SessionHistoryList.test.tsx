@@ -171,9 +171,9 @@ describe("SessionHistoryList", () => {
     const stale = renderList({ items: [createItem({ summaryState: "stale" })] });
     const none = renderList();
 
-    expect(approved).toContain("Przechodzi dalej");
+    expect(approved).toContain("Podsumowanie");
     expect(stale).toContain("Podsumowanie nieaktualne");
-    expect(none).not.toContain("Przechodzi dalej");
+    expect(none).not.toContain("Podsumowanie");
     expect(none).not.toContain("Podsumowanie");
   });
 

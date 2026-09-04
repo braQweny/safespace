@@ -110,7 +110,7 @@ Aplikacja dobiera sposob prowadzenia rozmowy do wybranego nurtu psychoterapeutyc
 
 Kazdy avatar reprezentuje nurt psychoterapeutyczny oraz posiada opis charakteru, ktory moze wplywac na styl rozmowy, np. bardziej zartobliwy albo powazny. W MVP nurty maja byc dobrane jako najpopularniejsze i najskuteczniejsze, ale konkretna lista pozostaje do ustalenia.
 
-Kolejne sesje korzystaja z podsumowan najwazniejszych faktow z poprzednich rozmow, a nie z nieograniczonego surowego kontekstu. Gdy aplikacja rozpozna sytuacje kryzysowa, np. ryzyko samouszkodzenia albo zagrozenie zycia, przerywa zwykla symulacje i pokazuje komunikat o pilnym kontakcie ze specjalista lub numerami pomocowymi.
+Każda nowa sesja automatycznie otrzymuje skrócone podsumowanie wszystkich dostępnych wcześniejszych rozmów z wybranym awatarem. Pamięć jest osobna dla każdego awatara i właściciela konta. Nie wymaga ręcznego generowania ani zatwierdzania; pełne wcześniejsze transkrypcje nie trafiają do modelu prowadzącego nową rozmowę. Usunięcie rozmowy unieważnia pamięć tego awatara, która zostanie odbudowana z pozostałych zapisów. Gdy aplikacja rozpozna sytuacje kryzysowa, np. ryzyko samouszkodzenia albo zagrozenie zycia, przerywa zwykla symulacje i pokazuje komunikat o pilnym kontakcie ze specjalista lub numerami pomocowymi.
 
 ## Access Control
 

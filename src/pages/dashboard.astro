@@ -2,6 +2,7 @@
 import AppHeader from "@/components/AppHeader.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
 import SessionStartCard, { AllowanceMeter } from "@/components/session/SessionStartCard";
+import { getOwnedAvatarMemoryPreview } from "@/lib/session-data/repository";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import {
@@ -109,9 +110,10 @@ const historyAvatar = viewedAvatar ?? currentSelection;
 
 // Rozmowa zaczyna się tutaj, więc panel czyta ten sam stan startu, z którego
 // wcześniej korzystał osobny ekran wstępny. Wiadomości zostają na stronie
-// rozmowy — panel potrzebuje tylko stanu i zatwierdzonych podsumowań.
+// rozmowy — panel potrzebuje stanu startu i podglądu pamięci wybranego awatara.
 let startPageState: SessionStartPageState | null = null;
 let startStateFailed = false;
+let avatarMemoryPreview: string | null = null;
 // Karta pierwszych kroków obiecuje pulę rozmów, zanim jakakolwiek się zacznie,
 // więc na tej ścieżce quota jest czytana osobno — stan startu wymaga zapisanej
 // perspektywy, a ta jeszcze nie istnieje.
@@ -124,7 +126,7 @@ if (sessionContext.ok) {
   // więc zamiast czterech rund do bazy po kolei jest jedna. Znaczek rozmowy w
   // toku jest czytany zawsze: gdy stan startu sam ją niesie, wynik i tak
   // zostanie nadpisany, ale czekanie na ten stan kosztowałoby osobną rundę.
-  const [historyResult, quotaResult, startStateResult, activeBadge] = await Promise.all([
+  const [historyResult, quotaResult, startStateResult, activeBadge, memoryPreview] = await Promise.all([
     !initialHistory && historyAvatar
       ? readSessionHistoryList(sessionContext.data, {
           avatar: historyAvatar.avatarId,
@@ -139,6 +141,9 @@ if (sessionContext.ok) {
         })
       : null,
     readActiveSessionBadge(sessionContext.data),
+    currentAvatarChoice
+      ? getOwnedAvatarMemoryPreview(sessionContext.data, currentAvatarChoice.selected.avatarId)
+      : null,
   ]);
 
   if (historyResult) {
@@ -155,6 +160,7 @@ if (sessionContext.ok) {
   }
 
   anyOwnedActiveSession = activeBadge;
+  avatarMemoryPreview = memoryPreview?.ok ? memoryPreview.data : null;
 }
 
 // Rozmowa w toku z zapisaną perspektywą blokuje kartę startu. Rozmowa w toku
@@ -313,6 +319,16 @@ const historyProps = currentSelection
                         : "Rozmowa jest chwilowo niedostępna. Spróbuj ponownie za chwilę."}
                     </p>
                   )}
+
+                  {avatarMemoryPreview ? (
+                    <details class="bg-surface-soft mt-5 rounded-2xl p-5 text-sm leading-6">
+                      <summary class="text-brand cursor-pointer font-medium">Przeczytaj obecną pamięć awatara</summary>
+                      <p class="text-ink-muted mt-2">
+                        Przed kolejnym startem uzupełnimy ją o rozmowy, których jeszcze nie obejmuje.
+                      </p>
+                      <p class="text-ink mt-3 font-serif text-[17px] whitespace-pre-wrap">{avatarMemoryPreview}</p>
+                    </details>
+                  ) : null}
 
                   <p class="text-ink-muted mt-6 text-[13px] leading-5">{SESSION_BOUNDARIES_COPY}</p>
                 </div>

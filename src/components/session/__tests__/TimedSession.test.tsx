@@ -182,7 +182,7 @@ describe("TimedSession", () => {
     expect(html).not.toContain("Zakończ sesję");
     expect(html).not.toContain("Pozostały czas sesji");
     // Decyzja o kontekście kolejnej rozmowy zapada tu, nie dopiero w historii.
-    expect(html).toContain("Co przechodzi do następnej rozmowy");
+    expect(html).toContain("Do przeczytania w historii");
     expect(html).toContain("Podsumowanie tej rozmowy");
     expect(html).toContain("Wygeneruj podsumowanie");
     expect(html).toContain("Otwórz w historii");

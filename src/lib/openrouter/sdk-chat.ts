@@ -70,17 +70,20 @@ export async function sendOpenRouterChat({
       },
     );
 
-    // SDK 1.x can return an event stream even for a non-streaming request.
-    // Close an unexpected stream without consuming or exposing its content.
-    if (!("choices" in result)) {
-      await result.cancel().catch(() => undefined);
-      throw new OpenRouterChatError("invalid_provider_response");
-    }
-
-    return result;
+    return await requireNonStreamingResult(result);
   } catch (error) {
     throw mapOpenRouterChatError(error);
   }
+}
+
+// SDK overloads differ between releases; keep the runtime stream guard even
+// when the installed overload types stream:false as ChatResult alone.
+async function requireNonStreamingResult(result: ChatResult | { cancel: () => Promise<void> }): Promise<ChatResult> {
+  if (!("choices" in result)) {
+    await result.cancel().catch(() => undefined);
+    throw new OpenRouterChatError("invalid_provider_response");
+  }
+  return result;
 }
 
 function mapOpenRouterChatError(error: unknown): OpenRouterChatError {

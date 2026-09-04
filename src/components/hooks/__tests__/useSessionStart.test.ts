@@ -1,39 +1,34 @@
-import { describe, expect, it } from "vitest";
-import { resolveFailedStartKind, resolveStartWithoutContext } from "../useSessionStart";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { requestSessionStart, resolveFailedStartKind } from "../useSessionStart";
 
-describe("resolveStartWithoutContext", () => {
-  const followupWithContext = {
-    isFollowupStart: true,
-    canStartWithoutContext: true,
-    approvedSummaryCount: 2,
-    requestedWithoutContext: false,
-  };
+afterEach(() => vi.unstubAllGlobals());
 
-  it("keeps approved context unless the user opts out", () => {
-    expect(resolveStartWithoutContext(followupWithContext)).toBe(false);
-    expect(resolveStartWithoutContext({ ...followupWithContext, requestedWithoutContext: true })).toBe(true);
+describe("automatic memory preparation during start", () => {
+  it("keeps progressing through 202 responses and returns only the started session", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ ok: true, type: "avatar_memory_preparing" }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ ok: true, type: "avatar_memory_preparing" }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ ok: true, session: { id: "new-session" } }, { status: 201 }));
+    vi.stubGlobal("fetch", fetch);
+    const progress = vi.fn();
+    expect(await requestSessionStart(true, progress)).toMatchObject({
+      status: 201,
+      body: { session: { id: "new-session" } },
+    });
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledWith("/api/session/start-next", expect.objectContaining({ method: "POST" }));
+    expect(progress.mock.calls).toEqual([[true], [true], [false]]);
   });
 
-  it("confirms the context-free start implicitly when there is nothing to carry over", () => {
-    expect(resolveStartWithoutContext({ ...followupWithContext, approvedSummaryCount: 0 })).toBe(true);
-  });
-
-  it("never declares a context-free start outside an offered follow-up", () => {
-    expect(
-      resolveStartWithoutContext({
-        ...followupWithContext,
-        isFollowupStart: false,
-        approvedSummaryCount: 0,
-        requestedWithoutContext: true,
-      }),
-    ).toBe(false);
-    expect(
-      resolveStartWithoutContext({
-        ...followupWithContext,
-        canStartWithoutContext: false,
-        requestedWithoutContext: true,
-      }),
-    ).toBe(false);
+  it("stops on failure or throttling, allowing a later click to resume saved progress", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ ok: true, type: "avatar_memory_preparing" }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ ok: false, code: "rate_limited" }, { status: 429 }));
+    vi.stubGlobal("fetch", fetch);
+    expect(await requestSessionStart(true, vi.fn())).toMatchObject({ status: 429 });
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });
 

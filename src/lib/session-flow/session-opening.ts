@@ -1,7 +1,7 @@
 import { getValidAvatarChoice } from "@/lib/modalities";
 import { generateSessionResponse } from "@/lib/session-ai/provider";
 import type { ApprovedSessionSummaryContext, SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
-import { listNewestApprovedSessionSummaryContexts } from "@/lib/session-data/repository";
+import { loadOwnedSessionContinuity } from "./session-continuity";
 import { getProviderTimeoutWithinSessionMs } from "./time-limit";
 import { persistOpeningMessage } from "./message-persistence";
 import type { SessionMessageViewModel } from "./message-contract";
@@ -10,8 +10,8 @@ export type SessionOpeningFailure = "opening_provider_failed" | "opening_persist
 
 export interface SessionOpeningOptions {
   /**
-   * Pre-loaded approved summaries (start-next already reads them before creating
-   * the session). When omitted, they are loaded for context-backed sessions.
+   * Optional legacy summaries. Automatic sessions always read their pinned
+   * avatar-memory snapshot, even when this legacy option is supplied.
    */
   approvedSummaries?: readonly ApprovedSessionSummaryContext[];
 }
@@ -40,7 +40,10 @@ export async function createSessionOpeningMessage(
     return { ok: true, message: null };
   }
 
-  const summaries = await loadApprovedSummaries(context, session, options.approvedSummaries);
+  const summaries =
+    options.approvedSummaries && !session.usesAvatarMemory && session.usesApprovedContext
+      ? { ok: true as const, data: options.approvedSummaries, avatarMemory: undefined }
+      : await loadOwnedSessionContinuity(context, session);
 
   if (!summaries.ok) {
     return { ok: false, failure: "opening_unavailable" };
@@ -57,6 +60,7 @@ export async function createSessionOpeningMessage(
         sessionStyleHint: modality.sessionStyleHint,
       },
       sessionPhase: "opening",
+      avatarMemory: summaries.avatarMemory,
       approvedSummaries: summaries.data.map((summary) => ({
         summaryText: summary.summaryText,
         revision: summary.revision,
@@ -81,20 +85,4 @@ export async function createSessionOpeningMessage(
   }
 
   return { ok: true, message: persisted.data };
-}
-
-async function loadApprovedSummaries(
-  context: SessionDataContext,
-  session: SessionMetadata,
-  preloaded: readonly ApprovedSessionSummaryContext[] | undefined,
-) {
-  if (preloaded) {
-    return { ok: true as const, data: preloaded };
-  }
-
-  if (!session.usesApprovedContext) {
-    return { ok: true as const, data: [] as ApprovedSessionSummaryContext[] };
-  }
-
-  return listNewestApprovedSessionSummaryContexts(context);
 }

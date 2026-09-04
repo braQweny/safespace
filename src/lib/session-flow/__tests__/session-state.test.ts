@@ -205,7 +205,7 @@ describe("readSessionStartPageState", () => {
       ok: true,
       data: {
         kind: "followup_ready",
-        canStartWithoutContext: true,
+        canStartWithoutContext: false,
         sessionQuota: premiumQuota,
       },
     });
@@ -471,13 +471,9 @@ describe("readSessionStartPageState", () => {
         kind: "followup_ready",
         trialAvailable: false,
         session: null,
-        approvedSummaries: [
-          {
-            summaryText: "Zatwierdzone podsumowanie do kolejnej sesji.",
-          },
-        ],
-        // The opt-out stays available even when there is context to carry over.
-        canStartWithoutContext: true,
+        approvedSummaries: [],
+        // Start przygotowuje pamięć automatycznie, bez ręcznego wyboru podsumowań.
+        canStartWithoutContext: false,
         sessionQuota: freeQuota,
       },
     });
@@ -505,7 +501,7 @@ describe("readSessionStartPageState", () => {
         trialAvailable: false,
         session: null,
         approvedSummaries: [],
-        canStartWithoutContext: true,
+        canStartWithoutContext: false,
       },
     });
   });

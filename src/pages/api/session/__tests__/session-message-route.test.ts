@@ -11,6 +11,7 @@ const requireActiveAccountAccess = vi.fn();
 const getOwnedSessionMetadata = vi.fn();
 const listRecentOwnedSessionMessages = vi.fn();
 const listNewestApprovedSessionSummaryContexts = vi.fn();
+const getOwnedSessionAvatarMemory = vi.fn();
 const transitionSessionLifecycle = vi.fn();
 const evaluateSessionSafety = vi.fn();
 const generateSessionResponse = vi.fn();
@@ -39,6 +40,7 @@ vi.mock("@/lib/session-data/repository", () => ({
   listOwnedSessionMessages: vi.fn(),
   listRecentOwnedSessionMessages,
   listNewestApprovedSessionSummaryContexts,
+  getOwnedSessionAvatarMemory,
   transitionSessionLifecycle,
   appendSessionMessages: vi.fn(),
 }));
@@ -283,6 +285,35 @@ describe("POST /api/session/message", () => {
     expect(generateSessionResponse).not.toHaveBeenCalled();
     expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
     expect(releaseSessionMessageTurn).not.toHaveBeenCalled();
+  });
+
+  it("passes the session's pinned avatar memory after safety approval, without reading legacy summaries", async () => {
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesAvatarMemory: true }));
+    getOwnedSessionAvatarMemory.mockResolvedValue(ok("Fakty ze wszystkich poprzednich rozmów z Markiem."));
+    const response = await POST(createContext() as never);
+    expect(response.status).toBe(200);
+    expect(getOwnedSessionAvatarMemory).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ id: SESSION_ID, avatarId: "cbt-guide" }),
+    );
+    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+    expect(generateSessionResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        avatarMemory: "Fakty ze wszystkich poprzednich rozmów z Markiem.",
+        approvedSummaries: [],
+      }),
+      undefined,
+      expect.any(Object),
+    );
+    expect(evaluateSessionSafety).toHaveBeenCalledBefore(generateSessionResponse);
+  });
+
+  it("does not silently answer without history when reading the pinned avatar memory fails", async () => {
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesAvatarMemory: true }));
+    getOwnedSessionAvatarMemory.mockResolvedValue(sessionDataError("read_failed"));
+    const response = await POST(createContext() as never);
+    expect(response.status).toBe(503);
+    expect(generateSessionResponse).not.toHaveBeenCalled();
   });
 
   it.each(["message_in_progress", "message_request_conflict"] as const)(

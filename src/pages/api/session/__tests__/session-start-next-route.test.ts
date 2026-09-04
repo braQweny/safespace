@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
-import type { ApprovedSessionSummaryContext, SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
+import type { SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
 
 const getSessionDataContext = vi.fn();
 const requireActiveAccountAccess = vi.fn();
 const readCurrentAvatarChoice = vi.fn();
 const createPendingSession = vi.fn();
-const listNewestApprovedSessionSummaryContexts = vi.fn();
+const prepareOwnedAvatarMemory = vi.fn();
+vi.mock("@/lib/session-flow/avatar-memory", () => ({ prepareOwnedAvatarMemory }));
 const transitionSessionLifecycle = vi.fn();
 const readSessionQuota = vi.fn();
 const buildOperationalRequestContext = vi.fn();
@@ -38,7 +39,7 @@ vi.mock("@/lib/session-data/repository", () => ({
   getOwnedSessionMetadata: vi.fn(),
   getTrialAvailability: vi.fn(),
   listOwnedActiveSessionMetadata: vi.fn(),
-  listNewestApprovedSessionSummaryContexts,
+  listNewestApprovedSessionSummaryContexts: vi.fn(),
   listOwnedSessionMessages: vi.fn(),
   purgeAndTombstoneOwnedSession: vi.fn(),
   transitionSessionLifecycle,
@@ -93,17 +94,6 @@ const avatar = {
     altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
 } satisfies CurrentAvatarChoice;
-
-const approvedSummaries: ApprovedSessionSummaryContext[] = [
-  {
-    id: "summary-1",
-    sessionId: "old-session-1",
-    summaryText: "Zatwierdzone podsumowanie do kolejnej rozmowy.",
-    revision: 1,
-    createdAt: "2026-06-07T09:00:00.000Z",
-    updatedAt: "2026-06-07T09:00:00.000Z",
-  },
-];
 
 const createdSession: SessionMetadata = {
   id: "next-session-1",
@@ -198,13 +188,13 @@ describe("POST /api/session/start-next", () => {
         canStartSession: true,
       }),
     );
-    listNewestApprovedSessionSummaryContexts.mockResolvedValue(ok(approvedSummaries));
+    prepareOwnedAvatarMemory.mockResolvedValue({ ok: true, ready: true });
     createPendingSession.mockResolvedValue(ok(createdSession));
     transitionSessionLifecycle.mockResolvedValue(ok(activeSession));
     createSessionOpeningMessage.mockResolvedValue({ ok: true, message: null });
   });
 
-  it("starts a non-trial follow-up session with the current avatar and approved context", async () => {
+  it("starts a non-trial follow-up session with the current avatar and automatically prepared memory", async () => {
     const response = await POST(createContext() as never);
 
     expect(response.status).toBe(201);
@@ -217,7 +207,7 @@ describe("POST /api/session/start-next", () => {
         remainingSeconds: 900,
       },
     });
-    expect(listNewestApprovedSessionSummaryContexts).toHaveBeenCalledWith(contextData);
+    expect(prepareOwnedAvatarMemory).toHaveBeenCalledWith(contextData, avatar.modality);
     expect(createPendingSession).toHaveBeenCalledWith(contextData, {
       startedAt: "2026-06-07T10:00:00.000Z",
       expiresAt: "2026-06-07T10:15:00.000Z",
@@ -226,6 +216,7 @@ describe("POST /api/session/start-next", () => {
       isTrial: false,
       durationBucketSeconds: 900,
       usesApprovedContext: true,
+      usesAvatarMemory: true,
     });
     expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
       sessionId: "next-session-1",
@@ -236,23 +227,10 @@ describe("POST /api/session/start-next", () => {
     });
   });
 
-  it("passes the approved summaries to the opening generation for a context-backed session", async () => {
+  it("lets the opening load the context pinned to the new session", async () => {
     await POST(createContext() as never);
 
-    expect(createSessionOpeningMessage).toHaveBeenCalledWith(contextData, activeSession, { approvedSummaries });
-  });
-
-  it("passes no summaries to the opening generation when the user started without context", async () => {
-    const contextFreeSession = { ...activeSession, usesApprovedContext: false };
-    transitionSessionLifecycle.mockResolvedValue(ok(contextFreeSession));
-
-    await POST(createContext({ startWithoutContext: true }) as never);
-
-    expect(createSessionOpeningMessage).toHaveBeenCalledWith(
-      contextData,
-      expect.objectContaining({ usesApprovedContext: false }),
-      { approvedSummaries: [] },
-    );
+    expect(createSessionOpeningMessage).toHaveBeenCalledWith(contextData, activeSession);
   });
 
   it("includes the avatar's opening message in the success response", async () => {
@@ -307,7 +285,7 @@ describe("POST /api/session/start-next", () => {
       redirectTo: "/account/blocked",
     });
     expect(readCurrentAvatarChoice).not.toHaveBeenCalled();
-    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+    expect(prepareOwnedAvatarMemory).not.toHaveBeenCalled();
   });
 
   it("counts follow-ups against the free-plan allowance and refuses with 403 when it is used up", async () => {
@@ -329,7 +307,7 @@ describe("POST /api/session/start-next", () => {
       code: "session_limit_reached",
       redirectTo: "/dashboard?start=limit_reached",
     });
-    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+    expect(prepareOwnedAvatarMemory).not.toHaveBeenCalled();
     expect(createPendingSession).not.toHaveBeenCalled();
     expect(logOperationalEvent).toHaveBeenCalledWith(
       expect.objectContaining({ outcome: "blocked", status: 403, reasonCode: "session_limit_reached" }),
@@ -419,35 +397,22 @@ describe("POST /api/session/start-next", () => {
     expect(JSON.stringify(transitionSessionLifecycle.mock.calls)).not.toContain("trialClaim");
   });
 
-  it("requires an explicit no-context flag when no approved summaries exist", async () => {
-    listNewestApprovedSessionSummaryContexts.mockResolvedValue(ok([]));
-
-    const blocked = await POST(createContext() as never);
-
-    expect(blocked.status).toBe(409);
-    await expect(readJson(blocked)).resolves.toMatchObject({
-      ok: false,
-      code: "no_context_not_confirmed",
-    });
+  it("prepares memory before starting the timer or consuming a session", async () => {
+    prepareOwnedAvatarMemory.mockResolvedValue({ ok: true, ready: false });
+    const response = await POST(createContext() as never);
+    expect(response.status).toBe(202);
+    expect(await readJson(response)).toEqual({ ok: true, type: "avatar_memory_preparing" });
     expect(createPendingSession).not.toHaveBeenCalled();
-
-    const allowed = await POST(createContext({ startWithoutContext: true }) as never);
-
-    expect(allowed.status).toBe(201);
-    expect(createPendingSession).toHaveBeenCalledOnce();
-    expect(createPendingSession).toHaveBeenLastCalledWith(
-      contextData,
-      expect.objectContaining({ usesApprovedContext: false }),
-    );
+    expect(transitionSessionLifecycle).not.toHaveBeenCalled();
+    expect(createSessionOpeningMessage).not.toHaveBeenCalled();
   });
 
-  it("pins a context-free start on the session even when approved summaries exist", async () => {
+  it("uses automatic avatar memory even when an old client submits the obsolete context-free flag", async () => {
     const response = await POST(createContext({ startWithoutContext: true }) as never);
-
     expect(response.status).toBe(201);
     expect(createPendingSession).toHaveBeenCalledWith(
       contextData,
-      expect.objectContaining({ usesApprovedContext: false }),
+      expect.objectContaining({ usesApprovedContext: true, usesAvatarMemory: true }),
     );
   });
 
@@ -469,8 +434,8 @@ describe("POST /api/session/start-next", () => {
     expect(createPendingSession).not.toHaveBeenCalled();
   });
 
-  it("maps approved context read failures to a stable unavailable response", async () => {
-    listNewestApprovedSessionSummaryContexts.mockResolvedValue(sessionDataError("read_failed"));
+  it("maps automatic memory failures to a stable unavailable response", async () => {
+    prepareOwnedAvatarMemory.mockResolvedValue({ ok: false });
 
     const response = await POST(createContext() as never);
 

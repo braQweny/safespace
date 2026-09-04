@@ -40,7 +40,7 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
   completed: {
     title: "Sesja została zakończona",
-    body: "Rozmowa została prywatnie zapisana. Nic z niej nie przechodzi dalej samo z siebie — podsumowanie do kolejnej sesji powstaje dopiero wtedy, gdy je wygenerujesz i zatwierdzisz.",
+    body: "Rozmowa została prywatnie zapisana. Przy rozpoczęciu kolejnej rozmowy z tym awatarem zostanie automatycznie uwzględniona w jego pamięci.",
   },
   interrupted: {
     title: "Sesja została przerwana",
@@ -48,7 +48,7 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
   },
   followup_ready: {
     title: "Rozmowa jeszcze się nie zaczęła",
-    body: "Kolejną rozmowę rozpoczniesz w panelu — tam zdecydujesz też, czy przekazać do niej zatwierdzone podsumowanie.",
+    body: "Kolejną rozmowę rozpoczniesz w panelu. Pamięć wcześniejszych rozmów z wybranym awatarem zostanie przygotowana automatycznie.",
   },
   trial_already_claimed: {
     title: "Pierwsza darmowa rozmowa została już wykorzystana",

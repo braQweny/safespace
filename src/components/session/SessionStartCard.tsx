@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ArrowRight, Mail } from "lucide-react";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
@@ -104,22 +104,16 @@ export function AllowanceMeter({ quota }: { quota: SessionQuota | null }) {
 }
 
 export default function SessionStartCard({ initialState, supportEmail = null }: SessionStartCardProps) {
-  const [skipContext, setSkipContext] = useState(false);
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
   const isHydrated = useIsHydrated();
-  const { kind, isStarting, notice, startSession } = useSessionStart({
+  const { kind, isStarting, isPreparingMemory, notice, startSession } = useSessionStart({
     initialState,
     onStarted: (session) => {
       window.location.assign(buildSessionHref(session.id));
     },
   });
 
-  const hasApprovedSummaries = initialState.approvedSummaries.length > 0;
-  // Without approved summaries there is nothing to carry over, so the start is
-  // context-free either way; the checkbox only matters when context exists.
-  const startsWithoutContext =
-    initialState.canStartWithoutContext && (skipContext || !hasApprovedSummaries) && kind === "followup_ready";
   const canStart = kind === "ready" || kind === "followup_ready";
   const remainingCopy = formatRemainingFreeSessions(initialState.sessionQuota);
 
@@ -145,8 +139,8 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
       return;
     }
 
-    void startSession({ withoutContext: startsWithoutContext });
-  }, [canStart, isHydrated, isStarting, startSession, startsWithoutContext]);
+    void startSession();
+  }, [canStart, isHydrated, isStarting, startSession]);
   // Rozmowa premium trwa dłużej, więc obietnica czasu musi iść za planem —
   // to samo źródło, z którego trasa startu liczy `expires_at`.
   const sessionDurationSeconds = resolveSessionDurationSeconds(initialState.sessionQuota?.plan);
@@ -192,77 +186,17 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
         {getStartCopy(kind, initialState.sessionQuota)} {sessionBudgetCopy}
       </p>
 
-      {kind === "followup_ready" ? (
-        <div className="bg-surface-soft text-ink-soft rounded-2xl p-5 text-sm leading-6">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <p className="text-ink text-[15px] font-semibold">Z czym zacznie się ta rozmowa</p>
-            {hasApprovedSummaries ? <p className="text-ink-muted text-xs">Tylko to, co zatwierdzisz</p> : null}
-          </div>
-          {hasApprovedSummaries ? (
-            <div className="mt-3 space-y-3">
-              {initialState.approvedSummaries.slice(0, 3).map((summary) => (
-                <div
-                  key={summary.id}
-                  className={cn("bg-surface rounded-xl p-4 transition-opacity", skipContext && "opacity-50")}
-                >
-                  {/* Ten sam łuk co w bramie podsumowania: to jest dokładnie to,
-                      co przez próg przeszło. */}
-                  <p className="text-brand flex items-center gap-1.5 text-xs font-semibold tracking-[0.08em] uppercase">
-                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
-                      <path
-                        d="M4.5 21.5V12a7.5 7.5 0 0 1 15 0v9.5Z"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    Przechodzi do tej rozmowy
-                  </p>
-                  {/* Podsumowanie to treść rozmowy — szeryf, jak w samej rozmowie. */}
-                  <p className="text-ink mt-2 font-serif text-[17px] leading-relaxed whitespace-pre-wrap">
-                    {summary.summaryText}
-                  </p>
-                </div>
-              ))}
-              <p className="text-ink-muted">
-                {skipContext
-                  ? "Ta rozmowa zacznie się od zera. Żadne z powyższych podsumowań do niej nie trafi — zostają w historii i możesz je przekazać przy następnym starcie."
-                  : "Tylko te zatwierdzone, widoczne podsumowania mogą zostać przekazane do tej rozmowy."}
-              </p>
-              {initialState.canStartWithoutContext ? (
-                <label
-                  htmlFor="skip-approved-context"
-                  className="text-ink hover:bg-surface flex cursor-pointer items-start gap-3 rounded-xl p-2 transition-colors"
-                >
-                  <input
-                    id="skip-approved-context"
-                    type="checkbox"
-                    checked={skipContext}
-                    onChange={(event) => {
-                      setSkipContext(event.target.checked);
-                    }}
-                    disabled={isStarting}
-                    className="accent-brand focus-visible:ring-brand-ring mt-1 h-4 w-4 shrink-0 rounded focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
-                  />
-                  <span className="min-w-0">
-                    <span className="font-medium">Zacznij bez przekazywania kontekstu</span>
-                    <span className="text-ink-muted mt-1 block text-xs leading-5">
-                      Wybór obowiązuje przez całą rozmowę — podsumowanie zatwierdzone w jej trakcie też do niej nie
-                      trafi.
-                    </span>
-                  </span>
-                </label>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-ink-muted mt-2">
-              Nie masz jeszcze zatwierdzonego podsumowania, więc ta rozmowa zacznie się od zera. Podsumowanie
-              poprzedniej rozmowy przygotujesz w jej historii, niżej na tej stronie.
-            </p>
-          )}
-        </div>
-      ) : null}
+      <div className="bg-surface-soft text-ink-soft rounded-2xl p-5 text-sm leading-6">
+        <p className="text-ink text-[15px] font-semibold">Pamięć rozmów z tym awatarem</p>
+        <p className="mt-2">
+          Nowa rozmowa automatycznie otrzyma podsumowanie wszystkich wcześniejszych rozmów z tym awatarem. Nie musisz
+          niczego generować ani zatwierdzać ręcznie. Rozmowy z innymi awatarami mają osobną pamięć.
+        </p>
+        <p className="text-ink-muted mt-2">
+          Przy pierwszym przygotowaniu historii start może potrwać dłużej. Czas rozmowy zacznie biec dopiero po
+          przygotowaniu pamięci.
+        </p>
+      </div>
 
       {notice ? (
         <div className="border-danger-line bg-danger-soft text-danger rounded-2xl border p-4 text-sm leading-6">
@@ -285,14 +219,16 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
         <button
           type="button"
           onClick={() => {
-            void startSession({ withoutContext: startsWithoutContext });
+            void startSession();
           }}
           disabled={!isHydrated || isStarting}
           className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-2xl border border-transparent px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
         >
           <span>
             {isStarting
-              ? "Rozpoczynanie…"
+              ? isPreparingMemory
+                ? "Przygotowywanie pamięci…"
+                : "Rozpoczynanie…"
               : kind === "ready"
                 ? initialState.sessionQuota?.plan === "premium"
                   ? "Rozpocznij pierwszą rozmowę"
@@ -307,6 +243,13 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
           )}
         </button>
       </div>
+      <p className="sr-only" role="status" aria-live="polite">
+        {isPreparingMemory
+          ? "Przygotowywanie pamięci wcześniejszych rozmów."
+          : isStarting
+            ? "Rozpoczynanie rozmowy."
+            : ""}
+      </p>
     </div>
   );
 }

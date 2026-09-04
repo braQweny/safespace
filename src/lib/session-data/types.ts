@@ -82,6 +82,8 @@ export interface SessionMetadata {
    * resolving the context per user on every turn.
    */
   usesApprovedContext: boolean;
+  /** Nowe sesje otrzymują przypiętą kopię automatycznej pamięci awatara. */
+  usesAvatarMemory?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -183,6 +185,7 @@ export interface CreatePendingSessionInput {
   expiresAt?: string | null;
   durationBucketSeconds?: SessionDurationBucketSeconds | null;
   usesApprovedContext?: boolean;
+  usesAvatarMemory?: boolean;
 }
 
 export interface ClaimFreeTrialSessionInput {
@@ -253,6 +256,7 @@ export interface ApproveSessionSummaryRevisionInput {
 
 export interface ListApprovedSessionSummaryContextOptions {
   limit?: number;
+  avatarId?: SessionAvatarId;
 }
 
 export interface ListSessionMetadataOptions {

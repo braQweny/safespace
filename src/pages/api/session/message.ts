@@ -14,18 +14,12 @@ import { MAX_SAFETY_RECENT_USER_MESSAGES } from "@/lib/session-safety/classifier
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import {
   getOwnedSessionMetadata,
-  listNewestApprovedSessionSummaryContexts,
   listRecentOwnedSessionMessages,
   transitionSessionLifecycle,
   claimSessionMessageTurn,
   releaseSessionMessageTurn,
 } from "@/lib/session-data/repository";
-import type {
-  ApprovedSessionSummaryContext,
-  SessionDataContext,
-  SessionMessageRecord,
-  SessionMetadata,
-} from "@/lib/session-data/types";
+import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
 import {
@@ -45,6 +39,7 @@ import { persistSuccessfulMessageTurn, toSessionMessageViewModel } from "@/lib/s
 import { expireOwnedSession, getProviderTimeoutWithinSessionMs, isSessionExpired } from "@/lib/session-flow/time-limit";
 import { resolveSessionPhase } from "@/lib/session-flow/session-phase";
 import { toSessionView } from "@/lib/session-flow/session-state";
+import { loadOwnedSessionContinuity } from "@/lib/session-flow/session-continuity";
 
 export const prerender = false;
 
@@ -121,17 +116,6 @@ function notActiveResponse() {
     },
     409,
   );
-}
-
-// A session started without context never reads approved summaries — not even
-// ones approved after it began. The decision is pinned on the session row at
-// start time instead of being resolved per user on every turn.
-async function loadApprovedSummaryContext(context: SessionDataContext, session: SessionMetadata) {
-  if (!session.usesApprovedContext) {
-    return { ok: true as const, data: [] as ApprovedSessionSummaryContext[] };
-  }
-
-  return listNewestApprovedSessionSummaryContexts(context);
 }
 
 async function markInterrupted(context: SessionDataContext, session: SessionMetadata) {
@@ -278,7 +262,7 @@ export const POST: APIRoute = async (context) => {
           locale: "pl",
         },
       }),
-      loadApprovedSummaryContext(sessionContext.data, session),
+      loadOwnedSessionContinuity(sessionContext.data, session),
     ]);
 
     logOperationalEvent(
@@ -384,6 +368,7 @@ export const POST: APIRoute = async (context) => {
           ...(sessionPhase ? { sessionPhase } : {}),
           cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
           recentMessages: toRecentSessionAiMessages(recentMessages.data),
+          avatarMemory: approvedSummaries.avatarMemory,
           approvedSummaries: approvedSummaries.data.map((summary) => ({
             summaryText: summary.summaryText,
             revision: summary.revision,

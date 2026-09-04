@@ -116,6 +116,14 @@ async function readOpenRouterRequest(fetcher: ReturnType<typeof vi.fn>) {
 }
 
 describe("buildOpenRouterSummaryRequest", () => {
+  it("gives cumulative memory enough output space while preserving the private provider policy", () => {
+    const manual = buildOpenRouterSummaryRequest(input, "openai/gpt-4o-mini");
+    const automatic = buildOpenRouterSummaryRequest({ ...input, continuityMemory: "" }, "openai/gpt-4o-mini");
+    expect(automatic.maxTokens).toBe(4000);
+    expect(automatic.maxTokens).toBeGreaterThan(manual.maxTokens ?? 0);
+    expect(automatic.provider).toEqual(manual.provider);
+  });
+
   it("builds a conservative non-streaming summary request", () => {
     const request = buildOpenRouterSummaryRequest(input, "openai/gpt-4o-mini");
 

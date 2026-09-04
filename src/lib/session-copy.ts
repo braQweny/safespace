@@ -7,13 +7,9 @@ export const SESSION_BOUNDARIES_COPY =
   "SafeSpace jest symulacją rozmowy edukacyjnej. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.";
 
 export const SESSION_PERSPECTIVE_COPY =
-  "Wybrana perspektywa obowiązuje przez całą sesję. Kolejna rozmowa korzysta wyłącznie z podsumowań, które samodzielnie zatwierdzisz — albo zaczyna się bez kontekstu, jeśli tak zdecydujesz.";
+  "Wybrana perspektywa obowiązuje przez całą sesję. Każda nowa rozmowa automatycznie korzysta z podsumowania wszystkich wcześniejszych rozmów z tym awatarem. Rozmowy z innymi awatarami mają osobną pamięć.";
 
-/**
- * Etykieta decyzji o tym, co przechodzi do następnej rozmowy. Cytuje ją strona
- * prywatności, więc obietnica i przycisk muszą brzmieć tak samo — rozjazd tych
- * dwóch miejsc byłby rozjazdem obietnicy produktu.
- */
+/** Dawna etykieta zachowana dla zgodności tekstów starszego przepływu podsumowań. */
 export const SUMMARY_APPROVE_LABEL = "Przepuść do następnej rozmowy";
 
 /**

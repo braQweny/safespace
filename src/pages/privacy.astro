@@ -4,7 +4,6 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import { CRISIS_RESOURCE_REGIONS } from "@/lib/session-safety/crisis-resources";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
-import { SUMMARY_APPROVE_LABEL } from "@/lib/session-copy";
 import { getSupportContact } from "@/lib/support-contact";
 
 // Ta strona opisuje, jak produkt faktycznie działa (co zapisuje, kto to widzi,
@@ -87,8 +86,9 @@ const sections = [
               <div>
                 <dt class="text-ink font-semibold">Treść rozmów</dt>
                 <dd class="text-ink-soft mt-1">
-                  Wiadomości, które piszesz lub dyktujesz, odpowiedzi awatara oraz podsumowania, które sam wygenerujesz.
-                  Nagranie głosu służy wyłącznie do przepisania na tekst i nie jest zapisywane.
+                  Wiadomości, które piszesz lub dyktujesz, odpowiedzi awatara, automatyczne podsumowanie historii osobne
+                  dla każdego awatara oraz opcjonalne podsumowania pojedynczych rozmów. Nagranie głosu służy wyłącznie
+                  do przepisania na tekst i nie jest zapisywane.
                 </dd>
               </div>
               <div>
@@ -115,10 +115,10 @@ const sections = [
             <h2 class="text-ink text-xl font-semibold">Jak działa AI w rozmowie</h2>
             <p class="text-ink-soft mt-3">
               Odpowiedzi awatara generuje model językowy udostępniany przez zewnętrznego dostawcę (OpenRouter). Żeby to
-              było możliwe, treść bieżącej rozmowy — ostatnie wiadomości i tylko te podsumowania, które sam zatwierdzisz
-              — jest przesyłana do tego dostawcy w celu wygenerowania odpowiedzi. Każda Twoja wiadomość przechodzi też
-              przez automatyczną ocenę bezpieczeństwa; jeśli wskazuje na pilne zagrożenie, symulacja zostaje zatrzymana
-              i pokazujemy numery pomocy.
+              było możliwe, treść bieżącej rozmowy — ostatnie wiadomości i automatyczne podsumowanie wcześniejszych
+              rozmów z tym awatarem — jest przesyłana do tego dostawcy w celu wygenerowania odpowiedzi. Każda Twoja
+              wiadomość przechodzi też przez automatyczną ocenę bezpieczeństwa; jeśli wskazuje na pilne zagrożenie,
+              symulacja zostaje zatrzymana i pokazujemy numery pomocy.
             </p>
             <p class="text-ink-soft mt-3">
               Żądania tekstowe są kierowane wyłącznie do endpointów deklarujących brak zbierania danych i zerową
@@ -127,8 +127,11 @@ const sections = [
               przepisany tekst, jeśli go wyślesz.
             </p>
             <p class="text-ink-soft mt-3">
-              Nic z rozmowy nie przechodzi do kolejnej sesji samo z siebie. Kolejna rozmowa zna tylko podsumowanie,
-              które wcześniej przeczytasz i zatwierdzisz przyciskiem „{SUMMARY_APPROVE_LABEL}”.
+              Każda nowa rozmowa automatycznie otrzymuje podsumowanie wszystkich dostępnych wcześniejszych rozmów z tym
+              samym awatarem. Przy przygotowaniu pamięci AI przetwarza zapis tych rozmów partiami. Do nowej rozmowy
+              trafia skrócone podsumowanie, a nie pełne transkrypcje. Pamięć różnych awatarów jest rozdzielona.
+              Podsumowanie może pomijać szczegóły lub zawierać błędy — możesz korygować je w rozmowie. Aktualny zapis
+              pamięci możesz przeczytać w panelu.
             </p>
           </section>
 
@@ -140,7 +143,11 @@ const sections = [
                 potwierdzenie). Usunięcie kasuje treść wiadomości i podsumowań; pozostaje tylko pozbawiony treści ślad,
                 że rozmowa istniała — dlatego usunięcie nie przywraca wykorzystanej rozmowy z puli.
               </li>
-              <li>Podsumowanie możesz wygenerować ponownie albo w ogóle go nie zatwierdzać.</li>
+              <li>
+                Usunięcie rozmowy kasuje też wspólną pamięć tego awatara i jej kopie używane jako kontekst. Przy
+                następnym starcie pamięć zostanie odbudowana z pozostałych rozmów. Nie usuwa to wypowiedzi, które już
+                zapisano w innych rozmowach.
+              </li>
               <li>
                 Chcesz usunąć całe konto wraz z historią? Napisz do nas{
                   support.email ? " — adres jest w sekcji Kontakt" : ""

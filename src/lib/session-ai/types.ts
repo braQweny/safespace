@@ -49,6 +49,7 @@ export interface GenerateSessionResponseInput {
   cautionConstraints?: readonly SessionAiConstraint[];
   recentMessages?: readonly SessionAiRecentMessage[];
   approvedSummaries?: readonly SessionAiApprovedSummaryContext[];
+  avatarMemory?: string;
   locale?: string;
 }
 

@@ -238,7 +238,7 @@ interface SummaryMarkCopy {
  */
 const summaryMarkCopy: Partial<Record<SessionHistoryListItem["summaryState"], SummaryMarkCopy>> = {
   approved: {
-    label: "Przechodzi dalej",
+    label: "Podsumowanie",
     className: "text-brand",
     dashed: false,
   },

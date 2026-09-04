@@ -104,7 +104,12 @@ export function buildOpenRouterSummaryRequest(
     messages: [...buildSessionSummaryMessages(input)],
     ...buildOptionalSamplingParameters(model),
     ...buildOpenRouterReasoningParameter(model, resolveSummaryReasoningEffort(model)),
-    ...buildOpenRouterTokenLimitParameter(model, resolveSummaryMaxCompletionTokens(model)),
+    ...buildOpenRouterTokenLimitParameter(
+      model,
+      input.continuityMemory !== undefined
+        ? Math.max(4000, resolveSummaryMaxCompletionTokens(model))
+        : resolveSummaryMaxCompletionTokens(model),
+    ),
     stream: false,
     provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
   };

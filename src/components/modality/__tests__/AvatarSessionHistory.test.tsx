@@ -290,7 +290,7 @@ describe("AvatarSessionHistory", () => {
     expect(html).not.toContain("Wróć do rozmowy");
   });
 
-  it("renders summary preview only in detail and requires explicit approval", () => {
+  it("renders an optional summary preview without requiring manual approval", () => {
     const html = renderHistory(
       {},
       {
@@ -321,9 +321,9 @@ describe("AvatarSessionHistory", () => {
       },
     );
 
-    expect(html).toContain("Jeszcze nie przechodzi dalej");
+    expect(html).toContain("Podgląd podsumowania");
     expect(html).toContain("Widoczne podsumowanie do sprawdzenia przed uzyciem.");
-    expect(html).toContain("Przepuść do następnej rozmowy");
+    expect(html).not.toContain("Przepuść do następnej rozmowy");
     expect(html).not.toContain("Edytuj");
   });
 
@@ -391,10 +391,10 @@ describe("AvatarSessionHistory", () => {
       },
     );
 
-    expect(approvedHtml).toContain("Przechodzi do następnej rozmowy");
-    expect(approvedHtml).toContain("Następna rozmowa zacznie się z tą wiedzą");
+    expect(approvedHtml).toContain("Zapisane podsumowanie");
+    expect(approvedHtml).toContain("Pamięć awatara obejmuje wszystkie wcześniejsze rozmowy");
     expect(staleHtml).toContain("Ta wersja została zastąpiona");
-    expect(staleHtml).toContain("Nie przejdzie do następnej rozmowy");
+    expect(staleHtml).toContain("Starsza wersja podsumowania tej rozmowy");
     expect(nonSummarizableHtml).toContain("Aktywne albo puste rozmowy nie mogą zostać podsumowane");
     expect(renderHistory()).not.toContain("Zatwierdzone podsumowanie widoczne tylko w detail.");
   });

@@ -113,17 +113,13 @@ S-05 ma czytac historie przez owner-bound metadata/message helpers i usuwac sesj
 
 S-05 nie moze implementowac kasowania jako samego flagowania UI, nie moze zachowywac podgladow/tytulow/promptow/provider payloadow po usunieciu i nie moze zwracac tombstone z `modalityId` lub `avatarId`.
 
-## Handoff for S-06 summary-backed next session
+## Ciągłość rozmów i automatyczna pamięć awatara
 
-S-06 ma tworzyc i pokazywac user-visible summaries przez `saveVisibleSessionSummary()` i `listOwnedSessionSummaries()`. Kolejna sesja moze dostac kontekst z widocznych podsumowan, a nie z nieograniczonej historii raw messages.
+Nowe rozmowy korzystają z automatycznego podsumowania wszystkich dostępnych wcześniejszych rozmów z tym samym awatarem. Kontrakt i ograniczenia opisuje [avatar-memory.md](./avatar-memory.md). Pamięć i jej kopie są treścią prywatną, tak jak wiadomości i podsumowania.
 
-S-06 nie moze bypassowac statusow `draft`, `ready`, `stale`, `deleted`, nie moze uzywac usunietych podsumowan jako kontekstu i nie moze ukrywac przed uzytkownikiem podsumowania, ktore zasila nastepna rozmowe.
+`therapy_sessions.uses_avatar_memory` oznacza nowy tryb. Starsze sesje zachowują swoje `uses_approved_context`: `false` nadal wyklucza odczyt kontekstu, a `true` korzysta ze starych zatwierdzonych podsumowań, zawężonych do awatara sesji. Obie flagi są niezmienne po insercie.
 
-### Start bez kontekstu
-
-`therapy_sessions.uses_approved_context` to decyzja wlasciciela podjeta przy starcie sesji. `false` oznacza, ze ta rozmowa nie czyta zatwierdzonych podsumowan w ogole — takze tych zatwierdzonych juz po jej rozpoczeciu. Flaga jest zapisywana wylacznie przez `createPendingSession()` (grant tylko na insert) i czytana przez przeplyw wiadomosci; nie ma sciezki, ktora zmienia ja w trakcie trwajacej sesji.
-
-Nie rozwiazuj kontekstu per uzytkownik w handlerze wiadomosci. Sprawdz `session.usesApprovedContext` zanim siegniesz po `listNewestApprovedSessionSummaryContexts()`, inaczej sesja zaczeta jako czysta cicho odzyska kontekst w polowie rozmowy.
+Ręczne `session_summaries` oraz ich statusy pozostają zgodne ze starą wersją aplikacji. W nowym przepływie służą wyłącznie jako opcjonalny podgląd pojedynczej rozmowy; ich zatwierdzenie nie steruje pamięcią nowych rozmów.
 
 ## Handoff for S-07 private admin operations
 

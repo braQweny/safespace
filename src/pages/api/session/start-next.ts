@@ -4,21 +4,19 @@ import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@
 import { toSessionView } from "@/lib/session-flow/session-state";
 import { resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { readSessionQuota } from "@/lib/session-data/quota";
-import {
-  createPendingSession,
-  listNewestApprovedSessionSummaryContexts,
-  transitionSessionLifecycle,
-} from "@/lib/session-data/repository";
+import { createPendingSession, transitionSessionLifecycle } from "@/lib/session-data/repository";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
 import {
   buildSessionOpeningFailedEvent,
+  buildSessionAiProviderFailedEvent,
   buildSessionStartAttemptedEvent,
   type SessionStartReasonCode,
 } from "@/lib/operational-visibility/session-events";
 import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
+import { prepareOwnedAvatarMemory } from "@/lib/session-flow/avatar-memory";
 
 export const prerender = false;
 
@@ -48,18 +46,6 @@ function redirectResponse(context: Parameters<APIRoute>[0], path: string) {
 
 function addSeconds(date: Date, seconds: number) {
   return new Date(date.getTime() + seconds * 1000);
-}
-
-async function parseStartWithoutContext(request: Request) {
-  try {
-    const body: unknown = await request.json();
-
-    return (
-      body !== null && typeof body === "object" && "startWithoutContext" in body && body.startWithoutContext === true
-    );
-  } catch {
-    return false;
-  }
 }
 
 function logStartAttempt(
@@ -145,22 +131,22 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
   }
 
-  // Read once: the body stream cannot be consumed twice, and the flag is now
-  // needed both as the empty-context confirmation and as the session's own
-  // start-time decision.
-  const startWithoutContext = await parseStartWithoutContext(context.request);
-  const approvedContext = await listNewestApprovedSessionSummaryContexts(sessionContext.data);
+  const memory = await prepareOwnedAvatarMemory(sessionContext.data, avatarChoice.data.modality);
 
-  if (!approvedContext.ok) {
+  if (!memory.ok) {
+    if (memory.providerFailure) {
+      logOperationalEvent(
+        buildSessionAiProviderFailedEvent({ reasonCode: memory.providerFailure, provider: "openrouter" }),
+        operationalContext,
+      );
+    }
     logStartAttempt("failure", 503, startedAtMs, operationalContext);
 
     return failureResponse(context, "summary_context_unavailable", 503, "/dashboard/session?start=unavailable");
   }
 
-  if (approvedContext.data.length === 0 && !startWithoutContext) {
-    logStartAttempt("blocked", 409, startedAtMs, operationalContext);
-
-    return failureResponse(context, "no_context_not_confirmed", 409, "/dashboard/session?context=missing");
+  if (!memory.ready) {
+    return jsonResponse({ ok: true, type: "avatar_memory_preparing" }, 202);
   }
 
   // Pinned at start from the plan read above, so a grant or revoke mid-session
@@ -177,9 +163,8 @@ export const POST: APIRoute = async (context) => {
     avatarId: avatarChoice.data.modality.avatarId,
     isTrial: false,
     durationBucketSeconds: durationSeconds,
-    // Pinned at start so a summary approved mid-conversation cannot add context
-    // the user chose not to carry over.
-    usesApprovedContext: !startWithoutContext,
+    usesApprovedContext: true,
+    usesAvatarMemory: true,
   });
 
   if (!session.ok) {
@@ -212,14 +197,8 @@ export const POST: APIRoute = async (context) => {
 
   logStartAttempt("success", 201, startedAtMs, operationalContext);
 
-  // Generated and persisted before the response so the composer cannot race the
-  // opening message; a failed opening degrades to a session without one. The
-  // summaries read before session creation are reused so the greeting sees
-  // exactly the context the user approved for this session.
-  const approvedSummaries = activeSession.data.usesApprovedContext ? approvedContext.data : [];
-  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data, {
-    approvedSummaries,
-  });
+  // Otwarcie czyta tę samą prywatną kopię pamięci co wszystkie późniejsze odpowiedzi.
+  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data);
 
   if (!opening.ok) {
     logOperationalEvent(

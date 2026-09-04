@@ -1,8 +1,7 @@
-import { AlertCircle, Check, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import type { SessionSummaryFailureCode } from "@/lib/session-flow/session-summary-contract";
 import type { SessionSummaryStatus } from "@/components/hooks/useSessionSummary";
-import { SUMMARY_APPROVE_LABEL } from "@/lib/session-copy";
 import { cn } from "@/lib/utils";
 
 interface SessionSummaryPanelProps {
@@ -41,29 +40,29 @@ interface SummaryGateState {
 
 const summaryGateStates: Record<Exclude<LatestSessionSummaryState["kind"], "none">, SummaryGateState> = {
   preview: {
-    badge: "Jeszcze nie przechodzi dalej",
+    badge: "Podgląd podsumowania",
     badgeClassName: "bg-surface-soft text-ink-muted",
-    consequence: "Następna rozmowa tego nie zna. Przeczytaj i zdecyduj.",
+    consequence: "Opcjonalne streszczenie tej jednej rozmowy.",
     arch: "open",
     paperClassName: "bg-surface-soft",
   },
   approved: {
-    badge: "Przechodzi do następnej rozmowy",
+    badge: "Zapisane podsumowanie",
     badgeClassName: "bg-brand-tint text-brand-deep",
-    consequence: "Następna rozmowa zacznie się z tą wiedzą — i tylko z nią. Reszta zapisu zostaje tutaj.",
+    consequence: "Pamięć awatara obejmuje wszystkie wcześniejsze rozmowy.",
     arch: "closed",
     paperClassName: "bg-brand-tint",
   },
   stale: {
     badge: "Ta wersja została zastąpiona",
     badgeClassName: "bg-surface-soft text-ink-muted",
-    consequence: "Nie przejdzie do następnej rozmowy. Zostaje w historii tej rozmowy.",
+    consequence: "Starsza wersja podsumowania tej rozmowy.",
     arch: "dashed",
     paperClassName: "bg-surface-soft",
   },
 };
 
-/** Łuk ze znaku marki: próg, przez który przechodzi dokładnie to, co zatwierdzisz. */
+/** Znak podglądu podsumowania jednej rozmowy. */
 function GateArch({ variant }: { variant: SummaryGateState["arch"] }) {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
@@ -84,7 +83,6 @@ export default function SessionSummaryPanel({
   summaryErrorCode,
   canSummarize,
   onGenerate,
-  onApprove,
 }: SessionSummaryPanelProps) {
   const summaryIsBusy = summaryStatus !== "idle";
   const gate = summaryState.kind === "none" ? null : summaryGateStates[summaryState.kind];
@@ -100,17 +98,15 @@ export default function SessionSummaryPanel({
             isApproved ? "text-brand" : "text-ink-muted",
           )}
         >
-          Co przechodzi do następnej rozmowy
+          Do przeczytania w historii
         </p>
       </div>
       <p className="text-ink mt-2 font-serif text-xl leading-snug font-medium">Podsumowanie tej rozmowy</p>
 
-      {summaryState.kind === "none" ? (
-        <p className="text-ink-muted mt-2">
-          Możesz streścić tę rozmowę i przepuścić streszczenie do następnej, żeby nie zaczynać od zera. Zobaczysz je
-          przed użyciem — nic nie przechodzi dalej bez Twojej zgody.
-        </p>
-      ) : null}
+      <p className="text-ink-muted mt-2">
+        Pamięć wszystkich rozmów z tym awatarem przygotowuje się automatycznie przy rozpoczęciu kolejnej rozmowy. Tutaj
+        możesz dodatkowo wygenerować krótkie podsumowanie tylko tej rozmowy do przeczytania.
+      </p>
 
       {summaryState.kind !== "none" && gate ? (
         <>
@@ -167,34 +163,6 @@ export default function SessionSummaryPanel({
           </button>
         ) : (
           <>
-            <button
-              type="button"
-              disabled={isApproved || summaryIsBusy}
-              onClick={onApprove}
-              className={cn(
-                "inline-flex h-11 items-center justify-center gap-2 rounded-full border border-transparent px-5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2",
-                isApproved
-                  ? "bg-brand-tint text-brand-deep cursor-default"
-                  : "bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep disabled:cursor-not-allowed",
-              )}
-            >
-              {summaryStatus === "approving" ? (
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              ) : isApproved ? (
-                <Check aria-hidden="true" className="h-4 w-4" />
-              ) : (
-                <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M4.5 21.5V12a7.5 7.5 0 0 1 15 0v9.5Z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-              {isApproved ? "Przepuszczone" : SUMMARY_APPROVE_LABEL}
-            </button>
             <button
               type="button"
               disabled={!canSummarize || summaryIsBusy}

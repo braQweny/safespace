@@ -6,6 +6,12 @@
  * place.
  */
 export { toDeletedSessionTombstone } from "./rows";
+export {
+  getOwnedAvatarMemoryWork,
+  saveOwnedAvatarMemoryWork,
+  getOwnedSessionAvatarMemory,
+  getOwnedAvatarMemoryPreview,
+} from "./avatar-memory";
 export { claimSessionMessageTurn, completeSessionMessageTurn, releaseSessionMessageTurn } from "./message-turns";
 export { getOwnedAccountPlan, toOwnedAccountPlan } from "./account-plan";
 export {

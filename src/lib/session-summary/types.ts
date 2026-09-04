@@ -20,6 +20,8 @@ export interface SessionSummaryModalityContext {
 
 export interface GenerateSessionSummaryInput {
   messages: readonly SessionSummaryConversationMessage[];
+  /** Obecność (również pustego tekstu) włącza aktualizację pamięci całej historii awatara. */
+  continuityMemory?: string;
   modality?: SessionSummaryModalityContext;
   locale?: string;
 }

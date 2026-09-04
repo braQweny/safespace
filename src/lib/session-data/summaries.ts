@@ -384,7 +384,7 @@ export async function listNewestApprovedSessionSummaryContexts(
 ): Promise<SessionDataResult<ApprovedSessionSummaryContext[]>> {
   const limit = normalizeApprovedSummaryContextLimit(options.limit);
   const queryLimit = limit * 4;
-  const { data, error } = await context.supabase
+  let query = context.supabase
     .from("session_summaries")
     .select(SUMMARY_WITH_SESSION_SELECT)
     .eq("user_id", context.user.id)
@@ -393,6 +393,9 @@ export async function listNewestApprovedSessionSummaryContexts(
     .neq("therapy_sessions.status", "deleted")
     .order("updated_at", { ascending: false })
     .limit(queryLimit);
+
+  if (options.avatarId) query = query.eq("therapy_sessions.avatar_id", options.avatarId);
+  const { data, error } = await query;
 
   if (error) {
     return sessionDataError(mapSupabaseReadError(error));

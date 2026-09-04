@@ -240,7 +240,7 @@ function claimedState(
     messages: [],
     messageFetchFailed: false,
     approvedSummaries,
-    canStartWithoutContext: true,
+    canStartWithoutContext: false,
     sessionQuota,
   };
 }
@@ -279,12 +279,6 @@ async function loadSessionMessages(
     messages: messages.data.map(toMessageView),
     messageFetchFailed: false,
   };
-}
-
-async function loadApprovedSummaryContext(context: SessionDataContext, repository: SessionStateRepository) {
-  const summaries = await repository.listNewestApprovedSessionSummaryContexts(context);
-
-  return summaries.ok ? summaries.data : [];
 }
 
 async function pageStateFromSessionView(
@@ -472,11 +466,9 @@ async function okSessionStartPageState(
   const sessionResult = await repository.getOwnedSessionMetadata(context, availability.existingClaim.sessionId);
 
   if (!sessionResult.ok) {
-    const approvedSummaries = await loadApprovedSummaryContext(context, repository);
-
     return {
       ok: true,
-      data: claimedState(options.avatar, sessionQuota, approvedSummaries),
+      data: claimedState(options.avatar, sessionQuota),
     };
   }
 
@@ -484,11 +476,9 @@ async function okSessionStartPageState(
   const stateKind = getStateKindFromSession(session);
 
   if (stateKind !== "active") {
-    const approvedSummaries = await loadApprovedSummaryContext(context, repository);
-
     return {
       ok: true,
-      data: claimedState(options.avatar, sessionQuota, approvedSummaries),
+      data: claimedState(options.avatar, sessionQuota),
     };
   }
 
