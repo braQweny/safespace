@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from "react";
+import { useCallback, useReducer, useRef } from "react";
 import { isRateLimitedApiResult, isTimedOutApiResult, requestApiJson } from "@/lib/api-client";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
@@ -258,7 +258,7 @@ const defaultTransport: TimedSessionTransport = {
  * fałszywymi zegarami i bez DOM-u.
  */
 export async function sendTimedSessionMessage(
-  input: { sessionId: string; text: string },
+  input: { sessionId: string; text: string; clientMessageId?: string },
   dispatch: TimedSessionDispatch,
   transport: TimedSessionTransport = defaultTransport,
 ) {
@@ -280,6 +280,7 @@ export async function sendTimedSessionMessage(
       body: JSON.stringify({
         sessionId: input.sessionId,
         message: text,
+        clientMessageId: input.clientMessageId ?? crypto.randomUUID(),
       }),
       timeoutMs: SESSION_MESSAGE_TIMEOUT_MS,
     });
@@ -330,6 +331,20 @@ export async function sendTimedSessionMessage(
 
     if (body.ok) {
       dispatch({ type: "turn_succeeded", turn: body.messages, session: body.session });
+      return true;
+    }
+
+    if (body.type === "message_in_progress" || body.type === "message_request_conflict") {
+      dispatch({
+        type: "message_failed",
+        draft: text,
+        notice: buildGenericNotice(
+          body.type === "message_in_progress"
+            ? "Poprzednia wiadomość jest jeszcze przetwarzana"
+            : "Nie udało się potwierdzić wiadomości",
+          "Odczekaj chwilę i spróbuj ponownie. Treść wiadomości została zachowana.",
+        ),
+      });
       return;
     }
 
@@ -459,6 +474,8 @@ export async function endTimedSession(
 
 export function useTimedSession(initialState: SessionStartPageState) {
   const [state, dispatch] = useReducer(timedSessionReducer, initialState, getInitialTimedSessionState);
+  const retryIdentity = useRef<MessageRetryIdentity | null>(null);
+  const sending = useRef(false);
 
   // Tura w locie nie zamyka pola — jest wtedy tylko do odczytu (patrz
   // `SessionComposer`), więc `isMessagePending` nie jest częścią dostępności.
@@ -481,11 +498,19 @@ export function useTimedSession(initialState: SessionStartPageState) {
   async function sendMessage() {
     const trimmedDraft = state.draft.trim();
 
-    if (!state.session || !trimmedDraft || !composerAvailable || state.isMessagePending) {
+    if (!state.session || !trimmedDraft || !composerAvailable || state.isMessagePending || sending.current) {
       return;
     }
 
-    await sendTimedSessionMessage({ sessionId: state.session.id, text: trimmedDraft }, dispatch);
+    // Keep the id through a network failure, but never reuse it for edited text.
+    // The ref also closes the double-submit gap before React's next render.
+    retryIdentity.current = resolveMessageRetryIdentity(retryIdentity.current, state.session.id, trimmedDraft);
+    sending.current = true;
+    try {
+      if (await sendTimedSessionMessage(retryIdentity.current, dispatch)) retryIdentity.current = null;
+    } finally {
+      sending.current = false;
+    }
   }
 
   async function endSession() {
@@ -507,4 +532,21 @@ export function useTimedSession(initialState: SessionStartPageState) {
     sendMessage,
     endSession,
   };
+}
+
+export interface MessageRetryIdentity {
+  sessionId: string;
+  text: string;
+  clientMessageId: string;
+}
+
+export function resolveMessageRetryIdentity(
+  previous: MessageRetryIdentity | null,
+  sessionId: string,
+  text: string,
+): MessageRetryIdentity {
+  const trimmed = text.trim();
+  return previous?.sessionId === sessionId && previous.text === trimmed
+    ? previous
+    : { sessionId, text: trimmed, clientMessageId: crypto.randomUUID() };
 }

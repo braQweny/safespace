@@ -87,7 +87,7 @@ describe("sendOpenRouterChat configuration", () => {
   });
 
   it("returns the provider result and disables SDK retries", async () => {
-    const chatResult = { id: "gen-1" };
+    const chatResult = { id: "gen-1", choices: [] };
     sendMock.mockResolvedValueOnce(chatResult);
 
     const result = await sendOpenRouterChat({
@@ -98,7 +98,7 @@ describe("sendOpenRouterChat configuration", () => {
 
     expect(result).toBe(chatResult);
     expect(sendMock).toHaveBeenCalledWith(
-      { chatRequest },
+      { chatRequest: { ...chatRequest, stream: false } },
       {
         timeoutMs: 5_000,
         retries: { strategy: "none" },
@@ -107,12 +107,12 @@ describe("sendOpenRouterChat configuration", () => {
   });
 
   it("omits the timeout option when no timeout is provided", async () => {
-    sendMock.mockResolvedValueOnce({ id: "gen-2" });
+    sendMock.mockResolvedValueOnce({ id: "gen-2", choices: [] });
 
     await sendOpenRouterChat({ apiKey: "test-key", chatRequest });
 
     expect(sendMock).toHaveBeenCalledWith(
-      { chatRequest },
+      { chatRequest: { ...chatRequest, stream: false } },
       {
         retries: { strategy: "none" },
       },

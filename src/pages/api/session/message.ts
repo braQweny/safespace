@@ -17,6 +17,8 @@ import {
   listNewestApprovedSessionSummaryContexts,
   listRecentOwnedSessionMessages,
   transitionSessionLifecycle,
+  claimSessionMessageTurn,
+  releaseSessionMessageTurn,
 } from "@/lib/session-data/repository";
 import type {
   ApprovedSessionSummaryContext,
@@ -39,7 +41,7 @@ import {
   type SendSessionMessageFailureResponse,
   type SendSessionMessageResponse,
 } from "@/lib/session-flow/message-contract";
-import { persistSuccessfulMessageTurn } from "@/lib/session-flow/message-persistence";
+import { persistSuccessfulMessageTurn, toSessionMessageViewModel } from "@/lib/session-flow/message-persistence";
 import { expireOwnedSession, getProviderTimeoutWithinSessionMs, isSessionExpired } from "@/lib/session-flow/time-limit";
 import { resolveSessionPhase } from "@/lib/session-flow/session-phase";
 import { toSessionView } from "@/lib/session-flow/session-state";
@@ -170,268 +172,336 @@ export const POST: APIRoute = async (context) => {
 
   const session = sessionResult.data;
   const now = new Date();
+  const clientMessageId = messageRequest.clientMessageId ?? crypto.randomUUID();
+  const claim = await claimSessionMessageTurn(sessionContext.data, {
+    sessionId: session.id,
+    clientMessageId,
+    message: messageRequest.message,
+  });
 
-  if (session.status !== "active") {
-    return session.status === "expired" ? expiredResponse(session, now) : notActiveResponse();
+  if (!claim.ok) {
+    const code = claim.error.code;
+    if (code === "message_in_progress" || code === "message_request_conflict") {
+      return jsonResponse({ ok: false, type: code, code }, 409);
+    }
+    if (code === "invalid_lifecycle_transition" || code === "session_not_found") return notActiveResponse();
+    if (code === "session_expired") {
+      const expired = await expireOwnedSession(sessionContext.data, session, now);
+      return jsonResponse(
+        {
+          ok: false,
+          type: "expired",
+          code: "session_expired",
+          session: expired.ok ? expired.data.session : toSessionView(session, now),
+        },
+        409,
+      );
+    }
+    return jsonResponse(unavailableResponse(), 503);
   }
 
-  if (isSessionExpired(session, now)) {
-    const expired = await expireOwnedSession(sessionContext.data, session, now);
+  // A lost HTTP response can be recovered even after the conversation ended.
+  // The owner-bound RPC refuses deleted sessions and validates the request text.
+  if (claim.data.kind === "completed") {
+    const [user, assistant] = claim.data.messages.map(toSessionMessageViewModel);
+    if (!user || !assistant) return jsonResponse(unavailableResponse(), 503);
+    return jsonResponse(
+      {
+        ok: true,
+        type: claim.data.responseType,
+        messages: { user, assistant },
+        caution: null,
+        session: toSessionView(session, now),
+      },
+      200,
+    );
+  }
+
+  const lease = { sessionId: session.id, clientMessageId, attemptId: claim.data.attemptId };
+  try {
+    if (session.status !== "active") {
+      return session.status === "expired" ? expiredResponse(session, now) : notActiveResponse();
+    }
+
+    if (isSessionExpired(session, now)) {
+      const expired = await expireOwnedSession(sessionContext.data, session, now);
+
+      logOperationalEvent(
+        {
+          ...buildSessionTimeLimitReachedEvent({
+            durationMs: getOperationalDurationMs(startedAtMs),
+          }),
+          status: 409,
+        },
+        operationalContext,
+      );
+
+      return jsonResponse(
+        {
+          ok: false,
+          type: "expired",
+          code: "session_expired",
+          session: expired.ok ? expired.data.session : toSessionView(session, now),
+        },
+        409,
+      );
+    }
+
+    const modality = getValidAvatarChoice(session.modalityId, session.avatarId);
+
+    if (!modality) {
+      return jsonResponse(unavailableResponse(), 503);
+    }
+
+    // Ownership was already resolved through `getOwnedSessionMetadata` above, so
+    // this reads only the bounded tail the model context needs instead of the
+    // whole transcript. The tail grows with the session's own budget.
+    const recentMessages = await listRecentOwnedSessionMessages(
+      sessionContext.data,
+      session.id,
+      resolveRecentMessageContextLimit(session.durationBucketSeconds),
+    );
+
+    if (!recentMessages.ok) {
+      return jsonResponse(unavailableResponse(), 503);
+    }
+
+    // The safety decision gates everything below; the summary read is independent
+    // of it and only costs a database round trip, so both run at once. Nothing is
+    // generated or stored until the decision is in.
+    const safetyStartedAtMs = performance.now();
+    const [decision, approvedSummaries] = await Promise.all([
+      evaluateSessionSafety({
+        currentUserMessage: messageRequest.message,
+        recentUserMessages: toRecentSafetyUserMessages(recentMessages.data),
+        metadata: {
+          locale: "pl",
+        },
+      }),
+      loadApprovedSummaryContext(sessionContext.data, session),
+    ]);
 
     logOperationalEvent(
       {
-        ...buildSessionTimeLimitReachedEvent({
-          durationMs: getOperationalDurationMs(startedAtMs),
+        ...buildSessionSafetyEvaluatedEventFromDecision(decision, {
+          provider: "openrouter",
+          durationMs: getOperationalDurationMs(safetyStartedAtMs),
         }),
-        status: 409,
+        status: 200,
       },
       operationalContext,
     );
 
-    return jsonResponse(
-      {
-        ok: false,
-        type: "expired",
-        code: "session_expired",
-        session: expired.ok ? expired.data.session : toSessionView(session, now),
-      },
-      409,
+    if (decision.action === "hard_stop") {
+      // The boundary could not decide (outage, malformed reply, missing config):
+      // fail closed for this turn only. Nothing is generated or stored, but the
+      // session stays open — `interrupted` has no way back and counts against
+      // the free-plan cap, so a transient blip must not end the conversation.
+      if (isFailClosedSessionSafetyReasonCode(decision.reasonCode)) {
+        return jsonResponse(
+          {
+            ok: false,
+            type: "ai_retry",
+            code: "ai_retry",
+            category: toSafetyBoundaryFailureCategory(decision.reasonCode),
+            copy: getSafetyBoundaryUnavailableCopy(),
+          },
+          503,
+        );
+      }
+
+      await markInterrupted(sessionContext.data, session);
+
+      return jsonResponse(
+        {
+          ok: false,
+          type: "hard_stop",
+          code: "safety_stop",
+          copy: decision.copy,
+          crisisResources: decision.crisisResources,
+        },
+        423,
+      );
+    }
+
+    if (!approvedSummaries.ok) {
+      return jsonResponse(unavailableResponse(), 503);
+    }
+
+    // The ceiling follows the configured reasoning effort (a forced `xhigh`
+    // thinks for a long time before the first token); the remaining session
+    // budget still wins whenever it is shorter.
+    const providerTimeoutMs = getProviderTimeoutWithinSessionMs(
+      session,
+      new Date(),
+      resolveSessionReasoningTimeoutMs(getOpenRouterSessionConfig().reasoningEffort),
     );
-  }
 
-  const modality = getValidAvatarChoice(session.modalityId, session.avatarId);
+    if (providerTimeoutMs <= 0) {
+      const expired = await expireOwnedSession(sessionContext.data, session, new Date());
 
-  if (!modality) {
-    return jsonResponse(unavailableResponse(), 503);
-  }
+      logOperationalEvent(
+        {
+          ...buildSessionTimeLimitReachedEvent({
+            durationMs: getOperationalDurationMs(startedAtMs),
+          }),
+          status: 409,
+        },
+        operationalContext,
+      );
 
-  // Ownership was already resolved through `getOwnedSessionMetadata` above, so
-  // this reads only the bounded tail the model context needs instead of the
-  // whole transcript. The tail grows with the session's own budget.
-  const recentMessages = await listRecentOwnedSessionMessages(
-    sessionContext.data,
-    session.id,
-    resolveRecentMessageContextLimit(session.durationBucketSeconds),
-  );
+      return jsonResponse(
+        {
+          ok: false,
+          type: "expired",
+          code: "session_expired",
+          session: expired.ok ? expired.data.session : toSessionView(session, new Date()),
+        },
+        409,
+      );
+    }
 
-  if (!recentMessages.ok) {
-    return jsonResponse(unavailableResponse(), 503);
-  }
+    // Resolved from this session's own budget, so the arc holds for a short trial
+    // session and for a longer one alike.
+    const sessionPhase = resolveSessionPhase(session, {
+      now: new Date(),
+      priorMessageCount: recentMessages.data.length,
+    });
 
-  // The safety decision gates everything below; the summary read is independent
-  // of it and only costs a database round trip, so both run at once. Nothing is
-  // generated or stored until the decision is in.
-  const safetyStartedAtMs = performance.now();
-  const [decision, approvedSummaries] = await Promise.all([
-    evaluateSessionSafety({
-      currentUserMessage: messageRequest.message,
-      recentUserMessages: toRecentSafetyUserMessages(recentMessages.data),
-      metadata: {
-        locale: "pl",
-      },
-    }),
-    loadApprovedSummaryContext(sessionContext.data, session),
-  ]);
+    let assistantText: string;
+    let inputUnits: number | undefined;
+    let outputUnits: number | undefined;
 
-  logOperationalEvent(
-    {
-      ...buildSessionSafetyEvaluatedEventFromDecision(decision, {
-        provider: "openrouter",
-        durationMs: getOperationalDurationMs(safetyStartedAtMs),
-      }),
-      status: 200,
-    },
-    operationalContext,
-  );
+    try {
+      const response = await generateSessionResponse(
+        {
+          currentUserMessage: messageRequest.message,
+          modality: {
+            modalityName: modality.modalityName,
+            avatarName: modality.avatarName,
+            sessionStyleHint: modality.sessionStyleHint,
+          },
+          ...(sessionPhase ? { sessionPhase } : {}),
+          cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
+          recentMessages: toRecentSessionAiMessages(recentMessages.data),
+          approvedSummaries: approvedSummaries.data.map((summary) => ({
+            summaryText: summary.summaryText,
+            revision: summary.revision,
+            createdAt: summary.createdAt,
+            updatedAt: summary.updatedAt,
+          })),
+          locale: "pl",
+        },
+        undefined,
+        {
+          timeoutMs: providerTimeoutMs,
+        },
+      );
 
-  if (decision.action === "hard_stop") {
-    // The boundary could not decide (outage, malformed reply, missing config):
-    // fail closed for this turn only. Nothing is generated or stored, but the
-    // session stays open — `interrupted` has no way back and counts against
-    // the free-plan cap, so a transient blip must not end the conversation.
-    if (isFailClosedSessionSafetyReasonCode(decision.reasonCode)) {
+      assistantText = response.assistantText;
+      inputUnits = response.providerMetadata.usage?.promptTokens;
+      outputUnits = response.providerMetadata.usage?.completionTokens;
+    } catch (error) {
+      const category = getSessionAiErrorCategory(error);
+
+      logOperationalEvent(
+        {
+          ...buildSessionAiProviderFailedEvent({
+            reasonCode: category,
+            durationMs: getOperationalDurationMs(startedAtMs),
+          }),
+          status: 503,
+        },
+        operationalContext,
+      );
+
       return jsonResponse(
         {
           ok: false,
           type: "ai_retry",
           code: "ai_retry",
-          category: toSafetyBoundaryFailureCategory(decision.reasonCode),
-          copy: getSafetyBoundaryUnavailableCopy(),
+          category,
+          copy: getSessionAiFailureCopy(category),
         },
         503,
       );
     }
 
-    await markInterrupted(sessionContext.data, session);
+    // The reply took real time; the owner may have ended the session meanwhile
+    // (from another tab, or with the "end" button while waiting). A turn must not
+    // land on a completed or expired session, so the status is re-read first.
+    const latestSession = await getOwnedSessionMetadata(sessionContext.data, session.id);
 
-    return jsonResponse(
-      {
-        ok: false,
-        type: "hard_stop",
-        code: "safety_stop",
-        copy: decision.copy,
-        crisisResources: decision.crisisResources,
-      },
-      423,
-    );
-  }
+    if (!latestSession.ok) {
+      return jsonResponse(unavailableResponse(), 503);
+    }
 
-  if (!approvedSummaries.ok) {
-    return jsonResponse(unavailableResponse(), 503);
-  }
+    if (latestSession.data.status !== "active") {
+      return latestSession.data.status === "expired"
+        ? expiredResponse(latestSession.data, new Date())
+        : notActiveResponse();
+    }
 
-  // The ceiling follows the configured reasoning effort (a forced `xhigh`
-  // thinks for a long time before the first token); the remaining session
-  // budget still wins whenever it is shorter.
-  const providerTimeoutMs = getProviderTimeoutWithinSessionMs(
-    session,
-    new Date(),
-    resolveSessionReasoningTimeoutMs(getOpenRouterSessionConfig().reasoningEffort),
-  );
+    const persistedTurn = await persistSuccessfulMessageTurn(sessionContext.data, {
+      ...lease,
+      userMessage: messageRequest.message,
+      assistantMessage: assistantText,
+      responseType: decision.action === "allow_with_constraints" ? "caution" : "success",
+    });
 
-  if (providerTimeoutMs <= 0) {
-    const expired = await expireOwnedSession(sessionContext.data, session, new Date());
-
-    logOperationalEvent(
-      {
-        ...buildSessionTimeLimitReachedEvent({
-          durationMs: getOperationalDurationMs(startedAtMs),
-        }),
-        status: 409,
-      },
-      operationalContext,
-    );
-
-    return jsonResponse(
-      {
-        ok: false,
-        type: "expired",
-        code: "session_expired",
-        session: expired.ok ? expired.data.session : toSessionView(session, new Date()),
-      },
-      409,
-    );
-  }
-
-  // Resolved from this session's own budget, so the arc holds for a short trial
-  // session and for a longer one alike.
-  const sessionPhase = resolveSessionPhase(session, {
-    now: new Date(),
-    priorMessageCount: recentMessages.data.length,
-  });
-
-  let assistantText: string;
-  let inputUnits: number | undefined;
-  let outputUnits: number | undefined;
-
-  try {
-    const response = await generateSessionResponse(
-      {
-        currentUserMessage: messageRequest.message,
-        modality: {
-          modalityName: modality.modalityName,
-          avatarName: modality.avatarName,
-          sessionStyleHint: modality.sessionStyleHint,
+    if (!persistedTurn.ok) {
+      if (
+        persistedTurn.error.code === "invalid_lifecycle_transition" ||
+        persistedTurn.error.code === "session_not_found"
+      ) {
+        return notActiveResponse();
+      }
+      if (persistedTurn.error.code === "session_expired") {
+        const expired = await expireOwnedSession(sessionContext.data, latestSession.data, new Date());
+        return jsonResponse(
+          {
+            ok: false,
+            type: "expired",
+            code: "session_expired",
+            session: expired.ok ? expired.data.session : toSessionView(latestSession.data, new Date()),
+          },
+          409,
+        );
+      }
+      return jsonResponse(
+        {
+          ok: false,
+          type: "message_persistence_failed",
+          code: "message_persistence_failed",
         },
-        ...(sessionPhase ? { sessionPhase } : {}),
-        cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
-        recentMessages: toRecentSessionAiMessages(recentMessages.data),
-        approvedSummaries: approvedSummaries.data.map((summary) => ({
-          summaryText: summary.summaryText,
-          revision: summary.revision,
-          createdAt: summary.createdAt,
-          updatedAt: summary.updatedAt,
-        })),
-        locale: "pl",
-      },
-      undefined,
-      {
-        timeoutMs: providerTimeoutMs,
-      },
-    );
-
-    assistantText = response.assistantText;
-    inputUnits = response.providerMetadata.usage?.promptTokens;
-    outputUnits = response.providerMetadata.usage?.completionTokens;
-  } catch (error) {
-    const category = getSessionAiErrorCategory(error);
+        409,
+      );
+    }
 
     logOperationalEvent(
       {
-        ...buildSessionAiProviderFailedEvent({
-          reasonCode: category,
+        ...buildSessionAiTurnCompletedEvent({
+          provider: "openrouter",
           durationMs: getOperationalDurationMs(startedAtMs),
+          inputUnits,
+          outputUnits,
         }),
-        status: 503,
+        status: 200,
       },
       operationalContext,
     );
 
     return jsonResponse(
       {
-        ok: false,
-        type: "ai_retry",
-        code: "ai_retry",
-        category,
-        copy: getSessionAiFailureCopy(category),
+        ok: true,
+        type: decision.action === "allow_with_constraints" ? "caution" : "success",
+        messages: persistedTurn.data,
+        caution: null,
+        session: toSessionView(latestSession.data, new Date()),
       },
-      503,
+      200,
     );
+  } finally {
+    await releaseSessionMessageTurn(sessionContext.data, lease);
   }
-
-  // The reply took real time; the owner may have ended the session meanwhile
-  // (from another tab, or with the "end" button while waiting). A turn must not
-  // land on a completed or expired session, so the status is re-read first.
-  const latestSession = await getOwnedSessionMetadata(sessionContext.data, session.id);
-
-  if (!latestSession.ok) {
-    return jsonResponse(unavailableResponse(), 503);
-  }
-
-  if (latestSession.data.status !== "active") {
-    return latestSession.data.status === "expired"
-      ? expiredResponse(latestSession.data, new Date())
-      : notActiveResponse();
-  }
-
-  const persistedTurn = await persistSuccessfulMessageTurn(sessionContext.data, {
-    sessionId: session.id,
-    userMessage: messageRequest.message,
-    assistantMessage: assistantText,
-  });
-
-  if (!persistedTurn.ok) {
-    return jsonResponse(
-      {
-        ok: false,
-        type: "message_persistence_failed",
-        code: "message_persistence_failed",
-      },
-      409,
-    );
-  }
-
-  logOperationalEvent(
-    {
-      ...buildSessionAiTurnCompletedEvent({
-        provider: "openrouter",
-        durationMs: getOperationalDurationMs(startedAtMs),
-        inputUnits,
-        outputUnits,
-      }),
-      status: 200,
-    },
-    operationalContext,
-  );
-
-  return jsonResponse(
-    {
-      ok: true,
-      type: decision.action === "allow_with_constraints" ? "caution" : "success",
-      messages: persistedTurn.data,
-      caution: null,
-      session: toSessionView(latestSession.data, new Date()),
-    },
-    200,
-  );
 };

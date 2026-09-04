@@ -19,6 +19,9 @@ const input: PersistSuccessfulMessageTurnInput = {
   sessionId: "session-1",
   userMessage: "wiadomosc-uzytkownika",
   assistantMessage: "odpowiedz-asystenta",
+  clientMessageId: "client-message-1",
+  attemptId: "attempt-1",
+  responseType: "success",
 };
 
 function createMessageRecord(overrides: Partial<SessionMessageRecord> = {}): SessionMessageRecord {
@@ -147,148 +150,36 @@ describe("persistOpeningMessage", () => {
 });
 
 describe("persistSuccessfulMessageTurn", () => {
-  it("appends the turn after the highest existing sequence index", async () => {
-    const repository = createRepository({
-      getNextSessionMessageSequenceIndex: vi.fn(() => Promise.resolve(ok(5))),
-      appendSessionMessages: vi.fn(() => Promise.resolve(ok(createInsertedTurn(5)))),
-    });
-
+  it("returns both private message records as public view models after an atomic commit", async () => {
+    const repository = { completeSessionMessageTurn: vi.fn(() => Promise.resolve(ok(createInsertedTurn(5)))) };
     const result = await persistSuccessfulMessageTurn(context, input, repository);
-
-    expect(repository.appendSessionMessages).toHaveBeenCalledTimes(1);
-    expect(repository.appendSessionMessages).toHaveBeenCalledWith(context, [
-      {
-        sessionId: "session-1",
-        role: "user",
-        sequenceIndex: 5,
-        content: input.userMessage,
-      },
-      {
-        sessionId: "session-1",
-        role: "assistant",
-        sequenceIndex: 6,
-        content: input.assistantMessage,
-      },
-    ]);
+    expect(repository.completeSessionMessageTurn).toHaveBeenCalledWith(context, input);
     expect(result).toMatchObject({
       ok: true,
       data: {
-        user: {
-          role: "user",
-          sequenceIndex: 5,
-        },
-        assistant: {
-          role: "assistant",
-          sequenceIndex: 6,
-        },
+        user: { role: "user", sequenceIndex: 5 },
+        assistant: { role: "assistant", sequenceIndex: 6 },
       },
     });
+    if (result.ok) {
+      expect(result.data.user).not.toHaveProperty("userId");
+      expect(result.data.assistant).not.toHaveProperty("sessionId");
+    }
   });
 
-  it("starts the sequence at zero for an empty conversation", async () => {
-    const repository = createRepository();
+  it.each(["invalid_lifecycle_transition", "session_expired", "message_request_conflict", "write_failed"] as const)(
+    "propagates %s without trying a separate unguarded insert",
+    async (code) => {
+      const repository = { completeSessionMessageTurn: vi.fn(() => Promise.resolve(sessionDataError(code))) };
+      await expect(persistSuccessfulMessageTurn(context, input, repository)).resolves.toEqual(sessionDataError(code));
+      expect(repository.completeSessionMessageTurn).toHaveBeenCalledOnce();
+    },
+  );
 
-    const result = await persistSuccessfulMessageTurn(context, input, repository);
-
-    expect(repository.appendSessionMessages).toHaveBeenCalledWith(context, [
-      expect.objectContaining({ role: "user", sequenceIndex: 0 }),
-      expect.objectContaining({ role: "assistant", sequenceIndex: 1 }),
-    ]);
-    expect(result.ok).toBe(true);
-  });
-
-  it("re-reads the sequence index and retries once after a sequence conflict", async () => {
-    const getNextSessionMessageSequenceIndex = vi.fn().mockResolvedValueOnce(ok(0)).mockResolvedValueOnce(ok(2));
-    const appendSessionMessages = vi
-      .fn()
-      .mockResolvedValueOnce(sessionDataError("sequence_conflict"))
-      .mockResolvedValueOnce(ok(createInsertedTurn(2)));
-    const repository = createRepository({ getNextSessionMessageSequenceIndex, appendSessionMessages });
-
-    const result = await persistSuccessfulMessageTurn(context, input, repository);
-
-    expect(getNextSessionMessageSequenceIndex).toHaveBeenCalledTimes(2);
-    expect(appendSessionMessages).toHaveBeenCalledTimes(2);
-    expect(appendSessionMessages).toHaveBeenLastCalledWith(context, [
-      expect.objectContaining({ role: "user", sequenceIndex: 2 }),
-      expect.objectContaining({ role: "assistant", sequenceIndex: 3 }),
-    ]);
-    expect(result).toMatchObject({
-      ok: true,
-      data: {
-        user: {
-          sequenceIndex: 2,
-        },
-        assistant: {
-          sequenceIndex: 3,
-        },
-      },
-    });
-  });
-
-  it("returns write_failed after exhausting the sequence conflict attempts", async () => {
-    const repository = createRepository({
-      appendSessionMessages: vi.fn(() => Promise.resolve(sessionDataError("sequence_conflict"))),
-    });
-
-    const result = await persistSuccessfulMessageTurn(context, input, repository);
-
-    expect(repository.appendSessionMessages).toHaveBeenCalledTimes(3);
-    expect(repository.getNextSessionMessageSequenceIndex).toHaveBeenCalledTimes(3);
-    expect(result).toEqual({
-      ok: false,
-      error: {
-        code: "write_failed",
-      },
-    });
-  });
-
-  it("does not retry non-conflict append failures", async () => {
-    const repository = createRepository({
-      appendSessionMessages: vi.fn(() => Promise.resolve(sessionDataError("session_not_found"))),
-    });
-
-    const result = await persistSuccessfulMessageTurn(context, input, repository);
-
-    expect(repository.appendSessionMessages).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({
-      ok: false,
-      error: {
-        code: "session_not_found",
-      },
-    });
-  });
-
-  it("stops before appending when the sequence index read fails", async () => {
-    const repository = createRepository({
-      getNextSessionMessageSequenceIndex: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
-    });
-
-    const result = await persistSuccessfulMessageTurn(context, input, repository);
-
-    expect(repository.appendSessionMessages).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      ok: false,
-      error: {
-        code: "read_failed",
-      },
-    });
-  });
-
-  it("returns write_failed when the insert result is missing one side of the turn", async () => {
-    const repository = createRepository({
-      appendSessionMessages: vi.fn(() =>
-        Promise.resolve(ok([createMessageRecord({ role: "user", sequenceIndex: 0, content: input.userMessage })])),
-      ),
-    });
-
-    const result = await persistSuccessfulMessageTurn(context, input, repository);
-
-    expect(result).toEqual({
-      ok: false,
-      error: {
-        code: "write_failed",
-      },
-    });
+  it("refuses a malformed result missing one side of the turn", async () => {
+    const repository = { completeSessionMessageTurn: vi.fn(() => Promise.resolve(ok([createMessageRecord()]))) };
+    await expect(persistSuccessfulMessageTurn(context, input, repository)).resolves.toEqual(
+      sessionDataError("write_failed"),
+    );
   });
 });

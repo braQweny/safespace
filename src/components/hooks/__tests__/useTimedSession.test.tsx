@@ -7,6 +7,7 @@ import {
   getSessionAccessRedirectHref,
   SESSION_MESSAGE_TIMEOUT_MS,
   sendTimedSessionMessage,
+  resolveMessageRetryIdentity,
   SLOW_RESPONSE_THRESHOLD_MS,
   timedSessionReducer,
   type SafetyNoticeState,
@@ -355,6 +356,42 @@ afterEach(() => {
 });
 
 describe("sendTimedSessionMessage", () => {
+  it("reuses the same receipt through a lost response, but changes it for edited text or another session", async () => {
+    const first = resolveMessageRetryIdentity(null, activeSession.id, "pytanie");
+    const { transport, request, dispatch } = createTransport({ kind: "network_error", reason: "timeout" });
+    await sendTimedSessionMessage(first, dispatch, transport);
+    const retry = resolveMessageRetryIdentity(first, activeSession.id, " pytanie ");
+    await sendTimedSessionMessage(retry, dispatch, transport);
+    const bodies = request.mock.calls.map((call) => JSON.parse(call[1]?.body as string) as { clientMessageId: string });
+    expect(bodies.map((body) => body.clientMessageId)).toEqual([first.clientMessageId, first.clientMessageId]);
+    expect(resolveMessageRetryIdentity(first, activeSession.id, "zmienione pytanie").clientMessageId).not.toBe(
+      first.clientMessageId,
+    );
+    expect(resolveMessageRetryIdentity(first, "another-session", "pytanie").clientMessageId).not.toBe(
+      first.clientMessageId,
+    );
+  });
+
+  it("keeps a retried receipt from duplicating a turn already present in the view", () => {
+    const state = {
+      ...baseState,
+      kind: "active" as const,
+      session: activeSession,
+      messages: [turn.user, turn.assistant],
+    };
+    const replay = timedSessionReducer(state, { type: "turn_succeeded", turn, session: activeSession });
+    expect(replay.messages).toEqual(state.messages);
+  });
+
+  it("preserves the draft while another request still owns the generation", async () => {
+    const { transport, dispatch, dispatched } = createTransport(
+      jsonResult({ ok: false, type: "message_in_progress", code: "message_in_progress" }, 409),
+    );
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    const failure = dispatched.find((action) => action.type === "message_failed");
+    expect(failure).toMatchObject({ type: "message_failed", draft: "pytanie" });
+    expect(failure?.notice.copy.title).toBe("Poprzednia wiadomość jest jeszcze przetwarzana");
+  });
   it("sends with the client-side deadline", async () => {
     const { transport, request, dispatch } = createTransport(
       jsonResult({ ok: true, type: "success", messages: turn, session: activeSession }),

@@ -43,6 +43,34 @@ Wygenerowane typy maja wzmacniac ten boundary, nie zastepowac go. Publiczne rout
 
 Helpery zwracaja `SessionDataResult<T>` i `SessionDataErrorCode`. Nie przekazuj raw Supabase `message`, `details` ani `hint` do UI, logow lub response body. Dla konfliktu darmowej sesji uzyj stabilnego kodu `trial_already_claimed`.
 
+## Integralność tury i ponawianie żądań
+
+Migracja `20260904204248` wymusza dozwolone przejścia statusów także dla bezpośredniego
+Data API. Stan końcowy nie może wrócić do `created` ani `active`. Aktywacja wymaga
+ograniczonego, aktualnego budżetu. Triggery zapisu treści blokują wiersz sesji:
+wiadomości wymagają aktywnej, niewygasłej sesji, a podsumowania — nieusuniętej.
+
+`message-turns.ts`, eksportowany przez `repository.ts`, obsługuje trzy RPC:
+
+- `claimSessionMessageTurn`: rezerwuje jedną generację na sesję na dwie minuty albo
+  zwraca już zapisany wynik dla tego samego `clientMessageId` i tekstu.
+- `completeSessionMessageTurn`: sprawdza właściciela, rezerwację, status i czas;
+  przydziela indeksy oraz zapisuje parę wiadomości i potwierdzenie w jednej transakcji.
+- `releaseSessionMessageTurn`: usuwa wyłącznie niezakończoną, zgodną rezerwację;
+  po awarii Workera rezerwacja wygasa, a stare żądanie nie może zapisać odpowiedzi
+  po przejęciu jej przez nową próbę.
+
+`session_message_turns` jest prywatną tabelą z RLS per operacja. Skrót tekstu,
+identyfikatory prób i powiązania wiadomości nie mogą trafiać do logów ani admina.
+Treść istnieje tylko w transkrypcie; usunięcie sesji usuwa również potwierdzenia
+i niezakończone rezerwacje. Stary Worker zachowuje możliwość bezpośredniego zapisu
+wiadomości, ale obowiązują go nowe triggery. Stare otwarte klienty bez identyfikatora
+wiadomości działają nadal; deduplikację ponowień zapewnia nowy klient.
+
+`npm run test:db` weryfikuje pełny zestaw migracji w izolowanym PostgreSQL, także
+rzeczywiste oczekiwanie dwóch połączeń na blokadę. Minimalny schemat Auth jest
+fixturem; testy te nie zastępują sprawdzania logowania przez HTTP w Supabase.
+
 ## Start pierwszej darmowej sesji
 
 S-04 `first-safe-timed-session` implementuje pierwszy realny start sesji przez `/dashboard/session` i `/api/session/start`. Ten przeplyw ma zachowac taka kolejnosc:
