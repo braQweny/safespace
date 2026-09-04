@@ -27,7 +27,7 @@ Pre-commit (husky + lint-staged): `eslint --fix` on `*.{ts,tsx,astro}`, `prettie
 
 ## CI / deploy (`.github/workflows/ci.yml`)
 
-On push/PR to **`main`**, `ci` runs audit → Vitest → disposable PostgreSQL tests → Astro sync → lint → TypeScript → Astro check → production build → Chromium installation → E2E. The build needs `SUPABASE_URL` and `SUPABASE_KEY`; tests do not use production services. On push to `main`, a single `deploy` job verifies the commit is still current, builds, applies migrations via the Session Pooler, then publishes the Worker. Its `deploy-main` concurrency group (`queue: max`, no cancellation) holds the lock across both migration and publication. Never split them into separately locked jobs. Superseded commits fail before any production mutation. Adding a behavior requires a meaningful test.
+On push/PR to **`main`**, `ci` runs audit → Vitest → disposable PostgreSQL tests → Astro sync → lint → TypeScript → Astro check → production build → Chromium installation → E2E. The test build uses `SUPABASE_URL=https://example.supabase.co` and `SUPABASE_KEY=test-public-key`, matching the isolated E2E preview. It needs no production secrets, including for Dependabot and fork PRs. On push to `main`, a single `deploy` job verifies the commit is still current, builds separately with real Supabase secrets, applies migrations via the Session Pooler, then publishes the Worker. Its `deploy-main` concurrency group (`queue: max`, no cancellation) holds the lock across both migration and publication. Never split them into separately locked jobs. Superseded commits fail before any production mutation. Adding a behavior requires a meaningful test.
 
 ## Architecture
 

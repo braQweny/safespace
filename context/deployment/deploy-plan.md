@@ -61,6 +61,7 @@ set is_active = true, deactivated_at = null;
 - `.github/workflows/ci.yml`:
   - Trigger ustawiony na `main` dla push i pull request.
   - Job `ci` wykonuje audyt, Vitest, testy migracji/RLS/wyścigów w izolowanym PostgreSQL, Astro sync, lint, TypeScript, Astro check, build i test Chromium z produkcyjnym CSP.
+  - Build w `ci` używa testowych `SUPABASE_URL=https://example.supabase.co` i `SUPABASE_KEY=test-public-key`, zgodnych z izolowanym preview E2E. Działa również dla PR-ów Dependabota i forków bez sekretów. Ten artefakt nie jest publikowany; job `deploy` buduje osobno z prawdziwą konfiguracją Supabase.
   - Jeden job `deploy`, tylko po push do `main` i przejściu `ci`, sprawdza aktualność commita, buduje aplikację, wykonuje `npx supabase db push` przez Session Pooler i publikuje Workera.
   - Blokada `deploy-main` obejmuje cały job (`queue: max`, `cancel-in-progress: false`). Nie rozdzielać migracji i publikacji na joby z osobnymi blokadami. Nieaktualny commit zostaje odrzucony przed zmianami produkcyjnymi.
   - Deploy używa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.126.0"` i `deploy --secrets-file .env.production`.
