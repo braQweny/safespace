@@ -7,6 +7,15 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # Astro check i typescript-eslint nie obsługują jeszcze TypeScript 7.
+      # Usuń ograniczenie po dodaniu zgodności przez oba narzędzia.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
+      # Wersje 2+ wymagają ESLint 10, którego nie obsługują jeszcze
+      # eslint-plugin-react i eslint-plugin-jsx-a11y. Zachowaj lint i a11y.
+      - dependency-name: "eslint-plugin-astro"
+        versions: [">=2.0.0"]
     groups:
       npm-minor-and-patch:
         patterns:

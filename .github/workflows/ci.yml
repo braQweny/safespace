@@ -32,8 +32,10 @@ jobs:
       - run: npm run check:astro
       - run: npm run build
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # Ten artefakt służy wyłącznie testom, także w PR-ach Dependabota
+          # i z forków. Job deploy buduje osobno z konfiguracją produkcyjną.
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_KEY: test-public-key
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 
