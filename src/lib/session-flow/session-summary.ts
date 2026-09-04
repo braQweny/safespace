@@ -10,11 +10,7 @@ const SUMMARY_SOURCE_MESSAGE_CHARS = 1_200;
 const SUMMARIZABLE_SESSION_STATUSES = new Set(["completed", "expired", "interrupted"]);
 
 export type SessionSummaryFlowFailureCode =
-  | "missing_auth"
-  | "session_not_found"
-  | "session_not_summarizable"
-  | "read_failed"
-  | "provider_failed";
+  "missing_auth" | "session_not_found" | "session_not_summarizable" | "read_failed" | "provider_failed";
 
 export type SessionSummaryFlowResult<T> =
   | {
