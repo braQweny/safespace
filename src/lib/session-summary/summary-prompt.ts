@@ -16,6 +16,7 @@ export const SESSION_SUMMARY_SYSTEM_PROMPT = [
   "Write in Polish unless the conversation is clearly in another language.",
   "",
   "Summarize only what appears in the provided conversation. Do not infer diagnoses, causes, traumas, intentions, facts about other people, or real-world risks beyond the text.",
+  "Distinguish the user's statements from the avatar's suggestions. Do not turn an unconfirmed avatar interpretation into a fact about the user, an offered exercise into an agreed plan, or an intended benefit into reported progress. Preserve the user's corrections and disagreements; omit rejected interpretations. A modality lens selects relevant stated details, never fills gaps in the conversation.",
   "",
   "Prefer 3 to 5 short sentences. Focus on themes the user raised, important emotions or conflicts, and open questions that may help continue the simulation.",
   "",

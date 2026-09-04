@@ -54,6 +54,16 @@ describe("buildSessionSummaryMessages", () => {
     expect(payload.selectedModality).not.toHaveProperty("sessionStyleHint");
   });
 
+  it("does not carry unconfirmed interpretations, rejected suggestions, or invented progress forward", () => {
+    const systemContent = buildSessionSummaryMessages(input)[0]?.content ?? "";
+
+    expect(systemContent).toContain("Distinguish the user's statements from the avatar's suggestions");
+    expect(systemContent).toContain("an offered exercise into an agreed plan");
+    expect(systemContent).toContain("an intended benefit into reported progress");
+    expect(systemContent).toContain("Preserve the user's corrections and disagreements; omit rejected interpretations");
+    expect(systemContent).toContain("never fills gaps in the conversation");
+  });
+
   it("keeps every catalog summary lens inside the prompt budget so its tail is never truncated", () => {
     for (const modality of MVP_MODALITIES) {
       expect(modality.summaryLensHint.trim().length).toBeGreaterThan(0);
