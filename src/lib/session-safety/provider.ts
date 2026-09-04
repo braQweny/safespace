@@ -8,7 +8,11 @@ export type ProviderSafetyReasonCode = Extract<
 
 export type ProviderSafetyErrorCategory = Extract<
   SessionSafetyReasonCode,
-  "provider_unavailable" | "invalid_provider_response" | "missing_configuration"
+  | "provider_unavailable"
+  | "provider_timeout"
+  | "provider_rate_limited"
+  | "invalid_provider_response"
+  | "missing_configuration"
 >;
 
 export interface ProviderSafetyDecision {

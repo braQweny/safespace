@@ -40,10 +40,16 @@ export function getSessionAiFailureCopy(category: SessionAiErrorCategory): Sessi
  * Nothing was generated or stored and the session stays open, so the copy has
  * to promise exactly that: the text is still in the composer, try again.
  */
-export function getSafetyBoundaryUnavailableCopy(): SessionAiFailureCopy {
+export function getSafetyBoundaryUnavailableCopy(category?: SessionAiErrorCategory): SessionAiFailureCopy {
+  const cause =
+    category === "provider_rate_limited"
+      ? "Usługa sprawdzająca bezpieczeństwo chwilowo ogranicza liczbę zapytań."
+      : category === "provider_timeout"
+        ? "Sprawdzenie bezpieczeństwa trwało zbyt długo."
+        : "Sprawdzenie bezpieczeństwa jest chwilowo niedostępne.";
   return {
     title: "Nie możemy teraz bezpiecznie kontynuować",
-    body: "Sprawdzenie bezpieczeństwa jest chwilowo niedostępne, więc ta wiadomość nie została wysłana ani zapisana. Treść zostaje w polu — spróbuj ponownie za chwilę.",
+    body: `${cause} Wiadomość nie została dodana do rozmowy. Treść zostaje w polu — spróbuj ponownie za chwilę.`,
     retryLabel: RETRY_LABEL,
   };
 }

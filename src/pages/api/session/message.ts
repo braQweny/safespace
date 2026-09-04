@@ -304,7 +304,7 @@ export const POST: APIRoute = async (context) => {
             type: "ai_retry",
             code: "ai_retry",
             category: toSafetyBoundaryFailureCategory(decision.reasonCode),
-            copy: getSafetyBoundaryUnavailableCopy(),
+            copy: getSafetyBoundaryUnavailableCopy(decision.reasonCode),
           },
           503,
         );

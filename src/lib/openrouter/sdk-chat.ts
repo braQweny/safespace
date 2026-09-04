@@ -88,6 +88,16 @@ function mapOpenRouterChatError(error: unknown): OpenRouterChatError {
     return error;
   }
 
+  // OpenRouter can commit HTTP 200 before generation fails, then return an
+  // error envelope instead of choices. The SDK reports a validation failure;
+  // recover only its numeric status, never retain provider text or payloads.
+  if (error instanceof ResponseValidationError && error.statusCode === 200) {
+    const status = readProviderErrorStatus(error.body);
+    if (status !== undefined) {
+      return new OpenRouterChatError(mapOpenRouterStatus(status));
+    }
+  }
+
   if (
     error instanceof SDKValidationError ||
     error instanceof ResponseValidationError ||
@@ -114,6 +124,19 @@ function mapOpenRouterChatError(error: unknown): OpenRouterChatError {
   }
 
   return new OpenRouterChatError("provider_unavailable");
+}
+
+function readProviderErrorStatus(body: string): number | undefined {
+  try {
+    const payload: unknown = JSON.parse(body);
+    if (!payload || typeof payload !== "object" || !("error" in payload)) return undefined;
+    const error = payload.error;
+    if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+    const code = error.code;
+    return typeof code === "number" && Number.isInteger(code) && code >= 400 && code <= 599 ? code : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function mapOpenRouterStatus(status: number): OpenRouterChatErrorCategory {
