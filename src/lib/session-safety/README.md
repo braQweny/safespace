@@ -10,6 +10,7 @@ F-02 tworzy server-only granice bezpieczenstwa dla przyszlych rozmow AI. Publicz
 - `allow_with_constraints` moze kontynuowac tylko z ograniczeniami z `decision.constraints`; nie zwraca widocznej kopii ostrzegawczej do UI.
 - `hard_stop` blokuje zwykla symulacje. UI ma pokazac `decision.copy` i, gdy sa obecne, `decision.crisisResources`.
 - Brak konfiguracji OpenRouter, blad sieci, timeout albo niepoprawna odpowiedz providera sa traktowane jak `hard_stop`.
+- Handler wiadomości rozróżnia awarię tej granicy od wykrytego kryzysu: kody `provider_timeout`, `provider_rate_limited`, `provider_unavailable`, `invalid_provider_response` i `missing_configuration` zwracają `ai_retry` (503), bez zakończenia sesji ani zapisu tury. Klasyfikator ponawia błąd 429/5xx raz, po 500 ms; nie ponawia timeoutu. Dokładna kategoria trafia do odpowiedzi API i do bezpiecznych metadanych operacyjnych.
 - Nie loguj prywatnego tekstu uzytkownika, promptow, payloadow providera ani tresci odpowiedzi klasyfikatora.
 
 ## Zakres F-02

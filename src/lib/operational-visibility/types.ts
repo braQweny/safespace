@@ -48,10 +48,7 @@ export type OperationalSafetyAction = (typeof OPERATIONAL_SAFETY_ACTIONS)[number
 export type ProtectedRouteReasonCode = "missing_auth";
 
 export type RequestGuardReasonCode =
-  | "length_required"
-  | "payload_too_large"
-  | "rate_limited"
-  | "rate_limiter_unavailable";
+  "length_required" | "payload_too_large" | "rate_limited" | "rate_limiter_unavailable";
 
 export type OperationalDiagnosticReasonCode = "private_field_denied" | "invalid_event_payload" | "logger_unavailable";
 
