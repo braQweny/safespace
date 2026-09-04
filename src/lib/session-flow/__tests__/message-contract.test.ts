@@ -12,6 +12,13 @@ function createRequest(body: unknown) {
 }
 
 describe("parseSendSessionMessageRequest", () => {
+  it("accepts an optional UUID receipt id and rejects malformed supplied ids", async () => {
+    const body = { sessionId: SESSION_ID, message: "Wiadomość", clientMessageId: SESSION_ID };
+    await expect(parseSendSessionMessageRequest(createRequest(body))).resolves.toEqual(body);
+    for (const clientMessageId of [null, 1, "", "invalid", {}]) {
+      await expect(parseSendSessionMessageRequest(createRequest({ ...body, clientMessageId }))).resolves.toBeNull();
+    }
+  });
   it("accepts a uuid session id and a trimmed message", async () => {
     await expect(
       parseSendSessionMessageRequest(createRequest({ sessionId: ` ${SESSION_ID} `, message: "  Czesc.  " })),
