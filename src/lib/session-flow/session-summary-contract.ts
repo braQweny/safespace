@@ -41,9 +41,7 @@ export type SessionSummaryStateResponse = SessionSummaryStateSuccessResponse | S
 export type SessionSummaryGenerateResponse = SessionSummaryGeneratedSuccessResponse | SessionSummaryFailureResponse;
 export type SessionSummaryApproveResponse = SessionSummaryApprovedSuccessResponse | SessionSummaryFailureResponse;
 export type SessionSummaryResponse =
-  | SessionSummaryStateResponse
-  | SessionSummaryGenerateResponse
-  | SessionSummaryApproveResponse;
+  SessionSummaryStateResponse | SessionSummaryGenerateResponse | SessionSummaryApproveResponse;
 
 export function sessionSummaryFailure(code: SessionSummaryFailureCode): SessionSummaryFailureResponse {
   return {

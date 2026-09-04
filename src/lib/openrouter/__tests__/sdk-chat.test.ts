@@ -179,6 +179,19 @@ describe("sendOpenRouterChat error mapping", () => {
     await expectCategory(createStatusError(503), "provider_unavailable");
   });
 
+  it("does not reinterpret an unparseable validation-error body", async () => {
+    await expectCategory(
+      new ResponseValidationError("invalid response", {
+        ...createHttpMeta(200),
+        body: "not json",
+        cause: new Error("invalid"),
+        rawValue: undefined,
+        rawMessage: "invalid",
+      }),
+      "invalid_provider_response",
+    );
+  });
+
   it("maps unknown failures to provider_unavailable", async () => {
     await expectCategory(new Error("connection reset"), "provider_unavailable");
     await expectCategory("string failure", "provider_unavailable");

@@ -85,6 +85,8 @@ export interface ConstrainedSessionSafetyDecision extends BaseSessionSafetyDecis
     | "harm_to_others_signal"
     | "immediate_danger_signal"
     | "provider_unavailable"
+    | "provider_timeout"
+    | "provider_rate_limited"
     | "invalid_provider_response"
     | "missing_configuration"
   >;
@@ -103,6 +105,4 @@ export interface HardStopSessionSafetyDecision extends BaseSessionSafetyDecision
 }
 
 export type SessionSafetyDecision =
-  | AllowSessionSafetyDecision
-  | ConstrainedSessionSafetyDecision
-  | HardStopSessionSafetyDecision;
+  AllowSessionSafetyDecision | ConstrainedSessionSafetyDecision | HardStopSessionSafetyDecision;

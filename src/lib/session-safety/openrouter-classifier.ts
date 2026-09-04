@@ -3,7 +3,7 @@ import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-ch
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterEnv, resolveOpenRouterModel } from "@/lib/openrouter/env";
 import {
-  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  getOpenRouterPrivateProviderPreferences,
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 
@@ -18,6 +18,7 @@ const OPENROUTER_SAFETY_TIMEOUT_MS = 8_000;
 // is not retried: it already spent the whole budget, and a fail-closed reply
 // beats doubling the wait. Without this a single blip ended the user's turn.
 const OPENROUTER_SAFETY_MAX_ATTEMPTS = 2;
+const OPENROUTER_SAFETY_RETRY_DELAY_MS = 500;
 const OPENROUTER_SAFETY_RETRYABLE_CATEGORIES = new Set<OpenRouterChatError["category"]>([
   "provider_unavailable",
   "provider_rate_limited",
@@ -125,6 +126,7 @@ export async function classifySessionSafetyWithOpenRouter(
       lastError = error;
 
       if (attempt < OPENROUTER_SAFETY_MAX_ATTEMPTS && isRetryableOpenRouterError(error)) {
+        await new Promise((resolve) => setTimeout(resolve, OPENROUTER_SAFETY_RETRY_DELAY_MS));
         continue;
       }
 
@@ -141,7 +143,7 @@ function isRetryableOpenRouterError(error: unknown) {
 
 function toProviderSafetyError(error: unknown) {
   if (error instanceof OpenRouterChatError) {
-    return new ProviderSafetyError(mapOpenRouterSafetyErrorCategory(error.category));
+    return new ProviderSafetyError(error.category);
   }
 
   return new ProviderSafetyError("provider_unavailable");
@@ -173,7 +175,7 @@ export function buildOpenRouterSafetyRequest(
     ...buildSafetyReasoningParameter(model),
     maxCompletionTokens: resolveSafetyMaxCompletionTokens(model),
     stream: false,
-    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+    provider: getOpenRouterPrivateProviderPreferences(model),
     responseFormat: {
       type: "json_schema",
       jsonSchema: OPENROUTER_SAFETY_RESPONSE_SCHEMA,
@@ -223,12 +225,4 @@ function resolveTimeoutMs(timeoutMs: number | undefined) {
   }
 
   return Math.round(timeoutMs);
-}
-
-function mapOpenRouterSafetyErrorCategory(category: OpenRouterChatError["category"]) {
-  if (category === "missing_configuration" || category === "invalid_provider_response") {
-    return category;
-  }
-
-  return "provider_unavailable";
 }

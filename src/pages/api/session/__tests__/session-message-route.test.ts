@@ -501,8 +501,14 @@ describe("POST /api/session/message", () => {
     expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
   });
 
-  it("fails closed for the turn without ending the session when safety is unavailable", async () => {
-    evaluateSessionSafety.mockResolvedValue(failClosedDecision);
+  it.each([
+    "provider_unavailable",
+    "provider_timeout",
+    "provider_rate_limited",
+    "invalid_provider_response",
+    "missing_configuration",
+  ] as const)("fails closed without ending the session on safety %s", async (reasonCode) => {
+    evaluateSessionSafety.mockResolvedValue({ ...failClosedDecision, reasonCode });
 
     const response = await POST(createContext() as never);
 
@@ -514,7 +520,7 @@ describe("POST /api/session/message", () => {
       ok: false,
       type: "ai_retry",
       code: "ai_retry",
-      category: "provider_unavailable",
+      category: reasonCode,
       copy: {
         title: "Nie możemy teraz bezpiecznie kontynuować",
       },
@@ -522,6 +528,7 @@ describe("POST /api/session/message", () => {
     expect(transitionSessionLifecycle).not.toHaveBeenCalled();
     expect(generateSessionResponse).not.toHaveBeenCalled();
     expect(persistSuccessfulMessageTurn).not.toHaveBeenCalled();
+    expect(releaseSessionMessageTurn).toHaveBeenCalledOnce();
   });
 
   it("raises the provider ceiling with the configured reasoning effort while the budget allows it", async () => {

@@ -97,6 +97,8 @@ describe("evaluateSessionSafety", () => {
     ["missing configuration", new ProviderSafetyError("missing_configuration"), "missing_configuration"],
     ["parser failure", new ProviderSafetyError("invalid_provider_response"), "invalid_provider_response"],
     ["provider unavailable", new ProviderSafetyError("provider_unavailable"), "provider_unavailable"],
+    ["provider timeout", new ProviderSafetyError("provider_timeout"), "provider_timeout"],
+    ["provider rate limit", new ProviderSafetyError("provider_rate_limited"), "provider_rate_limited"],
     ["network failure", new Error("network failure"), "provider_unavailable"],
   ] as const)("fails closed when the provider reports %s", async (_name, error, reasonCode) => {
     const decision = await evaluateSessionSafety(input, { provider: createFailingProvider(error) });

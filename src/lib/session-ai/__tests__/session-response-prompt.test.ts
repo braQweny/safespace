@@ -96,6 +96,18 @@ describe("buildSessionResponseMessages", () => {
     expect(systemMessage.content).toContain("mirror the grammatical gender the user has used about themselves");
     expect(systemMessage.content).toContain("Never guess it from the name, the topic, or the avatar");
     expect(systemMessage.content).toContain("ordinary Polish capitalisation");
+    expect(systemMessage.content).toContain("Do not write gender alternatives in brackets or with slashes");
+  });
+
+  it("keeps user feedback, consent, and grounded reflections above persona techniques", () => {
+    const systemContent = buildSessionResponseMessages(input)[0]?.content ?? "";
+
+    expect(systemContent).toContain("their feedback take priority over performing a technique or persona");
+    expect(systemContent).toContain("do not invent an unspoken feeling, motive, body sensation, or hidden meaning");
+    expect(systemContent).toContain("Answer a direct question before inviting further exploration");
+    expect(systemContent).toContain("Do not defend your interpretation or treat disagreement as resistance");
+    expect(systemContent).toContain("stop if it is declined or uncomfortable");
+    expect(systemContent).toContain("Count invitations and sentence-completion tasks as questions too");
   });
 
   it("moves modality, constraints, and summaries into the system message and keeps the user turn plain", () => {
@@ -248,7 +260,6 @@ describe("MVP_MODALITIES session style hints", () => {
       "łącznik",
       "przewodniczka",
       "wątek",
-      "relacji",
     ]) {
       expect(hints).toContain(term);
     }
@@ -297,6 +308,35 @@ describe("MVP_MODALITIES session style hints", () => {
 
       expect(messages[0]?.content).toContain(modality.sessionStyleHint);
     }
+  });
+
+  it.each(MVP_MODALITIES)("routes only $avatarName's complete guide to opening and reply turns", (modality) => {
+    for (const mode of ["opening", "reply"] as const) {
+      const systemContent = buildSessionResponseMessages({
+        ...input,
+        mode,
+        modality,
+      })[0]?.content;
+
+      expect(systemContent).toContain(modality.sessionStyleHint);
+      expect(systemContent).toContain(SESSION_RESPONSE_SYSTEM_PROMPT);
+      for (const other of MVP_MODALITIES.filter((item) => item.avatarId !== modality.avatarId)) {
+        expect(systemContent).not.toContain(other.sessionStyleHint);
+      }
+    }
+  });
+
+  it.each([
+    ["psychodynamic-listener", "never invent childhood causes or recovered memories"],
+    ["cbt-guide", "a specific prediction and an observable outcome chosen together"],
+    ["experiential-companion", "Bodily attention is optional, only if the user welcomes it"],
+    ["systemic-connector", "responsibility belongs to the person doing harm"],
+    ["integrative-guide", "keep continuity across turns"],
+  ])("preserves the key modality boundary for %s in the assembled prompt", (avatarId, instruction) => {
+    const modality = MVP_MODALITIES.find((item) => item.avatarId === avatarId);
+    if (!modality) throw new Error(`Missing avatar ${avatarId}`);
+
+    expect(buildSessionResponseMessages({ ...input, modality })[0]?.content).toContain(instruction);
   });
 });
 
@@ -370,6 +410,8 @@ describe("session phase section", () => {
     expect(systemContent).toContain("Current phase: closing");
     expect(systemContent).toContain("Start settling rather than opening anything new");
     expect(systemContent).toContain("Never mention minutes, timers, the clock");
+    expect(systemContent).toContain("do not reopen exploration, repeatedly say goodbye, or claim relief");
+    expect(systemContent).toContain("progress the user has not reported");
   });
 
   it("carries a distinct instruction for each phase", () => {

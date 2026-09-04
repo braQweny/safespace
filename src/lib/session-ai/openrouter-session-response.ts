@@ -1,7 +1,7 @@
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
 import {
-  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  getOpenRouterPrivateProviderPreferences,
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
@@ -48,6 +48,7 @@ const OPENROUTER_GPT_5_6_LUNA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
 const OPENROUTER_HIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS = 6_000;
 const OPENROUTER_XHIGH_REASONING_SESSION_MAX_COMPLETION_TOKENS = 16_000;
 const OPENROUTER_SESSION_TEMPERATURE = 0.7;
+const OPENROUTER_SESSION_RETRY_DELAY_MS = 500;
 
 interface OpenRouterSessionResponseOptions {
   apiKey?: string;
@@ -85,7 +86,7 @@ export async function generateSessionResponseWithOpenRouter(
   const reasoningEffort = options.reasoningEffort ?? config.reasoningEffort;
 
   try {
-    const response = await sendOpenRouterChat({
+    const response = await sendSessionChatWithRetry({
       apiKey,
       chatRequest: buildOpenRouterSessionRequest(input, model, { reasoningEffort }),
       fetcher: options.fetcher,
@@ -109,6 +110,29 @@ export async function generateSessionResponseWithOpenRouter(
   }
 }
 
+async function sendSessionChatWithRetry(options: Parameters<typeof sendOpenRouterChat>[0] & { timeoutMs: number }) {
+  const startedAt = performance.now();
+  try {
+    return await sendOpenRouterChat(options);
+  } catch (error) {
+    // Retry only transient transport failures. Incomplete/filtered replies and
+    // timeouts must not trigger another generation. Both attempts share the
+    // route's deadline, which already respects the remaining session time.
+    if (
+      !(error instanceof OpenRouterChatError) ||
+      (error.category !== "provider_rate_limited" && error.category !== "provider_unavailable") ||
+      options.timeoutMs - (performance.now() - startedAt) <= OPENROUTER_SESSION_RETRY_DELAY_MS
+    ) {
+      throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, OPENROUTER_SESSION_RETRY_DELAY_MS));
+    const remainingMs = Math.floor(options.timeoutMs - (performance.now() - startedAt));
+    if (remainingMs <= 0) throw error;
+    return sendOpenRouterChat({ ...options, timeoutMs: remainingMs });
+  }
+}
+
 export function buildOpenRouterSessionRequest(
   input: GenerateSessionResponseInput,
   model: string,
@@ -123,7 +147,7 @@ export function buildOpenRouterSessionRequest(
     ...buildOpenRouterReasoningParameter(model, reasoningEffort),
     ...buildOpenRouterTokenLimitParameter(model, resolveSessionMaxCompletionTokens(model, reasoningEffort)),
     stream: false,
-    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+    provider: getOpenRouterPrivateProviderPreferences(model),
   };
 }
 
