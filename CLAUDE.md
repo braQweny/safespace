@@ -131,7 +131,7 @@ CI applies migrations _before_ publishing code inside one locked `deploy` job, s
 
 ## Environment
 
-- Node v22.23.2 (`.nvmrc`, `engines >=22.19.0`). Dependabot (`.github/dependabot.yml`) opens weekly grouped minor/patch PRs; `npm outdated` drift is otherwise invisible.
+- Node v22.23.2 (`.nvmrc`, `engines >=22.22.1`). Dependabot (`.github/dependabot.yml`) opens weekly grouped minor/patch PRs; `npm outdated` drift is otherwise invisible.
 - Required secrets: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY`. Public/optional: `OPENROUTER_SAFETY_MODEL`, `OPENROUTER_SESSION_MODEL`, `OPENROUTER_SUMMARY_MODEL`, `OPENROUTER_TRANSCRIPTION_MODEL`, `OPERATIONAL_LOG_HASH_SECRET` (enables stable `userHash` correlation; absence does not block requests or fall back to raw `user.id`), `SUPPORT_EMAIL` (optional override of the public contact address `safespacenow123@gmail.com` — `support-contact.ts` — shown in the footer, on the blocked-account page, and as the premium CTA). All declared in `astro.config.mjs` `env.schema`. Build-time only: `SITE_URL` — when set, enables Astro `site` + the sitemap integration (deliberately off until the final domain is chosen).
 - Local: `.env` (Node tooling) / `.dev.vars` (Cloudflare local dev, gitignored). Copy from `.env.example`.
 - Product/architecture docs in `context/foundation/` (`prd.md` holds the privacy guardrails) and `context/deployment/deploy-plan.md`.
