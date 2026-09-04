@@ -12,6 +12,8 @@ export const SESSION_MESSAGE_MAX_CHARS = 3_000;
 export interface SendSessionMessageRequest {
   sessionId: string;
   message: string;
+  /** Optional during rollout so already-open clients keep working. */
+  clientMessageId?: string;
 }
 
 export interface SessionMessageViewModel {
@@ -44,6 +46,11 @@ export type SendSessionMessageFailureCode =
   | SessionDataErrorCode;
 
 export type SendSessionMessageFailureResponse =
+  | {
+      ok: false;
+      type: "message_in_progress" | "message_request_conflict";
+      code: "message_in_progress" | "message_request_conflict";
+    }
   | {
       ok: false;
       type: "validation_failed";
@@ -115,14 +122,19 @@ export async function parseSendSessionMessageRequest(request: Request) {
   // malformed id is a 400 here instead of a Postgres cast error downstream.
   const sessionId = parseSessionIdParam(typeof body.sessionId === "string" ? body.sessionId : undefined);
   const message = normalizeString(body.message);
+  const clientMessageId =
+    body.clientMessageId === undefined
+      ? undefined
+      : parseSessionIdParam(typeof body.clientMessageId === "string" ? body.clientMessageId : undefined);
 
-  if (!sessionId || !message || message.length > SESSION_MESSAGE_MAX_CHARS) {
+  if (!sessionId || !message || message.length > SESSION_MESSAGE_MAX_CHARS || clientMessageId === null) {
     return null;
   }
 
   return {
     sessionId,
     message,
+    ...(clientMessageId ? { clientMessageId } : {}),
   } satisfies SendSessionMessageRequest;
 }
 

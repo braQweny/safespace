@@ -60,10 +60,12 @@ set is_active = true, deactivated_at = null;
   - Wymagane sekrety zadeklarowane jako `SUPABASE_URL`, `SUPABASE_KEY` i `OPENROUTER_API_KEY`.
 - `.github/workflows/ci.yml`:
   - Trigger ustawiony na `main` dla push i pull request.
-  - Job `ci` zachowuje `npm ci`, `npm run test`, `npx astro sync`, lint i build.
-  - Job `migrate` dziala tylko dla push do `main`, po przejsciu `ci`, buduje Session Pooler URL z `SUPABASE_DB_PASSWORD` i wykonuje `npx supabase db push`.
-  - Job `deploy` dziala tylko dla push do `main`, po przejsciu `migrate`.
-  - Deploy uzywa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.95.0"` i `deploy --secrets-file .env.production`.
+  - Job `ci` wykonuje audyt, Vitest, testy migracji/RLS/wyścigów w izolowanym PostgreSQL, Astro sync, lint, TypeScript, Astro check, build i test Chromium z produkcyjnym CSP.
+  - Build w `ci` używa testowych `SUPABASE_URL=https://example.supabase.co` i `SUPABASE_KEY=test-public-key`, zgodnych z izolowanym preview E2E. Działa również dla PR-ów Dependabota i forków bez sekretów. Ten artefakt nie jest publikowany; job `deploy` buduje osobno z prawdziwą konfiguracją Supabase.
+  - Jeden job `deploy`, tylko po push do `main` i przejściu `ci`, sprawdza aktualność commita, buduje aplikację, wykonuje `npx supabase db push` przez Session Pooler i publikuje Workera.
+  - Blokada `deploy-main` obejmuje cały job (`queue: max`, `cancel-in-progress: false`). Nie rozdzielać migracji i publikacji na joby z osobnymi blokadami. Nieaktualny commit zostaje odrzucony przed zmianami produkcyjnymi.
+  - Deploy używa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.126.0"` i `deploy --secrets-file .env.production`.
+  - Migracja `20260904204248` dodaje integralność cyklu sesji i prywatne potwierdzenia tur bez nowych sekretów. Zachowuje zapis wiadomości ze starego Workera; nowe triggery sprawdzają status, termin i usunięcie. Migracja musi wejść przed kodem używającym nowych RPC.
   - `.env.production` jest tworzony tymczasowo z GitHub secrets (`SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY` oraz opcjonalnie `OPERATIONAL_LOG_HASH_SECRET`) i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.
 - Po pushu sprawdzic workflow, URL Workera, redirect `/dashboard -> /auth/signin` oraz callback `/auth/callback` dodany do Supabase Auth Redirect URLs.
@@ -72,11 +74,16 @@ set is_active = true, deactivated_at = null;
 ## Komendy lokalnej weryfikacji
 
 ```bash
-nvm use 22.14.0
+nvm use
 npm ci
 npm run lint
 npm run test
+npm run test:db
+npm run typecheck
+npm run check:astro
 npm run build
+npx playwright install chromium
+npm run test:e2e
 npx wrangler deploy --dry-run
 ```
 

@@ -7,6 +7,9 @@ export const SESSION_DATA_ERROR_CODES = {
   session_limit_reached: "session_limit_reached",
   invalid_lifecycle_transition: "invalid_lifecycle_transition",
   sequence_conflict: "sequence_conflict",
+  session_expired: "session_expired",
+  message_in_progress: "message_in_progress",
+  message_request_conflict: "message_request_conflict",
   delete_failed: "delete_failed",
   write_failed: "write_failed",
   read_failed: "read_failed",
@@ -68,6 +71,12 @@ export function mapSupabaseWriteError(error: unknown, options: WriteErrorMapping
   if (code === "23503") {
     return "session_not_found";
   }
+
+  if (code === "P0002") return "session_not_found";
+  if (code === "P0004") return "invalid_lifecycle_transition";
+  if (code === "P0007") return "session_expired";
+  if (code === "P0008") return "message_in_progress";
+  if (code === "P0009") return "message_request_conflict";
 
   // The free-plan cap is a database gate on every session insert (trial claim
   // and follow-up alike), so the write path has to recognise it regardless of

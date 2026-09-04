@@ -16,7 +16,10 @@ SafeSpace is an Astro 7 SSR app with React 19 islands, Tailwind 4, Supabase auth
 - `npm run build` builds production SSR output for `@astrojs/cloudflare`.
 - `npm run preview` previews the production build.
 - `npm run test` runs Vitest once (`npm run test:watch` for watch mode); `npx vitest run <path>` runs a single file.
+- `npm run test:db` runs real migration/RLS/concurrency tests in a disposable PostgreSQL container (Docker required).
+- `npm run test:e2e` runs the production-build Chromium smoke test; see `tests/e2e/README.md`.
 - `npm run typecheck` runs `tsc --noEmit`.
+- `npm run check:astro` checks Astro templates.
 - `npm run lint` runs ESLint with type-aware TypeScript, Astro, React, hooks, compiler, a11y, and Prettier rules from `@eslint.config.js`.
 - `npm run lint:fix` and `npm run format` apply the repo fixers. Husky runs lint-staged from `@package.json` before commit.
 - `npm run audit:prod` runs `npm audit` for production dependencies at `high` severity or above.
@@ -31,7 +34,7 @@ SafeSpace is an Astro 7 SSR app with React 19 islands, Tailwind 4, Supabase auth
 
 ## Style And Checks
 
-Use the `@/*` alias from `@tsconfig.json`. Prefer Astro components for static layout and React components only for interactive islands. Merge Tailwind classes with `cn()` from `@/lib/utils`. Do not add Next.js directives. Unit tests run on Vitest (`npm run test`; `*.test.ts` / `*.test.tsx` under `src/lib/**`, `src/components/**`, `src/pages/**`, Node environment) and a new behavior ships with a test. The CI gate on push/PR to `main` (`@.github/workflows/ci.yml`) is, in order: `npm run audit:prod`, `npm run test`, `npx astro sync`, `npm run lint`, `npm run typecheck`, `npm run build` (the build needs `SUPABASE_URL` for the CSP). Pushes to `main` then run `npx supabase db push` before Cloudflare deploy, so every migration must be backward-compatible with the code currently deployed.
+Use the `@/*` alias from `@tsconfig.json`. Prefer Astro components for static layout and React components only for interactive islands. Merge Tailwind classes with `cn()` from `@/lib/utils`. Do not add Next.js directives. Unit tests run on Vitest (`npm run test`; `*.test.ts` / `*.test.tsx` under `src/lib/**`, `src/components/**`, `src/pages/**`, Node environment) and a new behavior ships with a test. CI runs audit, unit tests, PostgreSQL integration tests, Astro sync, lint, TypeScript, Astro check, build, then Chromium E2E. The CI build uses dummy Supabase configuration for CSP and E2E, so Dependabot and fork PRs need no secrets. The separate production build in `deploy` requires real secrets. Pushes to `main` run migrations and Cloudflare publication in one locked `deploy` job; do not split that lock across jobs. Every migration must remain compatible with the currently deployed code.
 
 ## Commits And PRs
 

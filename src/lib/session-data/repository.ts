@@ -6,6 +6,7 @@
  * place.
  */
 export { toDeletedSessionTombstone } from "./rows";
+export { claimSessionMessageTurn, completeSessionMessageTurn, releaseSessionMessageTurn } from "./message-turns";
 export { getOwnedAccountPlan, toOwnedAccountPlan } from "./account-plan";
 export {
   canTransitionSessionLifecycle,

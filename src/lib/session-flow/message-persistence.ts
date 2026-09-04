@@ -1,5 +1,9 @@
 import { ok, type SessionDataResult } from "@/lib/session-data/errors";
-import { appendSessionMessages, getNextSessionMessageSequenceIndex } from "@/lib/session-data/repository";
+import {
+  appendSessionMessages,
+  completeSessionMessageTurn,
+  getNextSessionMessageSequenceIndex,
+} from "@/lib/session-data/repository";
 import type { SessionDataContext, SessionMessageRecord } from "@/lib/session-data/types";
 import type { SessionMessageViewModel } from "./message-contract";
 
@@ -7,6 +11,9 @@ export interface PersistSuccessfulMessageTurnInput {
   sessionId: string;
   userMessage: string;
   assistantMessage: string;
+  clientMessageId: string;
+  attemptId: string;
+  responseType: "success" | "caution";
 }
 
 export interface PersistOpeningMessageInput {
@@ -85,60 +92,16 @@ export function toSessionMessageViewModel(message: SessionMessageRecord): Sessio
   };
 }
 
-const SEQUENCE_CONFLICT_MAX_ATTEMPTS = 3;
-
 export async function persistSuccessfulMessageTurn(
   context: SessionDataContext,
   input: PersistSuccessfulMessageTurnInput,
-  repository: MessagePersistenceRepository = defaultMessagePersistenceRepository,
+  repository: { completeSessionMessageTurn: typeof completeSessionMessageTurn } = { completeSessionMessageTurn },
 ): Promise<SessionDataResult<PersistedMessageTurn>> {
-  let insertedMessages: Awaited<ReturnType<typeof repository.appendSessionMessages>> | null = null;
-
-  // The unique (session_id, sequence_index) constraint rejects a turn whose
-  // indexes were taken by a concurrent request; re-read and retry instead of
-  // failing the whole turn.
-  for (let attempt = 0; attempt < SEQUENCE_CONFLICT_MAX_ATTEMPTS; attempt += 1) {
-    const nextSequenceIndex = await repository.getNextSessionMessageSequenceIndex(context, input.sessionId);
-
-    if (!nextSequenceIndex.ok) {
-      return nextSequenceIndex;
-    }
-
-    const userSequenceIndex = nextSequenceIndex.data;
-    const assistantSequenceIndex = userSequenceIndex + 1;
-    insertedMessages = await repository.appendSessionMessages(context, [
-      {
-        sessionId: input.sessionId,
-        role: "user",
-        sequenceIndex: userSequenceIndex,
-        content: input.userMessage,
-      },
-      {
-        sessionId: input.sessionId,
-        role: "assistant",
-        sequenceIndex: assistantSequenceIndex,
-        content: input.assistantMessage,
-      },
-    ]);
-
-    if (insertedMessages.ok || insertedMessages.error.code !== "sequence_conflict") {
-      break;
-    }
-  }
-
-  if (!insertedMessages) {
-    return {
-      ok: false,
-      error: {
-        code: "write_failed",
-      },
-    };
-  }
-
+  // The database owns the status/deadline check, sequence allocation, pair
+  // insert and idempotency receipt in one transaction under a session lock.
+  const insertedMessages = await repository.completeSessionMessageTurn(context, input);
   if (!insertedMessages.ok) {
-    return insertedMessages.error.code === "sequence_conflict"
-      ? { ok: false, error: { code: "write_failed" } }
-      : insertedMessages;
+    return insertedMessages;
   }
 
   const user = insertedMessages.data.find((message) => message.role === "user");

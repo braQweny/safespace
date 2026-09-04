@@ -92,5 +92,8 @@ export function appendSuccessfulTurn(
     assistant: SessionMessageViewModel;
   },
 ): UiSessionMessage[] {
-  return [...messages, turn.user, turn.assistant].sort((left, right) => left.sequenceIndex - right.sequenceIndex);
+  const byId = new Map(messages.map((message) => [message.id, message]));
+  byId.set(turn.user.id, turn.user);
+  byId.set(turn.assistant.id, turn.assistant);
+  return [...byId.values()].sort((left, right) => left.sequenceIndex - right.sequenceIndex);
 }

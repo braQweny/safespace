@@ -19,7 +19,7 @@ The UI and all user-facing copy are in Polish. Contributor guidance for AI agent
 
 - Node.js v22.23.2 (pinned in `.nvmrc`; `package.json` requires `>=22.19.0`)
 - npm (comes with Node.js)
-- Docker (only for the local Supabase stack — see [Supabase Configuration](#supabase-configuration))
+- Docker (for the local Supabase stack and disposable PostgreSQL integration tests)
 
 ## Getting Started
 
@@ -54,7 +54,10 @@ Note that Astro emits the Content Security Policy only in production builds — 
 - `npm run preview` - Preview production build
 - `npm run test` - Run Vitest once (unit tests in `__tests__/` folders next to the code)
 - `npm run test:watch` - Run Vitest in watch mode
+- `npm run test:db` - Apply all migrations to a disposable PostgreSQL 17 container and verify RLS, lifecycle, idempotency and concurrent writes; requires Docker, never uses project credentials
+- `npm run test:e2e` - Verify production CSP and sign-in hydration in Chromium after `npm run build`; install the browser once with `npx playwright install chromium`
 - `npm run typecheck` - `tsc --noEmit`
+- `npm run check:astro` - Type-check Astro templates as well
 - `npm run lint` - Run ESLint with type-checked rules
 - `npm run lint:fix` - Auto-fix ESLint issues
 - `npm run format` - Run Prettier
@@ -286,9 +289,9 @@ Model selection is not a secret and lives in the `vars` block of `wrangler.jsonc
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the `ci` job on every push and PR to `main`, in this order: `npm run audit:prod` → `npm run test` → `npx astro sync` → `npm run lint` → `npm run typecheck` → `npm run build`. A newer push to the same branch cancels the in-progress `ci` run. The `ci` job does not need Cloudflare secrets, OpenRouter, or Docker; the build step receives `SUPABASE_URL` (required for the CSP) and `SUPABASE_KEY`.
+GitHub Actions (`.github/workflows/ci.yml`) runs audit → unit tests → disposable PostgreSQL integration tests → Astro sync → lint → TypeScript → Astro check → production build → Chromium E2E. A newer push to the same branch cancels the in-progress `ci` run. Docker is required for database tests. Tests use isolated fixtures; the build receives `SUPABASE_URL` (required for CSP) and `SUPABASE_KEY`.
 
-Pushes to `main` then run `migrate` (`npx supabase db push` against the Supabase Session Pooler — the direct `db.*.supabase.co` host needs IPv6 and is rejected) and `deploy` (`wrangler deploy --secrets-file` with a secrets file assembled from the GitHub secrets). Those two jobs share one concurrency group and are never cancelled mid-flight; a newer push waits for the previous deployment to finish. Dependabot opens weekly grouped npm and GitHub Actions update PRs (`.github/dependabot.yml`).
+Pushes to `main` then run one `deploy` job: reject superseded commits, build, apply migrations through the Supabase Session Pooler, and publish with `wrangler deploy --secrets-file`. One concurrency lock covers the entire migration/publication sequence (`queue: max`, `cancel-in-progress: false`); deployments cannot interleave those steps. Migrations remain backward-compatible. No new production secrets are required by the turn-integrity or test changes. Dependabot opens weekly grouped npm and GitHub Actions update PRs (`.github/dependabot.yml`).
 
 Configure these repository **secrets** in GitHub:
 
