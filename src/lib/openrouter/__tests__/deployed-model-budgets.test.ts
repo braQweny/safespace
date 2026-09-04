@@ -98,4 +98,23 @@ describe("deployed OpenRouter models through every request builder", () => {
       expect(request.maxCompletionTokens).toBeGreaterThanOrEqual(MIN_REASONING_SAFETY_TOKENS);
     }
   });
+
+  it("uses the same privacy-preserving Luna routing for safety, conversation and summary", () => {
+    const model = "openai/gpt-5.6-luna";
+    const requests = [
+      buildOpenRouterSafetyRequest({ currentUserMessage: "Czesc." }, model),
+      buildOpenRouterSessionRequest(sessionInput, model),
+      buildOpenRouterSummaryRequest(summaryInput, model),
+    ];
+
+    for (const request of requests) {
+      expect(request.provider).toEqual({
+        dataCollection: "deny",
+        requireParameters: true,
+        zdr: true,
+        order: ["azure/eu"],
+        allowFallbacks: true,
+      });
+    }
+  });
 });

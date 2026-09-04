@@ -209,6 +209,13 @@ describe("classifySessionSafetyWithOpenRouter", () => {
       reasoning: {
         effort: "minimal",
       },
+      provider: {
+        order: ["azure/eu"],
+        allow_fallbacks: true,
+        data_collection: "deny",
+        require_parameters: true,
+        zdr: true,
+      },
     });
     expect(body).not.toHaveProperty("temperature");
   });

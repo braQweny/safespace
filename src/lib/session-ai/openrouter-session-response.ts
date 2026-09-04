@@ -1,7 +1,7 @@
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
 import {
-  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  getOpenRouterPrivateProviderPreferences,
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
@@ -147,7 +147,7 @@ export function buildOpenRouterSessionRequest(
     ...buildOpenRouterReasoningParameter(model, reasoningEffort),
     ...buildOpenRouterTokenLimitParameter(model, resolveSessionMaxCompletionTokens(model, reasoningEffort)),
     stream: false,
-    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+    provider: getOpenRouterPrivateProviderPreferences(model),
   };
 }
 

@@ -3,7 +3,7 @@ import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-ch
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterEnv, resolveOpenRouterModel } from "@/lib/openrouter/env";
 import {
-  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  getOpenRouterPrivateProviderPreferences,
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 
@@ -175,7 +175,7 @@ export function buildOpenRouterSafetyRequest(
     ...buildSafetyReasoningParameter(model),
     maxCompletionTokens: resolveSafetyMaxCompletionTokens(model),
     stream: false,
-    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+    provider: getOpenRouterPrivateProviderPreferences(model),
     responseFormat: {
       type: "json_schema",
       jsonSchema: OPENROUTER_SAFETY_RESPONSE_SCHEMA,

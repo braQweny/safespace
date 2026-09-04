@@ -15,7 +15,7 @@ import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
 import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import {
-  OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+  getOpenRouterPrivateProviderPreferences,
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 import { SessionSummaryError } from "./errors";
@@ -106,7 +106,7 @@ export function buildOpenRouterSummaryRequest(
     ...buildOpenRouterReasoningParameter(model, resolveSummaryReasoningEffort(model)),
     ...buildOpenRouterTokenLimitParameter(model, resolveSummaryMaxCompletionTokens(model)),
     stream: false,
-    provider: OPENROUTER_PRIVATE_PROVIDER_PREFERENCES,
+    provider: getOpenRouterPrivateProviderPreferences(model),
   };
 }
 
