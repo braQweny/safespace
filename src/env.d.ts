@@ -1,4 +1,5 @@
 interface SafespaceCloudflareEnv {
+  BILLING_RATE_LIMITER?: import("@/lib/rate-limit").RateLimiterBinding;
   SESSION_RATE_LIMITER?: import("@/lib/rate-limit").RateLimiterBinding;
   AUTH_RATE_LIMITER?: import("@/lib/rate-limit").RateLimiterBinding;
 }

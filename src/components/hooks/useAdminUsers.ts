@@ -21,15 +21,17 @@ import type {
 export const DEFAULT_BLOCK_REASON: AdminBlockReasonCode = "policy_violation";
 
 /**
- * Plan changes carry a fixed reason per direction: premium is granted because
- * a subscription was paid and revoked because it ended. Other reasons stay
- * available to the API for owner-driven changes, but the table does not ask
- * the admin to pick one on every click.
+ * These actions change the independent manual grant. Stripe payment and
+ * cancellation are reconciled by billing, not asserted by an admin click.
  */
 export const PLAN_REASON_BY_ACTION: Record<"grant" | "revoke", AdminPlanReasonCode> = {
-  grant: "subscription_paid",
-  revoke: "subscription_ended",
+  grant: "owner_request",
+  revoke: "owner_request",
 };
+
+export function getManualPremiumAction(premiumGrantedAt: string | null) {
+  return premiumGrantedAt ? "revoke" : "grant";
+}
 
 const DEFAULT_RESULT: AdminUserListResult = {
   filters: {
@@ -191,7 +193,7 @@ export function useAdminUsers(initialResponse: AdminUsersResponse) {
   }
 
   async function togglePlan(user: AdminUserListItem) {
-    const action = user.plan === "premium" ? "revoke" : "grant";
+    const action = getManualPremiumAction(user.profile.premiumGrantedAt);
 
     await runUserMutation(
       user.profile.userId,

@@ -3,13 +3,14 @@ import { adminError, adminOk, type AdminResult } from "./errors";
 import type { AccountAccessState, AdminBlockReasonCode, AdminRouteContext, AdminSupabaseClient } from "./types";
 import { isRecord } from "@/lib/type-guards";
 
-const ACCOUNT_ACCESS_SELECT = "user_id,blocked_at,block_reason_code,premium_granted_at";
+const ACCOUNT_ACCESS_SELECT = "user_id,blocked_at,block_reason_code,premium_granted_at,effective_premium";
 
 interface AccountAccessRow {
   user_id: string;
   blocked_at: string | null;
   block_reason_code: AdminBlockReasonCode | null;
   premium_granted_at?: string | null;
+  effective_premium?: boolean;
 }
 
 function coerceAccountAccessRow(value: unknown): AccountAccessRow | null {
@@ -26,13 +27,14 @@ function coerceAccountAccessRow(value: unknown): AccountAccessRow | null {
     blocked_at: blockedAt,
     block_reason_code: blockReasonCode as AdminBlockReasonCode | null,
     premium_granted_at: premiumGrantedAt,
+    effective_premium: value.effective_premium === true,
   };
 }
 
 export function toAccountAccessState(userId: string, row: AccountAccessRow | null): AccountAccessState {
   const premiumGrantedAt = row?.premium_granted_at ?? null;
   const planState = {
-    plan: premiumGrantedAt ? ("premium" as const) : ("free" as const),
+    plan: row?.effective_premium === true || premiumGrantedAt ? ("premium" as const) : ("free" as const),
     premiumGrantedAt,
   };
 
@@ -72,7 +74,7 @@ export async function readAccountAccessState(
   }
 
   const { data, error } = await accountClient
-    .from("admin_user_profiles")
+    .from("account_access")
     .select(ACCOUNT_ACCESS_SELECT)
     .eq("user_id", user.id)
     .maybeSingle();

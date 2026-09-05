@@ -4,6 +4,7 @@ import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import type { Locale } from "@/lib/i18n/locale";
+import { getBillingCopy } from "@/lib/billing/copy";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions, getPlanCopy, getPremiumSupportMailtoHref } from "@/lib/session-flow/plan-copy";
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
@@ -16,12 +17,9 @@ export { formatRemainingFreeSessions };
 interface SessionStartCardProps {
   locale: Locale;
   initialState: SessionStartPageState;
-  /**
-   * Adres kontaktowy z `SUPPORT_EMAIL`. Po wyczerpaniu puli jest jedyną drogą
-   * do premium, więc karta dostaje go z serwera zamiast obiecywać kontakt,
-   * którego w danym wdrożeniu może nie być.
-   */
+  /** Kontakt jest drogą do ręcznego premium, gdy zakup jest wyłączony. */
   supportEmail?: string | null;
+  billingEnabled?: boolean;
 }
 
 export function buildSessionHref(sessionId: string) {
@@ -84,16 +82,32 @@ export function AllowanceMeter({ quota }: { quota: SessionQuota | null }) {
   );
 }
 
-export default function SessionStartCard({ locale, initialState, supportEmail = null }: SessionStartCardProps) {
+export default function SessionStartCard({
+  locale,
+  initialState,
+  supportEmail = null,
+  billingEnabled = false,
+}: SessionStartCardProps) {
   return (
     <LocaleProvider locale={locale}>
-      <SessionStartCardView locale={locale} initialState={initialState} supportEmail={supportEmail} />
+      <SessionStartCardView
+        locale={locale}
+        initialState={initialState}
+        supportEmail={supportEmail}
+        billingEnabled={billingEnabled}
+      />
     </LocaleProvider>
   );
 }
 
-function SessionStartCardView({ locale, initialState, supportEmail = null }: SessionStartCardProps) {
+function SessionStartCardView({
+  locale,
+  initialState,
+  supportEmail = null,
+  billingEnabled = false,
+}: SessionStartCardProps) {
   const copy = getSessionStartCardCopy(locale);
+  const billingCopy = getBillingCopy(locale);
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
   const isHydrated = useIsHydrated();
@@ -141,14 +155,20 @@ function SessionStartCardView({ locale, initialState, supportEmail = null }: Ses
   const avatarFirstName = initialState.avatar.selected.avatarFirstName;
 
   if (kind === "session_limit_reached") {
-    // Koniec puli nie może być ślepym zaułkiem: użytkownik ma wiedzieć, co
-    // dalej (premium jest przyznawane ręcznie) i mieć dokąd napisać.
+    // Koniec puli prowadzi do zakupu albo kontaktu, zależnie od konfiguracji.
     return (
       <div className="bg-surface-soft text-ink-muted mt-6 rounded-2xl p-5 text-sm leading-6" data-session-limit-reached>
         <p className="text-ink font-serif text-xl leading-snug font-medium">{copy.limitReachedTitle}</p>
         <p className="mt-2">{copy.limitReachedBody}</p>
-        <p className="mt-3">{getPlanCopy(locale).premiumHowTo}</p>
-        {supportEmail ? (
+        <p className="mt-3">{billingEnabled ? billingCopy.benefits : getPlanCopy(locale).premiumHowTo}</p>
+        {billingEnabled ? (
+          <a
+            href="/account/billing"
+            className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-4 inline-flex min-h-12 items-center justify-center rounded-[14px] px-5 py-3 text-sm font-medium focus:outline-none focus-visible:ring-2"
+          >
+            {billingCopy.discover}
+          </a>
+        ) : supportEmail ? (
           <a
             href={getPremiumSupportMailtoHref(locale, `mailto:${supportEmail}`)}
             className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"

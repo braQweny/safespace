@@ -4,6 +4,10 @@ Use `/10x-e2e` for new browser risks. `seed.spec.ts` is the first runnable
 exemplar; its scope is production CSP, SSR routing and React hydration on the
 sign-in screen. It does not verify successful Supabase login or an AI session.
 
+`billing-off.spec.ts` checks anonymous billing redirects and disabled payment
+entry points in that same isolated preview. It does not verify a Stripe
+sandbox purchase; the checklist is in `src/lib/billing/README.md`.
+
 Run `npm run build` with a usable `SUPABASE_URL`, then `npm run test:e2e`.
 Install the browser once with `npx playwright install chromium`.
 For a single test: `npm run test:e2e -- tests/e2e/seed.spec.ts`.

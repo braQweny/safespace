@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
+import { getBillingConfig } from "@/lib/billing/config";
+import { prepareBillingAccountDeletion } from "@/lib/billing/service";
 import { ACCOUNT_DELETION_RPC_CONFIRMATION, isAccountDeletionConfirmation } from "@/lib/account-deletion";
 import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { getFormString } from "@/lib/auth-validation";
 import { clearAuthCookies } from "@/lib/supabase";
+import { checkSessionRateLimit } from "@/lib/rate-limit";
 
 export const prerender = false;
 
@@ -33,6 +37,17 @@ export const POST: APIRoute = async (context) => {
   // A blocked account keeps the right to erase its data. Ownership is enforced
   // again in SQL using auth.uid(), never an id supplied by this request.
   try {
+    const billing = getBillingConfig();
+    if (billing) {
+      const verdict = await checkSessionRateLimit(env.BILLING_RATE_LIMITER, `billing:${context.locals.user.id}`, {
+        failClosed: true,
+      });
+      if (verdict !== "allowed") {
+        return route.failureRedirect(DELETE_PATH, verdict === "limited" ? "rate_limited" : "account_deletion_failed");
+      }
+      await prepareBillingAccountDeletion(billing, context.locals.user.id);
+    }
+    // When disabled, SQL still refuses deletion of any unresolved billing account.
     const result = await route.supabase.rpc("delete_own_account", {
       p_confirmation: ACCOUNT_DELETION_RPC_CONFIRMATION,
     });

@@ -31,6 +31,7 @@ import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib
 import { readSessionStartPageState, type SessionStartPageState } from "@/lib/session-flow/session-state";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
 import { getSupportContact } from "@/lib/support-contact";
+import { isBillingEnabled } from "@/lib/billing/config";
 
 const locale = Astro.locals.locale;
 const copy = getDashboardCopy(locale);
@@ -314,6 +315,7 @@ const historyProps = currentSelection
                       locale={locale}
                       initialState={startPageState}
                       supportEmail={support.email}
+                      billingEnabled={isBillingEnabled()}
                     />
                   ) : (
                     <p class="text-ink-muted mt-6 text-sm leading-6">

@@ -1,6 +1,7 @@
 ---
 import LocaleSwitch from "@/components/LocaleSwitch.astro";
 import { getAppHeaderCopy } from "@/components/app-header-copy";
+import { getBillingCopy } from "@/lib/billing/copy";
 import type { ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 const { activeSession = null } = Astro.props;
 const { user } = Astro.locals;
 const copy = getAppHeaderCopy(Astro.locals.locale);
+const billingCopy = getBillingCopy(Astro.locals.locale);
 const activeSessionHref = activeSession
   ? `/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`
   : null;
@@ -74,6 +76,12 @@ const activeSessionHref = activeSession
                 class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-11 items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2"
               >
                 {copy.planSettings}
+              </a>
+              <a
+                href="/account/billing"
+                class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-11 items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2"
+              >
+                {billingCopy.link}
               </a>
 
               {/*

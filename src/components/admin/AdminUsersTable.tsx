@@ -171,6 +171,7 @@ export default function AdminUsersTable({ locale, initialResponse, currentAdminU
               result.users.map((user) => {
                 const isBlocked = user.accountStatus === "blocked";
                 const isPremium = user.plan === "premium";
+                const hasManualPremium = Boolean(user.profile.premiumGrantedAt);
                 const isSelf = user.profile.userId === currentAdminUserId;
                 const isPending = pendingUserId === user.profile.userId;
 
@@ -216,12 +217,12 @@ export default function AdminUsersTable({ locale, initialResponse, currentAdminU
                           }}
                           className="border-brand-soft text-brand-strong hover:bg-surface-hover bg-surface inline-flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-medium transition-colors disabled:opacity-50"
                         >
-                          {isPremium ? (
+                          {hasManualPremium ? (
                             <CircleMinus aria-hidden="true" className="size-4" />
                           ) : (
                             <Crown aria-hidden="true" className="size-4" />
                           )}
-                          {isPremium ? copy.revokePremium : copy.grantPremium}
+                          {hasManualPremium ? copy.revokePremium : copy.grantPremium}
                         </button>
                         {!isBlocked ? (
                           <select

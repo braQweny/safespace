@@ -55,6 +55,19 @@ describe("owned account plan", () => {
     expect(toOwnedAccountPlan({ premium_granted_at: 42 })).toEqual({ plan: "free", premiumGrantedAt: null });
   });
 
+  it("uses the DB-computed paid entitlement and does not treat a paid timestamp as a manual grant", () => {
+    expect(toOwnedAccountPlan({ premium_granted_at: null, effective_premium: true })).toEqual({
+      plan: "premium",
+      premiumGrantedAt: null,
+    });
+    expect(
+      toOwnedAccountPlan({ premium_granted_at: null, effective_premium: false, paid_until: "2999-01-01" }),
+    ).toEqual({
+      plan: "free",
+      premiumGrantedAt: null,
+    });
+  });
+
   it("reads only the owner's plan columns from the safe profile row", async () => {
     const { calls, context } = createContext({
       data: { user_id: "user-1", premium_granted_at: "2026-08-01T10:00:00.000Z" },
@@ -66,8 +79,8 @@ describe("owned account plan", () => {
       data: { plan: "premium", premiumGrantedAt: "2026-08-01T10:00:00.000Z" },
     });
     expect(calls).toEqual([
-      ["from", "admin_user_profiles"],
-      ["select", "user_id,premium_granted_at"],
+      ["from", "account_access"],
+      ["select", "user_id,premium_granted_at,effective_premium"],
       ["eq", "user_id", "user-1"],
     ]);
   });

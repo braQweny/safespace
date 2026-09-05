@@ -152,6 +152,33 @@ describe("admin user filters", () => {
 });
 
 describe("admin users list", () => {
+  it("maps paid premium without pretending an administrator granted it", () => {
+    const result = toAdminUserListResult(filters, [
+      {
+        user_id: "paid-user",
+        email: "paid@example.test",
+        account_created_at: "2026-09-05T00:00:00Z",
+        last_sign_in_at: null,
+        last_activity_at: null,
+        blocked_at: null,
+        blocked_by: null,
+        block_reason_code: null,
+        premium_granted_at: null,
+        premium_granted_by: null,
+        effective_premium: true,
+        total_sessions: 3,
+        active_sessions: 0,
+        completed_sessions: 3,
+        approved_summaries: 0,
+        total_count: 1,
+      },
+    ]);
+    expect(result.users[0]).toMatchObject({
+      plan: "premium",
+      profile: { premiumGrantedAt: null, premiumGrantedBy: null },
+    });
+  });
+
   it("maps safe user rows with plan, counters and pagination", () => {
     const result = toAdminUserListResult(filters, [
       {
@@ -264,7 +291,7 @@ describe("admin users list", () => {
         users: [],
       },
     });
-    expect(rpc).toHaveBeenCalledWith("list_private_admin_users", {
+    expect(rpc).toHaveBeenCalledWith("list_private_admin_users_v2", {
       input_email_search: "anna@example.com",
       input_status_filter: "blocked",
       input_sort: "last_activity_desc",

@@ -17,9 +17,10 @@
     "format": "prettier --write .",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "test": "vitest run",
-    "test:db": "node --test tests/database/session-integrity.test.mjs",
+    "test:db": "node --test tests/database/*.test.mjs",
     "test:e2e": "playwright test",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:billing": "node scripts/start-billing-sandbox.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",
@@ -40,8 +41,10 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.39.0",
+    "pg": "8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "stripe": "22.6.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.2.4"
   },
@@ -49,6 +52,7 @@
     "@eslint/compat": "^2.0.3",
     "@eslint/js": "^9.29.0",
     "@playwright/test": "1.62.1",
+    "@types/pg": "8.23.1",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-astro": "^1.7.0",
@@ -59,7 +63,6 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "9.1.7",
     "lint-staged": "^17.4.1",
-    "pg": "8.23.0",
     "prettier": "^3.9.6",
     "prettier-plugin-astro": "0.14.1",
     "prettier-plugin-tailwindcss": "^0.8.1",

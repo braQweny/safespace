@@ -6,6 +6,7 @@ import {
   buildAdminUsersQuery,
   getInitialAdminUsersError,
   getInitialAdminUsersResult,
+  getManualPremiumAction,
 } from "../useAdminUsers";
 
 const successResponse = {
@@ -75,7 +76,12 @@ describe("useAdminUsers helpers", () => {
   });
 
   it("pins one audit reason per plan direction", () => {
-    expect(PLAN_REASON_BY_ACTION.grant).toBe("subscription_paid");
-    expect(PLAN_REASON_BY_ACTION.revoke).toBe("subscription_ended");
+    expect(PLAN_REASON_BY_ACTION.grant).toBe("owner_request");
+    expect(PLAN_REASON_BY_ACTION.revoke).toBe("owner_request");
+  });
+
+  it("grants manual premium unless an independent manual grant already exists", () => {
+    expect(getManualPremiumAction(null)).toBe("grant");
+    expect(getManualPremiumAction("2026-09-05T12:00:00Z")).toBe("revoke");
   });
 });

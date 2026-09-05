@@ -82,6 +82,11 @@ export async function startDatabase() {
     return {
       admin,
       stop,
+      async billing() {
+        const client = await connect();
+        await client.query("set role safespace_billing");
+        return client;
+      },
       async owner(userId = randomUUID()) {
         await admin.query("insert into auth.users(id, email) values ($1, $2) on conflict do nothing", [
           userId,

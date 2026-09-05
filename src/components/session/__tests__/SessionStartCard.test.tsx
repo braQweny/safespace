@@ -192,6 +192,33 @@ describe("SessionStartCard", () => {
     expect(html).not.toContain("Rozpocznij");
   });
 
+  it("offers subscription checkout information when sandbox billing is enabled", () => {
+    const html = renderToStaticMarkup(
+      <SessionStartCard
+        locale="pl"
+        initialState={{
+          kind: "session_limit_reached",
+          trialAvailable: false,
+          avatar,
+          session: null,
+          messages: [],
+          messageFetchFailed: false,
+          approvedSummaries: [],
+          canStartWithoutContext: false,
+          sessionQuota: { ...freeQuota, usedSessions: 3, remainingSessions: 0, canStartSession: false },
+        }}
+        supportEmail="pomoc@example.org"
+        billingEnabled
+      />,
+    );
+
+    expect(html).toContain('href="/account/billing"');
+    expect(html).toContain("Zobacz abonament premium");
+    expect(html).toContain("każda do 60 minut");
+    expect(html).not.toContain("przyznaje go ręcznie");
+    expect(html).not.toContain("mailto:");
+  });
+
   it("tells the user how long a conversation lasts before they start", () => {
     const html = renderStartCard({
       kind: "ready",

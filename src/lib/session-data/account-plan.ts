@@ -1,27 +1,23 @@
-/**
- * Owner-bound read of the account plan. The plan marker lives on the safe,
- * content-free `admin_user_profiles` row (RLS lets a user read their own row);
- * only the premium timestamp is selected here. Import from `./repository`
- * outside this directory.
- */
+/** Owner-bound plan read. The account_access view evaluates paid expiry with
+ * database time and keeps manual grants separate from paid entitlements. */
 import { isRecord } from "@/lib/type-guards";
 import { mapSupabaseReadError, ok, sessionDataError, type SessionDataResult } from "./errors";
 import type { OwnedAccountPlan, SessionDataContext } from "./types";
 
-const ACCOUNT_PLAN_SELECT = "user_id,premium_granted_at";
+const ACCOUNT_PLAN_SELECT = "user_id,premium_granted_at,effective_premium";
 
 export function toOwnedAccountPlan(row: unknown): OwnedAccountPlan {
   const premiumGrantedAt = isRecord(row) && typeof row.premium_granted_at === "string" ? row.premium_granted_at : null;
 
   return {
-    plan: premiumGrantedAt ? "premium" : "free",
+    plan: (isRecord(row) && row.effective_premium === true) || premiumGrantedAt ? "premium" : "free",
     premiumGrantedAt,
   };
 }
 
 export async function getOwnedAccountPlan(context: SessionDataContext): Promise<SessionDataResult<OwnedAccountPlan>> {
   const { data, error } = await context.supabase
-    .from("admin_user_profiles")
+    .from("account_access")
     .select(ACCOUNT_PLAN_SELECT)
     .eq("user_id", context.user.id)
     .maybeSingle();

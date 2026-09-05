@@ -114,6 +114,18 @@ describe("toAccountAccessState", () => {
     });
   });
 
+  it("recognizes paid premium without rewriting the manual grant", () => {
+    expect(
+      toAccountAccessState("user-1", {
+        user_id: "user-1",
+        blocked_at: null,
+        block_reason_code: null,
+        premium_granted_at: null,
+        effective_premium: true,
+      }),
+    ).toMatchObject({ plan: "premium", premiumGrantedAt: null });
+  });
+
   it("keeps a blocked state even when the reason code is missing", () => {
     expect(
       toAccountAccessState("user-1", {
@@ -149,8 +161,10 @@ describe("readAccountAccessState", () => {
       ok: true,
       data: activeState,
     });
-    expect(client.from).toHaveBeenCalledWith("admin_user_profiles");
-    expect(client.select).toHaveBeenCalledWith("user_id,blocked_at,block_reason_code,premium_granted_at");
+    expect(client.from).toHaveBeenCalledWith("account_access");
+    expect(client.select).toHaveBeenCalledWith(
+      "user_id,blocked_at,block_reason_code,premium_granted_at,effective_premium",
+    );
     expect(client.eq).toHaveBeenCalledWith("user_id", "user-1");
   });
 

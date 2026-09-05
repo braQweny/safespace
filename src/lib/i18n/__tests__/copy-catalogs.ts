@@ -20,6 +20,7 @@ import { getTimedSessionCopy } from "@/components/session/timed-session-copy";
 import { getSiteFooterCopy } from "@/components/site-footer-copy";
 import { AUTH_ERROR_CODES, getAuthErrorMessage } from "@/lib/auth-errors";
 import { AVATAR_CHOICE_ERROR_CODES, getAvatarChoiceErrorMessage } from "@/lib/avatar-choice-errors";
+import { getBillingCopy } from "@/lib/billing/copy";
 import type { Locale } from "@/lib/i18n/locale";
 import { MVP_MODALITIES } from "@/lib/modalities";
 import { getModalityCopy } from "@/lib/modality-copy";
@@ -62,6 +63,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
     ],
   },
   { name: "plan-copy", read: getPlanCopy },
+  { name: "billing-copy", read: getBillingCopy },
   { name: "modality-copy", read: (locale) => MVP_MODALITIES.map((m) => getModalityCopy(locale, m.modalityId)) },
   { name: "locale-switch-copy", read: getLocaleSwitchCopy },
   { name: "app-header-copy", read: getAppHeaderCopy },

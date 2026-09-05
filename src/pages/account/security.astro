@@ -6,6 +6,8 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
 import { getAdminContext } from "@/lib/admin/auth";
+import { getBillingCopy } from "@/lib/billing/copy";
+import { isBillingEnabled } from "@/lib/billing/config";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
@@ -23,6 +25,8 @@ import { getSupportContact } from "@/lib/support-contact";
 
 const locale = Astro.locals.locale;
 const copy = getAccountPagesCopy(locale).security;
+const billingCopy = getBillingCopy(locale);
+const billingEnabled = isBillingEnabled();
 const error = getAuthErrorMessageFromSearchParam(locale, Astro.url.searchParams.get("error"));
 const status = Astro.url.searchParams.get("status");
 const successMessage = status === "password_updated" ? copy.passwordUpdated : null;
@@ -90,10 +94,10 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDu
                   {formatSessionAllowance(locale, quota)} {copy.eachLasts(sessionBudgetMinutes)}
                   {quota.plan === "free" ? ` ${copy.deletingNote}` : null}
                 </p>
-                {quota.plan === "free" ? (
+                {quota.plan === "free" && !billingEnabled ? (
                   <p class="text-ink-muted mt-3 text-sm leading-6">{getPlanCopy(locale).premiumHowTo}</p>
                 ) : null}
-                {quota.plan === "free" && support.mailtoHref ? (
+                {quota.plan === "free" && !billingEnabled && support.mailtoHref ? (
                   <a
                     href={getPremiumSupportMailtoHref(locale, support.mailtoHref)}
                     class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
@@ -106,6 +110,12 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDu
               <p class="text-ink-muted mt-2 text-sm leading-6">{copy.planReadFailed}</p>
             )
           }
+          <a
+            href="/account/billing"
+            class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            {quota?.plan === "free" && billingEnabled ? billingCopy.discover : billingCopy.link}
+          </a>
         </div>
 
         <div class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8">

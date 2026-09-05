@@ -68,6 +68,10 @@ export function evaluateApiBodyGuard(
     return ALLOWED;
   }
 
+  // The webhook reader enforces its separate 256 KiB streaming cap, including
+  // absent or dishonest Content-Length. Ordinary API routes still require it.
+  if (pathname === "/api/billing/webhook") return ALLOWED;
+
   const header = request.headers.get("content-length");
 
   if (header === null) {

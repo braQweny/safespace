@@ -103,9 +103,30 @@ describe("AdminUsersTable", () => {
     expect(html).toContain("Bezpłatny");
     expect(html).toContain('data-admin-user-plan="premium"');
     expect(html).toContain('data-admin-user-plan="free"');
-    // Premium account → revoke; free account → grant.
-    expect(html).toContain("Odbierz premium");
-    expect(html).toContain("Nadaj premium");
+    // Manual grant present → revoke; absent → grant.
+    expect(html).toContain("Odbierz ręczne premium");
+    expect(html).toContain("Nadaj ręczne premium");
+  });
+
+  it("lets an account with paid premium receive an independent manual grant", () => {
+    const paidUser = {
+      ...usersResponse.result.users[1],
+      accountStatus: "active" as const,
+      plan: "premium" as const,
+      profile: {
+        ...usersResponse.result.users[1].profile,
+        premiumGrantedAt: null,
+        premiumGrantedBy: null,
+      },
+    };
+    const html = renderUsers({
+      ...usersResponse,
+      result: { ...usersResponse.result, users: [paidUser] },
+    });
+
+    expect(html).toContain('data-admin-user-plan="premium"');
+    expect(html).toContain("Nadaj ręczne premium");
+    expect(html).not.toContain("Odbierz ręczne premium");
   });
 
   it("does not render export/download controls or private content fields", () => {

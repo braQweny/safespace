@@ -2,10 +2,12 @@
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import { readAccountAccessState } from "@/lib/admin/account-access";
+import { getBillingCopy } from "@/lib/billing/copy";
 import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
 import { getSupportContact } from "@/lib/support-contact";
 
 const copy = getAccountPagesCopy(Astro.locals.locale).blocked;
+const billingCopy = getBillingCopy(Astro.locals.locale);
 const state = Astro.url.searchParams.get("state");
 const isUnavailable = state === "unavailable";
 
@@ -65,6 +67,11 @@ const support = getSupportContact();
               {copy.backHome}
             </a>
           </div>
+          <a
+            href="/account/billing"
+            class="text-brand focus-visible:ring-brand-ring mt-5 mr-5 inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+            >{billingCopy.link}</a
+          >
           <a
             href="/account/delete"
             class="text-danger focus-visible:ring-brand-ring mt-5 inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"

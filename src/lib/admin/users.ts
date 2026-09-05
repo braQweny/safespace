@@ -48,6 +48,7 @@ interface AdminUserRow {
   blocked_by: AdminUserId | null;
   block_reason_code: AdminBlockReasonCode | null;
   premium_granted_at?: string | null;
+  effective_premium?: boolean;
   premium_granted_by?: AdminUserId | null;
   created_at?: string;
   updated_at?: string;
@@ -68,6 +69,7 @@ interface AdminUserProfileRow {
   blocked_by: AdminUserId | null;
   block_reason_code: AdminBlockReasonCode | null;
   premium_granted_at?: string | null;
+  effective_premium?: boolean;
   premium_granted_by?: AdminUserId | null;
   created_at: string;
   updated_at: string;
@@ -184,11 +186,15 @@ function mapProfile(row: AdminUserProfileRow): SafeAdminUserProfile {
   };
 }
 
-function toListItem(profile: SafeAdminUserProfile, counters: AdminUserListItem["counters"]): AdminUserListItem {
+function toListItem(
+  profile: SafeAdminUserProfile,
+  counters: AdminUserListItem["counters"],
+  effectivePremium = false,
+): AdminUserListItem {
   return {
     profile,
     accountStatus: profile.blockedAt ? "blocked" : "active",
-    plan: profile.premiumGrantedAt ? "premium" : "free",
+    plan: effectivePremium || profile.premiumGrantedAt ? "premium" : "free",
     counters,
   };
 }
@@ -209,12 +215,16 @@ function mapUserRow(row: AdminUserRow): AdminUserListItem {
     updated_at: row.updated_at ?? row.account_created_at,
   });
 
-  return toListItem(profile, {
-    totalSessions: toCount(row.total_sessions),
-    activeSessions: toCount(row.active_sessions),
-    completedSessions: toCount(row.completed_sessions),
-    approvedSummaries: toCount(row.approved_summaries),
-  });
+  return toListItem(
+    profile,
+    {
+      totalSessions: toCount(row.total_sessions),
+      activeSessions: toCount(row.active_sessions),
+      completedSessions: toCount(row.completed_sessions),
+      approvedSummaries: toCount(row.approved_summaries),
+    },
+    row.effective_premium === true,
+  );
 }
 
 export function parseAdminUserListFilters(params: URLSearchParams): AdminResult<AdminUserListFilters> {
@@ -331,7 +341,7 @@ export async function listAdminUsers(
   filters: AdminUserListFilters,
 ): Promise<AdminResult<AdminUserListResult>> {
   const result = readRpcResult(
-    await context.supabase.rpc("list_private_admin_users", {
+    await context.supabase.rpc("list_private_admin_users_v2", {
       input_email_search: filters.emailSearch || null,
       input_status_filter: filters.status,
       input_sort: filters.sort,
@@ -370,7 +380,7 @@ function mapAtomicAdminUserMutation(value: unknown): AdminUserBlockResult | null
   }
 
   return {
-    user: toListItem(mapProfile(profile), EMPTY_COUNTERS),
+    user: toListItem(mapProfile(profile), EMPTY_COUNTERS, profile.effective_premium === true),
     auditEvent: mapAdminAuditEvent(auditEvent),
   };
 }

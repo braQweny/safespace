@@ -87,8 +87,10 @@ describe("admin account access", () => {
         premiumGrantedAt: null,
       },
     });
-    expect(client.from).toHaveBeenCalledWith("admin_user_profiles");
-    expect(client.select).toHaveBeenCalledWith("user_id,blocked_at,block_reason_code,premium_granted_at");
+    expect(client.from).toHaveBeenCalledWith("account_access");
+    expect(client.select).toHaveBeenCalledWith(
+      "user_id,blocked_at,block_reason_code,premium_granted_at,effective_premium",
+    );
   });
 
   it("returns blocked account state without raw profile data", async () => {

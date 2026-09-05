@@ -63,7 +63,12 @@ function getProtectedRouteBucket(pathname: string) {
 }
 
 function shouldCheckAccountAccess(pathname: string) {
-  return isProtectedRoute(pathname) && pathname !== BLOCKED_ACCOUNT_PATH && pathname !== "/account/delete";
+  return (
+    isProtectedRoute(pathname) &&
+    pathname !== BLOCKED_ACCOUNT_PATH &&
+    pathname !== "/account/delete" &&
+    pathname !== "/account/billing"
+  );
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -126,6 +131,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return finalize(context.redirect(authRateLimitRedirect, 303));
     }
   }
+
+  // Stripe authenticates its own raw, bounded payload; no user/Auth request is needed.
+  if (pathname === "/api/billing/webhook") return finalize(await next());
 
   const supabase = createClient(context.request.headers, context.cookies);
 

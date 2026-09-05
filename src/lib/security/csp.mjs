@@ -48,7 +48,13 @@ export function resolveOrigin(rawUrl) {
  */
 export function buildFormActionDirective(supabaseUrl) {
   const supabaseOrigin = resolveOrigin(supabaseUrl);
-  const sources = ["'self'", supabaseOrigin, GOOGLE_AUTH_ORIGIN].filter((source) => source !== null);
+  const sources = [
+    "'self'",
+    supabaseOrigin,
+    GOOGLE_AUTH_ORIGIN,
+    "https://checkout.stripe.com",
+    "https://billing.stripe.com",
+  ].filter((source) => source !== null);
 
   return `form-action ${[...new Set(sources)].join(" ")}`;
 }

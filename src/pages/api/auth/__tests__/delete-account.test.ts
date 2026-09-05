@@ -1,5 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { BillingConfig } from "@/lib/billing/config";
+import type { RateLimiterBinding } from "@/lib/rate-limit";
 
+vi.mock("astro:env/server", () => ({ getSecret: () => undefined }));
+const billingLimit = vi.fn();
+const workerEnv: { BILLING_RATE_LIMITER?: RateLimiterBinding } = {
+  BILLING_RATE_LIMITER: { limit: billingLimit },
+};
+vi.mock("cloudflare:workers", () => ({ env: workerEnv }));
+const getBillingConfig = vi.fn();
+const prepareBillingAccountDeletion = vi.fn();
+vi.mock("@/lib/billing/config", () => ({ getBillingConfig }));
+vi.mock("@/lib/billing/service", () => ({ prepareBillingAccountDeletion }));
 const createClient = vi.fn();
 const clearAuthCookies = vi.fn();
 const rpc = vi.fn();
@@ -11,6 +23,15 @@ vi.mock("@/lib/operational-visibility/request-context", () => ({
 }));
 vi.mock("@/lib/operational-visibility/logger", () => ({ logOperationalEvent }));
 const { POST } = await import("@/pages/api/auth/delete-account");
+
+const sandboxConfig: BillingConfig = {
+  mode: "sandbox",
+  secretKey: "sk_test_fixture",
+  webhookSecret: "whsec_fixture",
+  priceId: "price_fixture",
+  appUrl: "https://safespace.local",
+  databaseUrl: "postgresql://safespace_billing_login:fixture@127.0.0.1:54322/postgres",
+};
 
 function context({
   confirmation = "USUWAM",
@@ -34,6 +55,9 @@ function context({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  workerEnv.BILLING_RATE_LIMITER = { limit: billingLimit };
+  billingLimit.mockResolvedValue({ success: true });
+  getBillingConfig.mockReturnValue(null);
   createClient.mockReturnValue({ rpc, auth: { signOut } });
   rpc.mockResolvedValue({ data: true, error: null });
   signOut.mockResolvedValue({ error: null });
@@ -85,5 +109,74 @@ describe("self-service account deletion", () => {
     signOut.mockRejectedValue(new Error("offline"));
     expect((await POST(context())).headers.get("Location")).toBe("/auth/signin?status=account_deleted");
     expect(clearAuthCookies).toHaveBeenCalledOnce();
+  });
+});
+
+describe("billing cancellation before account deletion", () => {
+  it("waits for Stripe cancellation before invoking the deletion RPC", async () => {
+    getBillingConfig.mockReturnValue(sandboxConfig);
+    prepareBillingAccountDeletion.mockResolvedValue(undefined);
+    await POST(context());
+    expect(billingLimit).toHaveBeenCalledWith({ key: "billing:owner" });
+    expect(prepareBillingAccountDeletion).toHaveBeenCalledWith(sandboxConfig, "owner");
+    expect(billingLimit.mock.invocationCallOrder[0]).toBeLessThan(
+      prepareBillingAccountDeletion.mock.invocationCallOrder[0],
+    );
+    expect(prepareBillingAccountDeletion.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[0]);
+    expect(clearAuthCookies).toHaveBeenCalledOnce();
+  });
+  it("keeps account and cookies when cancellation cannot be confirmed", async () => {
+    getBillingConfig.mockReturnValue(sandboxConfig);
+    prepareBillingAccountDeletion.mockRejectedValue(new Error("private Stripe payload"));
+    const response = await POST(context());
+    expect(response.headers.get("Location")).toBe("/account/delete?error=account_deletion_failed");
+    expect(rpc).not.toHaveBeenCalled();
+    expect(clearAuthCookies).not.toHaveBeenCalled();
+  });
+
+  it.each(["limited", "unavailable", "missing"] as const)(
+    "stops before Stripe and RPC when the billing limiter is %s",
+    async (failure) => {
+      getBillingConfig.mockReturnValue(sandboxConfig);
+      if (failure === "limited") billingLimit.mockResolvedValue({ success: false });
+      if (failure === "unavailable") billingLimit.mockRejectedValue(new Error("private limiter transport payload"));
+      if (failure === "missing") workerEnv.BILLING_RATE_LIMITER = undefined;
+
+      const response = await POST(context());
+
+      expect(response.headers.get("Location")).toBe(
+        `/account/delete?error=${failure === "limited" ? "rate_limited" : "account_deletion_failed"}`,
+      );
+      expect(prepareBillingAccountDeletion).not.toHaveBeenCalled();
+      expect(rpc).not.toHaveBeenCalled();
+      expect(signOut).not.toHaveBeenCalled();
+      expect(clearAuthCookies).not.toHaveBeenCalled();
+      const logs = JSON.stringify(logOperationalEvent.mock.calls);
+      expect(logs).not.toContain("private limiter transport payload");
+      expect(logs).not.toContain("billing:owner");
+      expect(logs).not.toContain(sandboxConfig.secretKey);
+    },
+  );
+
+  it("keeps deletion available with billing off and no billing limiter", async () => {
+    workerEnv.BILLING_RATE_LIMITER = undefined;
+    const response = await POST(context());
+    expect(response.headers.get("Location")).toBe("/auth/signin?status=account_deleted");
+    expect(billingLimit).not.toHaveBeenCalled();
+    expect(prepareBillingAccountDeletion).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(clearAuthCookies).toHaveBeenCalledOnce();
+  });
+
+  it("fails invalid billing configuration without calling the limiter, Stripe or deletion RPC", async () => {
+    getBillingConfig.mockImplementation(() => {
+      throw new Error("billing_unavailable");
+    });
+    const response = await POST(context());
+    expect(response.headers.get("Location")).toBe("/account/delete?error=account_deletion_failed");
+    expect(billingLimit).not.toHaveBeenCalled();
+    expect(prepareBillingAccountDeletion).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(clearAuthCookies).not.toHaveBeenCalled();
   });
 });

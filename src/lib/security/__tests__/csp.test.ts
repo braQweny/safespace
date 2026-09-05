@@ -14,7 +14,9 @@ describe("buildFormActionDirective", () => {
   it("dopuszcza cały łańcuch przekierowań logowania przez Google", () => {
     const directive = buildFormActionDirective("https://przyklad.supabase.co");
 
-    expect(directive).toBe(`form-action 'self' https://przyklad.supabase.co ${GOOGLE_AUTH_ORIGIN}`);
+    expect(directive).toBe(
+      `form-action 'self' https://przyklad.supabase.co ${GOOGLE_AUTH_ORIGIN} https://checkout.stripe.com https://billing.stripe.com`,
+    );
   });
 
   it("bierze sam origin, bez ścieżki i parametrów", () => {
@@ -32,7 +34,9 @@ describe("buildFormActionDirective", () => {
     for (const value of ["", "   ", "nie-adres", undefined, null, 42]) {
       const directive = buildFormActionDirective(value);
 
-      expect(directive).toBe(`form-action 'self' ${GOOGLE_AUTH_ORIGIN}`);
+      expect(directive).toBe(
+        `form-action 'self' ${GOOGLE_AUTH_ORIGIN} https://checkout.stripe.com https://billing.stripe.com`,
+      );
     }
   });
 });

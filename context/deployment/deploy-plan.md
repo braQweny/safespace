@@ -41,6 +41,7 @@
 - `OPENROUTER_SAFETY_MODEL` jest opcjonalna konfiguracja bez sekretu. Domyslnie kod uzywa `openai/gpt-4o-mini`; override mozna wpisac lokalnie w `.env` / `.dev.vars`, ale nie jest wymagany w GitHub secrets.
 - `OPENROUTER_SESSION_MODEL` jest opcjonalna konfiguracja bez sekretu dla zwyklych odpowiedzi S-04. Domyslnie kod uzywa `openai/gpt-4o-mini`; override mozna wpisac lokalnie w `.env` / `.dev.vars`, ale nie jest wymagany w GitHub secrets.
 - F-03 opcjonalnie uzywa `OPERATIONAL_LOG_HASH_SECRET`. Brak sekretu nie blokuje zadnego requestu i nie moze powodowac logowania raw Supabase `user.id`; `userHash` jest wtedy pomijany.
+- Stripe Managed Payments na tym etapie obejmuje wyłącznie lokalny sandbox. Produkcyjny `wrangler.jsonc` zachowuje `BILLING_MODE=off` i dotychczasowe trzy wymagane sekrety; nie dodawać kluczy testowych Stripe ani połączenia billingowego do GitHub/Cloudflare. Aktywacja płatności i konfiguracja ich przyszłego wdrożenia są osobnym zakresem. Lokalna procedura: `npm run build` → `npm run dev:billing`, ignorowany plik `.dev.vars.billing`; szczegóły w `src/lib/billing/README.md`.
 - S-07 admin nie dodaje nowych runtime secretow ani `SUPABASE_SERVICE_ROLE_KEY`. Pierwszego admina owner provisionuje recznym SQL po utworzeniu konta:
 
 ```sql
@@ -67,6 +68,7 @@ set is_active = true, deactivated_at = null;
   - Deploy używa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.126.0"` i `deploy --secrets-file .env.production`.
   - Migracja `20260904204248` dodaje integralność cyklu sesji i prywatne potwierdzenia tur bez nowych sekretów. Zachowuje zapis wiadomości ze starego Workera; nowe triggery sprawdzają status, termin i usunięcie. Migracja musi wejść przed kodem używającym nowych RPC.
   - Migracja `20260905075745` dodaje `get_avatar_memory_batch` i `save_avatar_memory_batch`: jedna generacja pamięci może objąć wiele rozmów do wspólnego budżetu tekstu. Stare RPC pamięci pozostają dostępne i dzielą postęp z nowymi, więc starszy Worker działa podczas wdrożenia. Migracja musi wejść przed nowym Workerem; nie ma nowych zmiennych ani sekretów.
+  - Migracja `20260905175333` dodaje rozliczenia, widoki właścicielskie, niezależne opłacone premium i bramkę anulowania abonamentu przed usunięciem konta. Jest kompatybilna z dotychczasowym kodem, przy pustych danych billingowych nie zmienia ręcznego premium ani limitów. Nie tworzy loginu z hasłem i nie aktywuje płatności. Jeśli ten kod będzie wdrażany, migracja musi poprzedzać Worker czytający nowe widoki; blokada migracje + publikacja pozostaje wspólna. Obecny etap weryfikacji lokalnej nie wykonuje wdrożenia ani zmian sekretów produkcyjnych.
   - `.env.production` jest tworzony tymczasowo z GitHub secrets (`SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY` oraz opcjonalnie `OPERATIONAL_LOG_HASH_SECRET`) i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.
 - Po pushu sprawdzic workflow, URL Workera, redirect `/dashboard -> /auth/signin` oraz callback `/auth/callback` dodany do Supabase Auth Redirect URLs.

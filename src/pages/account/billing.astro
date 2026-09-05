@@ -1,0 +1,41 @@
+---
+import AppHeader from "@/components/AppHeader.astro";
+import BillingPanel from "@/components/billing/BillingPanel";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Layout from "@/layouts/Layout.astro";
+import { getBillingCopy } from "@/lib/billing/copy";
+import { getOwnBillingStatus } from "@/lib/billing/status";
+
+const locale = Astro.locals.locale;
+const copy = getBillingCopy(locale);
+const billing = await getOwnBillingStatus(Astro);
+const status = billing.ok ? billing.data : null;
+const checkout = Astro.url.searchParams.get("checkout");
+const checkoutReturn = checkout === "success" || checkout === "canceled" ? checkout : null;
+Astro.response.headers.set("Cache-Control", "no-store");
+---
+
+<Layout title={copy.pageTitle}>
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
+    <AppHeader />
+    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-2xl">
+        <a
+          href={status?.accountBlocked ? "/account/blocked" : "/account/security"}
+          class="text-brand focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+        >
+          {status?.accountBlocked ? copy.backBlocked : copy.back}
+        </a>
+        <h1 class="text-ink mt-3 text-4xl leading-tight">{copy.title}</h1>
+        <BillingPanel
+          locale={locale}
+          initialStatus={status}
+          checkoutReturn={checkoutReturn}
+          errorCode={Astro.url.searchParams.get("error")}
+          client:load
+        />
+      </div>
+    </main>
+    <SiteFooter />
+  </div>
+</Layout>

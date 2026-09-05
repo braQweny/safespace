@@ -77,6 +77,12 @@ export default defineConfig({
   adapter: cloudflare(),
   env: {
     schema: {
+      BILLING_MODE: envField.string({ context: "server", access: "secret", optional: true }),
+      STRIPE_SECRET_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+      STRIPE_WEBHOOK_SECRET: envField.string({ context: "server", access: "secret", optional: true }),
+      STRIPE_PRICE_ID: envField.string({ context: "server", access: "secret", optional: true }),
+      BILLING_APP_URL: envField.string({ context: "server", access: "secret", optional: true }),
+      BILLING_DATABASE_URL: envField.string({ context: "server", access: "secret", optional: true }),
       SUPABASE_URL: envField.string({ context: "server", access: "secret", optional: true }),
       SUPABASE_KEY: envField.string({ context: "server", access: "secret", optional: true }),
       OPERATIONAL_LOG_HASH_SECRET: envField.string({ context: "server", access: "secret", optional: true }),

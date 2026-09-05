@@ -2,11 +2,13 @@
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import { getAccountDeletionConfirmationWord } from "@/lib/account-deletion";
+import { getBillingCopy } from "@/lib/billing/copy";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
 
 const locale = Astro.locals.locale;
 const copy = getAccountPagesCopy(locale).delete;
+const billingCopy = getBillingCopy(locale);
 const confirmationWord = getAccountDeletionConfirmationWord(locale);
 const error = getAuthErrorMessageFromSearchParam(locale, Astro.url.searchParams.get("error"));
 ---
@@ -24,6 +26,7 @@ const error = getAuthErrorMessageFromSearchParam(locale, Astro.url.searchParams.
         </p>
         <ul class="text-ink-soft mt-4 list-disc space-y-2 pl-5 text-sm leading-6" id="deletion-consequences">
           {copy.consequences.map((consequence) => <li>{consequence}</li>)}
+          <li>{billingCopy.deletionConsequence}</li>
         </ul>
         <form method="POST" action="/api/auth/delete-account" class="mt-6 space-y-4">
           <div>

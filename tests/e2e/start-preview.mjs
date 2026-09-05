@@ -23,6 +23,7 @@ try {
     kv_namespaces: [{ binding: "SESSION", id: "local-e2e-only" }],
     images: { binding: "IMAGES" },
     vars: {
+      BILLING_MODE: "off",
       SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_KEY: "test-public-key",
       OPENROUTER_API_KEY: "",
