@@ -5,8 +5,11 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import SignUpForm from "@/components/auth/SignUpForm";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { SOCIAL_AUTH_PROVIDERS } from "@/lib/auth-providers";
+import { getAuthPagesCopy } from "@/lib/page-copy/auth-pages-copy";
 
-const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
+const locale = Astro.locals.locale;
+const copy = getAuthPagesCopy(locale);
+const error = getAuthErrorMessageFromSearchParam(Astro.locals.locale, Astro.url.searchParams.get("error"));
 const shouldRedirectToDashboard = Boolean(Astro.locals.user);
 
 if (shouldRedirectToDashboard) {
@@ -17,22 +20,20 @@ if (shouldRedirectToDashboard) {
 
 {
   !shouldRedirectToDashboard && (
-    <Layout title="Utwórz konto - SafeSpace" lang="pl">
+    <Layout title={copy.signup.pageTitle}>
       <div class="bg-paper text-ink flex min-h-screen flex-col">
         <AppHeader />
 
         <main class="flex flex-1 items-center justify-center px-4 py-10">
           <section class="border-line-strong bg-surface shadow-card w-full max-w-md rounded-[20px] border p-6 sm:p-8">
             <div class="mb-6">
-              <h1 class="text-ink text-3xl leading-tight">Utwórz konto</h1>
-              <p class="text-ink-muted mt-2 text-sm leading-6">
-                Zarejestruj się przez Google lub e-mail. Potem wybierzesz perspektywę do pierwszej rozmowy.
-              </p>
+              <h1 class="text-ink text-3xl leading-tight">{copy.signup.title}</h1>
+              <p class="text-ink-muted mt-2 text-sm leading-6">{copy.signup.intro}</p>
             </div>
 
             <div class="space-y-3">
-              {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
-                <form method="POST" action="/api/auth/google">
+              {SOCIAL_AUTH_PROVIDERS.map(({ provider }) => (
+                <form method="POST" action="/api/auth/google" data-provider={provider}>
                   <button
                     type="submit"
                     class="border-line-accent text-brand-deep hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface flex h-12 w-full items-center justify-center gap-3 rounded-[14px] border px-4 text-[15px] font-medium transition-colors focus:outline-none focus-visible:ring-2"
@@ -40,7 +41,7 @@ if (shouldRedirectToDashboard) {
                     <span class="text-brand border-line-strong flex size-6 items-center justify-center rounded-full border text-sm font-semibold">
                       G
                     </span>
-                    {authProvider.buttonLabel}
+                    {copy.googleButton}
                   </button>
                 </form>
               ))}
@@ -48,16 +49,16 @@ if (shouldRedirectToDashboard) {
 
             <div class="text-ink-muted my-6 flex items-center gap-3 text-xs font-medium">
               <span class="bg-line h-px flex-1" />
-              <span>lub</span>
+              <span>{copy.or}</span>
               <span class="bg-line h-px flex-1" />
             </div>
 
-            <SignUpForm serverError={error} client:idle />
+            <SignUpForm locale={locale} serverError={error} client:idle />
 
             <p class="text-ink-muted mt-5 text-center text-sm">
-              Masz już konto?{" "}
+              {copy.signup.haveAccount}{" "}
               <a href="/auth/signin" class="text-brand font-medium hover:underline">
-                Zaloguj się
+                {copy.signup.signIn}
               </a>
             </p>
           </section>

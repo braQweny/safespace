@@ -2,7 +2,8 @@ import { useCallback, useReducer, useRef } from "react";
 import { isRateLimitedApiResult, isTimedOutApiResult, requestApiJson } from "@/lib/api-client";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
-import { SESSION_TURN_COPY } from "@/lib/session-copy";
+import type { Locale } from "@/lib/i18n/locale";
+import { getSessionCopy } from "@/lib/session-copy";
 import {
   isSendSessionMessageResponse,
   type SendSessionMessageSuccessResponse,
@@ -91,8 +92,10 @@ function buildGenericNotice(title: string, body: string): SafetyNoticeState {
   };
 }
 
-function buildExpiredNotice() {
-  return buildGenericNotice("Czas rozmowy minął", "W tej rozmowie nie da się już wysyłać wiadomości.");
+function buildExpiredNotice(locale: Locale) {
+  const { turn } = getSessionCopy(locale);
+
+  return buildGenericNotice(turn.expiredTitle, turn.expiredBody);
 }
 
 function nonEmpty(text: string) {
@@ -258,11 +261,12 @@ const defaultTransport: TimedSessionTransport = {
  * fałszywymi zegarami i bez DOM-u.
  */
 export async function sendTimedSessionMessage(
-  input: { sessionId: string; text: string; clientMessageId?: string },
+  input: { sessionId: string; text: string; clientMessageId?: string; locale: Locale },
   dispatch: TimedSessionDispatch,
   transport: TimedSessionTransport = defaultTransport,
 ) {
   const text = input.text.trim();
+  const { turn } = getSessionCopy(input.locale);
 
   if (!text) {
     return;
@@ -289,7 +293,7 @@ export async function sendTimedSessionMessage(
       dispatch({
         type: "message_failed",
         draft: text,
-        notice: buildGenericNotice(SESSION_TURN_COPY.timeoutTitle, SESSION_TURN_COPY.timeoutBody),
+        notice: buildGenericNotice(turn.timeoutTitle, turn.timeoutBody),
       });
       return;
     }
@@ -298,10 +302,7 @@ export async function sendTimedSessionMessage(
       dispatch({
         type: "message_failed",
         draft: text,
-        notice: buildGenericNotice(
-          "Nie udało się wysłać wiadomości",
-          "Połączenie z serwerem jest chwilowo niedostępne.",
-        ),
+        notice: buildGenericNotice(turn.sendFailedTitle, turn.connectionUnavailableBody),
       });
       return;
     }
@@ -310,10 +311,7 @@ export async function sendTimedSessionMessage(
       dispatch({
         type: "message_failed",
         draft: text,
-        notice: buildGenericNotice(
-          "Zwolnij na chwilę",
-          "Wysyłasz wiadomości zbyt szybko. Odczekaj około minuty i spróbuj ponownie — treść wiadomości została zachowana.",
-        ),
+        notice: buildGenericNotice(turn.sendRateLimitedTitle, turn.sendRateLimitedBody),
       });
       return;
     }
@@ -324,7 +322,7 @@ export async function sendTimedSessionMessage(
       dispatch({
         type: "message_failed",
         draft: text,
-        notice: buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."),
+        notice: buildGenericNotice(turn.sendFailedTitle, turn.sendRetryBody),
       });
       return;
     }
@@ -339,10 +337,8 @@ export async function sendTimedSessionMessage(
         type: "message_failed",
         draft: text,
         notice: buildGenericNotice(
-          body.type === "message_in_progress"
-            ? "Poprzednia wiadomość jest jeszcze przetwarzana"
-            : "Nie udało się potwierdzić wiadomości",
-          "Odczekaj chwilę i spróbuj ponownie. Treść wiadomości została zachowana.",
+          body.type === "message_in_progress" ? turn.messageInProgressTitle : turn.messageConflictTitle,
+          turn.messageRetryPreservedBody,
         ),
       });
       return;
@@ -370,7 +366,7 @@ export async function sendTimedSessionMessage(
     }
 
     if (body.type === "expired") {
-      dispatch({ type: "session_expired", session: body.session, notice: buildExpiredNotice() });
+      dispatch({ type: "session_expired", session: body.session, notice: buildExpiredNotice(input.locale) });
       return;
     }
 
@@ -389,7 +385,7 @@ export async function sendTimedSessionMessage(
     dispatch({
       type: "message_failed",
       draft: text,
-      notice: buildGenericNotice("Nie udało się wysłać wiadomości", "Spróbuj ponownie, jeśli sesja nadal trwa."),
+      notice: buildGenericNotice(turn.sendFailedTitle, turn.sendRetryBody),
     });
   } finally {
     clearTimeout(slowTimeoutId);
@@ -398,10 +394,11 @@ export async function sendTimedSessionMessage(
 }
 
 export async function endTimedSession(
-  input: { sessionId: string },
+  input: { sessionId: string; locale: Locale },
   dispatch: TimedSessionDispatch,
   transport: TimedSessionTransport = defaultTransport,
 ) {
+  const { turn } = getSessionCopy(input.locale);
   dispatch({ type: "end_requested" });
 
   try {
@@ -415,7 +412,7 @@ export async function endTimedSession(
     if (result.kind === "network_error") {
       dispatch({
         type: "end_failed",
-        notice: buildGenericNotice("Nie udało się zakończyć sesji", "Połączenie z serwerem jest chwilowo niedostępne."),
+        notice: buildGenericNotice(turn.endFailedTitle, turn.connectionUnavailableBody),
       });
       return;
     }
@@ -423,10 +420,7 @@ export async function endTimedSession(
     if (isRateLimitedApiResult(result)) {
       dispatch({
         type: "end_failed",
-        notice: buildGenericNotice(
-          "Za dużo prób w krótkim czasie",
-          "Odczekaj około minuty i spróbuj ponownie zakończyć rozmowę.",
-        ),
+        notice: buildGenericNotice(turn.endRateLimitedTitle, turn.endRateLimitedBody),
       });
       return;
     }
@@ -436,7 +430,7 @@ export async function endTimedSession(
     if (!isCompleteSessionResponse(body)) {
       dispatch({
         type: "end_failed",
-        notice: buildGenericNotice("Nie udało się zakończyć sesji", "Spróbuj ponownie za chwilę."),
+        notice: buildGenericNotice(turn.endFailedTitle, turn.endRetryBody),
       });
       return;
     }
@@ -447,7 +441,7 @@ export async function endTimedSession(
     }
 
     if (body.type === "expired") {
-      dispatch({ type: "session_expired", session: body.session, notice: buildExpiredNotice() });
+      dispatch({ type: "session_expired", session: body.session, notice: buildExpiredNotice(input.locale) });
       return;
     }
 
@@ -461,10 +455,8 @@ export async function endTimedSession(
     dispatch({
       type: "end_failed",
       notice: buildGenericNotice(
-        body.code === "session_not_active" ? "Sesja nie jest już aktywna" : "Nie udało się zakończyć sesji",
-        body.code === "session_not_active"
-          ? "Odśwież widok historii, żeby zobaczyć aktualny status rozmowy."
-          : "Spróbuj ponownie za chwilę.",
+        body.code === "session_not_active" ? turn.sessionNotActiveTitle : turn.endFailedTitle,
+        body.code === "session_not_active" ? turn.sessionNotActiveBody : turn.endRetryBody,
       ),
     });
   } finally {
@@ -472,7 +464,12 @@ export async function endTimedSession(
   }
 }
 
-export function useTimedSession(initialState: SessionStartPageState) {
+export interface UseTimedSessionOptions {
+  locale: Locale;
+}
+
+export function useTimedSession(initialState: SessionStartPageState, options: UseTimedSessionOptions) {
+  const { locale } = options;
   const [state, dispatch] = useReducer(timedSessionReducer, initialState, getInitialTimedSessionState);
   const retryIdentity = useRef<MessageRetryIdentity | null>(null);
   const sending = useRef(false);
@@ -507,7 +504,7 @@ export function useTimedSession(initialState: SessionStartPageState) {
     retryIdentity.current = resolveMessageRetryIdentity(retryIdentity.current, state.session.id, trimmedDraft);
     sending.current = true;
     try {
-      if (await sendTimedSessionMessage(retryIdentity.current, dispatch)) retryIdentity.current = null;
+      if (await sendTimedSessionMessage({ ...retryIdentity.current, locale }, dispatch)) retryIdentity.current = null;
     } finally {
       sending.current = false;
     }
@@ -521,7 +518,7 @@ export function useTimedSession(initialState: SessionStartPageState) {
       return;
     }
 
-    await endTimedSession({ sessionId: state.session.id }, dispatch);
+    await endTimedSession({ sessionId: state.session.id, locale }, dispatch);
   }
 
   return {

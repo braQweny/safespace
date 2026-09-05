@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
-import { SESSION_TURN_COPY } from "@/lib/session-copy";
+import { useLocale } from "@/components/hooks/useLocale";
+import { getModalityCopy } from "@/lib/modality-copy";
+import { getSessionCopy } from "@/lib/session-copy";
 import type { UiSessionMessage } from "@/lib/session-flow/message-state";
 import { parseMessageMarkdown, type MessageMarkdownInline } from "@/lib/session-flow/message-markdown";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import { cn } from "@/lib/utils";
+import { getSessionMessagesCopy } from "./session-messages-copy";
 
 interface SessionMessagesProps {
   messages: readonly UiSessionMessage[];
@@ -38,10 +41,6 @@ function getMessageClasses(role: UiSessionMessage["role"]) {
   }
 
   return "text-ink mr-auto w-full font-serif text-[1.1875rem] leading-[1.6]";
-}
-
-function getAssistantDisplayName(assistantAvatar: SelectedModalityAvatar) {
-  return assistantAvatar.avatarName.split(",")[0]?.trim() || assistantAvatar.avatarName;
 }
 
 function renderInlines(inlines: readonly MessageMarkdownInline[]) {
@@ -95,16 +94,19 @@ function MessageHeader({
   role: UiSessionMessage["role"];
   assistantAvatar: SelectedModalityAvatar;
 }) {
+  const locale = useLocale();
+  const copy = getSessionMessagesCopy(locale);
+
   if (role === "system_boundary") {
     return (
       <p className="text-ink-muted font-sans text-xs font-semibold tracking-[0.08em] uppercase">
-        Granica bezpieczeństwa
+        {copy.safetyBoundary}
       </p>
     );
   }
 
   if (role !== "assistant") {
-    return <p className="text-brand font-sans text-xs font-semibold tracking-[0.08em] uppercase">Ty</p>;
+    return <p className="text-brand font-sans text-xs font-semibold tracking-[0.08em] uppercase">{copy.you}</p>;
   }
 
   return (
@@ -118,8 +120,8 @@ function MessageHeader({
         loading="lazy"
       />
       {/* Na ekranie samo imię; czytnik ekranu dostaje pełną nazwę awatara raz, przy zmianie mówiącego. */}
-      <span aria-hidden="true">{getAssistantDisplayName(assistantAvatar)}</span>
-      <span className="sr-only">{assistantAvatar.avatarName}</span>
+      <span aria-hidden="true">{assistantAvatar.avatarFirstName}</span>
+      <span className="sr-only">{getModalityCopy(locale, assistantAvatar.modalityId).avatarName}</span>
     </div>
   );
 }
@@ -131,16 +133,18 @@ function PendingAssistantStatus({
   assistantAvatar: SelectedModalityAvatar;
   isResponseSlow: boolean;
 }) {
-  const assistantName = getAssistantDisplayName(assistantAvatar);
+  const locale = useLocale();
+  const copy = getSessionMessagesCopy(locale);
+  const assistantName = assistantAvatar.avatarFirstName;
 
   return (
     <div className="mt-6 flex flex-col gap-1">
       <div
         className="text-ink-muted inline-flex items-center gap-1.5 text-sm"
         role="status"
-        aria-label={`${assistantName} myśli...`}
+        aria-label={copy.thinkingAria(assistantName)}
       >
-        <span>{assistantName} myśli</span>
+        <span>{copy.thinking(assistantName)}</span>
         <span aria-hidden="true" className="inline-flex items-center gap-0.5">
           <span className="animate-pulse motion-reduce:animate-none">.</span>
           <span className="animate-pulse [animation-delay:150ms] motion-reduce:animate-none">.</span>
@@ -151,7 +155,7 @@ function PendingAssistantStatus({
           ekranu ma go ogłosić jako nową informację, nie jako zmianę „myśli”. */}
       {isResponseSlow ? (
         <p role="status" aria-live="polite" className="text-ink-muted text-xs">
-          {SESSION_TURN_COPY.slowResponse}
+          {getSessionCopy(locale).turn.slowResponse}
         </p>
       ) : null}
     </div>
@@ -168,9 +172,11 @@ export default function SessionMessages({
   isResponseSlow = false,
   pendingUserText = null,
   assistantAvatar,
-  emptyCopy = "Pierwsza wiadomość może być krótka. Opisz sytuację, którą chcesz spokojnie uporządkować.",
+  emptyCopy,
   variant = "static",
 }: SessionMessagesProps) {
+  const copy = getSessionMessagesCopy(useLocale());
+  const emptyText = emptyCopy ?? copy.emptyDefault;
   const hasContent = messages.length > 0 || Boolean(pendingUserText);
   const isLive = variant === "live";
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -198,7 +204,7 @@ export default function SessionMessages({
       ref={scrollRef}
       role={isLive ? "log" : undefined}
       aria-live={isLive ? "polite" : undefined}
-      aria-label={isLive ? "Przebieg rozmowy" : undefined}
+      aria-label={isLive ? copy.transcriptAria : undefined}
       onScroll={
         isLive
           ? (event) => {
@@ -222,7 +228,7 @@ export default function SessionMessages({
               isLive ? "flex-1" : "min-h-56",
             )}
           >
-            {emptyCopy}
+            {emptyText}
           </div>
         ) : (
           // Chat convention: the conversation sits at the bottom, next to the
@@ -238,14 +244,14 @@ export default function SessionMessages({
                   className={cn(getMessageClasses(message.role), message.role === previousRole && "-mt-2")}
                 >
                   {showHeader ? <MessageHeader role={message.role} assistantAvatar={assistantAvatar} /> : null}
-                  {message.role === "user" ? <span className="sr-only">Ty: </span> : null}
+                  {message.role === "user" ? <span className="sr-only">{copy.youPrefix}</span> : null}
                   <MessageContent content={message.content} hasHeader={showHeader} />
                 </li>
               );
             })}
             {pendingUserText ? (
               <li className={getMessageClasses("user")}>
-                <span className="sr-only">Ty: </span>
+                <span className="sr-only">{copy.youPrefix}</span>
                 <MessageContent content={pendingUserText} hasHeader={false} />
               </li>
             ) : null}

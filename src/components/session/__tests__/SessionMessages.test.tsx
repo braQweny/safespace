@@ -1,16 +1,22 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
-import { SESSION_TURN_COPY } from "@/lib/session-copy";
+import { getSessionCopy } from "@/lib/session-copy";
 import SessionMessages from "../SessionMessages";
+
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
+
+const SESSION_TURN_COPY = getSessionCopy("pl").turn;
 
 const assistantAvatar: SelectedModalityAvatar = {
   modalityId: "cbt",
   avatarId: "cbt-guide",
-  modalityName: "Podejście poznawczo-behawioralne",
-  avatarName: "Marek, praktyczny przewodnik",
+  avatarFirstName: "Marek",
   assetPath: "/avatars/cbt-guide.webp",
-  altText: "Awatar Marka",
 };
 
 const assistantMessage = {

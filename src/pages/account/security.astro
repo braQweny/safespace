@@ -1,5 +1,7 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
+import LocaleSwitch from "@/components/LocaleSwitch.astro";
+import { getLocaleSwitchCopy } from "@/components/locale-switch-copy";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
@@ -9,16 +11,21 @@ import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { readActiveSessionBadge, type ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
-import { formatPlanName, formatSessionAllowance, PREMIUM_HOW_TO_COPY } from "@/lib/session-flow/plan-copy";
+import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
+import {
+  formatPlanName,
+  formatSessionAllowance,
+  getPlanCopy,
+  getPremiumSupportMailtoHref,
+} from "@/lib/session-flow/plan-copy";
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { getSupportContact } from "@/lib/support-contact";
 
-const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
+const locale = Astro.locals.locale;
+const copy = getAccountPagesCopy(locale).security;
+const error = getAuthErrorMessageFromSearchParam(locale, Astro.url.searchParams.get("error"));
 const status = Astro.url.searchParams.get("status");
-const successMessage =
-  status === "password_updated"
-    ? "Hasło zostało zapisane. Możesz logować się e-mailem i hasłem albo przez Google."
-    : null;
+const successMessage = status === "password_updated" ? copy.passwordUpdated : null;
 const { user } = Astro.locals;
 
 // Administracja miała własną powłokę, ale żaden widok aplikacji do niej nie
@@ -39,10 +46,11 @@ if (sessionContext.ok) {
 }
 
 const support = getSupportContact();
-const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSeconds(quota?.plan));
+const localeCopy = getLocaleSwitchCopy(locale);
+const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDurationSeconds(quota?.plan));
 ---
 
-<Layout title="Konto - SafeSpace" lang="pl">
+<Layout title={copy.pageTitle}>
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={activeSession} />
 
@@ -64,88 +72,91 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
           >
             <path d="M19 12H5M11 18l-6-6 6-6"></path>
           </svg>
-          Wróć do panelu
+          {copy.back}
         </a>
-        <h1 class="text-ink mt-3 text-4xl leading-tight">Konto</h1>
+        <h1 class="text-ink mt-3 text-4xl leading-tight">{copy.title}</h1>
         <p class="text-ink-muted mt-3 text-sm leading-6">
-          Zalogowano jako <span class="text-ink font-semibold">{user?.email}</span>.
+          {copy.signedInAs}
+          <span class="text-ink font-semibold">{user?.email}</span>.
         </p>
 
         <div class="border-line-strong bg-surface shadow-card mt-6 rounded-[20px] border p-6 sm:p-8" data-account-plan>
-          <h2 class="text-ink text-lg font-semibold">Plan i pula rozmów</h2>
+          <h2 class="text-ink text-lg font-semibold">{copy.planTitle}</h2>
           {
             quota ? (
               <>
-                <p class="text-brand mt-2 text-base font-semibold">{formatPlanName(quota.plan)}</p>
+                <p class="text-brand mt-2 text-base font-semibold">{formatPlanName(locale, quota.plan)}</p>
                 <p class="text-ink-muted mt-1 text-sm leading-6">
-                  {formatSessionAllowance(quota)} Każda rozmowa trwa do {sessionBudgetMinutes}.
-                  {quota.plan === "free" ? " Usunięcie rozmowy z historii nie przywraca jej do puli." : null}
+                  {formatSessionAllowance(locale, quota)} {copy.eachLasts(sessionBudgetMinutes)}
+                  {quota.plan === "free" ? ` ${copy.deletingNote}` : null}
                 </p>
                 {quota.plan === "free" ? (
-                  <p class="text-ink-muted mt-3 text-sm leading-6">{PREMIUM_HOW_TO_COPY}</p>
+                  <p class="text-ink-muted mt-3 text-sm leading-6">{getPlanCopy(locale).premiumHowTo}</p>
                 ) : null}
                 {quota.plan === "free" && support.mailtoHref ? (
                   <a
-                    href={`${support.mailtoHref}?subject=${encodeURIComponent("SafeSpace — dostęp do planu premium")}`}
+                    href={getPremiumSupportMailtoHref(locale, support.mailtoHref)}
                     class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                   >
-                    Napisz w sprawie premium
+                    {copy.writeAboutPremium}
                   </a>
                 ) : null}
               </>
             ) : (
-              <p class="text-ink-muted mt-2 text-sm leading-6">
-                Nie udało się odczytać planu konta. Odśwież stronę za chwilę — szczegóły puli rozmów zobaczysz też w
-                panelu.
-              </p>
+              <p class="text-ink-muted mt-2 text-sm leading-6">{copy.planReadFailed}</p>
             )
           }
         </div>
 
         <div class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8">
-          <h2 class="text-ink text-lg font-semibold">Hasło</h2>
-          <p class="text-ink-muted mt-2 text-sm leading-6">
-            Jeśli konto powstało przez Google, ustawienie hasła dodaje logowanie e-mailem bez tworzenia drugiego konta.
-          </p>
+          <h2 class="text-ink text-lg font-semibold">{copy.passwordTitle}</h2>
+          <p class="text-ink-muted mt-2 text-sm leading-6">{copy.passwordIntro}</p>
 
           <div class="mt-6">
-            <SetPasswordForm serverError={error} serverSuccess={successMessage} client:idle />
+            <SetPasswordForm locale={locale} serverError={error} serverSuccess={successMessage} client:idle />
+          </div>
+        </div>
+
+        <div
+          class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8"
+          data-account-locale
+        >
+          <h2 class="text-ink text-lg font-semibold">{localeCopy.label}</h2>
+          <p class="text-ink-muted mt-2 text-sm leading-6">{localeCopy.description}</p>
+          <div class="mt-4 max-w-xs">
+            <LocaleSwitch variant="segmented" />
           </div>
         </div>
 
         <div class="border-line bg-surface-soft mt-5 rounded-2xl border p-5">
-          <h2 class="text-brand-deep text-base font-semibold">Twoje dane i usunięcie konta</h2>
+          <h2 class="text-brand-deep text-base font-semibold">{copy.dataTitle}</h2>
           <p class="text-ink-muted mt-2 text-sm leading-6">
-            Rozmowę usuniesz po otwarciu jej zapisu w historii. Więcej o przetwarzaniu danych:
+            {copy.dataIntro}
             <a
               href="/privacy"
               class="text-brand hover:text-brand-strong focus:ring-brand-ring ml-1 rounded font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
             >
-              Prywatność i zasady
+              {copy.privacyLink}
             </a>
           </p>
           <a
             href="/account/delete"
             class="border-danger-line text-danger hover:bg-danger-soft focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center rounded-full border px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
-            >Usuń konto</a
+            >{copy.deleteAccount}</a
           >
-          <p class="text-ink-muted mt-2 text-sm leading-6">
-            Usuniesz konto razem z historią rozmów i pamięcią awatarów. W następnym kroku poprosimy o potwierdzenie.
-          </p>
+          <p class="text-ink-muted mt-2 text-sm leading-6">{copy.deleteNote}</p>
         </div>
 
         {
           isAdmin ? (
             <div class="border-line bg-surface-soft mt-5 rounded-2xl border p-5">
-              <h2 class="text-brand-deep text-base font-semibold">Administracja</h2>
-              <p class="text-ink-muted mt-2 text-sm leading-6">
-                To konto ma dostęp do statystyk zbiorczych. Panel administracyjny nie pokazuje treści rozmów.
-              </p>
+              <h2 class="text-brand-deep text-base font-semibold">{copy.adminTitle}</h2>
+              <p class="text-ink-muted mt-2 text-sm leading-6">{copy.adminIntro}</p>
               <a
                 href="/admin"
                 class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
               >
-                Otwórz panel administracyjny
+                {copy.openAdmin}
               </a>
             </div>
           ) : null

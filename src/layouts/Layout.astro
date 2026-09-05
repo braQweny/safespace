@@ -11,20 +11,20 @@ import sourceSansLatinUrl from "@fontsource-variable/source-sans-3/files/source-
 import sourceSansLatinExtUrl from "@fontsource-variable/source-sans-3/files/source-sans-3-latin-ext-wght-normal.woff2?url";
 import Banner from "@/components/Banner.astro";
 import { missingConfigs } from "@/lib/config-status";
+import { openGraphLocale } from "@/lib/i18n/locale";
+import { getLayoutCopy } from "@/lib/page-copy/layout-copy";
 
 const preloadedFontUrls = [sourceSansLatinUrl, sourceSansLatinExtUrl, newsreaderLatinUrl, newsreaderLatinExtUrl];
 
 interface Props {
   title?: string;
-  lang?: string;
   description?: string;
 }
 
-const {
-  title = "SafeSpace",
-  lang = "pl",
-  description = "SafeSpace pomaga spokojnie przygotować się do pierwszej rozmowy w symulacji psychoterapeutycznej.",
-} = Astro.props;
+// Język przychodzi z middleware (cookie), nie z propsa strony — jedna
+// strona nie może twierdzić czego innego niż reszta aplikacji.
+const lang = Astro.locals.locale;
+const { title = "SafeSpace", description = getLayoutCopy(lang).defaultDescription } = Astro.props;
 
 // Komunikaty o brakującej konfiguracji są przeznaczone dla osoby rozwijającej
 // projekt (nazwy zmiennych środowiskowych) — nie mogą trafić do użytkownika.
@@ -42,7 +42,11 @@ const showConfigBanners = import.meta.env.DEV;
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta property="og:locale" content={openGraphLocale(lang)} />
+    <!-- Znak marki: łuk drzwi do cichego pokoju. SVG skaluje się ostro, PNG to zapas dla starszych przeglądarek i iOS. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     {preloadedFontUrls.map((href) => <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />)}
     <title>{title}</title>
     <script is:inline>

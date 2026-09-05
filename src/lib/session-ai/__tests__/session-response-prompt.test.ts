@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { LOCALES } from "@/lib/i18n/locale";
 import { MVP_MODALITIES } from "../../modalities";
-import { buildSessionResponseMessages, SESSION_RESPONSE_SYSTEM_PROMPT } from "../session-response-prompt";
+import { getModalityPromptNames } from "../../modality-copy";
+import {
+  buildSessionResponseMessages,
+  buildSessionResponseSystemPrompt,
+  getSessionOpeningGenerationInstruction,
+} from "../session-response-prompt";
 import type { GenerateSessionResponseInput } from "../types";
 
 const input = {
+  locale: "pl",
   currentUserMessage: "Chce spokojnie uporzadkowac trudna rozmowe z bliska osoba.",
   modality: {
     modalityName: "Podejście poznawczo-behawioralne",
@@ -64,7 +71,7 @@ describe("buildSessionResponseMessages", () => {
     const systemMessage = messages[0];
 
     expect(systemMessage.role).toBe("system");
-    expect(systemMessage.content).toContain(SESSION_RESPONSE_SYSTEM_PROMPT);
+    expect(systemMessage.content).toContain(buildSessionResponseSystemPrompt("pl"));
     expect(systemMessage.content).toContain("one natural SafeSpace session reply");
     expect(systemMessage.content).toContain(
       "not therapy, diagnosis, crisis care, medical care, or a replacement for a qualified professional",
@@ -200,8 +207,7 @@ describe("buildSessionResponseMessages", () => {
     const messages = buildSessionResponseMessages({
       ...input,
       modality: {
-        modalityName: modality.modalityName,
-        avatarName: modality.avatarName,
+        ...getModalityPromptNames(modality.modalityId),
         sessionStyleHint: modality.sessionStyleHint,
       },
     });
@@ -249,25 +255,22 @@ describe("MVP_MODALITIES session style hints", () => {
     }
   });
 
-  it("preserves Polish modality and avatar wording in the style hints", () => {
-    const hints = MVP_MODALITIES.map((item) => item.sessionStyleHint).join("\n");
-
-    for (const term of [
-      "uważna",
-      "słuchaczka",
-      "poznawczo-behawioralne",
-      "humanistyczno-doświadczeniowe",
-      "łącznik",
-      "przewodniczka",
-      "wątek",
-    ]) {
-      expect(hints).toContain(term);
+  it("keeps the style hints language-neutral and the register examples per language", () => {
+    // Model ma mówić językiem interfejsu, więc hint nie może przemycać polskich
+    // zwrotów; przykłady rejestru są w obu językach i mieszczą się w budżecie.
+    for (const modality of MVP_MODALITIES) {
+      expect(modality.sessionStyleHint).not.toMatch(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/);
+      for (const locale of LOCALES) {
+        expect(modality.registerExamples[locale].length).toBe(4);
+        expect(modality.registerExamples[locale].join("\n").length).toBeLessThanOrEqual(400);
+      }
+      expect(modality.registerExamples.pl.join(" ")).toMatch(/[ąćęłńóśźż]/);
+      expect(modality.registerExamples.en.join(" ")).not.toMatch(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/);
     }
   });
 
   it("treats example phrases as inspiration and allows replies without questions in every hint", () => {
     for (const modality of MVP_MODALITIES) {
-      expect(modality.sessionStyleHint).toContain("never repeat them verbatim");
       expect(modality.sessionStyleHint).toContain("Reply shapes");
       expect(modality.sessionStyleHint).toContain("no question");
     }
@@ -282,7 +285,7 @@ describe("MVP_MODALITIES session style hints", () => {
       expect(modality.sessionStyleHint).toMatch(/What (?:she|he) listens for first:/);
       expect(modality.sessionStyleHint).toContain("Returning to approved summaries:");
       expect(modality.sessionStyleHint).toMatch(/When the user asks/);
-      expect(modality.sessionStyleHint).toContain("nie wiem");
+      expect(modality.sessionStyleHint).toContain("I don't know");
       // The persona is someone who does not know where to start; every avatar
       // needs its own first move and its own answer to a blank start.
       expect(modality.sessionStyleHint).toContain("Opening move:");
@@ -300,8 +303,7 @@ describe("MVP_MODALITIES session style hints", () => {
       const messages = buildSessionResponseMessages({
         ...input,
         modality: {
-          modalityName: modality.modalityName,
-          avatarName: modality.avatarName,
+          ...getModalityPromptNames(modality.modalityId),
           sessionStyleHint: modality.sessionStyleHint,
         },
       });
@@ -310,16 +312,16 @@ describe("MVP_MODALITIES session style hints", () => {
     }
   });
 
-  it.each(MVP_MODALITIES)("routes only $avatarName's complete guide to opening and reply turns", (modality) => {
+  it.each(MVP_MODALITIES)("routes only $avatarFirstName's complete guide to opening and reply turns", (modality) => {
     for (const mode of ["opening", "reply"] as const) {
       const systemContent = buildSessionResponseMessages({
         ...input,
         mode,
-        modality,
+        modality: { ...getModalityPromptNames(modality.modalityId), sessionStyleHint: modality.sessionStyleHint },
       })[0]?.content;
 
       expect(systemContent).toContain(modality.sessionStyleHint);
-      expect(systemContent).toContain(SESSION_RESPONSE_SYSTEM_PROMPT);
+      expect(systemContent).toContain(buildSessionResponseSystemPrompt("pl"));
       for (const other of MVP_MODALITIES.filter((item) => item.avatarId !== modality.avatarId)) {
         expect(systemContent).not.toContain(other.sessionStyleHint);
       }
@@ -336,7 +338,58 @@ describe("MVP_MODALITIES session style hints", () => {
     const modality = MVP_MODALITIES.find((item) => item.avatarId === avatarId);
     if (!modality) throw new Error(`Missing avatar ${avatarId}`);
 
-    expect(buildSessionResponseMessages({ ...input, modality })[0]?.content).toContain(instruction);
+    expect(
+      buildSessionResponseMessages({
+        ...input,
+        modality: { ...getModalityPromptNames(modality.modalityId), sessionStyleHint: modality.sessionStyleHint },
+      })[0]?.content,
+    ).toContain(instruction);
+  });
+
+  it("appends the register examples of the conversation language after the style guide, capped at six", () => {
+    const modality = MVP_MODALITIES[0];
+    const systemContent =
+      buildSessionResponseMessages({
+        ...input,
+        modality: {
+          ...getModalityPromptNames(modality.modalityId),
+          sessionStyleHint: modality.sessionStyleHint,
+          registerExamples: [...modality.registerExamples.en, "one", "two", "three"],
+        },
+      })[0]?.content ?? "";
+
+    expect(systemContent).toContain("Register examples (inspiration for tone only");
+    expect(systemContent).toContain(`- “${modality.registerExamples.en[0]}”`);
+    expect(systemContent).toContain("- “two”");
+    expect(systemContent).not.toContain("- “three”");
+    expect(systemContent.indexOf("Register examples")).toBeGreaterThan(systemContent.indexOf("Avatar style guide:"));
+  });
+});
+
+describe("language of the reply", () => {
+  it("pins English rules without the Polish grammar guidance", () => {
+    const systemContent = buildSessionResponseMessages({ ...input, locale: "en" })[0]?.content ?? "";
+
+    expect(systemContent).toContain(
+      "Respond in English unless the user's current message clearly uses another language",
+    );
+    expect(systemContent).toContain("ordinary English capitalisation");
+    expect(systemContent).toContain("User locale: en");
+    expect(systemContent).toContain("“tell me more about that”");
+    expect(systemContent).not.toContain("Address the user as „Ty”");
+    expect(systemContent).not.toContain("Respond in Polish");
+  });
+
+  it("opens the session in the language of the interface", () => {
+    for (const locale of LOCALES) {
+      const messages = buildSessionResponseMessages({ ...input, mode: "opening", locale });
+      const systemContent = messages[0]?.content ?? "";
+
+      expect(systemContent).toContain(locale === "pl" ? "plain conversational Polish" : "plain conversational English");
+      expect(systemContent).toContain(locale === "pl" ? "“Dzień dobry, nazywam się…”" : "“Hello, my name is…”");
+      expect(messages[1]?.content).toBe(getSessionOpeningGenerationInstruction(locale));
+      expect(getSessionOpeningGenerationInstruction(locale).length).toBeLessThan(200);
+    }
   });
 });
 

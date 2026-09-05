@@ -3,93 +3,47 @@ import { useAdminUsers } from "@/components/hooks/useAdminUsers";
 import type { AdminApiFailureCode, AdminUsersResponse } from "@/lib/admin/contracts";
 import type {
   AdminBlockReasonCode,
-  AdminUserListItem,
   AdminUserPlanFilter,
   AdminUserSort,
   AdminUserStatusFilter,
 } from "@/lib/admin/types";
+import { formatDay } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/locale";
+import { getAdminCopy } from "./admin-copy";
 
 interface AdminUsersTableProps {
+  locale: Locale;
   initialResponse: AdminUsersResponse;
   currentAdminUserId: string;
 }
 
-const REASON_OPTIONS: { value: AdminBlockReasonCode; label: string }[] = [
-  { value: "policy_violation", label: "Naruszenie zasad" },
-  { value: "safety_risk", label: "Ryzyko bezpieczeństwa" },
-  { value: "abuse_prevention", label: "Ochrona przed nadużyciem" },
-  { value: "owner_request", label: "Decyzja właściciela" },
-  { value: "other", label: "Inny powód" },
-];
-
-const STATUS_OPTIONS: { value: AdminUserStatusFilter; label: string }[] = [
-  { value: "all", label: "Wszystkie" },
-  { value: "active", label: "Aktywne" },
-  { value: "blocked", label: "Zablokowane" },
-];
-
-const PLAN_OPTIONS: { value: AdminUserPlanFilter; label: string }[] = [
-  { value: "all", label: "Wszystkie" },
-  { value: "free", label: "Bezpłatny" },
-  { value: "premium", label: "Premium" },
-];
-
-const SORT_OPTIONS: { value: AdminUserSort; label: string }[] = [
-  { value: "created_desc", label: "Najnowsze konta" },
-  { value: "created_asc", label: "Najstarsze konta" },
-  { value: "last_activity_desc", label: "Ostatnia aktywność" },
-  { value: "last_activity_asc", label: "Najdawniejsza aktywność" },
-];
-
 const SELECT_CLASS_NAME =
   "border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-surface px-3 text-sm outline-none focus:ring-2";
 
-function formatDate(value: string | null) {
+function formatDate(locale: Locale, value: string | null) {
   if (!value) {
-    return "Brak";
+    return getAdminCopy(locale).table.none;
   }
 
-  return new Intl.DateTimeFormat("pl-PL", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(value));
+  return formatDay(locale, new Date(value));
 }
 
-function getStatusLabel(user: AdminUserListItem) {
-  return user.accountStatus === "blocked" ? "Zablokowane" : "Aktywne";
+export function getAdminUsersErrorMessage(locale: Locale, code: AdminApiFailureCode) {
+  const { table } = getAdminCopy(locale);
+
+  return table.errors[code] ?? table.defaultError;
 }
 
-function getPlanLabel(user: AdminUserListItem) {
-  return user.plan === "premium" ? "Premium" : "Bezpłatny";
-}
-
-const ERROR_MESSAGES: Partial<Record<AdminApiFailureCode, string>> = {
-  missing_auth: "Sesja administratora wygasła. Zaloguj się ponownie.",
-  not_admin: "To konto nie ma uprawnień administratora.",
-  blocked_admin: "To konto administratora jest zablokowane.",
-  invalid_filter: "Nieprawidłowe parametry żądania. Sprawdź filtry i spróbuj ponownie.",
-  target_not_found: "Nie znaleziono takiego konta. Odśwież listę i spróbuj ponownie.",
-  self_target_forbidden: "Nie możesz zmienić blokady ani planu własnego konta.",
-  write_failed: "Nie udało się zapisać zmiany. Spróbuj ponownie za chwilę.",
-  admin_data_unavailable: "Dane administracyjne są chwilowo niedostępne. Spróbuj ponownie za chwilę.",
-};
-
-const DEFAULT_ERROR_MESSAGE = "Nie udało się pobrać danych administracyjnych. Spróbuj ponownie za chwilę.";
-
-export function getAdminUsersErrorMessage(code: AdminApiFailureCode) {
-  return ERROR_MESSAGES[code] ?? DEFAULT_ERROR_MESSAGE;
-}
-
-function ErrorNotice({ code }: { code: AdminApiFailureCode }) {
+function ErrorNotice({ locale, code }: { locale: Locale; code: AdminApiFailureCode }) {
   return (
     <div className="border-danger-line bg-danger-soft text-danger rounded-lg border p-4 text-sm">
-      {getAdminUsersErrorMessage(code)} (kod: {code})
+      {getAdminUsersErrorMessage(locale, code)} {getAdminCopy(locale).table.errorCode(code)}
     </div>
   );
 }
 
-export default function AdminUsersTable({ initialResponse, currentAdminUserId }: AdminUsersTableProps) {
+export default function AdminUsersTable({ locale, initialResponse, currentAdminUserId }: AdminUsersTableProps) {
+  const copy = getAdminCopy(locale).table;
   const {
     result,
     emailSearch,
@@ -119,7 +73,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
         }}
       >
         <label className="text-ink-soft text-sm font-medium">
-          E-mail
+          {copy.emailLabel}
           <input
             type="search"
             name="q"
@@ -131,7 +85,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
           />
         </label>
         <label className="text-ink-soft text-sm font-medium">
-          Status
+          {copy.statusLabel}
           <select
             name="status"
             value={status}
@@ -140,7 +94,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             }}
             className={SELECT_CLASS_NAME}
           >
-            {STATUS_OPTIONS.map((option) => (
+            {copy.statusOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -148,7 +102,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
           </select>
         </label>
         <label className="text-ink-soft text-sm font-medium">
-          Plan
+          {copy.planLabel}
           <select
             name="plan"
             value={plan}
@@ -157,7 +111,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             }}
             className={SELECT_CLASS_NAME}
           >
-            {PLAN_OPTIONS.map((option) => (
+            {copy.planOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -165,7 +119,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
           </select>
         </label>
         <label className="text-ink-soft text-sm font-medium">
-          Sortowanie
+          {copy.sortLabel}
           <select
             name="sort"
             value={sort}
@@ -174,7 +128,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             }}
             className={SELECT_CLASS_NAME}
           >
-            {SORT_OPTIONS.map((option) => (
+            {copy.sortOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -186,31 +140,31 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
           className="bg-brand-strong text-surface focus-visible:ring-brand-ring hover:bg-brand-deep inline-flex h-11 items-center justify-center gap-2 self-end rounded-md px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
         >
           <Search aria-hidden="true" className="size-4" />
-          Szukaj
+          {copy.search}
         </button>
       </form>
 
-      {errorCode ? <ErrorNotice code={errorCode} /> : null}
+      {errorCode ? <ErrorNotice locale={locale} code={errorCode} /> : null}
 
       <div className="border-line bg-surface overflow-x-auto rounded-lg border">
-        <table aria-label="Lista użytkowników" className="w-full min-w-[1000px] border-collapse text-left text-sm">
+        <table aria-label={copy.tableAria} className="w-full min-w-[1000px] border-collapse text-left text-sm">
           <thead className="text-ink-soft bg-brand-tint">
             <tr>
-              <th className="px-4 py-3 font-semibold">E-mail</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Plan</th>
-              <th className="px-4 py-3 font-semibold">Utworzone</th>
-              <th className="px-4 py-3 font-semibold">Aktywność</th>
-              <th className="px-4 py-3 font-semibold">Sesje</th>
-              <th className="px-4 py-3 font-semibold">Podsumowania</th>
-              <th className="px-4 py-3 font-semibold">Akcje</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.email}</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.status}</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.plan}</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.created}</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.activity}</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.sessions}</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.summaries}</th>
+              <th className="px-4 py-3 font-semibold">{copy.headers.actions}</th>
             </tr>
           </thead>
           <tbody>
             {result.users.length === 0 ? (
               <tr>
                 <td className="text-ink-muted px-4 py-5" colSpan={8}>
-                  Brak użytkowników dla wybranych filtrów.
+                  {copy.empty}
                 </td>
               </tr>
             ) : (
@@ -231,7 +185,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                             : "text-brand-strong bg-brand-tint inline-flex rounded-md px-2 py-1 text-xs font-medium"
                         }
                       >
-                        {getStatusLabel(user)}
+                        {isBlocked ? copy.statusBlocked : copy.statusActive}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -243,13 +197,13 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                             : "text-ink-muted bg-surface-soft inline-flex rounded-md px-2 py-1 text-xs font-medium"
                         }
                       >
-                        {getPlanLabel(user)}
+                        {isPremium ? copy.planPremium : copy.planFree}
                       </span>
                     </td>
-                    <td className="text-ink-muted px-4 py-3">{formatDate(user.profile.accountCreatedAt)}</td>
-                    <td className="text-ink-muted px-4 py-3">{formatDate(user.profile.lastActivityAt)}</td>
+                    <td className="text-ink-muted px-4 py-3">{formatDate(locale, user.profile.accountCreatedAt)}</td>
+                    <td className="text-ink-muted px-4 py-3">{formatDate(locale, user.profile.lastActivityAt)}</td>
                     <td className="text-ink-muted px-4 py-3">
-                      {user.counters.totalSessions} razem, {user.counters.activeSessions} aktywne
+                      {copy.sessionsCell(user.counters.totalSessions, user.counters.activeSessions)}
                     </td>
                     <td className="text-ink-muted px-4 py-3">{user.counters.approvedSummaries}</td>
                     <td className="px-4 py-3">
@@ -267,18 +221,18 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                           ) : (
                             <Crown aria-hidden="true" className="size-4" />
                           )}
-                          {isPremium ? "Odbierz premium" : "Nadaj premium"}
+                          {isPremium ? copy.revokePremium : copy.grantPremium}
                         </button>
                         {!isBlocked ? (
                           <select
                             value={getReason(user.profile.userId)}
-                            aria-label="Powód blokady"
+                            aria-label={copy.blockReasonAria}
                             onChange={(event) => {
                               setReason(user.profile.userId, event.target.value as AdminBlockReasonCode);
                             }}
                             className="border-brand-soft text-ink bg-surface h-11 rounded-md border px-2 text-xs"
                           >
-                            {REASON_OPTIONS.map((option) => (
+                            {copy.reasonOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
                               </option>
@@ -298,7 +252,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
                           ) : (
                             <Ban aria-hidden="true" className="size-4" />
                           )}
-                          {isBlocked ? "Odblokuj" : "Zablokuj"}
+                          {isBlocked ? copy.unblock : copy.block}
                         </button>
                       </div>
                     </td>
@@ -311,9 +265,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
       </div>
 
       <div className="text-ink-muted flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <span>
-          Strona {result.pagination.page}, użytkowników: {result.pagination.totalCount}
-        </span>
+        <span>{copy.pageSummary(result.pagination.page, result.pagination.totalCount)}</span>
         <div className="flex gap-2">
           <button
             type="button"
@@ -323,7 +275,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             }}
             className="border-brand-soft text-brand-strong bg-surface h-11 rounded-md border px-3 text-sm font-medium disabled:opacity-50"
           >
-            Poprzednia
+            {copy.previous}
           </button>
           <button
             type="button"
@@ -333,7 +285,7 @@ export default function AdminUsersTable({ initialResponse, currentAdminUserId }:
             }}
             className="border-brand-soft text-brand-strong bg-surface h-11 rounded-md border px-3 text-sm font-medium disabled:opacity-50"
           >
-            Następna
+            {copy.next}
           </button>
         </div>
       </div>

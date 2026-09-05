@@ -1,11 +1,11 @@
 import { SessionTranscriptionError, type SessionTranscriptionErrorCategory } from "./errors";
 import { getOpenRouterTranscriptionConfig, resolveTranscriptionModel } from "./env";
+import type { Locale } from "@/lib/i18n/locale";
 import type { SessionTranscriptionResponse, TranscribeSessionAudioInput } from "./types";
 
 const OPENROUTER_TRANSCRIPTION_ENDPOINT = "https://openrouter.ai/api/v1/audio/transcriptions";
 const OPENROUTER_TRANSCRIPTION_TIMEOUT_MS = 30_000;
 const OPENROUTER_TRANSCRIPTION_TEMPERATURE = 0;
-const OPENROUTER_TRANSCRIPTION_LANGUAGE = "pl";
 
 type OpenRouterTranscriptionFetcher = typeof fetch;
 
@@ -22,7 +22,7 @@ interface OpenRouterTranscriptionRequestBody {
     data: string;
     format: "webm";
   };
-  language: "pl";
+  language: Locale;
   temperature: 0;
 }
 
@@ -67,7 +67,7 @@ export function buildOpenRouterTranscriptionRequest(
       data: input.audioBase64,
       format: input.format,
     },
-    language: OPENROUTER_TRANSCRIPTION_LANGUAGE,
+    language: input.language,
     temperature: OPENROUTER_TRANSCRIPTION_TEMPERATURE,
   };
 }

@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+
 export type SessionSummaryProviderName = "openrouter";
 export type SessionSummaryMessageRole = "user" | "assistant";
 
@@ -25,7 +27,8 @@ export interface GenerateSessionSummaryInput {
   /** Obecność (również pustego tekstu) włącza aktualizację pamięci całej historii awatara. */
   continuityMemory?: string;
   modality?: SessionSummaryModalityContext;
-  locale?: string;
+  /** Język podsumowania — język interfejsu w chwili żądania. */
+  locale: Locale;
 }
 
 export interface SessionSummaryPromptMessage {

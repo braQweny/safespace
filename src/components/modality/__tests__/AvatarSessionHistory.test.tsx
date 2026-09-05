@@ -7,7 +7,15 @@ import type {
   SessionHistoryListResponse,
 } from "@/lib/session-flow/session-history-contract";
 import AvatarSessionHistory from "../AvatarSessionHistory";
-import { sessionStatusLegend } from "../SessionHistoryList";
+import { getSessionStatusLegend } from "../SessionHistoryList";
+
+const sessionStatusLegend = getSessionStatusLegend("pl");
+
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
 
 /*
  * Podgląd, podsumowanie i potwierdzenie usunięcia nie wchodzą do sekcji przez

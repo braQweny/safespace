@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
-import type {
-  SessionHistoryFailureCode,
-  SessionHistoryListResponse,
-} from "@/lib/session-flow/session-history-contract";
+import { getModalityCopy } from "@/lib/modality-copy";
+import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
+import { useLocale } from "@/components/hooks/useLocale";
 import { useSessionDeletion } from "@/components/hooks/useSessionDeletion";
 import { useSessionHistoryDetail } from "@/components/hooks/useSessionHistoryDetail";
 import { useSessionHistoryList } from "@/components/hooks/useSessionHistoryList";
@@ -13,6 +12,7 @@ import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { cn } from "@/lib/utils";
 import SessionHistoryDetailPanel from "./SessionHistoryDetail";
 import SessionHistoryList, { getOpenDetailButtonId } from "./SessionHistoryList";
+import { getSessionHistoryCopy } from "./session-history-copy";
 
 interface AvatarSessionHistoryProps {
   selectedAvatar: SelectedModalityAvatar | null;
@@ -29,20 +29,10 @@ interface AvatarSessionHistoryProps {
   className?: string;
 }
 
-const errorCopy: Record<SessionHistoryFailureCode, string> = {
-  missing_auth: "Zaloguj się, żeby zobaczyć historię rozmów.",
-  invalid_avatar: "Nie udało się rozpoznać wybranego awatara.",
-  invalid_page: "Nieprawidłowy numer strony historii.",
-  session_not_found: "Nie znaleziono tej rozmowy albo została już usunięta.",
-  read_failed: "Nie udało się odczytać historii. Spróbuj ponownie za chwilę.",
-  delete_failed: "Nie udało się usunąć rozmowy. Spróbuj ponownie za chwilę.",
-  session_data_unavailable: "Historia rozmów jest chwilowo niedostępna.",
-  account_blocked: "Konto jest zablokowane.",
-  account_access_unavailable: "Nie udało się zweryfikować dostępu do konta. Spróbuj ponownie.",
-};
-
 export default function AvatarSessionHistory(props: AvatarSessionHistoryProps) {
   const { selectedAvatar, controls, className } = props;
+  const locale = useLocale();
+  const copy = getSessionHistoryCopy(locale);
   return (
     <section
       className={cn("border-line-strong bg-surface shadow-card mt-8 rounded-[20px] border p-5 sm:p-6", className)}
@@ -50,9 +40,13 @@ export default function AvatarSessionHistory(props: AvatarSessionHistoryProps) {
       <div className="space-y-4">
         <div>
           <h2 id="history-title" tabIndex={-1} className="text-ink font-serif text-2xl leading-tight font-medium">
-            Historia rozmów
+            {copy.title}
           </h2>
-          {selectedAvatar ? <p className="text-ink-muted mt-1 text-sm">{selectedAvatar.avatarName}</p> : null}
+          {selectedAvatar ? (
+            <p className="text-ink-muted mt-1 text-sm">
+              {getModalityCopy(locale, selectedAvatar.modalityId).avatarName}
+            </p>
+          ) : null}
         </div>
         {controls}
       </div>
@@ -70,6 +64,8 @@ function SessionHistoryContent({
   autoOpenSessionId = null,
   contextNotice = null,
 }: AvatarSessionHistoryProps) {
+  const copy = getSessionHistoryCopy(useLocale());
+  const errorCopy = copy.errors;
   const [notice, setNotice] = useState<string | null>(null);
   const isHydrated = useIsHydrated();
   const detailPanelRef = useRef<HTMLDialogElement | null>(null);
@@ -102,7 +98,7 @@ function SessionHistoryContent({
 
   const { pendingDeleteId, deletingId, requestDelete, cancelDelete, confirmDelete } = useSessionDeletion({
     onDeleted: async (sessionId) => {
-      setNotice("Zapis rozmowy został usunięty.");
+      setNotice(copy.deleted);
       removeHistoryItem(sessionId);
 
       if (detail?.session.id === sessionId) {
@@ -225,7 +221,7 @@ function SessionHistoryContent({
 
       {!selectedAvatar ? (
         <div className="bg-surface-soft text-ink-muted mt-5 rounded-xl p-4 text-sm leading-6">
-          Wybierz perspektywę, żeby zobaczyć jej zapisane rozmowy.
+          {copy.choosePerspective}
         </div>
       ) : null}
 
@@ -244,14 +240,12 @@ function SessionHistoryContent({
       {history.status === "loading" && history.items.length === 0 && selectedAvatar ? (
         <div className="bg-surface-soft text-ink-muted mt-5 flex min-h-32 items-center justify-center rounded-xl text-sm">
           <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
-          Ładowanie historii
+          {copy.loading}
         </div>
       ) : null}
 
       {history.status === "ready" && history.items.length === 0 ? (
-        <div className="bg-surface-soft text-ink-muted mt-5 rounded-xl p-4 text-sm leading-6">
-          Brak zapisanych rozmów dla tej perspektywy.
-        </div>
+        <div className="bg-surface-soft text-ink-muted mt-5 rounded-xl p-4 text-sm leading-6">{copy.empty}</div>
       ) : null}
 
       {history.items.length > 0 ? (
@@ -268,7 +262,7 @@ function SessionHistoryContent({
       {showDetailPanel ? (
         <dialog
           ref={detailPanelRef}
-          aria-label="Zapis rozmowy"
+          aria-label={copy.dialogAria}
           tabIndex={-1}
           onCancel={(event) => {
             event.preventDefault();
@@ -297,7 +291,7 @@ function SessionHistoryContent({
       ) : null}
       {selectedAvatar && showPagination ? (
         <div className="border-line mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-ink-muted text-sm">Strona {activePage}</p>
+          <p className="text-ink-muted text-sm">{copy.page(activePage)}</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -308,7 +302,7 @@ function SessionHistoryContent({
               className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-              Poprzednia
+              {copy.previous}
             </button>
             <button
               type="button"
@@ -318,7 +312,7 @@ function SessionHistoryContent({
               }}
               className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Następna
+              {copy.next}
               <ChevronRight aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>

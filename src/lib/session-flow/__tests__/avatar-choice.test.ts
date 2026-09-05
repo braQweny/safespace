@@ -30,7 +30,8 @@ describe("readCurrentAvatarChoice", () => {
         selected: {
           modalityId: "cbt",
           avatarId: "cbt-guide",
-          avatarName: "Marek, praktyczny przewodnik",
+          avatarFirstName: "Marek",
+          assetPath: "/avatars/cbt-guide.webp",
         },
       },
     });

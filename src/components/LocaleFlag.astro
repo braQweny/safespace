@@ -1,0 +1,37 @@
+---
+import type { Locale } from "@/lib/i18n/locale";
+
+/**
+ * Flaga języka jako inline SVG: CSP dopuszcza obrazy tylko z własnej domeny,
+ * a emoji flag nie renderuje się na Windowsie. Rysunek jest dekoracją —
+ * nazwę języka niesie tekst dla czytników ekranu obok, nie flaga.
+ */
+interface Props {
+  locale: Locale;
+  class?: string;
+}
+
+const { locale, class: className } = Astro.props;
+---
+
+<span
+  aria-hidden="true"
+  class:list={["ring-line inline-block h-3.5 w-5 shrink-0 overflow-hidden rounded-[3px] ring-1", className]}
+>
+  {
+    locale === "pl" ? (
+      <svg viewBox="0 0 16 10" preserveAspectRatio="none" class="block h-full w-full">
+        <rect width="16" height="5" fill="#ffffff" />
+        <rect y="5" width="16" height="5" fill="#dc143c" />
+      </svg>
+    ) : (
+      <svg viewBox="0 0 60 36" preserveAspectRatio="none" class="block h-full w-full">
+        <rect width="60" height="36" fill="#012169" />
+        <path d="M0 0 L60 36 M60 0 L0 36" stroke="#ffffff" stroke-width="7" />
+        <path d="M0 0 L60 36 M60 0 L0 36" stroke="#c8102e" stroke-width="2.5" />
+        <path d="M30 0 V36 M0 18 H60" stroke="#ffffff" stroke-width="11" />
+        <path d="M30 0 V36 M0 18 H60" stroke="#c8102e" stroke-width="6" />
+      </svg>
+    )
+  }
+</span>

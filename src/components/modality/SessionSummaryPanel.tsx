@@ -1,8 +1,10 @@
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { useLocale } from "@/components/hooks/useLocale";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import type { SessionSummaryFailureCode } from "@/lib/session-flow/session-summary-contract";
 import type { SessionSummaryStatus } from "@/components/hooks/useSessionSummary";
 import { cn } from "@/lib/utils";
+import { getSessionSummaryPanelCopy } from "./session-summary-panel-copy";
 
 interface SessionSummaryPanelProps {
   summaryState: LatestSessionSummaryState;
@@ -13,53 +15,18 @@ interface SessionSummaryPanelProps {
   onApprove: () => void;
 }
 
-const summaryErrorCopy: Record<SessionSummaryFailureCode, string> = {
-  missing_auth: "Zaloguj się, żeby zarządzać podsumowaniem.",
-  session_data_unavailable: "Podsumowania są chwilowo niedostępne.",
-  session_not_found: "Nie znaleziono tej rozmowy albo została już usunięta.",
-  session_not_summarizable: "Tę rozmowę można podsumować dopiero po zakończeniu, przerwaniu albo wygaśnięciu.",
-  summary_unavailable: "Nie znaleziono podsumowania do zatwierdzenia.",
-  generation_failed: "Nie udało się zapisać podsumowania. Spróbuj ponownie za chwilę.",
-  approval_failed: "Nie udało się zatwierdzić podsumowania. Spróbuj ponownie za chwilę.",
-  read_failed: "Nie udało się odczytać podsumowania. Spróbuj ponownie za chwilę.",
-  provider_unavailable: "Nie udało się wygenerować podsumowania. Możesz spróbować ponownie później.",
-  account_blocked: "Konto jest zablokowane.",
-  account_access_unavailable: "Nie udało się zweryfikować dostępu do konta. Spróbuj ponownie.",
-};
-
 interface SummaryGateState {
-  /** Napis na kaflu stanu — jedno zdanie o tym, czy coś przechodzi dalej. */
-  badge: string;
   badgeClassName: string;
-  /** Zdanie pod kaflem: co z tego wynika dla następnej rozmowy. */
-  consequence: string;
   /** Łuk ze znaku marki wypełnia się dopiero wtedy, gdy coś naprawdę przechodzi. */
   arch: "open" | "closed" | "dashed";
   paperClassName: string;
 }
 
+// Napisy kafla (badge) i zdanie pod nim żyją w module tekstów; tu tylko wygląd.
 const summaryGateStates: Record<Exclude<LatestSessionSummaryState["kind"], "none">, SummaryGateState> = {
-  preview: {
-    badge: "Podgląd podsumowania",
-    badgeClassName: "bg-surface-soft text-ink-muted",
-    consequence: "Opcjonalne streszczenie tej jednej rozmowy.",
-    arch: "open",
-    paperClassName: "bg-surface-soft",
-  },
-  approved: {
-    badge: "Zapisane podsumowanie",
-    badgeClassName: "bg-brand-tint text-brand-deep",
-    consequence: "Pamięć awatara obejmuje wszystkie wcześniejsze rozmowy.",
-    arch: "closed",
-    paperClassName: "bg-brand-tint",
-  },
-  stale: {
-    badge: "Ta wersja została zastąpiona",
-    badgeClassName: "bg-surface-soft text-ink-muted",
-    consequence: "Starsza wersja podsumowania tej rozmowy.",
-    arch: "dashed",
-    paperClassName: "bg-surface-soft",
-  },
+  preview: { badgeClassName: "bg-surface-soft text-ink-muted", arch: "open", paperClassName: "bg-surface-soft" },
+  approved: { badgeClassName: "bg-brand-tint text-brand-deep", arch: "closed", paperClassName: "bg-brand-tint" },
+  stale: { badgeClassName: "bg-surface-soft text-ink-muted", arch: "dashed", paperClassName: "bg-surface-soft" },
 };
 
 /** Znak podglądu podsumowania jednej rozmowy. */
@@ -84,8 +51,10 @@ export default function SessionSummaryPanel({
   canSummarize,
   onGenerate,
 }: SessionSummaryPanelProps) {
+  const copy = getSessionSummaryPanelCopy(useLocale());
   const summaryIsBusy = summaryStatus !== "idle";
   const gate = summaryState.kind === "none" ? null : summaryGateStates[summaryState.kind];
+  const gateCopy = summaryState.kind === "none" ? null : copy.gates[summaryState.kind];
   const isApproved = summaryState.kind === "approved";
 
   return (
@@ -93,16 +62,14 @@ export default function SessionSummaryPanel({
       <div className="flex items-center gap-2.5">
         <GateArch variant={gate?.arch ?? "open"} />
         <p className={cn("font-serif text-xl leading-snug font-medium", isApproved ? "text-brand-deep" : "text-ink")}>
-          Podsumowanie tej rozmowy
+          {copy.title}
         </p>
       </div>
 
       {/* Jedno zdanie zamiast trzech: co to jest i że pamięć rozmów nie czeka na ten krok. */}
-      <p className="text-ink-muted mt-2">
-        Krótkie streszczenie tylko tej rozmowy, do przeczytania w historii. Pamięć rozmów uzupełnia się sama.
-      </p>
+      <p className="text-ink-muted mt-2">{copy.intro}</p>
 
-      {summaryState.kind !== "none" && gate ? (
+      {summaryState.kind !== "none" && gate && gateCopy ? (
         <>
           <div className={cn("mt-4 rounded-xl p-4", gate.paperClassName)}>
             {/* Podsumowanie to treść rozmowy, więc dostaje szeryf — czyta się je, nie skanuje. */}
@@ -117,9 +84,9 @@ export default function SessionSummaryPanel({
                 gate.badgeClassName,
               )}
             >
-              {gate.badge}
+              {gateCopy.badge}
             </span>
-            <span className="text-ink-muted">{gate.consequence}</span>
+            <span className="text-ink-muted">{gateCopy.consequence}</span>
           </div>
         </>
       ) : null}
@@ -127,13 +94,11 @@ export default function SessionSummaryPanel({
       {summaryErrorCode ? (
         <div className="border-danger-line bg-danger-soft text-danger mt-4 flex gap-2 rounded-xl border p-3">
           <AlertCircle aria-hidden="true" className="mt-1 h-4 w-4 shrink-0" />
-          <p>{summaryErrorCopy[summaryErrorCode]}</p>
+          <p>{copy.errors[summaryErrorCode]}</p>
         </div>
       ) : null}
 
-      {!canSummarize ? (
-        <p className="text-ink-muted mt-3">Aktywne albo puste rozmowy nie mogą zostać podsumowane.</p>
-      ) : null}
+      {!canSummarize ? <p className="text-ink-muted mt-3">{copy.notSummarizable}</p> : null}
 
       {/*
         Jedna decyzja niesie ten panel, więc ma jeden przycisk główny. „Napisz od
@@ -153,7 +118,7 @@ export default function SessionSummaryPanel({
             ) : (
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
             )}
-            Wygeneruj podsumowanie
+            {copy.generate}
           </button>
         ) : (
           <>
@@ -168,7 +133,7 @@ export default function SessionSummaryPanel({
               ) : (
                 <RefreshCw aria-hidden="true" className="text-brand h-4 w-4" />
               )}
-              Napisz od nowa
+              {copy.rewrite}
             </button>
           </>
         )}

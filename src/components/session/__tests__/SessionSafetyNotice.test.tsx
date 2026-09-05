@@ -1,7 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CrisisResourceRegion } from "@/lib/session-safety/types";
 import SessionSafetyNotice from "../SessionSafetyNotice";
+
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
 
 const polandRegion: CrisisResourceRegion = {
   id: "pl",

@@ -1,0 +1,146 @@
+---
+import PrivacyCrisisRegions from "@/components/privacy/PrivacyCrisisRegions.astro";
+import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
+import { getSupportContact } from "@/lib/support-contact";
+
+/**
+ * Polska treść strony „Prywatność i zasady”. Proza prawna z linkami w środku
+ * zdań żyje w partialu per język, nie w obiekcie tekstów; id sekcji są
+ * neutralne i identyczne w obu partialach (pilnuje tego test).
+ */
+const support = getSupportContact();
+---
+
+<section id="what-is" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Czym jest SafeSpace</h2>
+  <p class="text-ink-soft mt-3">
+    SafeSpace to edukacyjna symulacja rozmowy wspierana przez AI. Pokazuje, jak może wyglądać praca w różnych nurtach
+    psychoterapii, i pomaga uporządkować myśli przed realną rozmową ze specjalistą.
+  </p>
+  <ul class="text-ink-soft mt-3 list-disc space-y-1 pl-5">
+    <li>Nie jest terapią, diagnozą ani poradą medyczną.</li>
+    <li>Nie zastępuje kontaktu z psychoterapeutą, lekarzem ani pomocą kryzysową.</li>
+    <li>Nie dobiera nurtu terapii za Ciebie — wybór perspektywy ma charakter edukacyjny.</li>
+  </ul>
+</section>
+
+<section id="data" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Jakie dane przetwarzamy</h2>
+  <dl class="mt-3 space-y-4">
+    <div>
+      <dt class="text-ink font-semibold">Konto</dt>
+      <dd class="text-ink-soft mt-1">
+        Adres e‑mail i dane logowania (hasło albo konto Google) oraz wybrany język interfejsu, zapisywany także w pliku
+        cookie na tym urządzeniu. Konto jest potrzebne, żeby rozmowy i ich historia pozostały prywatne i widoczne tylko
+        dla Ciebie.
+      </dd>
+    </div>
+    <div>
+      <dt class="text-ink font-semibold">Treść rozmów</dt>
+      <dd class="text-ink-soft mt-1">
+        Wiadomości, które piszesz lub dyktujesz, odpowiedzi awatara, automatyczne podsumowanie historii osobne dla
+        każdego awatara oraz opcjonalne podsumowania pojedynczych rozmów. Nagranie głosu służy wyłącznie do przepisania
+        na tekst i nie jest zapisywane.
+      </dd>
+    </div>
+    <div>
+      <dt class="text-ink font-semibold">Dane o korzystaniu</dt>
+      <dd class="text-ink-soft mt-1">
+        Data, status i długość rozmowy, wybrana perspektywa oraz techniczne dzienniki działania serwisu. Dzienniki nie
+        zawierają treści rozmów, adresów e‑mail ani pełnych identyfikatorów konta.
+      </dd>
+    </div>
+  </dl>
+</section>
+
+<section id="who-sees" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Kto widzi Twoje rozmowy</h2>
+  <p class="text-ink-soft mt-3">
+    Tylko Ty. Treść rozmów i podsumowań jest dostępna wyłącznie po zalogowaniu na Twoje konto. Administratorzy SafeSpace
+    widzą jedynie statystyki zbiorcze i dane konta (np. datę założenia, status, plan) — nie mają dostępu do treści
+    rozmów. Nie ma też „tylnych drzwi” do podglądu rozmów; każdy ewentualny wyjątek prawny lub bezpieczeństwa wymagałby
+    osobnej, jawnie opisanej procedury.
+  </p>
+</section>
+
+<section id="ai" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Jak działa AI w rozmowie</h2>
+  <p class="text-ink-soft mt-3">
+    Odpowiedzi awatara generuje model językowy udostępniany przez zewnętrznego dostawcę (OpenRouter). Żeby to było
+    możliwe, treść bieżącej rozmowy — ostatnie wiadomości i automatyczne podsumowanie wcześniejszych rozmów z tym
+    awatarem — jest przesyłana do tego dostawcy w celu wygenerowania odpowiedzi. Każda Twoja wiadomość przechodzi też
+    przez automatyczną ocenę bezpieczeństwa; jeśli wskazuje na pilne zagrożenie, symulacja zostaje zatrzymana i
+    pokazujemy numery pomocy.
+  </p>
+  <p class="text-ink-soft mt-3">
+    Żądania tekstowe są kierowane wyłącznie do endpointów deklarujących brak zbierania danych i zerową retencję (ZDR).
+    Dyktowanie korzysta z osobnego interfejsu transkrypcji OpenRouter: nagranie wysyłamy dopiero po potwierdzeniu
+    aktywnej sesji i nie zapisujemy go w SafeSpace; do historii trafia wyłącznie przepisany tekst, jeśli go wyślesz.
+  </p>
+  <p class="text-ink-soft mt-3">
+    Każda nowa rozmowa automatycznie otrzymuje podsumowanie wszystkich dostępnych wcześniejszych rozmów z tym samym
+    awatarem. Przy przygotowaniu pamięci AI przetwarza zapis tych rozmów partiami — także w tle na ekranie zakończenia
+    rozmowy i podczas pobytu w panelu. Do nowej rozmowy trafia skrócone podsumowanie, a nie pełne transkrypcje. Pamięć
+    różnych awatarów jest rozdzielona. Podsumowanie może pomijać szczegóły lub zawierać błędy — możesz korygować je w
+    rozmowie. Aktualny zapis pamięci możesz przeczytać w panelu. Awatar, podsumowania i pamięć posługują się językiem
+    interfejsu wybranym w chwili rozmowy; po zmianie języka wcześniejsze zapisy zostają w języku, w którym powstały, a
+    pamięć może zostać przepisana w nowym.
+  </p>
+</section>
+
+<section id="deletion" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Usuwanie i kontrola</h2>
+  <ul class="text-ink-soft mt-3 list-disc space-y-2 pl-5">
+    <li>
+      Aby usunąć rozmowę, otwórz jej zapis w sekcji „Historia rozmów”, wybierz „Usuń rozmowę” i potwierdź. Usunięcie
+      kasuje treść wiadomości i podsumowań; pozostaje tylko pozbawiony treści ślad, że rozmowa istniała — dlatego
+      usunięcie nie przywraca wykorzystanej rozmowy z puli.
+    </li>
+    <li>
+      Usunięcie rozmowy kasuje też wspólną pamięć tego awatara i jej kopie używane jako kontekst. Przy następnym starcie
+      pamięć zostanie odbudowana z pozostałych rozmów. Nie usuwa to wypowiedzi, które już zapisano w innych rozmowach.
+    </li>
+    <li>
+      Całe konto usuniesz w ustawieniach konta: wybierz „Usuń konto” i potwierdź. Usunięcie obejmuje profil, wszystkie
+      rozmowy, wiadomości, podsumowania, pamięć awatarów i zapisane ustawienia. Nie można go cofnąć. Zdarzenia
+      administracyjne pozostają bez identyfikatora usuniętego konta.
+    </li>
+  </ul>
+</section>
+
+<section id="plans" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Plan bezpłatny i premium</h2>
+  <p class="text-ink-soft mt-3">
+    Plan bezpłatny obejmuje {FREE_PLAN_SESSION_LIMIT} rozmowy z limitem czasu na konto (łącznie, także usunięte). Plan premium
+    nie ma tego limitu. W tej chwili premium nie jest sprzedawane w aplikacji — jest przyznawane ręcznie przez zespół SafeSpace.
+    Jeśli chcesz rozmawiać dalej, skontaktuj się z nami.
+  </p>
+</section>
+
+<section id="crisis" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Pomoc w kryzysie</h2>
+  <p class="text-ink-soft mt-3">
+    SafeSpace nie jest pomocą kryzysową i nie kontaktuje służb. Jeśli jesteś w bezpośrednim niebezpieczeństwie, nie
+    czekaj na odpowiedź aplikacji.
+  </p>
+  <PrivacyCrisisRegions />
+</section>
+
+<section id="contact" class="scroll-mt-20">
+  <h2 class="text-ink text-xl font-semibold">Kontakt</h2>
+  <p class="text-ink-soft mt-3">
+    {
+      support.mailtoHref ? (
+        <>
+          Pytania o dane, usunięcie konta, dostęp do planu premium albo zablokowane konto:{" "}
+          <a href={support.mailtoHref} class="text-brand font-semibold underline-offset-4 hover:underline">
+            {support.email}
+          </a>
+          .
+        </>
+      ) : (
+        "Adres kontaktowy zespołu SafeSpace zostanie podany w tym miejscu."
+      )
+    }
+  </p>
+</section>

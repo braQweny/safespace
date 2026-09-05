@@ -752,6 +752,7 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
       `insert into public.user_avatar_choices(user_id, modality_id, avatar_id) values ($1, 'cbt', 'cbt-guide');`,
       [owner.userId],
     );
+    await db.admin.query(`insert into public.user_preferences(user_id, locale) values ($1, 'pl');`, [owner.userId]);
     await owner.client.query(
       `insert into public.session_summaries(session_id, user_id, summary_text) values ($1, $2, 'Podsumowanie');`,
       [historyId, owner.userId],
@@ -779,6 +780,7 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
       "avatar_memory_sources",
       "avatar_session_contexts",
       "user_avatar_choices",
+      "user_preferences",
       "admin_user_profiles",
       "admin_users",
     ];
@@ -883,5 +885,72 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
         0,
       );
     }
+  });
+
+  // Preferencja języka: własny wiersz przez upsert w kształcie PostgREST
+  // (każda kolumna payloadu ląduje w `on conflict do update set`).
+  const upsertLocale = (client, userId, locale) =>
+    client.query(
+      `insert into public.user_preferences(user_id, locale) values ($1, $2)
+       on conflict (user_id) do update set user_id = excluded.user_id, locale = excluded.locale
+       returning locale, created_at, updated_at`,
+      [userId, locale],
+    );
+
+  it("lets an owner upsert and read only their own locale preference", async () => {
+    const owner = await db.owner();
+    const first = (await upsertLocale(owner.client, owner.userId, "pl")).rows[0];
+    assert.equal(first.locale, "pl");
+    const second = (await upsertLocale(owner.client, owner.userId, "en")).rows[0];
+    assert.equal(second.locale, "en");
+    assert.equal(String(second.created_at), String(first.created_at));
+    assert.ok(second.updated_at >= first.updated_at);
+    assert.equal(
+      (await owner.client.query("select locale from public.user_preferences where user_id=$1", [owner.userId])).rows[0]
+        .locale,
+      "en",
+    );
+    await assert.rejects(upsertLocale(owner.client, owner.userId, "de"), { code: "23514" });
+    await assert.rejects(
+      owner.client.query("update public.user_preferences set updated_at = now() where user_id=$1", [owner.userId]),
+      { code: "42501" },
+    );
+  });
+
+  it("isolates locale preferences from other users, admins and anon", async () => {
+    const owner = await db.owner();
+    const other = await db.owner();
+    await db.admin.query("insert into public.admin_users(user_id) values ($1)", [other.userId]);
+    await upsertLocale(owner.client, owner.userId, "pl");
+    assert.equal(
+      (await other.client.query("select count(*)::int n from public.user_preferences where user_id=$1", [owner.userId]))
+        .rows[0].n,
+      0,
+    );
+    assert.equal(
+      (await other.client.query("update public.user_preferences set locale='en' where user_id=$1", [owner.userId]))
+        .rowCount,
+      0,
+    );
+    await assert.rejects(upsertLocale(other.client, owner.userId, "en"), { code: "42501" });
+    await upsertLocale(other.client, other.userId, "en");
+    // Przeniesienie wiersza na cudze konto: RLS odrzuca (0 wierszy) albo
+    // trigger przypina stary `user_id` — obie drogi blokują przejęcie.
+    const moved = await other.client.query(
+      "update public.user_preferences set user_id=$1 where user_id=$2 returning user_id",
+      [owner.userId, other.userId],
+    );
+    assert.equal(moved.rows[0]?.user_id ?? other.userId, other.userId);
+    assert.equal(
+      (await db.admin.query("select count(*)::int n from public.user_preferences where user_id=$1", [owner.userId]))
+        .rows[0].n,
+      1,
+    );
+    const { rows } = await db.admin.query(
+      "select has_table_privilege('anon','public.user_preferences','SELECT') as readable",
+    );
+    assert.equal(rows[0].readable, false);
+    await other.client.query("set role anon");
+    await assert.rejects(other.client.query("select * from public.user_preferences"), { code: "42501" });
   });
 });

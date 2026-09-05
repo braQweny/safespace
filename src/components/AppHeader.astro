@@ -1,4 +1,6 @@
 ---
+import LocaleSwitch from "@/components/LocaleSwitch.astro";
+import { getAppHeaderCopy } from "@/components/app-header-copy";
 import type { ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 
 interface Props {
@@ -11,6 +13,7 @@ interface Props {
 
 const { activeSession = null } = Astro.props;
 const { user } = Astro.locals;
+const copy = getAppHeaderCopy(Astro.locals.locale);
 const activeSessionHref = activeSession
   ? `/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`
   : null;
@@ -40,10 +43,7 @@ const activeSessionHref = activeSession
           class="border-line-accent bg-surface text-brand-deep hover:bg-surface-soft focus-visible:ring-brand-ring flex h-11 min-w-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
         >
           <span aria-hidden="true" class="bg-brand h-2 w-2 shrink-0 rounded-full" />
-          <span class="truncate">
-            Rozmowa w toku
-            {activeSession?.remainingMinutes ? ` · ok. ${activeSession.remainingMinutes} min` : null}
-          </span>
+          <span class="truncate">{copy.activePill(activeSession?.remainingMinutes ?? null)}</span>
         </a>
       ) : null
     }
@@ -53,7 +53,7 @@ const activeSessionHref = activeSession
         user ? (
           <details class="group relative" data-account-menu>
             <summary class="border-line-strong bg-surface text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex h-11 cursor-pointer list-none items-center gap-2 rounded-full border pr-3 pl-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
-              <span>Konto</span>
+              <span>{copy.account}</span>
               <svg
                 aria-hidden="true"
                 viewBox="0 0 24 24"
@@ -73,7 +73,7 @@ const activeSessionHref = activeSession
                 href="/account/security"
                 class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-11 items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2"
               >
-                Plan i ustawienia
+                {copy.planSettings}
               </a>
 
               {/*
@@ -84,7 +84,7 @@ const activeSessionHref = activeSession
               */}
               <div class="border-line mt-1 border-t px-2.5 pt-2 pb-1">
                 <p class="text-ink-muted text-xs" id="theme-switch-label">
-                  Wygląd
+                  {copy.appearance}
                 </p>
                 <div
                   role="group"
@@ -97,41 +97,49 @@ const activeSessionHref = activeSession
                     data-theme-option="system"
                     class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep h-11 flex-1 rounded-[10px] text-xs transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold"
                   >
-                    System
+                    {copy.themeSystem}
                   </button>
                   <button
                     type="button"
                     data-theme-option="light"
                     class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep h-11 flex-1 rounded-[10px] text-xs transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold"
                   >
-                    Jasny
+                    {copy.themeLight}
                   </button>
                   <button
                     type="button"
                     data-theme-option="dark"
                     class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep h-11 flex-1 rounded-[10px] text-xs transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold"
                   >
-                    Wieczorny
+                    {copy.themeDark}
                   </button>
                 </div>
+              </div>
+              {/* Język: ten sam kształt co przełącznik wyglądu, ale natywny formularz — wybór idzie do cookie i na konto. */}
+              <div class="border-line mt-1 border-t px-2.5 pt-2 pb-1">
+                <LocaleSwitch variant="segmented" />
               </div>
               <form method="POST" action="/api/auth/signout">
                 <button
                   type="submit"
                   class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2"
                 >
-                  Wyloguj się
+                  {copy.signOut}
                 </button>
               </form>
             </div>
           </details>
         ) : (
-          <a
-            href="/auth/signin"
-            class="border-line-accent text-ink hover:bg-surface-soft focus-visible:ring-brand-ring flex h-11 items-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-          >
-            Zaloguj się
-          </a>
+          <div class="flex items-center gap-2">
+            {/* Osoba, która trafia na angielski domyślny, musi znaleźć „Polski” bez czytania po angielsku. */}
+            <LocaleSwitch />
+            <a
+              href="/auth/signin"
+              class="border-line-accent text-ink hover:bg-surface-soft focus-visible:ring-brand-ring flex h-11 items-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+            >
+              {copy.signIn}
+            </a>
+          </div>
         )
       }
     </div>

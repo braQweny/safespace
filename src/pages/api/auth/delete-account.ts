@@ -1,5 +1,7 @@
 import type { APIRoute } from "astro";
+import { ACCOUNT_DELETION_RPC_CONFIRMATION, isAccountDeletionConfirmation } from "@/lib/account-deletion";
 import { createAuthRoute, readFormData } from "@/lib/auth-route";
+import { getFormString } from "@/lib/auth-validation";
 import { clearAuthCookies } from "@/lib/supabase";
 
 export const prerender = false;
@@ -22,14 +24,18 @@ export const POST: APIRoute = async (context) => {
   }
 
   const form = await readFormData(context.request);
-  if (form.get("confirmation") !== "USUWAM") {
+  // Słowo z języka ekranu — dowolnego, bo język mógł się zmienić między
+  // wczytaniem formularza a wysłaniem; funkcja bazy dostaje stały kontrakt.
+  if (!isAccountDeletionConfirmation(getFormString(form, "confirmation", false))) {
     return route.failureRedirect(DELETE_PATH, "account_deletion_confirmation_required");
   }
 
   // A blocked account keeps the right to erase its data. Ownership is enforced
   // again in SQL using auth.uid(), never an id supplied by this request.
   try {
-    const result = await route.supabase.rpc("delete_own_account", { p_confirmation: "USUWAM" });
+    const result = await route.supabase.rpc("delete_own_account", {
+      p_confirmation: ACCOUNT_DELETION_RPC_CONFIRMATION,
+    });
     if (result.error || result.data !== true) {
       return route.failureRedirect(DELETE_PATH, "account_deletion_failed", { provider: "supabase" });
     }

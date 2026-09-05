@@ -1,4 +1,7 @@
 ---
+import LocaleSwitch from "@/components/LocaleSwitch.astro";
+import { getAdminCopy } from "@/components/admin/admin-copy";
+
 interface Props {
   title: string;
   active: "overview" | "users";
@@ -6,9 +9,10 @@ interface Props {
 }
 
 const { title, active, adminEmail = null } = Astro.props;
+const copy = getAdminCopy(Astro.locals.locale).shell;
 const navItems = [
-  { href: "/admin", label: "Statystyki", id: "overview" },
-  { href: "/admin/users", label: "Użytkownicy", id: "users" },
+  { href: "/admin", label: copy.navOverview, id: "overview" },
+  { href: "/admin/users", label: copy.navUsers, id: "users" },
 ] as const;
 ---
 
@@ -21,9 +25,9 @@ const navItems = [
             href="/dashboard"
             class="focus:ring-brand-ring text-brand rounded text-sm font-medium transition-colors hover:underline focus:ring-2 focus:outline-none"
           >
-            ← Wróć do panelu
+            {copy.back}
           </a>
-          <p class="text-brand mt-2 text-sm font-medium">Administracja SafeSpace</p>
+          <p class="text-brand mt-2 text-sm font-medium">{copy.eyebrow}</p>
           <h1 class="text-ink mt-1 text-3xl leading-tight">{title}</h1>
         </div>
         <div class="flex flex-col items-start gap-2 sm:items-end">
@@ -32,17 +36,20 @@ const navItems = [
             /* Powłoka admina nie ma AppHeadera, więc bez tego formularza nie
                dało się stąd wylogować inaczej niż wracając do panelu. */
           }
-          <form method="POST" action="/api/auth/signout">
-            <button
-              type="submit"
-              class="border-line text-ink-muted hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface inline-flex h-11 items-center rounded-lg border px-3.5 text-sm transition-colors focus:outline-none focus-visible:ring-2"
-            >
-              Wyloguj się
-            </button>
-          </form>
+          <div class="flex items-center gap-2">
+            <LocaleSwitch />
+            <form method="POST" action="/api/auth/signout">
+              <button
+                type="submit"
+                class="border-line text-ink-muted hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface inline-flex h-11 items-center rounded-lg border px-3.5 text-sm transition-colors focus:outline-none focus-visible:ring-2"
+              >
+                {copy.signOut}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
-      <nav class="flex flex-wrap gap-2" aria-label="Nawigacja admina">
+      <nav class="flex flex-wrap gap-2" aria-label={copy.navAria}>
         {
           navItems.map((item) => (
             <a

@@ -1,8 +1,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SessionQuota } from "@/lib/session-data/types";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import SessionStartCard, { formatRemainingFreeSessions, resolveAutoStartRequest } from "../SessionStartCard";
+import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
 
 const freeQuota: SessionQuota = {
   plan: "free",
@@ -20,30 +27,15 @@ const premiumQuota: SessionQuota = {
   canStartSession: true,
 };
 
+// Katalog jest jedynym źródłem kształtu perspektywy; testy dokładają tylko krótkie hinty.
+const CBT_MODALITY = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
 const avatar = {
   modality: {
-    modalityId: "cbt",
-    avatarId: "cbt-guide",
-    modalityName: "Podejście poznawczo-behawioralne",
-    avatarName: "Marek, praktyczny przewodnik",
-    explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
-    focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
-    voiceSample: "oddzielmy na chwilę fakt od interpretacji…",
-    pairingNote:
-      "Marek mówi konkretnie i po ludzku, bez tonu trenera. Najpierw przyjmuje uczucie, potem porządkuje jedną sytuację i może zaproponować mały, dobrowolny krok. Jeśli wolisz zostać przy przeżywaniu zamiast porządkować, bliżej Ci może być do Nadii.",
+    ...CBT_MODALITY,
     sessionStyleHint: "Uzywa jasnej struktury.",
     summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-    assetPath: "/avatars/cbt-guide.webp",
-    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
-  selected: {
-    modalityId: "cbt",
-    avatarId: "cbt-guide",
-    modalityName: "Podejście poznawczo-behawioralne",
-    avatarName: "Marek, praktyczny przewodnik",
-    assetPath: "/avatars/cbt-guide.webp",
-    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
-  },
+  selected: toSelectedModalityAvatar(CBT_MODALITY),
 } satisfies SessionStartPageState["avatar"];
 
 const approvedSummary = {
@@ -56,7 +48,7 @@ const approvedSummary = {
 };
 
 function renderStartCard(initialState: SessionStartPageState) {
-  return renderToStaticMarkup(<SessionStartCard initialState={initialState} />);
+  return renderToStaticMarkup(<SessionStartCard locale="pl" initialState={initialState} />);
 }
 
 describe("SessionStartCard", () => {
@@ -179,6 +171,7 @@ describe("SessionStartCard", () => {
   it("offers a contact action after the allowance is exhausted when support e-mail is configured", () => {
     const html = renderToStaticMarkup(
       <SessionStartCard
+        locale="pl"
         initialState={{
           kind: "session_limit_reached",
           trialAvailable: false,
@@ -254,13 +247,15 @@ describe("SessionStartCard", () => {
   });
 
   it("formats the remaining free sessions only when there is something left to count", () => {
-    expect(formatRemainingFreeSessions(null)).toBeNull();
-    expect(formatRemainingFreeSessions(premiumQuota)).toBeNull();
-    expect(formatRemainingFreeSessions({ ...freeQuota, remainingSessions: 0, canStartSession: false })).toBeNull();
-    expect(formatRemainingFreeSessions({ ...freeQuota, usedSessions: 2, remainingSessions: 1 })).toBe(
+    expect(formatRemainingFreeSessions("pl", null)).toBeNull();
+    expect(formatRemainingFreeSessions("pl", premiumQuota)).toBeNull();
+    expect(
+      formatRemainingFreeSessions("pl", { ...freeQuota, remainingSessions: 0, canStartSession: false }),
+    ).toBeNull();
+    expect(formatRemainingFreeSessions("pl", { ...freeQuota, usedSessions: 2, remainingSessions: 1 })).toBe(
       "To ostatnia z 3 bezpłatnych rozmów.",
     );
-    expect(formatRemainingFreeSessions({ ...freeQuota, usedSessions: 0, remainingSessions: 3 })).toBe(
+    expect(formatRemainingFreeSessions("pl", { ...freeQuota, usedSessions: 0, remainingSessions: 3 })).toBe(
       "Zostały 3 z 3 bezpłatnych rozmów.",
     );
   });

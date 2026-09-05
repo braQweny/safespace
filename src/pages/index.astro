@@ -1,8 +1,9 @@
 ---
 import Welcome from "@/components/Welcome.astro";
+import { getWelcomeCopy } from "@/lib/page-copy/welcome-copy";
 import Layout from "@/layouts/Layout.astro";
 ---
 
-<Layout title="SafeSpace - pierwsza bezpieczna rozmowa" lang="pl">
+<Layout title={getWelcomeCopy(Astro.locals.locale).pageTitle}>
   <Welcome />
 </Layout>

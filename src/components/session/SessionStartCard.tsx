@@ -2,15 +2,19 @@ import { useEffect, useRef } from "react";
 import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import type { Locale } from "@/lib/i18n/locale";
 import type { SessionQuota } from "@/lib/session-data/types";
-import { formatRemainingFreeSessions, PREMIUM_HOW_TO_COPY } from "@/lib/session-flow/plan-copy";
+import { formatRemainingFreeSessions, getPlanCopy, getPremiumSupportMailtoHref } from "@/lib/session-flow/plan-copy";
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
+import { getSessionStartCardCopy } from "./session-start-card-copy";
 
 export { formatRemainingFreeSessions };
 
 interface SessionStartCardProps {
+  locale: Locale;
   initialState: SessionStartPageState;
   /**
    * Adres kontaktowy z `SUPPORT_EMAIL`. Po wyczerpaniu puli jest jedyną drogą
@@ -19,9 +23,6 @@ interface SessionStartCardProps {
    */
   supportEmail?: string | null;
 }
-
-const LIMIT_REACHED_COPY =
-  "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już wykorzystane na tym koncie. Dalsze rozmowy są dostępne w planie premium. Zapisy dotychczasowych rozmów znajdziesz w historii rozmów.";
 
 export function buildSessionHref(sessionId: string) {
   return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
@@ -83,19 +84,29 @@ export function AllowanceMeter({ quota }: { quota: SessionQuota | null }) {
   );
 }
 
-export default function SessionStartCard({ initialState, supportEmail = null }: SessionStartCardProps) {
+export default function SessionStartCard({ locale, initialState, supportEmail = null }: SessionStartCardProps) {
+  return (
+    <LocaleProvider locale={locale}>
+      <SessionStartCardView locale={locale} initialState={initialState} supportEmail={supportEmail} />
+    </LocaleProvider>
+  );
+}
+
+function SessionStartCardView({ locale, initialState, supportEmail = null }: SessionStartCardProps) {
+  const copy = getSessionStartCardCopy(locale);
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
   const isHydrated = useIsHydrated();
   const { kind, isStarting, isPreparingMemory, notice, startSession } = useSessionStart({
     initialState,
+    locale,
     onStarted: (session) => {
       window.location.assign(buildSessionHref(session.id));
     },
   });
 
   const canStart = kind === "ready" || kind === "followup_ready";
-  const remainingCopy = formatRemainingFreeSessions(initialState.sessionQuota);
+  const remainingCopy = formatRemainingFreeSessions(locale, initialState.sessionQuota);
 
   // Bez JS `?start=now` nic nie robi i zostaje zwykły przycisk startu — czyli
   // dokładnie dotychczasowe zachowanie panelu.
@@ -124,28 +135,26 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
   // Rozmowa premium trwa dłużej, więc obietnica czasu musi iść za planem —
   // to samo źródło, z którego trasa startu liczy `expires_at`.
   const sessionDurationSeconds = resolveSessionDurationSeconds(initialState.sessionQuota?.plan);
-  const sessionBudgetMinutes = formatSessionBudgetMinutes(sessionDurationSeconds);
+  const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, sessionDurationSeconds);
   // Imię zamiast „awatara”: „Lena uwzględni…” czyta się jak zdanie o osobie,
   // „pamięć awatara” jak zdanie o systemie.
-  const avatarFirstName = initialState.avatar.selected.avatarName.split(",")[0]?.trim() || "Awatar";
+  const avatarFirstName = initialState.avatar.selected.avatarFirstName;
 
   if (kind === "session_limit_reached") {
     // Koniec puli nie może być ślepym zaułkiem: użytkownik ma wiedzieć, co
     // dalej (premium jest przyznawane ręcznie) i mieć dokąd napisać.
     return (
       <div className="bg-surface-soft text-ink-muted mt-6 rounded-2xl p-5 text-sm leading-6" data-session-limit-reached>
-        <p className="text-ink font-serif text-xl leading-snug font-medium">
-          Pula bezpłatnych rozmów została wykorzystana
-        </p>
-        <p className="mt-2">{LIMIT_REACHED_COPY}</p>
-        <p className="mt-3">{PREMIUM_HOW_TO_COPY}</p>
+        <p className="text-ink font-serif text-xl leading-snug font-medium">{copy.limitReachedTitle}</p>
+        <p className="mt-2">{copy.limitReachedBody}</p>
+        <p className="mt-3">{getPlanCopy(locale).premiumHowTo}</p>
         {supportEmail ? (
           <a
-            href={`mailto:${supportEmail}?subject=${encodeURIComponent("SafeSpace — dostęp do planu premium")}`}
+            href={getPremiumSupportMailtoHref(locale, `mailto:${supportEmail}`)}
             className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             <Mail aria-hidden="true" className="text-brand h-4 w-4" />
-            Napisz w sprawie premium
+            {copy.writeAboutPremium}
           </a>
         ) : null}
       </div>
@@ -155,9 +164,7 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
   if (!canStart) {
     return (
       <div className="bg-surface-soft text-ink-muted mt-6 rounded-2xl p-5 text-sm leading-6">
-        {kind === "trial_already_claimed"
-          ? "Pierwsza darmowa rozmowa została już wykorzystana na tym koncie. Zapisy znajdziesz w historii rozmów."
-          : "Nie udało się potwierdzić dostępności rozmowy. Odśwież panel za chwilę."}
+        {kind === "trial_already_claimed" ? copy.trialAlreadyClaimed : copy.unavailable}
       </div>
     );
   }
@@ -165,7 +172,7 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
   return (
     <div className="mt-4 flex flex-col gap-4">
       <div>
-        <p className="text-ink text-base font-medium">Do {sessionBudgetMinutes} rozmowy</p>
+        <p className="text-ink text-base font-medium">{copy.budget(sessionBudgetMinutes)}</p>
         {remainingCopy ? (
           <div className="mt-2 flex items-center gap-3">
             <AllowanceMeter quota={initialState.sessionQuota} />
@@ -197,27 +204,21 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
         {/* Ruch w przycisku: start z pamięcią trwa do kilkudziesięciu sekund i bez
             niego nieruchomy napis wyglądał jak zawieszenie. */}
         {isStarting ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" /> : null}
-        {isStarting ? "Przygotowujemy rozmowę…" : "Rozpocznij rozmowę"}
+        {isStarting ? copy.preparing : copy.start}
         {isStarting ? null : <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />}
       </button>
       <p className={cn("text-ink-muted text-sm leading-6", !isStarting && "sr-only")} role="status" aria-live="polite">
-        {isPreparingMemory
-          ? `${avatarFirstName} czyta wasze wcześniejsze rozmowy. Czas rozmowy jeszcze nie biegnie; przy dłuższej historii może to potrwać do minuty.`
-          : isStarting
-            ? "Za chwilę przejdziesz do ekranu rozmowy."
-            : ""}
+        {isPreparingMemory ? copy.readingHistory(avatarFirstName) : isStarting ? copy.redirecting : ""}
       </p>
 
       {/* Jedna linijka zamiast zwijanego wyjaśnienia; pełny opis stoi w „Prywatność i zasady”. */}
       <p className="text-ink-muted text-sm leading-6">
-        {kind === "followup_ready"
-          ? `${avatarFirstName} uwzględni wasze wcześniejsze rozmowy. Samo otwarcie panelu nie zużywa próby ani czasu.`
-          : "Pierwsza rozmowa zaczyna się od tego, co chcesz dziś poruszyć. Samo otwarcie panelu nie zużywa próby ani czasu."}{" "}
+        {kind === "followup_ready" ? copy.followupIntro(avatarFirstName) : copy.firstIntro}{" "}
         <a
           href="/privacy#ai"
           className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
         >
-          Jak to działa
+          {copy.howItWorks}
         </a>
       </p>
     </div>

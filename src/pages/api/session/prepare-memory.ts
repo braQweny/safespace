@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { getValidAvatarChoice } from "@/lib/modalities";
 import { readSessionQuota } from "@/lib/session-data/quota";
 import { prepareOwnedAvatarMemory } from "@/lib/session-flow/avatar-memory";
@@ -32,7 +33,7 @@ export const POST: APIRoute = async (context) => {
   if (!quota.ok) return json({ ok: false, code: "session_quota_unavailable" }, 503);
   if (!quota.data.canStartSession) return json({ ok: false, code: "session_limit_reached" }, 403);
 
-  const memory = await prepareOwnedAvatarMemory(access.data, avatar);
+  const memory = await prepareOwnedAvatarMemory(access.data, avatar, { locale: getRequestLocale(context.locals) });
   if (!memory.ok) return json({ ok: false, code: "summary_context_unavailable" }, 503);
   return json(
     { ok: true, type: memory.ready ? "avatar_memory_ready" : "avatar_memory_preparing" },

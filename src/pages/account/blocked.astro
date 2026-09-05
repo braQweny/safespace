@@ -2,8 +2,10 @@
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import { readAccountAccessState } from "@/lib/admin/account-access";
+import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
 import { getSupportContact } from "@/lib/support-contact";
 
+const copy = getAccountPagesCopy(Astro.locals.locale).blocked;
 const state = Astro.url.searchParams.get("state");
 const isUnavailable = state === "unavailable";
 
@@ -23,34 +25,26 @@ if (Astro.locals.user && !isUnavailable) {
 const support = getSupportContact();
 ---
 
-<Layout title="Konto niedostępne - SafeSpace" lang="pl">
+<Layout title={copy.pageTitle}>
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <main class="flex flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto w-full max-w-2xl">
         <div class="border-line-strong shadow-card bg-surface w-full rounded-[20px] border p-6 sm:p-8">
-          <p class="text-brand text-sm font-medium">SafeSpace</p>
-          <h1 class="text-ink mt-3 text-3xl leading-tight">Konto jest chwilowo niedostępne</h1>
-          <p class="text-ink-muted mt-4 text-sm leading-6">
-            {
-              isUnavailable
-                ? "Nie możemy teraz potwierdzić dostępu do prywatnej części produktu. Spróbuj ponownie później albo wyloguj się."
-                : "Dostęp do prywatnej części SafeSpace został zablokowany dla tego konta. Możesz się wylogować i skontaktować z obsługą SafeSpace."
-            }
-          </p>
-          <p class="text-ink-muted mt-4 text-sm leading-6">
-            Ze względów prywatności ta strona nie pokazuje szczegółów konta ani powodu decyzji.
-          </p>
+          <p class="text-brand text-sm font-medium">{copy.eyebrow}</p>
+          <h1 class="text-ink mt-3 text-3xl leading-tight">{copy.title}</h1>
+          <p class="text-ink-muted mt-4 text-sm leading-6">{isUnavailable ? copy.unavailableBody : copy.blockedBody}</p>
+          <p class="text-ink-muted mt-4 text-sm leading-6">{copy.privacyNote}</p>
           {
             support.mailtoHref ? (
               <p class="text-ink-muted mt-4 text-sm leading-6">
-                Kontakt z obsługą:{" "}
+                {copy.contactPrefix}{" "}
                 <a
                   href={support.mailtoHref}
                   class="text-brand focus-visible:ring-brand-ring rounded font-semibold underline-offset-4 hover:underline focus:ring-2 focus:outline-none"
                 >
                   {support.email}
                 </a>
-                . Napisz z adresu e‑mail swojego konta — nie podawaj treści rozmów.
+                {copy.contactSuffix}
               </p>
             ) : null
           }
@@ -61,20 +55,20 @@ const support = getSupportContact();
                 type="submit"
                 class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
               >
-                Wyloguj się
+                {copy.signOut}
               </button>
             </form>
             <a
               href="/"
               class="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-full border px-5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
-              Wróć na stronę główną
+              {copy.backHome}
             </a>
           </div>
           <a
             href="/account/delete"
             class="text-danger focus-visible:ring-brand-ring mt-5 inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-            >Usuń konto i swoje dane</a
+            >{copy.deleteAccount}</a
           >
         </div>
       </section>

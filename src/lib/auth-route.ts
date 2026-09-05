@@ -29,20 +29,9 @@ interface AuthSuccessOptions {
   status?: 302 | 303;
 }
 
-/**
- * `Request.formData()` throws on a body that is not a form (e.g. a JSON POST
- * aimed at a form route), which used to surface as a 500. A body we cannot
- * read is treated exactly like an empty form: the route's own validation then
- * answers with its usual code (`invalid_email`, `missing_password`,
- * `invalid_choice`…) and redirect, so no route needs a second error path.
- */
-export async function readFormData(request: Request) {
-  try {
-    return await request.formData();
-  } catch {
-    return new FormData();
-  }
-}
+// Wspólny czytnik formularzy żyje w `auth-validation.ts` (nie ciągnie
+// `astro:env`); tu zostaje re-eksport dla dotychczasowych importów.
+export { readFormData } from "@/lib/auth-validation";
 
 export async function createAuthRoute(context: APIContext, event: OperationalEventName) {
   const operationalContext = await buildOperationalRequestContext(context);

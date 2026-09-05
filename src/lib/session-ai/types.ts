@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/i18n/locale";
 import type { SessionAiErrorCategory } from "./errors";
 
 export type SessionAiProviderName = "openrouter";
@@ -21,6 +22,8 @@ export interface SessionAiModalityContext {
   modalityName: string;
   avatarName: string;
   sessionStyleHint: string;
+  /** Przykłady rejestru już wybrane dla języka rozmowy; `session-ai` nie zna katalogu. */
+  registerExamples?: readonly string[];
 }
 
 export interface SessionAiConstraint {
@@ -50,7 +53,8 @@ export interface GenerateSessionResponseInput {
   recentMessages?: readonly SessionAiRecentMessage[];
   approvedSummaries?: readonly SessionAiApprovedSummaryContext[];
   avatarMemory?: string;
-  locale?: string;
+  /** Język odpowiedzi — język interfejsu w chwili żądania. */
+  locale: Locale;
 }
 
 /**

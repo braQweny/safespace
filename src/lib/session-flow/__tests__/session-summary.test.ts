@@ -79,7 +79,7 @@ function createRepository(
 describe("buildOwnedSessionSummaryGenerationInput", () => {
   it("returns stable missing auth and not found failures before provider work", async () => {
     await expect(
-      buildOwnedSessionSummaryGenerationInput(null, { sessionId: "session-1" }, createRepository()),
+      buildOwnedSessionSummaryGenerationInput(null, { sessionId: "session-1", locale: "pl" }, createRepository()),
     ).resolves.toEqual({
       ok: false,
       error: {
@@ -88,7 +88,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
     });
 
     await expect(
-      buildOwnedSessionSummaryGenerationInput(context, { sessionId: " " }, createRepository()),
+      buildOwnedSessionSummaryGenerationInput(context, { sessionId: " ", locale: "pl" }, createRepository()),
     ).resolves.toEqual({
       ok: false,
       error: {
@@ -101,7 +101,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
     await expect(
       buildOwnedSessionSummaryGenerationInput(
         context,
-        { sessionId: "missing" },
+        { sessionId: "missing", locale: "pl" },
         {
           getOwnedSessionHistoryDetail: vi.fn(() => Promise.resolve(sessionDataError("session_not_found"))),
         },
@@ -116,7 +116,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
     await expect(
       buildOwnedSessionSummaryGenerationInput(
         context,
-        { sessionId: "session-1" },
+        { sessionId: "session-1", locale: "pl" },
         {
           getOwnedSessionHistoryDetail: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
         },
@@ -133,7 +133,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
     await expect(
       buildOwnedSessionSummaryGenerationInput(
         context,
-        { sessionId: "session-1", now: new Date("2026-06-07T10:01:00.000Z") },
+        { sessionId: "session-1", locale: "pl", now: new Date("2026-06-07T10:01:00.000Z") },
         createRepository({
           session: {
             ...baseSession,
@@ -152,7 +152,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
     await expect(
       buildOwnedSessionSummaryGenerationInput(
         context,
-        { sessionId: "session-1" },
+        { sessionId: "session-1", locale: "pl" },
         createRepository({
           session: baseSession,
           messages: [],
@@ -169,7 +169,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
   it("allows active sessions past expiresAt to be summarized", async () => {
     const result = await buildOwnedSessionSummaryGenerationInput(
       context,
-      { sessionId: "session-1", now: new Date("2026-06-07T10:16:00.000Z") },
+      { sessionId: "session-1", locale: "pl", now: new Date("2026-06-07T10:16:00.000Z") },
       createRepository({
         session: {
           ...baseSession,
@@ -190,7 +190,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
   it("builds ordered, bounded provider input from owned non-deleted history detail", async () => {
     const result = await buildOwnedSessionSummaryGenerationInput(
       context,
-      { sessionId: "session-1" },
+      { sessionId: "session-1", locale: "pl" },
       createRepository(),
     );
 
@@ -211,8 +211,8 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
       ]);
       expect(JSON.stringify(result.data.messages)).not.toContain("System boundary");
       expect(result.data.modality).toMatchObject({
-        modalityName: "Podejście poznawczo-behawioralne",
-        avatarName: "Marek, praktyczny przewodnik",
+        modalityName: "Cognitive-behavioural approach",
+        avatarName: "Marek, practical guide",
       });
       expect(result.data.locale).toBe("pl");
     }
@@ -230,7 +230,7 @@ describe("buildOwnedSessionSummaryGenerationInput", () => {
     })) satisfies SessionMessageRecord[];
     const result = await buildOwnedSessionSummaryGenerationInput(
       context,
-      { sessionId: "session-1" },
+      { sessionId: "session-1", locale: "pl" },
       createRepository({
         session: baseSession,
         messages: longMessages,
@@ -254,7 +254,7 @@ describe("generateOwnedSessionSummary", () => {
     };
 
     await expect(
-      generateOwnedSessionSummary(context, { sessionId: "session-1" }, provider, createRepository()),
+      generateOwnedSessionSummary(context, { sessionId: "session-1", locale: "pl" }, provider, createRepository()),
     ).resolves.toEqual({
       ok: false,
       error: {
@@ -278,7 +278,7 @@ describe("generateOwnedSessionSummary", () => {
     };
 
     await expect(
-      generateOwnedSessionSummary(context, { sessionId: "session-1" }, provider, createRepository()),
+      generateOwnedSessionSummary(context, { sessionId: "session-1", locale: "pl" }, provider, createRepository()),
     ).resolves.toEqual({
       ok: true,
       data: {

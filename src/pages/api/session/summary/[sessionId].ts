@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import {
@@ -133,7 +134,7 @@ export const POST: APIRoute = async (context) => {
     sessionContext.data,
     {
       sessionId,
-      locale: "pl",
+      locale: getRequestLocale(context.locals),
     },
     openRouterSessionSummaryProvider,
   );

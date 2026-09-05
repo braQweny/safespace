@@ -14,7 +14,7 @@ test("sign-in stays interactive under production CSP after a protected-page redi
   });
 
   // A new isolated context starts without an authenticated session.
-  const showPassword = page.getByRole("button", { name: "Pokaż hasło", exact: true });
+  const showPassword = page.getByRole("button", { name: "Show password", exact: true });
   try {
     const response = await page.goto("/dashboard", { waitUntil: "commit" });
     await expect(page).toHaveURL(/\/auth\/signin$/);
@@ -26,18 +26,18 @@ test("sign-in stays interactive under production CSP after a protected-page redi
   await expect(showPassword).toBeEnabled();
 
   // SSR alone cannot implement this interaction: React must hydrate under CSP.
-  const password = page.getByLabel("Hasło", { exact: true });
+  const password = page.getByLabel("Password", { exact: true });
   const enteredPassword = `Local test password ${Date.now()}`;
   await password.fill(enteredPassword);
   await showPassword.click();
   await expect(password).toHaveAttribute("type", "text");
   await expect(password).toHaveValue(enteredPassword);
-  await page.getByRole("button", { name: "Ukryj hasło", exact: true }).click();
+  await page.getByRole("button", { name: "Hide password", exact: true }).click();
   await expect(password).toHaveAttribute("type", "password");
 
   // The hydrated form must report invalid input inline, before any auth call.
-  await page.getByRole("button", { name: "Zaloguj się", exact: true }).click();
-  await expect(page.getByText("Podaj adres e-mail", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByText("Enter your e-mail address", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/auth\/signin$/);
   // Playwright disposes this test's context, inputs, cookies and storage.
 });

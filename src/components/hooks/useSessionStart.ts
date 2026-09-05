@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { isAvatarMemoryPreparing, useAvatarMemoryPreparation } from "./useAvatarMemoryPreparation";
 import { isRateLimitedApiResult, requestApiJson, type ApiJsonResult } from "@/lib/api-client";
+import { getSessionStartCardCopy } from "@/components/session/session-start-card-copy";
+import type { Locale } from "@/lib/i18n/locale";
 import { isRecord } from "@/lib/type-guards";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
@@ -52,6 +54,7 @@ export function resolveFailedStartKind(failureCode: string | null): SessionStart
 export interface UseSessionStartOptions {
   initialState: SessionStartPageState;
   onStarted: (session: SessionView) => void;
+  locale: Locale;
 }
 
 /** 202 oznacza trwały postęp, nie rozpoczętą sesję. Każde żądanie ma własny limit czasu. */
@@ -70,7 +73,8 @@ export async function requestSessionStart(
   }
 }
 
-export function useSessionStart({ initialState, onStarted }: UseSessionStartOptions) {
+export function useSessionStart({ initialState, onStarted, locale }: UseSessionStartOptions) {
+  const { notices } = getSessionStartCardCopy(locale);
   const [kind, setKind] = useState<SessionStartPageStateKind>(initialState.kind);
   const [isStarting, setIsStarting] = useState(false);
   const [isPreparingMemory, setIsPreparingMemory] = useState(false);
@@ -96,18 +100,12 @@ export function useSessionStart({ initialState, onStarted }: UseSessionStartOpti
       const result = await requestSessionStart(isFollowupStart, setIsPreparingMemory);
 
       if (result.kind === "network_error") {
-        setNotice({
-          title: "Nie udało się rozpocząć rozmowy",
-          body: "Połączenie z serwerem jest chwilowo niedostępne.",
-        });
+        setNotice({ title: notices.startFailedTitle, body: notices.connectionUnavailableBody });
         return;
       }
 
       if (isRateLimitedApiResult(result)) {
-        setNotice({
-          title: "Za dużo prób w krótkim czasie",
-          body: "Odczekaj około minuty i spróbuj ponownie rozpocząć rozmowę.",
-        });
+        setNotice({ title: notices.rateLimitedTitle, body: notices.rateLimitedBody });
         return;
       }
 
@@ -119,10 +117,7 @@ export function useSessionStart({ initialState, onStarted }: UseSessionStartOpti
       }
 
       if (isStartSessionFailure(body) && body.code === "summary_context_unavailable") {
-        setNotice({
-          title: "Nie udało się przygotować pamięci rozmów",
-          body: "Spróbuj ponownie. Zapisany postęp zostaje zachowany, a nowa rozmowa nie została jeszcze rozpoczęta.",
-        });
+        setNotice({ title: notices.memoryFailedTitle, body: notices.memoryFailedBody });
         return;
       }
 
@@ -132,10 +127,7 @@ export function useSessionStart({ initialState, onStarted }: UseSessionStartOpti
       }
 
       setKind(resolveFailedStartKind(isStartSessionFailure(body) ? body.code : null));
-      setNotice({
-        title: "Nie udało się rozpocząć rozmowy",
-        body: "Spróbuj ponownie za chwilę albo odśwież panel.",
-      });
+      setNotice({ title: notices.startFailedTitle, body: notices.startFailedBody });
     } finally {
       startingRef.current = false;
       setIsStarting(false);

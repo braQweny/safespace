@@ -53,10 +53,8 @@ const listResponse = {
   avatar: {
     modalityId: "cbt",
     avatarId: "cbt-guide",
-    modalityName: "Podejście poznawczo-behawioralne",
-    avatarName: "Marek, praktyczny przewodnik",
+    avatarFirstName: "Marek",
     assetPath: "/avatars/cbt-guide.webp",
-    altText: "Awatar Marka",
   },
   items: [
     {

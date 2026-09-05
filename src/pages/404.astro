@@ -2,24 +2,26 @@
 import AppHeader from "@/components/AppHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
+import { getNotFoundCopy } from "@/lib/page-copy/not-found-copy";
 
+const copy = getNotFoundCopy(Astro.locals.locale);
 // Zalogowany użytkownik, który trafił na zły adres, widzi ten sam nagłówek
 // co wszędzie (logo → panel, menu konta) — nie zostaje bez orientacji.
 const { user } = Astro.locals;
 ---
 
-<Layout title="Nie znaleziono strony - SafeSpace" lang="pl">
+<Layout title={copy.pageTitle}>
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader />
 
     <main class="flex flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto w-full max-w-2xl">
         <div class="border-line-strong shadow-card bg-surface w-full rounded-[20px] border p-6 sm:p-8">
-          <p class="text-brand text-sm font-medium">SafeSpace</p>
-          <h1 class="text-ink mt-3 text-3xl leading-tight">Nie znaleźliśmy tej strony</h1>
+          <p class="text-brand text-sm font-medium">{copy.eyebrow}</p>
+          <h1 class="text-ink mt-3 text-3xl leading-tight">{copy.title}</h1>
           <p class="text-ink-muted mt-4 text-sm leading-6">
-            Adres, który próbujesz otworzyć, nie istnieje albo został przeniesiony. Sprawdź link lub wróć
-            {user ? " do panelu" : " na stronę główną"}.
+            {copy.bodyBefore}
+            {user ? copy.bodyDashboard : copy.bodyHome}.
           </p>
 
           <div class="mt-6 flex flex-wrap gap-3">
@@ -29,14 +31,14 @@ const { user } = Astro.locals;
                   href="/dashboard"
                   class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
-                  Przejdź do panelu
+                  {copy.goDashboard}
                 </a>
               ) : (
                 <a
                   href="/"
                   class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
-                  Wróć na stronę główną
+                  {copy.backHome}
                 </a>
               )
             }
@@ -44,7 +46,7 @@ const { user } = Astro.locals;
               href={user ? "/" : "/auth/signin"}
               class="border-line-accent text-ink hover:bg-surface-hover focus-visible:ring-brand-ring bg-surface inline-flex h-12 items-center justify-center rounded-full border px-5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
-              {user ? "Strona główna" : "Zaloguj się"}
+              {user ? copy.home : copy.signIn}
             </a>
           </div>
         </div>

@@ -4,7 +4,9 @@ import { getOpenRouterSessionConfig } from "@/lib/session-ai/env";
 import { resolveSessionReasoningTimeoutMs } from "@/lib/session-ai/openrouter-request-params";
 import { generateSessionResponse } from "@/lib/session-ai/provider";
 import { getSafetyBoundaryUnavailableCopy, getSessionAiFailureCopy } from "@/lib/session-ai/session-response-copy";
+import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { getValidAvatarChoice } from "@/lib/modalities";
+import { getModalityPromptNames } from "@/lib/modality-copy";
 import { evaluateSessionSafety } from "@/lib/session-safety/evaluate-session-safety";
 import {
   isFailClosedSessionSafetyReasonCode,
@@ -133,6 +135,8 @@ function toSafetyBoundaryFailureCategory(reasonCode: FailClosedSessionSafetyReas
 
 export const POST: APIRoute = async (context) => {
   const startedAtMs = performance.now();
+  // Język tekstów zatrzymania, błędów AI i samych promptów — z cookie żądania.
+  const locale = getRequestLocale(context.locals);
   const operationalContext = await buildOperationalRequestContext(context);
   const sessionContext = await requireSessionRouteAccess(context);
 
@@ -259,7 +263,7 @@ export const POST: APIRoute = async (context) => {
         currentUserMessage: messageRequest.message,
         recentUserMessages: toRecentSafetyUserMessages(recentMessages.data),
         metadata: {
-          locale: "pl",
+          locale,
         },
       }),
       loadOwnedSessionContinuity(sessionContext.data, session),
@@ -288,7 +292,7 @@ export const POST: APIRoute = async (context) => {
             type: "ai_retry",
             code: "ai_retry",
             category: toSafetyBoundaryFailureCategory(decision.reasonCode),
-            copy: getSafetyBoundaryUnavailableCopy(decision.reasonCode),
+            copy: getSafetyBoundaryUnavailableCopy(locale, decision.reasonCode),
           },
           503,
         );
@@ -361,9 +365,9 @@ export const POST: APIRoute = async (context) => {
         {
           currentUserMessage: messageRequest.message,
           modality: {
-            modalityName: modality.modalityName,
-            avatarName: modality.avatarName,
+            ...getModalityPromptNames(modality.modalityId),
             sessionStyleHint: modality.sessionStyleHint,
+            registerExamples: modality.registerExamples[locale],
           },
           ...(sessionPhase ? { sessionPhase } : {}),
           cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
@@ -375,7 +379,7 @@ export const POST: APIRoute = async (context) => {
             createdAt: summary.createdAt,
             updatedAt: summary.updatedAt,
           })),
-          locale: "pl",
+          locale,
         },
         undefined,
         {
@@ -406,7 +410,7 @@ export const POST: APIRoute = async (context) => {
           type: "ai_retry",
           code: "ai_retry",
           category,
-          copy: getSessionAiFailureCopy(category),
+          copy: getSessionAiFailureCopy(category, locale),
         },
         503,
       );

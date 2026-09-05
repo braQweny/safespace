@@ -187,6 +187,7 @@ describe("POST /api/session/transcribe", () => {
     expect(transcribeSessionAudio).toHaveBeenCalledWith({
       audioBase64: "UklGRg==",
       format: "webm",
+      language: "en",
     });
     expect(body).toEqual({
       ok: true,

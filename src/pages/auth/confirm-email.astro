@@ -4,15 +4,18 @@ import Layout from "@/layouts/Layout.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { SOCIAL_AUTH_PROVIDERS } from "@/lib/auth-providers";
+import { getAuthPagesCopy } from "@/lib/page-copy/auth-pages-copy";
 
+const pagesCopy = getAuthPagesCopy(Astro.locals.locale);
+const copy = pagesCopy.confirm;
 const isSignedIn = Boolean(Astro.locals.user);
-const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
+const error = getAuthErrorMessageFromSearchParam(Astro.locals.locale, Astro.url.searchParams.get("error"));
 const wasResent = Astro.url.searchParams.get("resent") === "1";
 
-const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
+const heading = isSignedIn ? copy.headingSignedIn : copy.headingInbox;
 ---
 
-<Layout title={`${heading} - SafeSpace`} lang="pl">
+<Layout title={copy.pageTitle(heading)}>
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader />
 
@@ -24,36 +27,31 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
         {
           isSignedIn ? (
             <>
-              <p class="text-ink-muted mt-3 text-sm leading-6">Możesz przejść do prywatnej części SafeSpace.</p>
+              <p class="text-ink-muted mt-3 text-sm leading-6">{copy.signedInBody}</p>
               <a
                 href="/dashboard"
                 class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-6 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-[15px] font-semibold transition-colors focus:outline-none focus-visible:ring-2"
               >
-                Przejdź do panelu
+                {copy.goToDashboard}
               </a>
             </>
           ) : (
             <>
               <p class="text-ink-muted mt-3 text-sm leading-6">
-                <span data-confirm-email-generic>Wysłaliśmy wiadomość z linkiem potwierdzającym.</span>
+                <span data-confirm-email-generic>{copy.sentGeneric}</span>
                 <span data-confirm-email-target hidden>
-                  Wysłaliśmy wiadomość z linkiem potwierdzającym na adres{" "}
-                  <strong class="text-ink font-semibold" data-confirm-email />.
+                  {copy.sentToPrefix} <strong class="text-ink font-semibold" data-confirm-email />.
                 </span>
-                Kliknij link, a potem zaloguj się. Jeśli wiadomość nie dotrze w kilka minut, sprawdź folder ze spamem
-                albo wyślij link ponownie poniżej.
+                {copy.instructions}
               </p>
-              <p class="text-ink-muted mt-3 text-sm leading-6">
-                Jeśli ten adres był wcześniej użyty z Google, wiadomość może nie przyjść — wtedy zaloguj się przez
-                Google i ustaw hasło w ustawieniach konta.
-              </p>
+              <p class="text-ink-muted mt-3 text-sm leading-6">{copy.googleNote}</p>
 
               {wasResent ? (
                 <div
                   role="status"
                   class="border-brand-soft text-brand-deep bg-brand-tint mt-6 rounded-2xl border p-4 text-left text-sm leading-6"
                 >
-                  Jeśli ten adres czeka na potwierdzenie, wysłaliśmy wiadomość ponownie. Sprawdź też folder ze spamem.
+                  {copy.resent}
                 </div>
               ) : null}
 
@@ -66,7 +64,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                 data-has-error={error ? "true" : "false"}
               >
                 <h2 id="resend-confirmation-heading" class="text-ink text-base font-semibold">
-                  Wyślij link ponownie
+                  {copy.resendTitle}
                 </h2>
 
                 {error ? (
@@ -80,7 +78,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
 
                 <div>
                   <label for="email" class="text-brand-deep text-sm font-medium">
-                    Adres e-mail
+                    {copy.emailLabel}
                   </label>
                   <input
                     id="email"
@@ -96,19 +94,19 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                   type="submit"
                   class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 w-full items-center justify-center rounded-[14px] px-6 text-[15px] font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
-                  Wyślij ponownie
+                  {copy.resendSubmit}
                 </button>
               </form>
 
               <div class="text-ink-muted my-6 flex items-center gap-3 text-xs font-medium">
                 <span class="bg-line h-px flex-1" />
-                <span>lub</span>
+                <span>{pagesCopy.or}</span>
                 <span class="bg-line h-px flex-1" />
               </div>
 
               <div class="space-y-3">
-                {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
-                  <form method="POST" action="/api/auth/google">
+                {SOCIAL_AUTH_PROVIDERS.map(({ provider }) => (
+                  <form method="POST" action="/api/auth/google" data-provider={provider}>
                     <button
                       type="submit"
                       class="border-line-accent text-brand-deep hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface flex h-12 w-full items-center justify-center gap-3 rounded-[14px] border px-4 text-[15px] font-medium transition-colors focus:outline-none focus-visible:ring-2"
@@ -116,7 +114,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                       <span class="text-brand border-line-strong flex size-6 items-center justify-center rounded-full border text-sm font-semibold">
                         G
                       </span>
-                      {authProvider.buttonLabel}
+                      {pagesCopy.googleButton}
                     </button>
                   </form>
                 ))}
@@ -124,7 +122,7 @@ const heading = isSignedIn ? "Konto jest aktywne" : "Sprawdź skrzynkę";
                   href="/auth/signin"
                   class="border-line-accent text-brand hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface inline-flex h-12 w-full items-center justify-center rounded-[14px] border px-6 text-[15px] font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
-                  Wróć do logowania
+                  {copy.backToSignIn}
                 </a>
               </div>
             </>

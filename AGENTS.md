@@ -9,6 +9,7 @@ SafeSpace is an Astro 7 SSR app with React 19 islands, Tailwind 4, Supabase auth
 - Protect sensitive session data from logs and admin surfaces. Product privacy guardrails live in `@context/foundation/prd.md`.
 - Supabase uses Auth plus application tables managed through `supabase/migrations/`. Keep RLS enabled with granular policies for every new table.
 - For 10x roadmap work, load `@.agents/skills/10x-roadmap/SKILL.md`; do not create implementation change folders from roadmap output.
+- User-facing strings live in locale copy modules (`getXCopy(locale)` built with `defineCopy(en, pl)`), never inline in JSX/Astro; `en` is the default locale and `src/lib/i18n/__tests__/copy-catalogs.ts` must list every new module.
 
 ## Commands
 

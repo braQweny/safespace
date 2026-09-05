@@ -48,7 +48,7 @@ const metrics: AdminOverviewMetrics = {
 
 describe("AdminOverview", () => {
   it("renders overview cards and suppressed small counts without private text", () => {
-    const html = renderToStaticMarkup(<AdminOverview metrics={metrics} />);
+    const html = renderToStaticMarkup(<AdminOverview locale="pl" metrics={metrics} />);
 
     expect(html).toContain("Użytkownicy");
     expect(html).toContain("Konta premium");

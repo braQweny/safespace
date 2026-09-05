@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
 import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
 import { toSessionView } from "@/lib/session-flow/session-state";
@@ -189,7 +190,9 @@ export const POST: APIRoute = async (context) => {
 
   // Generated and persisted before the response so the composer cannot race the
   // opening message; any failure here degrades to a session without an opening.
-  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data);
+  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data, {
+    locale: getRequestLocale(context.locals),
+  });
 
   if (!opening.ok) {
     logOperationalEvent(

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { MVP_MODALITIES } from "../../modalities";
 import {
-  AVATAR_MEMORY_SYSTEM_PROMPT,
+  buildAvatarMemorySystemPrompt,
   buildSessionSummaryMessages,
-  SESSION_SUMMARY_SYSTEM_PROMPT,
+  buildSessionSummarySystemPrompt,
 } from "../summary-prompt";
 import type { GenerateSessionSummaryInput } from "../types";
 
@@ -37,7 +37,9 @@ describe("buildSessionSummaryMessages", () => {
       continuityMemory: previousMemory,
       messages: [{ role: "user", content, sequenceIndex: 0 }],
     });
-    expect(messages[0].content).toBe(AVATAR_MEMORY_SYSTEM_PROMPT);
+    expect(messages[0].content).toBe(buildAvatarMemorySystemPrompt("pl"));
+    expect(messages[0].content).toContain("Write concise Polish prose");
+    expect(buildAvatarMemorySystemPrompt("en")).toContain("Write concise English prose");
     expect(JSON.parse(messages[1].content)).toMatchObject({
       previousMemory,
       conversationMessages: [{ role: "user", content }],
@@ -67,6 +69,7 @@ describe("buildSessionSummaryMessages", () => {
   it("keeps multiple conversations and long messages intact inside the total character budget", () => {
     const longContent = "🙂".repeat(24000);
     const messages = buildSessionSummaryMessages({
+      locale: "pl",
       continuityMemory: "Dotychczasowa pamięć",
       messages: [
         { role: "user", content: longContent, conversationIndex: 1, sequenceIndex: 10 },
@@ -82,6 +85,7 @@ describe("buildSessionSummaryMessages", () => {
     expect(messages[0].content).toContain("a conversation boundary");
     expect(() =>
       buildSessionSummaryMessages({
+        locale: "pl",
         continuityMemory: "",
         messages: Array.from({ length: 3 }, () => ({ role: "user", content: longContent })),
       }),
@@ -93,8 +97,10 @@ describe("buildSessionSummaryMessages", () => {
 
     expect(messages[0]).toEqual({
       role: "system",
-      content: SESSION_SUMMARY_SYSTEM_PROMPT,
+      content: buildSessionSummarySystemPrompt("pl"),
     });
+    expect(messages[0]?.content).toContain("Write in Polish unless");
+    expect(buildSessionSummarySystemPrompt("en")).toContain("Write in English unless");
     expect(messages[0]?.content).toContain("user to read in their private history");
     expect(messages[0]?.content).toContain("not a hidden memory");
     expect(messages[0]?.content).toContain("not a hidden memory, therapist note, diagnosis");

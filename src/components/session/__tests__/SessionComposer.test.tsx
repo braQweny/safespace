@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { DICTATION_COPY } from "@/lib/session-copy";
+import { describe, expect, it, vi } from "vitest";
+import { getSessionCopy } from "@/lib/session-copy";
 import SessionComposer, {
   appendTranscriptionToDraft,
   formatRecordingProgress,
@@ -12,7 +12,14 @@ import SessionComposer, {
   shouldSubmitSessionComposerFromKeyboard,
 } from "../SessionComposer";
 
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
+
 const SESSION_ID = "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a";
+const DICTATION_COPY = getSessionCopy("pl").dictation;
 
 function keyboardEvent(
   overrides: Partial<Parameters<typeof shouldSubmitSessionComposerFromKeyboard>[0]> = {},
@@ -158,19 +165,26 @@ describe("SessionComposer dictation controls", () => {
   });
 
   it("names what went wrong with the microphone", () => {
-    expect(getDictationErrorCopy(new DOMException("denied", "NotAllowedError"))).toBe(DICTATION_COPY.microphoneDenied);
-    expect(getDictationErrorCopy(new DOMException("insecure", "SecurityError"))).toBe(DICTATION_COPY.microphoneDenied);
-    expect(getDictationErrorCopy(new DOMException("none", "NotFoundError"))).toBe(DICTATION_COPY.microphoneMissing);
-    expect(getDictationErrorCopy({ name: "NotFoundError" })).toBe(DICTATION_COPY.microphoneMissing);
-    expect(getDictationErrorCopy(new Error("busy"))).toBe(DICTATION_COPY.microphoneUnavailable);
-    expect(getDictationErrorCopy(undefined)).toBe(DICTATION_COPY.microphoneUnavailable);
+    expect(getDictationErrorCopy("pl", new DOMException("denied", "NotAllowedError"))).toBe(
+      DICTATION_COPY.microphoneDenied,
+    );
+    expect(getDictationErrorCopy("pl", new DOMException("insecure", "SecurityError"))).toBe(
+      DICTATION_COPY.microphoneDenied,
+    );
+    expect(getDictationErrorCopy("pl", new DOMException("none", "NotFoundError"))).toBe(
+      DICTATION_COPY.microphoneMissing,
+    );
+    expect(getDictationErrorCopy("pl", { name: "NotFoundError" })).toBe(DICTATION_COPY.microphoneMissing);
+    expect(getDictationErrorCopy("pl", new Error("busy"))).toBe(DICTATION_COPY.microphoneUnavailable);
+    expect(getDictationErrorCopy("pl", undefined)).toBe(DICTATION_COPY.microphoneUnavailable);
   });
 
   it("shows recording progress against the limit", () => {
-    expect(formatRecordingProgress(0)).toBe("Nagrywanie… 0 s / 60 s");
-    expect(formatRecordingProgress(12.9)).toBe("Nagrywanie… 12 s / 60 s");
-    expect(formatRecordingProgress(75)).toBe("Nagrywanie… 60 s / 60 s");
-    expect(formatRecordingProgress(5, 30_000)).toBe("Nagrywanie… 5 s / 30 s");
+    expect(formatRecordingProgress("pl", 0)).toBe("Nagrywanie… 0 s / 60 s");
+    expect(formatRecordingProgress("pl", 12.9)).toBe("Nagrywanie… 12 s / 60 s");
+    expect(formatRecordingProgress("pl", 75)).toBe("Nagrywanie… 60 s / 60 s");
+    expect(formatRecordingProgress("pl", 5, 30_000)).toBe("Nagrywanie… 5 s / 30 s");
+    expect(formatRecordingProgress("en", 5, 30_000)).toBe("Recording… 5 s / 30 s");
   });
 });
 

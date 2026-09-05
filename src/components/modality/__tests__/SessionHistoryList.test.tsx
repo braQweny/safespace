@@ -1,14 +1,22 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
 import SessionHistoryList, {
   SESSION_STATUS_LEGEND_ORDER,
   formatDateTime,
   getDurationLabel,
   getOpenDetailButtonId,
+  getSessionStatusLegend,
   groupSessionHistoryItemsByDay,
-  sessionStatusLegend,
 } from "../SessionHistoryList";
+
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
+
+const sessionStatusLegend = getSessionStatusLegend("pl");
 
 function createItem(overrides: Partial<SessionHistoryListItem> = {}): SessionHistoryListItem {
   return {
@@ -30,19 +38,19 @@ describe("getDurationLabel", () => {
   it("reports the real span instead of the privacy bucket", () => {
     // The bucket is always 900 for trials, so a two-minute conversation used to
     // be labelled "15 min".
-    expect(getDurationLabel(createItem({ endedAt: "2026-06-07T08:02:00.000Z" }))).toBe("2 min rozmowy");
+    expect(getDurationLabel("pl", createItem({ endedAt: "2026-06-07T08:02:00.000Z" }))).toBe("2 min rozmowy");
   });
 
   it("does not round a very short conversation up to a minute", () => {
-    expect(getDurationLabel(createItem({ endedAt: "2026-06-07T08:00:20.000Z" }))).toBe("krócej niż minutę");
+    expect(getDurationLabel("pl", createItem({ endedAt: "2026-06-07T08:00:20.000Z" }))).toBe("krócej niż minutę");
   });
 
   it("marks a bucket-only duration as an upper bound", () => {
-    expect(getDurationLabel(createItem({ startedAt: null, endedAt: null }))).toBe("do 15 min");
+    expect(getDurationLabel("pl", createItem({ startedAt: null, endedAt: null }))).toBe("do 15 min");
   });
 
   it("falls back when neither a span nor a bucket is available", () => {
-    expect(getDurationLabel(createItem({ startedAt: null, endedAt: null, durationBucketSeconds: null }))).toBe(
+    expect(getDurationLabel("pl", createItem({ startedAt: null, endedAt: null, durationBucketSeconds: null }))).toBe(
       "Czas nieustalony",
     );
   });
@@ -52,23 +60,23 @@ describe("formatDateTime", () => {
   const now = new Date("2026-06-07T20:00:00.000Z");
 
   it("labels same-day sessions as today", () => {
-    expect(formatDateTime("2026-06-07T08:00:00.000Z", now)).toMatch(/^Dzisiaj, /);
+    expect(formatDateTime("pl", "2026-06-07T08:00:00.000Z", now)).toMatch(/^Dzisiaj, /);
   });
 
   it("labels the previous day as yesterday", () => {
-    expect(formatDateTime("2026-06-06T08:00:00.000Z", now)).toMatch(/^Wczoraj, /);
+    expect(formatDateTime("pl", "2026-06-06T08:00:00.000Z", now)).toMatch(/^Wczoraj, /);
   });
 
   it("keeps a full date for older sessions", () => {
-    const label = formatDateTime("2026-05-30T08:00:00.000Z", now);
+    const label = formatDateTime("pl", "2026-05-30T08:00:00.000Z", now);
 
     expect(label).not.toMatch(/Dzisiaj|Wczoraj/);
     expect(label).toContain("2026");
   });
 
   it("stays safe on missing and unparsable timestamps", () => {
-    expect(formatDateTime(null, now)).toBe("Brak daty");
-    expect(formatDateTime("not-a-date", now)).toBe("Brak daty");
+    expect(formatDateTime("pl", null, now)).toBe("Brak daty");
+    expect(formatDateTime("pl", "not-a-date", now)).toBe("Brak daty");
   });
 });
 
@@ -168,6 +176,7 @@ describe("SessionHistoryList", () => {
       ],
     });
     const groups = groupSessionHistoryItemsByDay(
+      "pl",
       [
         createItem({ id: "session-1", startedAt: "2026-06-07T08:00:00.000Z" }),
         createItem({ id: "session-2", startedAt: "2026-06-07T06:30:00.000Z" }),
@@ -178,8 +187,25 @@ describe("SessionHistoryList", () => {
 
     expect(groups.map((group) => group.items.length)).toEqual([2, 1]);
     expect(groups[0]?.label).toBe("Dzisiaj");
+    expect(groups[0]?.key).toBe("2026-06-07");
     expect(groups[1]?.label).not.toMatch(/Dzisiaj|Wczoraj/);
     expect(html.match(/<h3/g)?.length).toBe(2);
+  });
+
+  it("labels and groups the same days in English", () => {
+    const today = new Date("2026-06-07T20:00:00.000Z");
+    const groups = groupSessionHistoryItemsByDay(
+      "en",
+      [
+        createItem({ id: "session-1", startedAt: "2026-06-07T08:00:00.000Z" }),
+        createItem({ id: "session-3", startedAt: "2026-06-06T20:02:00.000Z" }),
+      ],
+      today,
+    );
+
+    expect(groups.map((group) => group.label)).toEqual(["Today", "Yesterday"]);
+    expect(formatDateTime("en", "2026-05-30T08:00:00.000Z", today)).toBe("May 30, 2026, 10:00 AM");
+    expect(getDurationLabel("en", createItem({ endedAt: "2026-06-07T08:02:00.000Z" }))).toBe("2 min conversation");
   });
 
   it("marks what carries over without showing any of its text", () => {

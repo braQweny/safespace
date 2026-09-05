@@ -16,3 +16,17 @@ export function getFormString(form: FormData, field: string, trim = true) {
 
   return trim ? value.trim() : value;
 }
+
+/**
+ * `Request.formData()` rzuca na ciele, które nie jest formularzem (np. JSON
+ * wysłany na trasę formularzową) — kiedyś wychodziło z tego 500. Nieczytelne
+ * ciało to pusty formularz: walidacja trasy odpowiada swoim zwykłym kodem
+ * i redirectem, bez drugiej ścieżki błędu.
+ */
+export async function readFormData(request: Request) {
+  try {
+    return await request.formData();
+  } catch {
+    return new FormData();
+  }
+}

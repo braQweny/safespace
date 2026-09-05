@@ -1,4 +1,6 @@
 import { getValidAvatarChoice } from "@/lib/modalities";
+import type { Locale } from "@/lib/i18n/locale";
+import { getModalityPromptNames } from "@/lib/modality-copy";
 import { getOwnedAvatarMemoryWork, saveOwnedAvatarMemoryWork } from "@/lib/session-data/repository";
 import type { AvatarMemoryCursor, AvatarMemoryWork } from "@/lib/session-data/avatar-memory";
 import type { SessionAvatarId, SessionDataContext, SessionModalityId } from "@/lib/session-data/types";
@@ -37,6 +39,7 @@ const dependencies = { getOwnedAvatarMemoryWork, saveOwnedAvatarMemoryWork, gene
 export async function prepareOwnedAvatarMemory(
   context: SessionDataContext,
   avatar: { avatarId: SessionAvatarId; modalityId: SessionModalityId },
+  options: { locale: Locale },
   repository = dependencies,
 ): Promise<{ ok: true; ready: boolean } | { ok: false; providerFailure?: SessionSummaryErrorCategory }> {
   const work = await repository.getOwnedAvatarMemoryWork(context, avatar.avatarId);
@@ -50,11 +53,10 @@ export async function prepareOwnedAvatarMemory(
       messages: batch.messages,
       continuityMemory: work.data.summaryText,
       modality: {
-        modalityName: modality.modalityName,
-        avatarName: modality.avatarName,
+        ...getModalityPromptNames(modality.modalityId),
         summaryLensHint: modality.summaryLensHint,
       },
-      locale: "pl",
+      locale: options.locale,
     });
     const summaryText = response.summaryText.trim();
     // Odrzucamy za długą odpowiedź zamiast ucinać fakty ze starszych rozmów.

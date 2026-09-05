@@ -1,7 +1,9 @@
 import { useEffect, useRef, type Ref } from "react";
 import { Phone, X } from "lucide-react";
-import { CRISIS_RESOURCE_REGIONS } from "@/lib/session-safety/crisis-resources";
+import { useLocale } from "@/components/hooks/useLocale";
+import { getCrisisResourceRegions } from "@/lib/session-safety/crisis-resources";
 import { CrisisContactList } from "./crisis-contact";
+import { getCrisisHelpCopy } from "./crisis-help-copy";
 
 /**
  * Crisis contacts used to appear only after the safety classifier raised a hard
@@ -21,6 +23,8 @@ interface CrisisHelpTriggerProps {
 }
 
 export function CrisisHelpTrigger({ isOpen, onToggle, ref }: CrisisHelpTriggerProps) {
+  const copy = getCrisisHelpCopy(useLocale());
+
   return (
     <button
       ref={ref}
@@ -33,8 +37,8 @@ export function CrisisHelpTrigger({ isOpen, onToggle, ref }: CrisisHelpTriggerPr
       {/* Glina tylko na ikonie: przycisk ma być znajdowalny, nie alarmujący. */}
       <Phone aria-hidden="true" className="text-clay h-4 w-4" />
       {/* Pomoc zostaje na widoku także na telefonie — skraca się napis, nie dostęp. */}
-      <span className="sm:hidden">Pomoc</span>
-      <span className="hidden sm:inline">Pomoc teraz</span>
+      <span className="sm:hidden">{copy.triggerShort}</span>
+      <span className="hidden sm:inline">{copy.triggerLong}</span>
     </button>
   );
 }
@@ -44,6 +48,8 @@ interface CrisisHelpPanelProps {
 }
 
 export function CrisisHelpPanel({ onClose }: CrisisHelpPanelProps) {
+  const locale = useLocale();
+  const copy = getCrisisHelpCopy(locale);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -67,30 +73,27 @@ export function CrisisHelpPanel({ onClose }: CrisisHelpPanelProps) {
       ref={panelRef}
       id="crisis-help-panel"
       role="dialog"
-      aria-label="Kontakty pomocy kryzysowej"
+      aria-label={copy.panelAria}
       tabIndex={-1}
       className="border-line-accent bg-surface text-ink-soft shadow-card mx-auto mt-3 w-full max-w-3xl rounded-2xl border p-5 text-sm leading-6 focus:outline-none sm:p-6"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">Pomoc teraz</p>
-          <p className="text-ink mt-1 font-serif text-xl leading-snug">Realna pomoc, jeśli dzieje się coś pilnego</p>
+          <p className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">{copy.eyebrow}</p>
+          <p className="text-ink mt-1 font-serif text-xl leading-snug">{copy.title}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Zamknij kontakty pomocy"
+          aria-label={copy.closeAria}
           className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring -mt-1 -mr-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2"
         >
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-2">
-        SafeSpace jest symulacją edukacyjną i nie jest pomocą kryzysową. Poniższe kontakty prowadzą do realnych służb i
-        linii wsparcia.
-      </p>
+      <p className="mt-2">{copy.body}</p>
 
-      <CrisisContactList regions={CRISIS_RESOURCE_REGIONS} className="mt-5" />
+      <CrisisContactList regions={getCrisisResourceRegions(locale)} className="mt-5" />
     </div>
   );
 }

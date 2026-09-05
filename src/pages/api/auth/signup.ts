@@ -3,6 +3,7 @@ import { mapSignUpError } from "@/lib/auth-errors";
 import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { getAuthCallbackUrl, getSafeAuthRedirect } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, MIN_PASSWORD_LENGTH, getFormString } from "@/lib/auth-validation";
+import { syncLocaleAfterSignIn } from "@/lib/i18n/account-locale";
 
 export const prerender = false;
 
@@ -44,6 +45,12 @@ export const POST: APIRoute = async (context) => {
 
   if (error) {
     return route.failureRedirect("/auth/signup", mapSignUpError(error), { provider: "supabase" });
+  }
+
+  // Tylko gdy sesja powstała od razu; ścieżka przez e-mail zsynchronizuje
+  // język w `auth/callback`.
+  if (data.session && data.user) {
+    await syncLocaleAfterSignIn(context, route.supabase, data.user);
   }
 
   return route.successRedirect(data.session ? redirectTo : "/auth/confirm-email");

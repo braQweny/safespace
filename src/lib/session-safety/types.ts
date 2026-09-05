@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/i18n/locale";
 import type { SessionSafetyReasonCode } from "./reason-codes";
 
 export type SessionSafetyRisk = "normal" | "caution" | "crisis";
@@ -42,8 +43,8 @@ export interface SessionSafetyInputMetadata {
   userId?: string;
   modalityId?: string;
   avatarId?: string;
-  locale?: string;
-  regionHint?: string;
+  /** Język tekstów zatrzymania i zasobów kryzysowych; klasyfikator go nie czyta. */
+  locale?: Locale;
 }
 
 export interface SessionSafetyInput {

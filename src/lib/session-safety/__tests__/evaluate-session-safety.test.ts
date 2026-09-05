@@ -106,7 +106,7 @@ describe("evaluateSessionSafety", () => {
     expect(decision.risk).toBe("crisis");
     expect(decision.action).toBe("hard_stop");
     expect(decision.reasonCode).toBe(reasonCode);
-    expect(decision.copy?.title).toBe("Nie możemy teraz bezpiecznie rozpocząć symulacji");
+    expect(decision.copy?.title).toBe("We can't safely start the simulation right now");
     expect(decision.crisisResources.map((resource) => resource.id)).toEqual(["pl", "us", "local_fallback"]);
   });
 });

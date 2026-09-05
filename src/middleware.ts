@@ -16,6 +16,7 @@ import {
   isAuthRateLimitedRequest,
   isRateLimitedApiRequest,
 } from "@/lib/rate-limit";
+import { resolveRequestLocale } from "@/lib/i18n/locale-cookie";
 import { ACCOUNT_ACCESS_UNAVAILABLE_PATH, BLOCKED_ACCOUNT_PATH, evaluateApiBodyGuard } from "@/lib/request-guards";
 import { createClient } from "@/lib/supabase";
 
@@ -39,6 +40,10 @@ function withSecurityHeaders(response: Response, pathname: string) {
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(name, value);
   }
+
+  // Ten sam adres renderuje się w języku z cookie, więc żaden pośrednik nie
+  // może oddać angielskiej strony osobie, która wybrała polski.
+  response.headers.append("Vary", "Cookie");
 
   if (isPrivateResponsePath(pathname)) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
@@ -64,6 +69,10 @@ function shouldCheckAccountAccess(pathname: string) {
 export const onRequest = defineMiddleware(async (context, next) => {
   const requestId = createOperationalRequestId();
   context.locals.requestId = requestId;
+  // Cookie jest źródłem prawdy per żądanie (bez Accept-Language, bez odczytu
+  // bazy); ustawiane przed każdym wczesnym `return`, żeby odmowy i redirecty
+  // też znały język.
+  context.locals.locale = resolveRequestLocale(context.cookies);
 
   const { pathname } = context.url;
   const { method } = context.request;

@@ -45,7 +45,7 @@ if (activeSession && pageState.kind !== "active") {
 }
 ---
 
-<Layout title="Rozmowa - SafeSpace" lang="pl">
+<Layout title="Rozmowa - SafeSpace">
   {
     /*
     Jedyna strona bez `AppHeader`: rozmowa ma własny pasek, a dwa nagłówki jeden
@@ -58,7 +58,7 @@ if (activeSession && pageState.kind !== "active") {
   <div class="bg-paper text-ink flex h-[100dvh] flex-col">
     {/* `display: contents` na wyspie Astro, żeby wysokość 100dvh dochodziła do layoutu rozmowy. */}
     <main class="min-h-0 flex-1 overflow-hidden [&>astro-island]:contents">
-      <TimedSession client:load initialState={pageState} initialSummary={initialSummary} />
+      <TimedSession client:load locale={Astro.locals.locale} initialState={pageState} initialSummary={initialSummary} />
     </main>
   </div>
 </Layout>

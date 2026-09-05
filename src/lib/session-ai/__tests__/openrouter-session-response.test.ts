@@ -4,6 +4,7 @@ import { MVP_MODALITIES } from "../../modalities";
 import { SessionAiError } from "../errors";
 import { buildOpenRouterSessionRequest, generateSessionResponseWithOpenRouter } from "../openrouter-session-response";
 import type { GenerateSessionResponseInput } from "../types";
+import { getModalityPromptNames } from "@/lib/modality-copy";
 
 const sessionConfig = vi.hoisted(() => ({
   apiKey: undefined,
@@ -21,6 +22,7 @@ vi.mock("../env", () => ({
 }));
 
 const input = {
+  locale: "pl",
   currentUserMessage: "Potrzebuje uporzadkowac mysli.",
   modality: {
     modalityName: "Podejście integracyjne",
@@ -198,8 +200,7 @@ describe("buildOpenRouterSessionRequest", () => {
       {
         currentUserMessage: "Mam wrażenie, że wszystko się we mnie miesza.",
         modality: {
-          modalityName: modality.modalityName,
-          avatarName: modality.avatarName,
+          ...getModalityPromptNames(modality.modalityId),
           sessionStyleHint: modality.sessionStyleHint,
         },
         recentMessages: [
@@ -218,7 +219,7 @@ describe("buildOpenRouterSessionRequest", () => {
       role: "system",
     });
     expect(request.messages[0].content).toContain("Avatar: Iga");
-    expect(request.messages[0].content).toContain("przewodniczka łącząca wątki");
+    expect(request.messages[0].content).toContain("guide who connects the threads");
     expect(request.messages[0].content).toContain("Reply shapes");
     expect(request.messages.at(-1)).toMatchObject({
       role: "user",

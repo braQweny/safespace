@@ -1,0 +1,34 @@
+---
+import { getCrisisResourceRegions } from "@/lib/session-safety/crisis-resources";
+
+// Ta sama siatka regionów w obu wersjach językowych strony prywatności.
+const regions = getCrisisResourceRegions(Astro.locals.locale);
+---
+
+<div class="mt-4 grid gap-3 sm:grid-cols-2">
+  {
+    regions.map((region) => (
+      <div class="border-line bg-surface rounded-2xl border p-4">
+        <p class="text-ink text-sm font-semibold">{region.label}</p>
+        <ul class="mt-2 space-y-2 text-sm">
+          {region.contacts.map((contact) => (
+            <li>
+              <span class="text-ink-soft">{contact.label}</span>
+              {contact.kind !== "local_guidance" ? (
+                <>
+                  <span aria-hidden="true"> — </span>
+                  <a
+                    href={`tel:${contact.value.replace(/\s+/g, "")}`}
+                    class="text-brand font-semibold underline-offset-4 hover:underline"
+                  >
+                    {contact.value}
+                  </a>
+                </>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))
+  }
+</div>

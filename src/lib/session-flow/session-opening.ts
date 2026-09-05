@@ -1,4 +1,6 @@
 import { getValidAvatarChoice } from "@/lib/modalities";
+import type { Locale } from "@/lib/i18n/locale";
+import { getModalityPromptNames } from "@/lib/modality-copy";
 import { generateSessionResponse } from "@/lib/session-ai/provider";
 import type { ApprovedSessionSummaryContext, SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
 import { loadOwnedSessionContinuity } from "./session-continuity";
@@ -9,6 +11,8 @@ import type { SessionMessageViewModel } from "./message-contract";
 export type SessionOpeningFailure = "opening_provider_failed" | "opening_persistence_failed" | "opening_unavailable";
 
 export interface SessionOpeningOptions {
+  /** Język otwarcia — język interfejsu w chwili startu. */
+  locale: Locale;
   /**
    * Optional legacy summaries. Automatic sessions always read their pinned
    * avatar-memory snapshot, even when this legacy option is supplied.
@@ -27,7 +31,7 @@ export type SessionOpeningResult =
 export async function createSessionOpeningMessage(
   context: SessionDataContext,
   session: SessionMetadata,
-  options: SessionOpeningOptions = {},
+  options: SessionOpeningOptions,
 ): Promise<SessionOpeningResult> {
   const modality = getValidAvatarChoice(session.modalityId, session.avatarId);
 
@@ -54,9 +58,9 @@ export async function createSessionOpeningMessage(
     const response = await generateSessionResponse({
       mode: "opening",
       modality: {
-        modalityName: modality.modalityName,
-        avatarName: modality.avatarName,
+        ...getModalityPromptNames(modality.modalityId),
         sessionStyleHint: modality.sessionStyleHint,
+        registerExamples: modality.registerExamples[options.locale],
       },
       sessionPhase: "opening",
       avatarMemory: summaries.avatarMemory,
@@ -66,7 +70,7 @@ export async function createSessionOpeningMessage(
         createdAt: summary.createdAt,
         updatedAt: summary.updatedAt,
       })),
-      locale: "pl",
+      locale: options.locale,
     });
 
     assistantText = response.assistantText;

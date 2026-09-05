@@ -53,7 +53,7 @@ describe("automatic avatar memory", () => {
       .mockReset()
       .mockResolvedValueOnce(ok({ ...work, messages }))
       .mockResolvedValue(ok(readyWork));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: true, ready: true });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: true, ready: true });
     expect(deps.generateSessionSummary).toHaveBeenCalledTimes(1);
     const input = deps.generateSessionSummary.mock.calls[0][0];
     expect(input.messages).toHaveLength(40);
@@ -76,7 +76,7 @@ describe("automatic avatar memory", () => {
       .mockReset()
       .mockResolvedValueOnce(ok({ ...work, messages }))
       .mockResolvedValue(ok(readyWork));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: true, ready: true });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: true, ready: true });
     expect(deps.generateSessionSummary).toHaveBeenCalledTimes(1);
     expect(deps.saveOwnedAvatarMemoryWork).toHaveBeenCalledTimes(1);
     const input = deps.generateSessionSummary.mock.calls[0][0];
@@ -101,14 +101,14 @@ describe("automatic avatar memory", () => {
   it("does not call AI again when the history is already covered", async () => {
     const deps = dependencies();
     deps.getOwnedAvatarMemoryWork.mockReset().mockResolvedValue(ok(readyWork));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: true, ready: true });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: true, ready: true });
     expect(deps.generateSessionSummary).not.toHaveBeenCalled();
   });
 
   it("requests another step when a bounded batch leaves more history", async () => {
     const deps = dependencies();
     deps.getOwnedAvatarMemoryWork.mockReset().mockResolvedValue(ok(work));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: true, ready: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: true, ready: false });
     expect(deps.getOwnedAvatarMemoryWork.mock.invocationCallOrder[1]).toBeGreaterThan(
       deps.saveOwnedAvatarMemoryWork.mock.invocationCallOrder[0],
     );
@@ -120,13 +120,13 @@ describe("automatic avatar memory", () => {
       .mockReset()
       .mockResolvedValueOnce(ok(work))
       .mockResolvedValueOnce(sessionDataError("read_failed"));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: false });
   });
 
   it("keeps a failed generation retryable without advancing any source cursor", async () => {
     const deps = dependencies();
     deps.generateSessionSummary.mockRejectedValue(new Error("private provider error"));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: false });
     expect(deps.saveOwnedAvatarMemoryWork).not.toHaveBeenCalled();
   });
 
@@ -134,7 +134,7 @@ describe("automatic avatar memory", () => {
     const deps = dependencies();
     const messages = conversation("session", 1, "x".repeat(AVATAR_MEMORY_BATCH_MAX_CHARS + 1));
     deps.getOwnedAvatarMemoryWork.mockReset().mockResolvedValue(ok({ ...work, messages }));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: false });
     expect(deps.generateSessionSummary).not.toHaveBeenCalled();
     expect(deps.saveOwnedAvatarMemoryWork).not.toHaveBeenCalled();
   });
@@ -142,14 +142,14 @@ describe("automatic avatar memory", () => {
   it("does not truncate an overlong memory or claim to have saved it", async () => {
     const deps = dependencies();
     deps.generateSessionSummary.mockResolvedValue({ ...response, summaryText: "x".repeat(6001) });
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: false });
     expect(deps.saveOwnedAvatarMemoryWork).not.toHaveBeenCalled();
   });
 
   it("re-reads after a concurrent update or deletion instead of using stale generated text", async () => {
     const deps = dependencies();
     deps.saveOwnedAvatarMemoryWork.mockResolvedValue(ok(false));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: true, ready: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: true, ready: false });
     expect(deps.getOwnedAvatarMemoryWork).toHaveBeenCalledTimes(1);
   });
 
@@ -159,8 +159,8 @@ describe("automatic avatar memory", () => {
       .mockReset()
       .mockResolvedValueOnce(sessionDataError("read_failed"))
       .mockResolvedValueOnce(ok(work));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: false });
     deps.saveOwnedAvatarMemoryWork.mockResolvedValue(sessionDataError("write_failed"));
-    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: false });
+    expect(await prepareOwnedAvatarMemory(context, avatar, { locale: "pl" }, deps)).toEqual({ ok: false });
   });
 });

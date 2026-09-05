@@ -21,6 +21,12 @@ vi.mock("@/lib/admin/account-access", () => ({
   requireActiveAccountAccess,
 }));
 
+const syncLocaleAfterSignIn = vi.fn();
+
+vi.mock("@/lib/i18n/account-locale", () => ({
+  syncLocaleAfterSignIn,
+}));
+
 const [{ POST: SIGNIN }, { POST: SIGNUP }, { POST: SIGNOUT }, { POST: PASSWORD }, { POST: RESET }, { POST: GOOGLE }] =
   await Promise.all([
     import("@/pages/api/auth/signin"),
@@ -149,7 +155,10 @@ describe("POST /api/auth/signin", () => {
   });
 
   it("maps provider errors to stable codes without leaking the raw message", async () => {
-    signInWithPassword.mockResolvedValue({ error: { message: "Email not confirmed", status: 422 } });
+    signInWithPassword.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Email not confirmed", status: 422 },
+    });
 
     const response = await SIGNIN(createContext({ email: "user@example.com", password: "haslo123" }));
 
@@ -157,10 +166,12 @@ describe("POST /api/auth/signin", () => {
   });
 
   it("redirects to the dashboard on success and honours a safe redirectTo", async () => {
-    signInWithPassword.mockResolvedValue({ error: null });
+    signInWithPassword.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
 
     const fallback = await SIGNIN(createContext({ email: "user@example.com", password: "haslo123" }));
     expect(location(fallback)).toBe("/dashboard");
+    // Język z konta musi trafić do cookie przed redirectem, nigdy przy błędzie.
+    expect(syncLocaleAfterSignIn).toHaveBeenCalledWith(expect.anything(), supabaseStub, { id: "user-1" });
 
     const custom = await SIGNIN(
       createContext({ email: "user@example.com", password: "haslo123", redirectTo: "/dashboard/session" }),
@@ -207,13 +218,16 @@ describe("POST /api/auth/signup", () => {
   });
 
   it("sends a session-less signup to email confirmation, a signed-in one to the dashboard", async () => {
-    signUp.mockResolvedValue({ data: { session: null }, error: null });
+    signUp.mockResolvedValue({ data: { session: null, user: { id: "user-1" } }, error: null });
     const confirm = await SIGNUP(createContext(validFields));
     expect(location(confirm)).toBe("/auth/confirm-email");
+    // Bez sesji nie ma jeszcze kogo synchronizować — zrobi to `auth/callback`.
+    expect(syncLocaleAfterSignIn).not.toHaveBeenCalled();
 
-    signUp.mockResolvedValue({ data: { session: {} }, error: null });
+    signUp.mockResolvedValue({ data: { session: {}, user: { id: "user-1" } }, error: null });
     const dashboard = await SIGNUP(createContext(validFields));
     expect(location(dashboard)).toBe("/dashboard");
+    expect(syncLocaleAfterSignIn).toHaveBeenCalledWith(expect.anything(), supabaseStub, { id: "user-1" });
 
     expect(signUp).toHaveBeenCalledWith(
       expect.objectContaining({
