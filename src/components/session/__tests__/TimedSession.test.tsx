@@ -52,7 +52,7 @@ describe("TimedSession", () => {
     expect(html).not.toContain("Z czym zacznie się ta rozmowa");
     expect(html).toContain("Rozmowę rozpoczniesz w panelu");
     expect(html).toContain("Granice rozmowy");
-    expect(html).toContain("SafeSpace jest symulacją rozmowy edukacyjnej");
+    expect(html).toContain("SafeSpace jest edukacyjną symulacją rozmowy");
   });
 
   it("renders an explicit end action only while the session is active", () => {
@@ -77,9 +77,16 @@ describe("TimedSession", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Sesja jest aktywna");
-    expect(html).toContain("Zakończ sesję");
-    expect(html).toContain("Pozostały czas sesji");
+    expect(html).toContain("Rozmowa trwa");
+    // Wyjście z rozmowy jest słowem na każdej szerokości: krótkim na telefonie,
+    // pełnym od `sm` — nie ikoną drzwi, której trzeba się domyślać.
+    expect(html).toContain('<span class="sm:hidden">Zakończ</span>');
+    expect(html).toContain("Zakończ rozmowę");
+    expect(html).not.toContain("Zakończ sesję");
+    expect(html).toContain("Pozostały czas rozmowy");
+    // W pasku telefonu stoi samo imię; pełna nazwa i nurt wracają od `sm`.
+    expect(html).toContain('<span class="sm:hidden">Marek</span>');
+    expect(html).toContain("Marek, praktyczny przewodnik");
     // Pomoc kryzysowa zostaje na widoku także na wąskim ekranie.
     expect(html).toContain("Pomoc teraz");
     expect(html).toContain(">Pomoc<");
@@ -178,14 +185,19 @@ describe("TimedSession", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Sesja została zakończona");
-    expect(html).not.toContain("Zakończ sesję");
-    expect(html).not.toContain("Pozostały czas sesji");
-    // Decyzja o kontekście kolejnej rozmowy zapada tu, nie dopiero w historii.
-    expect(html).toContain("Do przeczytania w historii");
+    expect(html).toContain("Rozmowa zakończona");
+    expect(html).not.toContain("Zakończ rozmowę");
+    expect(html).not.toContain("Pozostały czas rozmowy");
+    // Jeden krok główny: powrót do panelu jako przycisk marki, zapis obok cicho.
+    expect(html).toMatch(/<a href="\/dashboard" class="bg-brand[^"]*"[^>]*>Wróć do panelu<\/a>/);
+    expect(html).toContain("Otwórz zapis");
+    expect(html).not.toContain("Otwórz w historii");
+    // Podsumowanie jednej rozmowy zapada tu, nie dopiero w historii — zdaniem i przyciskiem.
     expect(html).toContain("Podsumowanie tej rozmowy");
     expect(html).toContain("Wygeneruj podsumowanie");
-    expect(html).toContain("Otwórz w historii");
+    expect(html).not.toContain("Do przeczytania w historii");
+    // Jedno zastrzeżenie na ekran.
+    expect(html.match(/Granice rozmowy:/g)?.length).toBe(1);
     // The closing CTA must deep-link at the conversation that just ended, not at
     // a dashboard list where the user has to find it again.
     expect(html).toContain("/dashboard?session=5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a");
@@ -214,7 +226,7 @@ describe("TimedSession", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Limit czasu został osiągnięty");
+    expect(html).toContain("Czas rozmowy minął");
     expect(html).not.toContain(SESSION_TURN_COPY.unsentMessage);
   });
 });

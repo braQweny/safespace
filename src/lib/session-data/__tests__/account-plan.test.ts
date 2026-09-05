@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { FREE_PLAN_SESSION_LIMIT_SQLSTATE, mapSupabaseWriteError } from "../errors";
-import { countOwnedSessions, getOwnedAccountPlan, toOwnedAccountPlan } from "../repository";
+import { countOwnedSessions, countOwnedSessionsByAvatar, getOwnedAccountPlan, toOwnedAccountPlan } from "../repository";
 import type { SessionDataContext } from "../types";
 
 function createContext(tableResult: { data?: unknown; count?: number | null; error: unknown }) {
@@ -17,7 +17,11 @@ function createContext(tableResult: { data?: unknown; count?: number | null; err
     }),
     eq: vi.fn((...args: unknown[]) => {
       calls.push(["eq", ...args]);
-      return Object.assign(terminal, { maybeSingle: () => terminal });
+      return Object.assign(terminal, { maybeSingle: () => terminal, neq: query.neq });
+    }),
+    neq: vi.fn((...args: unknown[]) => {
+      calls.push(["neq", ...args]);
+      return terminal;
     }),
   };
 
@@ -110,5 +114,39 @@ describe("free-plan limit error mapping", () => {
     expect(mapSupabaseWriteError({ code: "23505" }, { conflictCode: "trial_already_claimed" })).toBe(
       "trial_already_claimed",
     );
+  });
+});
+
+describe("owned session counts by avatar", () => {
+  it("reads only avatar ids of non-deleted rows and counts them per perspective", async () => {
+    const { calls, context } = createContext({
+      data: [
+        { avatar_id: "cbt-guide" },
+        { avatar_id: "psychodynamic-listener" },
+        { avatar_id: "cbt-guide" },
+        // Wiersz bez perspektywy albo z nieznanym id nie ma gdzie trafić.
+        { avatar_id: null },
+        { avatar_id: "someone-else" },
+      ],
+      error: null,
+    });
+
+    await expect(countOwnedSessionsByAvatar(context)).resolves.toEqual({
+      ok: true,
+      data: { "cbt-guide": 2, "psychodynamic-listener": 1 },
+    });
+    expect(calls).toEqual([
+      ["from", "therapy_sessions"],
+      ["select", "avatar_id"],
+      ["eq", "user_id", "user-1"],
+      ["neq", "status", "deleted"],
+    ]);
+  });
+
+  it("maps read failures to a stable code", async () => {
+    await expect(countOwnedSessionsByAvatar(createContext({ error: { code: "XX000" } }).context)).resolves.toEqual({
+      ok: false,
+      error: { code: "read_failed" },
+    });
   });
 });

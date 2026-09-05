@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
 import type { SessionQuota } from "@/lib/session-data/types";
@@ -125,6 +125,9 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
   // to samo źródło, z którego trasa startu liczy `expires_at`.
   const sessionDurationSeconds = resolveSessionDurationSeconds(initialState.sessionQuota?.plan);
   const sessionBudgetMinutes = formatSessionBudgetMinutes(sessionDurationSeconds);
+  // Imię zamiast „awatara”: „Lena uwzględni…” czyta się jak zdanie o osobie,
+  // „pamięć awatara” jak zdanie o systemie.
+  const avatarFirstName = initialState.avatar.selected.avatarName.split(",")[0]?.trim() || "Awatar";
 
   if (kind === "session_limit_reached") {
     // Koniec puli nie może być ślepym zaułkiem: użytkownik ma wiedzieć, co
@@ -162,7 +165,7 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
   return (
     <div className="mt-4 flex flex-col gap-4">
       <div>
-        <p className="text-ink text-base font-medium">Do {sessionBudgetMinutes} rozmowy z AI</p>
+        <p className="text-ink text-base font-medium">Do {sessionBudgetMinutes} rozmowy</p>
         {remainingCopy ? (
           <div className="mt-2 flex items-center gap-3">
             <AllowanceMeter quota={initialState.sessionQuota} />
@@ -171,11 +174,6 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
             </p>
           </div>
         ) : null}
-        <p className="text-ink-muted mt-2 text-sm leading-6">
-          {kind === "followup_ready"
-            ? "Uwzględnimy wcześniejsze rozmowy z tą perspektywą."
-            : "Pierwsza rozmowa zaczyna się od tego, co chcesz dziś poruszyć."}
-        </p>
       </div>
 
       {notice ? (
@@ -194,32 +192,34 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
           void startSession();
         }}
         disabled={!isHydrated || isStarting}
-        className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
+        className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
       >
-        {isStarting ? (isPreparingMemory ? "Przygotowywanie pamięci…" : "Rozpoczynanie…") : "Rozpocznij rozmowę"}
+        {/* Ruch w przycisku: start z pamięcią trwa do kilkudziesięciu sekund i bez
+            niego nieruchomy napis wyglądał jak zawieszenie. */}
+        {isStarting ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" /> : null}
+        {isStarting ? "Przygotowujemy rozmowę…" : "Rozpocznij rozmowę"}
         {isStarting ? null : <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />}
       </button>
       <p className={cn("text-ink-muted text-sm leading-6", !isStarting && "sr-only")} role="status" aria-live="polite">
         {isPreparingMemory
-          ? "Przygotowujemy kontekst wcześniejszych rozmów. Twój czas jeszcze nie biegnie. Przy dłuższej historii może to chwilę potrwać."
+          ? `${avatarFirstName} czyta wasze wcześniejsze rozmowy. Czas rozmowy jeszcze nie biegnie; przy dłuższej historii może to potrwać do minuty.`
           : isStarting
-            ? "Przygotowujemy rozmowę. Za chwilę przejdziesz do jej ekranu."
+            ? "Za chwilę przejdziesz do ekranu rozmowy."
             : ""}
       </p>
 
-      <details className="text-ink-muted text-sm leading-6">
-        <summary className="text-brand focus-visible:ring-brand-ring min-h-11 cursor-pointer rounded py-2.5 font-medium focus:outline-none focus-visible:ring-2">
-          Jak działa pamięć rozmów?
-        </summary>
-        <p className="mt-2">
-          Nowa rozmowa automatycznie otrzyma podsumowanie wcześniejszych rozmów z tą perspektywą. Nie musisz niczego
-          generować ani zatwierdzać ręcznie. Inne perspektywy mają osobną pamięć.
-        </p>
-        <p className="mt-2">
-          Pamięć uzupełniamy w tle po rozmowie i podczas pobytu w panelu, aby kolejny start był szybszy. Samo otwarcie
-          panelu nie zużywa próby ani czasu rozmowy.
-        </p>
-      </details>
+      {/* Jedna linijka zamiast zwijanego wyjaśnienia; pełny opis stoi w „Prywatność i zasady”. */}
+      <p className="text-ink-muted text-sm leading-6">
+        {kind === "followup_ready"
+          ? `${avatarFirstName} uwzględni wasze wcześniejsze rozmowy. Samo otwarcie panelu nie zużywa próby ani czasu.`
+          : "Pierwsza rozmowa zaczyna się od tego, co chcesz dziś poruszyć. Samo otwarcie panelu nie zużywa próby ani czasu."}{" "}
+        <a
+          href="/privacy#ai"
+          className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+        >
+          Jak to działa
+        </a>
+      </p>
     </div>
   );
 }

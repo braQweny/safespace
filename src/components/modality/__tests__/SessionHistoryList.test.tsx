@@ -142,6 +142,22 @@ describe("SessionHistoryList", () => {
     expect(html).not.toContain("Potwierdź usunięcie");
   });
 
+  it("makes the whole row the action: time, duration and badges sit inside the button", () => {
+    // Na telefonie działała tylko strzałka bez etykiety; godzina i status
+    // wyglądały na coś do dotknięcia i nie robiły nic.
+    const html = renderList({ items: [createItem({ status: "interrupted", summaryState: "approved" })] });
+    const button = /<button[^>]*>([\s\S]*?)<\/button>/.exec(html)?.[1] ?? "";
+
+    // 08:00 UTC to 10:00 w Warszawie: lista pokazuje czas lokalny.
+    expect(button).toContain("10:00");
+    expect(button).toContain("12 min rozmowy");
+    expect(button).toContain(">Przerwana<");
+    expect(button).toContain("Podsumowanie");
+    expect(button).toContain("Otwórz zapis rozmowy:");
+    // Wewnątrz przycisku wolno stać tylko treści frazowej, więc żadnych akapitów.
+    expect(button).not.toMatch(/<p[\s>]/);
+  });
+
   it("moves the date into a day heading so rows differ by time, not by a repeated date", () => {
     const today = new Date("2026-06-07T20:00:00.000Z");
     const html = renderList({

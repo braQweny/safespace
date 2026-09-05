@@ -9,7 +9,9 @@ const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("err
 <Layout title="Usuń konto - SafeSpace" lang="pl">
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <main class="flex flex-1 items-center px-4 py-8 sm:px-6">
-      <section class="border-line-strong bg-surface shadow-card mx-auto w-full max-w-xl rounded-lg border p-6 sm:p-8">
+      <section
+        class="border-line-strong bg-surface shadow-card mx-auto w-full max-w-xl rounded-[20px] border p-6 sm:p-8"
+      >
         <h1 class="text-ink text-3xl leading-tight">Usuń konto</h1>
         <p class="text-ink-muted mt-4 text-sm leading-6">
           Usuwasz konto <strong class="text-ink break-all">{Astro.locals.user?.email}</strong>. Ta operacja jest trwała
@@ -33,7 +35,7 @@ const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("err
               autocomplete="off"
               spellcheck="false"
               aria-describedby="deletion-consequences"
-              class="border-line-strong bg-surface text-ink focus:ring-brand-ring mt-2 min-h-11 w-full rounded-lg border px-3 py-2 focus:ring-2 focus:outline-none"
+              class="border-line-strong bg-surface text-ink focus:ring-brand-ring mt-2 h-12 w-full rounded-[14px] border px-3.5 focus:ring-2 focus:outline-none"
             />
           </div>
           {
@@ -46,12 +48,12 @@ const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("err
           <div class="flex flex-col gap-3 sm:flex-row">
             <a
               href="/account/security"
-              class="border-line-accent text-brand hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex min-h-11 items-center justify-center rounded-lg border px-5 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
+              class="border-line-accent text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-full border px-5 text-sm font-medium focus:outline-none focus-visible:ring-2"
               >Anuluj</a
             >
             <button
               type="submit"
-              class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-brand-ring inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
+              class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold focus:outline-none focus-visible:ring-2"
               >Usuń konto bezpowrotnie</button
             >
           </div>

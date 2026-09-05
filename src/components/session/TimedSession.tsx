@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronDown, Copy, DoorOpen, History, Loader2 } from "lucide-react";
+import { ChevronDown, Copy, History, Loader2 } from "lucide-react";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import { useAvatarMemoryPreparation } from "@/components/hooks/useAvatarMemoryPreparation";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
-import { SESSION_BOUNDARIES_COPY, SESSION_PERSPECTIVE_COPY, SESSION_TURN_COPY } from "@/lib/session-copy";
+import { SESSION_BOUNDARIES_COPY, SESSION_TURN_COPY } from "@/lib/session-copy";
+import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
 import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 import { CrisisHelpPanel, CrisisHelpTrigger } from "./CrisisHelpPanel";
@@ -32,20 +33,20 @@ const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string
     body: "Rozmowę rozpoczniesz w panelu — tam jest przycisk startu i informacja, z czym się zacznie.",
   },
   active: {
-    title: "Sesja jest aktywna",
-    body: "Możesz pisać wiadomości, dopóki trwa czas sesji.",
+    title: "Rozmowa trwa",
+    body: "Możesz pisać wiadomości, dopóki trwa czas rozmowy.",
   },
   expired: {
-    title: "Limit czasu został osiągnięty",
-    body: "Czas tej rozmowy minął i nie można już wysyłać nowych wiadomości. Zapis pozostaje w historii — możesz go podsumować poniżej.",
+    title: "Czas rozmowy minął",
+    body: "Nie da się już wysyłać wiadomości. Zapis został zachowany prywatnie, a następna rozmowa z tą perspektywą uwzględni go sama.",
   },
   completed: {
-    title: "Sesja została zakończona",
-    body: "Rozmowa została prywatnie zapisana. Przy rozpoczęciu kolejnej rozmowy z tym awatarem zostanie automatycznie uwzględniona w jego pamięci.",
+    title: "Rozmowa zakończona",
+    body: "Zapis został zachowany prywatnie. Następna rozmowa z tą perspektywą uwzględni go sama.",
   },
   interrupted: {
-    title: "Sesja została przerwana",
-    body: "Rozmowa została zatrzymana w bezpiecznym stanie. Zwykła symulacja nie będzie kontynuowana w tej sesji.",
+    title: "Rozmowa przerwana",
+    body: "Rozmowa została zatrzymana w bezpiecznym stanie i nie będzie kontynuowana.",
   },
   followup_ready: {
     title: "Rozmowa jeszcze się nie zaczęła",
@@ -260,6 +261,12 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
   // same-day entries and hunting for the right one is the wrong last step.
   const historyHref = session ? `/dashboard?session=${encodeURIComponent(session.id)}` : "/dashboard";
   const avatar = initialState.avatar.selected;
+  const avatarFirstName = avatar.avatarName.split(",")[0]?.trim() || avatar.avatarName;
+  const remainingSessionsCopy = formatRemainingFreeSessions(initialState.sessionQuota);
+  // Powiadomienia tury (odpowiedź nie dotarła, ponów, błąd wysyłki) stoją przy
+  // polu pisania, gdzie jest wzrok i kciuk. Zatrzymanie bezpieczeństwa i stany
+  // końcowe zostają u góry, bo zastępują rozmowę, a nie komentują jedną turę.
+  const isTurnNotice = notice !== null && notice.variant !== "hard_stop" && kind === "active" && session !== null;
   // Gdy istnieje sesja, strona zachowuje się jak komunikator: nagłówek i pole
   // wpisywania są przypięte, a przewija się wyłącznie zapis rozmowy.
   const isChatLayout = Boolean(session);
@@ -303,10 +310,14 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               loading="lazy"
             />
             <div className="min-w-0">
+              {/* Na telefonie samo imię: pełna nazwa perspektywy stoi przy każdej
+                  wypowiedzi w zapisie, a w jednym rzędzie paska liczy się każdy
+                  piksel — to on robi miejsce na „Zakończ” słowem. */}
               <h1 className="text-ink truncate font-sans text-[15px] leading-tight font-semibold tracking-normal">
-                {avatar.avatarName}
+                <span className="sm:hidden">{avatarFirstName}</span>
+                <span className="hidden sm:inline">{avatar.avatarName}</span>
               </h1>
-              <p className="text-ink-muted truncate text-xs leading-tight">{avatar.modalityName}</p>
+              <p className="text-ink-muted hidden truncate text-xs leading-tight sm:block">{avatar.modalityName}</p>
             </div>
           </div>
 
@@ -332,18 +343,20 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                     setIsConfirmingEnd(true);
                   }}
                   disabled={isEnding || isConfirmingEnd}
-                  aria-label="Zakończ sesję"
-                  className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3.5"
+                  className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3.5"
                 >
+                  {/* Słowo, nie ikona: drzwi nie są konwencją „zakończ”, a jedynego
+                      wyjścia z rozmowy nie powinno się zgadywać. Na telefonie
+                      krócej, jak „Pomoc” obok „Pomoc teraz”. */}
                   {isEnding ? (
                     <>
-                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin sm:hidden" />
-                      <span className="hidden sm:inline">Kończenie…</span>
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                      <span>Kończenie…</span>
                     </>
                   ) : (
                     <>
-                      <DoorOpen aria-hidden="true" className="h-4 w-4 sm:hidden" />
-                      <span className="hidden sm:inline">Zakończ sesję</span>
+                      <span className="sm:hidden">Zakończ</span>
+                      <span className="hidden sm:inline">Zakończ rozmowę</span>
                     </>
                   )}
                 </button>
@@ -371,7 +384,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             <div
               ref={confirmEndRef}
               role="alertdialog"
-              aria-label="Potwierdź zakończenie sesji"
+              aria-label="Potwierdź zakończenie rozmowy"
               tabIndex={-1}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
@@ -382,7 +395,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               }}
               className="border-line-accent bg-surface text-ink-soft shadow-card mx-auto mt-1 w-full max-w-3xl rounded-2xl border p-5 text-sm leading-6 focus:outline-none"
             >
-              <p className="text-ink font-serif text-lg leading-snug font-medium">Na pewno zakończyć sesję?</p>
+              <p className="text-ink font-serif text-lg leading-snug font-medium">Na pewno zakończyć rozmowę?</p>
               <p className="mt-1">Zakończonej rozmowy nie da się wznowić, ale jej zapis pozostanie w historii.</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
@@ -433,7 +446,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
           </div>
         ) : null}
 
-        {notice ? (
+        {notice && !isTurnNotice ? (
           <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-5 sm:px-6">
             <div className="max-h-[60vh] overflow-y-auto">
               <SessionSafetyNotice
@@ -447,41 +460,35 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
 
         {showHistoryCta ? (
           <div className="mx-auto w-full max-w-3xl shrink-0 space-y-4 px-4 pt-5 sm:px-6">
-            <div className="border-line-strong bg-surface shadow-card rounded-2xl border p-5 sm:p-6">
-              <h2 className="text-ink font-serif text-2xl leading-tight font-medium">{stateCopy[kind].title}</h2>
-              <p className="text-ink-soft mt-2 text-sm leading-6">{stateCopy[kind].body}</p>
+            {/* Jeden krok główny po rozmowie: powrót do panelu. Zapis obok, cicho. */}
+            <div className="border-line-strong bg-surface shadow-card rounded-[20px] border p-5 sm:p-7">
+              <h2 className="text-ink font-serif text-2xl leading-tight font-medium sm:text-[28px]">
+                {stateCopy[kind].title}
+              </h2>
+              <p className="text-ink-soft mt-2 text-base leading-7">{stateCopy[kind].body}</p>
               {unsentText && kind !== "interrupted" ? <UnsentMessageNotice text={unsentText} /> : null}
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <a
                   href="/dashboard"
-                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wróć do panelu
                 </a>
                 <a
                   href={historyHref}
-                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <History aria-hidden="true" className="h-4 w-4" />
-                  Otwórz w historii
+                  Otwórz zapis
                 </a>
               </div>
-              <p className="text-ink-muted border-line mt-5 border-t pt-4 text-xs leading-5">
-                {SESSION_PERSPECTIVE_COPY}{" "}
-                <a
-                  href="/dashboard/avatar"
-                  className="text-brand focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-                >
-                  Zmień perspektywę
-                </a>
-              </p>
-              <p className="text-ink-muted mt-2 text-xs leading-5">
-                <span className="text-ink-soft font-medium">Granice rozmowy:</span> {SESSION_BOUNDARIES_COPY}
-              </p>
+              {remainingSessionsCopy ? (
+                <p className="text-ink-muted mt-3 text-[13px] leading-5">{remainingSessionsCopy}</p>
+              ) : null}
             </div>
 
-            {/* Decyzja o tym, co przechodzi dalej, zapada tu — zaraz po rozmowie,
-                a nie dopiero po odnalezieniu jej w historii. */}
+            {/* Podsumowanie tej jednej rozmowy: zdanie i przycisk, bo pamięć
+                rozmów nie czeka na ten krok. */}
             <SessionSummaryPanel
               summaryState={summaryState}
               summaryStatus={summaryStatus}
@@ -490,6 +497,17 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               onGenerate={handleGenerateSummary}
               onApprove={handleApproveSummary}
             />
+
+            {/* Jedno zastrzeżenie na ekran, pod kartą, a nie w niej. */}
+            <p className="text-ink-muted text-xs leading-5">
+              <span className="text-ink-soft font-medium">Granice rozmowy:</span> {SESSION_BOUNDARIES_COPY}{" "}
+              <a
+                href="/dashboard/avatar"
+                className="text-brand focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+              >
+                Zmień perspektywę
+              </a>
+            </p>
           </div>
         ) : null}
 
@@ -508,6 +526,13 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
       {session && kind === "active" ? (
         <div className="border-line shrink-0 border-t px-4 pt-3 pb-4 sm:px-6">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+            {notice && isTurnNotice ? (
+              <SessionSafetyNotice
+                variant={notice.variant}
+                copy={notice.copy}
+                crisisResources={notice.crisisResources}
+              />
+            ) : null}
             {!hasUserMessage && !pendingUserText && draft.length === 0 ? (
               <SessionStarterPrompts isDisabled={!composerAvailable || isMessagePending} onSelect={setDraft} />
             ) : null}

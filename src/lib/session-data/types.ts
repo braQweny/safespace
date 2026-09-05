@@ -51,6 +51,24 @@ export type SessionModalityId = "psychodynamic" | "cbt" | "humanistic_experienti
 export type SessionAvatarId =
   "psychodynamic-listener" | "cbt-guide" | "experiential-companion" | "systemic-connector" | "integrative-guide";
 
+const SESSION_AVATAR_IDS: readonly SessionAvatarId[] = [
+  "psychodynamic-listener",
+  "cbt-guide",
+  "experiential-companion",
+  "systemic-connector",
+  "integrative-guide",
+];
+
+export function isSessionAvatarId(value: unknown): value is SessionAvatarId {
+  return typeof value === "string" && (SESSION_AVATAR_IDS as readonly string[]).includes(value);
+}
+
+/**
+ * Liczba niesuniętych rozmów właściciela na perspektywę — dana zbiorcza bez
+ * treści, którą filtr historii pokazuje jako „Lena · 3”.
+ */
+export type OwnedSessionCountsByAvatar = Partial<Record<SessionAvatarId, number>>;
+
 export interface SessionDataContext {
   supabase: SessionDataSupabaseClient;
   user: {

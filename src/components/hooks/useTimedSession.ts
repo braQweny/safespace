@@ -92,7 +92,7 @@ function buildGenericNotice(title: string, body: string): SafetyNoticeState {
 }
 
 function buildExpiredNotice() {
-  return buildGenericNotice("Limit czasu został osiągnięty", "Nowe wiadomości są już blokowane w tej sesji.");
+  return buildGenericNotice("Czas rozmowy minął", "W tej rozmowie nie da się już wysyłać wiadomości.");
 }
 
 function nonEmpty(text: string) {
@@ -425,7 +425,7 @@ export async function endTimedSession(
         type: "end_failed",
         notice: buildGenericNotice(
           "Za dużo prób w krótkim czasie",
-          "Odczekaj około minuty i spróbuj ponownie zakończyć sesję.",
+          "Odczekaj około minuty i spróbuj ponownie zakończyć rozmowę.",
         ),
       });
       return;

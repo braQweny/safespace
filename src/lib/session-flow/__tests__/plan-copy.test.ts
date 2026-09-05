@@ -40,9 +40,9 @@ describe("plan copy", () => {
     expect(formatRemainingFreeSessions(premiumQuota)).toBeNull();
     expect(formatRemainingFreeSessions({ ...freeQuota, remainingSessions: 0, canStartSession: false })).toBeNull();
     expect(formatRemainingFreeSessions({ ...freeQuota, usedSessions: 2, remainingSessions: 1 })).toBe(
-      "To ostatnia z 3 bezpłatnych rozmów na tym koncie.",
+      "To ostatnia z 3 bezpłatnych rozmów.",
     );
-    expect(formatRemainingFreeSessions(freeQuota)).toBe("Pozostały 2 z 3 bezpłatnych rozmów na tym koncie.");
+    expect(formatRemainingFreeSessions(freeQuota)).toBe("Zostały 2 z 3 bezpłatnych rozmów.");
   });
 
   it("tells the user premium is granted by hand, not bought in-app", () => {

@@ -92,20 +92,14 @@ export default function SessionSummaryPanel({
     <div className="border-line-strong bg-surface shadow-card text-ink-soft rounded-2xl border p-5 text-sm leading-6 sm:p-6">
       <div className="flex items-center gap-2.5">
         <GateArch variant={gate?.arch ?? "open"} />
-        <p
-          className={cn(
-            "text-xs font-semibold tracking-[0.08em] uppercase",
-            isApproved ? "text-brand" : "text-ink-muted",
-          )}
-        >
-          Do przeczytania w historii
+        <p className={cn("font-serif text-xl leading-snug font-medium", isApproved ? "text-brand-deep" : "text-ink")}>
+          Podsumowanie tej rozmowy
         </p>
       </div>
-      <p className="text-ink mt-2 font-serif text-xl leading-snug font-medium">Podsumowanie tej rozmowy</p>
 
+      {/* Jedno zdanie zamiast trzech: co to jest i że pamięć rozmów nie czeka na ten krok. */}
       <p className="text-ink-muted mt-2">
-        Pamięć wszystkich rozmów z tym awatarem przygotowuje się automatycznie przy rozpoczęciu kolejnej rozmowy. Tutaj
-        możesz dodatkowo wygenerować krótkie podsumowanie tylko tej rozmowy do przeczytania.
+        Krótkie streszczenie tylko tej rozmowy, do przeczytania w historii. Pamięć rozmów uzupełnia się sama.
       </p>
 
       {summaryState.kind !== "none" && gate ? (

@@ -92,7 +92,9 @@ describe("SessionStartCard", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Jak działa pamięć rozmów?");
+    expect(html).toContain("Marek uwzględni wasze wcześniejsze rozmowy.");
+    expect(html).toContain('href="/privacy#ai"');
+    expect(html).not.toContain("<details");
     expect(html).not.toContain("Zatwierdzone podsumowanie widoczne przed startem.");
     expect(html).toContain("Rozpocznij rozmowę");
     // Pamięć przygotowuje się automatycznie, bez ręcznego zatwierdzania.
@@ -131,7 +133,8 @@ describe("SessionStartCard", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Nie musisz niczego generować ani zatwierdzać ręcznie");
+    expect(html).toContain("Marek uwzględni wasze wcześniejsze rozmowy.");
+    expect(html).not.toContain("zatwierdz");
     expect(html).toContain("Rozpocznij rozmowę");
   });
 
@@ -209,7 +212,7 @@ describe("SessionStartCard", () => {
       sessionQuota: freeQuota,
     });
 
-    expect(html).toContain("Do 15 min rozmowy z AI");
+    expect(html).toContain("Do 15 min rozmowy");
     expect(html).toContain("Rozpocznij rozmowę");
   });
 
@@ -226,7 +229,7 @@ describe("SessionStartCard", () => {
       sessionQuota: freeQuota,
     });
 
-    expect(html).toContain("Pozostały 2 z 3 bezpłatnych rozmów");
+    expect(html).toContain("Zostały 2 z 3 bezpłatnych rozmów");
     expect(html).toContain("Rozpocznij rozmowę");
   });
 
@@ -247,7 +250,7 @@ describe("SessionStartCard", () => {
     expect(html).not.toContain("Plan bezpłatny");
     expect(html).toContain("Rozpocznij rozmowę");
     expect(html).not.toContain("darmową rozmowę");
-    expect(html).toContain("Do 60 min rozmowy z AI");
+    expect(html).toContain("Do 60 min rozmowy");
   });
 
   it("formats the remaining free sessions only when there is something left to count", () => {
@@ -255,10 +258,10 @@ describe("SessionStartCard", () => {
     expect(formatRemainingFreeSessions(premiumQuota)).toBeNull();
     expect(formatRemainingFreeSessions({ ...freeQuota, remainingSessions: 0, canStartSession: false })).toBeNull();
     expect(formatRemainingFreeSessions({ ...freeQuota, usedSessions: 2, remainingSessions: 1 })).toBe(
-      "To ostatnia z 3 bezpłatnych rozmów na tym koncie.",
+      "To ostatnia z 3 bezpłatnych rozmów.",
     );
     expect(formatRemainingFreeSessions({ ...freeQuota, usedSessions: 0, remainingSessions: 3 })).toBe(
-      "Pozostały 3 z 3 bezpłatnych rozmów na tym koncie.",
+      "Zostały 3 z 3 bezpłatnych rozmów.",
     );
   });
 

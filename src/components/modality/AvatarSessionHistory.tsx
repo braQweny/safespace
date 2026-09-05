@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modalities";
 import type {
   SessionHistoryFailureCode,
@@ -12,11 +12,7 @@ import { useSessionHistoryList } from "@/components/hooks/useSessionHistoryList"
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { cn } from "@/lib/utils";
 import SessionHistoryDetailPanel from "./SessionHistoryDetail";
-import SessionHistoryList, {
-  SESSION_STATUS_LEGEND_ORDER,
-  getOpenDetailButtonId,
-  sessionStatusLegend,
-} from "./SessionHistoryList";
+import SessionHistoryList, { getOpenDetailButtonId } from "./SessionHistoryList";
 
 interface AvatarSessionHistoryProps {
   selectedAvatar: SelectedModalityAvatar | null;
@@ -218,23 +214,11 @@ function SessionHistoryContent({
 
   return (
     <>
-      <p className="text-ink-muted mt-3 text-sm leading-6">Treść rozmowy zobaczysz dopiero po otwarciu zapisu.</p>
-
-      <details className="group mt-2">
-        <summary className="text-brand focus-visible:ring-brand-ring inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:outline-none focus-visible:ring-2">
-          Co oznaczają statusy
-          <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
-        </summary>
-        <dl className="text-ink-muted mt-2 space-y-1 text-sm leading-6">
-          {SESSION_STATUS_LEGEND_ORDER.map((status) => (
-            <div key={status} className="flex flex-wrap gap-x-2">
-              <dt className="text-ink font-semibold">{sessionStatusLegend[status].label}</dt>
-              <dd>— {sessionStatusLegend[status].description}</dd>
-            </div>
-          ))}
-        </dl>
-      </details>
-
+      {/*
+        Bez zdania wstępu i bez legendy statusów: wiersz mówi „Po czasie” albo
+        „Przerwana” sam, a plakietka niesie pełne wyjaśnienie w `title`. Panel
+        tłumaczył się w tym miejscu jako trzecim z kolei.
+      */}
       {contextNotice ? (
         <div className="bg-brand-tint text-brand-deep mt-4 rounded-xl p-3.5 text-sm leading-6">{contextNotice}</div>
       ) : null}

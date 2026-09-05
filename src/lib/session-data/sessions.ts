@@ -2,6 +2,7 @@
  * Owner-bound repository helpers for `therapy_sessions` metadata and
  * tombstones. Import from `./repository` outside this directory.
  */
+import { isRecord } from "@/lib/type-guards";
 import {
   getStableSupabaseErrorCode,
   mapSupabaseReadError,
@@ -18,19 +19,21 @@ import {
   mapSession,
   toDeletedSessionTombstone,
 } from "./rows";
-import type {
-  CreatePendingSessionInput,
-  DeletedSessionTombstone,
-  ListActiveSessionMetadataInput,
-  ListOwnedSessionHistoryInput,
-  ListSessionMetadataOptions,
-  OwnedSessionHistoryPage,
-  SessionDataContext,
-  SessionId,
-  SessionLifecycleStatus,
-  SessionMetadata,
-  TransitionSessionLifecycleInput,
-  UpdateSessionTombstoneInput,
+import {
+  isSessionAvatarId,
+  type CreatePendingSessionInput,
+  type DeletedSessionTombstone,
+  type ListActiveSessionMetadataInput,
+  type ListOwnedSessionHistoryInput,
+  type ListSessionMetadataOptions,
+  type OwnedSessionCountsByAvatar,
+  type OwnedSessionHistoryPage,
+  type SessionDataContext,
+  type SessionId,
+  type SessionLifecycleStatus,
+  type SessionMetadata,
+  type TransitionSessionLifecycleInput,
+  type UpdateSessionTombstoneInput,
 } from "./types";
 
 const ALLOWED_TRANSITIONS: Readonly<Record<SessionLifecycleStatus, readonly SessionLifecycleStatus[]>> = {
@@ -90,6 +93,40 @@ export async function countOwnedSessions(context: SessionDataContext): Promise<S
   }
 
   return ok(typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : 0);
+}
+
+/**
+ * Ile niesuniętych rozmów właściciel ma z każdą perspektywą. Dane zbiorcze bez
+ * treści (sam `avatar_id`), potrzebne, żeby filtr historii pokazywał tylko te
+ * twarze, za którymi coś stoi — zamiast pięciu przełączników, z których cztery
+ * prowadzą do pustej listy.
+ */
+export async function countOwnedSessionsByAvatar(
+  context: SessionDataContext,
+): Promise<SessionDataResult<OwnedSessionCountsByAvatar>> {
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .select("avatar_id")
+    .eq("user_id", context.user.id)
+    .neq("status", "deleted");
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  const counts: OwnedSessionCountsByAvatar = {};
+
+  for (const row of Array.isArray(data) ? (data as unknown[]) : []) {
+    const avatarId = isRecord(row) ? row.avatar_id : null;
+
+    if (!isSessionAvatarId(avatarId)) {
+      continue;
+    }
+
+    counts[avatarId] = (counts[avatarId] ?? 0) + 1;
+  }
+
+  return ok(counts);
 }
 
 export async function listOwnedSessionMetadata(

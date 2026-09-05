@@ -7,7 +7,7 @@ import type {
   SessionHistoryListResponse,
 } from "@/lib/session-flow/session-history-contract";
 import AvatarSessionHistory from "../AvatarSessionHistory";
-import { SESSION_STATUS_LEGEND_ORDER, sessionStatusLegend } from "../SessionHistoryList";
+import { sessionStatusLegend } from "../SessionHistoryList";
 
 /*
  * Podgląd, podsumowanie i potwierdzenie usunięcia nie wchodzą do sekcji przez
@@ -162,29 +162,28 @@ describe("AvatarSessionHistory", () => {
 
     expect(html.match(/data-history-item=/g)?.length).toBe(20);
     expect(html).toContain("Historia rozmów");
-    expect(html).toContain("Zakończona");
+    // Zakończona rozmowa to stan domyślny: mówi za nią czas i długość, bez plakietki.
+    expect(html).toContain("12 min rozmowy");
+    expect(html).not.toContain(">Zakończona<");
     expect(html).not.toContain("Prywatna tresc listy");
     expect(html).not.toContain("Preview rozmowy");
     expect(html).not.toContain("session-21");
   });
 
-  it("explains the status badges in a collapsed legend next to the list description", () => {
+  it("carries no intro sentence and no status legend: the badges explain themselves", () => {
+    // Panel tłumaczył się w tym miejscu jako trzecim z kolei. Plakietka mówi
+    // „Po czasie” albo „Przerwana” sama, a pełne wyjaśnienie niesie w `title`.
     const html = renderHistory();
 
-    expect(html).toContain("Treść rozmowy zobaczysz dopiero po otwarciu zapisu.");
-    expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>Co oznaczają statusy/);
+    expect(html).not.toContain("Treść rozmowy zobaczysz dopiero po otwarciu zapisu.");
+    expect(html).not.toContain("Co oznaczają statusy");
 
-    for (const status of SESSION_STATUS_LEGEND_ORDER) {
-      expect(html).toContain(`<dt class="text-ink font-semibold">${sessionStatusLegend[status].label}</dt>`);
-      expect(html).toContain(`<dd>— ${sessionStatusLegend[status].description}</dd>`);
-    }
-
-    // The badge title and the legend must come from the same map.
     const interruptedHtml = renderHistory({
       initialHistory: createHistoryResponse([{ ...createHistoryItem(1), status: "interrupted" }]),
     });
 
     expect(interruptedHtml).toContain(`title="${sessionStatusLegend.interrupted.description}"`);
+    expect(interruptedHtml).toContain(">Przerwana<");
   });
 
   it("starts without any preview: the server never puts conversation content in the first render", () => {

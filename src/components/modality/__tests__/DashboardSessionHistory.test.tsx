@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
-import DashboardSessionHistory, { getAvatarFirstName } from "../DashboardSessionHistory";
+import DashboardSessionHistory, { getAvatarFirstName, selectHistoryFilterModalities } from "../DashboardSessionHistory";
 
 const selectedAvatar = toSelectedModalityAvatar(MVP_MODALITIES[3]);
 
@@ -16,7 +16,62 @@ describe("getAvatarFirstName", () => {
   });
 });
 
+describe("selectHistoryFilterModalities", () => {
+  it("shows every perspective when the counts could not be read", () => {
+    expect(selectHistoryFilterModalities(MVP_MODALITIES, null, [selectedAvatar.avatarId])).toHaveLength(
+      MVP_MODALITIES.length,
+    );
+  });
+
+  it("keeps only perspectives with conversations plus the ones that must stay selectable", () => {
+    const ids = selectHistoryFilterModalities(MVP_MODALITIES, { "cbt-guide": 2, "integrative-guide": 0 }, [
+      selectedAvatar.avatarId,
+    ]).map((modality) => modality.avatarId);
+
+    expect(ids).toEqual(["cbt-guide", selectedAvatar.avatarId]);
+  });
+});
+
 describe("DashboardSessionHistory", () => {
+  it("lists only the perspectives someone actually talked with, with their counts", () => {
+    // Pięć przełączników, z których cztery prowadziły do pustej listy,
+    // obiecywało coś, czego nie było.
+    const html = renderToStaticMarkup(
+      <DashboardSessionHistory
+        selectedAvatar={selectedAvatar}
+        modalities={MVP_MODALITIES}
+        initialHistoryPage={1}
+        initialHistory={null}
+        sessionCountsByAvatar={{ [selectedAvatar.avatarId]: 3, "cbt-guide": 1 }}
+      />,
+    );
+
+    expect(html).toContain('role="radiogroup"');
+    expect(html).toContain(`aria-label="${getAvatarFirstName(selectedAvatar.avatarName)}"`);
+    expect(html).toContain('aria-label="Marek"');
+    expect(html).not.toContain('aria-label="Lena"');
+    expect(html).not.toContain('aria-label="Nadia"');
+    expect(html).toContain("rozmów: </span>3");
+    expect(html).toContain("rozmów: </span>1");
+  });
+
+  it("drops the filter when there is only one perspective to show", () => {
+    const html = renderToStaticMarkup(
+      <DashboardSessionHistory
+        selectedAvatar={selectedAvatar}
+        modalities={MVP_MODALITIES}
+        initialHistoryPage={1}
+        initialHistory={null}
+        sessionCountsByAvatar={{ [selectedAvatar.avatarId]: 2 }}
+      />,
+    );
+
+    expect(html).not.toContain('role="radiogroup"');
+    expect(html).not.toContain("Rozmowy z:");
+    // Nazwa perspektywy zostaje w nagłówku sekcji.
+    expect(html).toContain(selectedAvatar.avatarName);
+  });
+
   it("names each filter visibly and accessibly and checks the saved perspective", () => {
     const html = renderToStaticMarkup(
       <DashboardSessionHistory

@@ -39,8 +39,8 @@ export function formatRemainingFreeSessions(quota: SessionQuota | null) {
   }
 
   if (quota.remainingSessions === 1) {
-    return `To ostatnia z ${quota.sessionLimit} bezpłatnych rozmów na tym koncie.`;
+    return `To ostatnia z ${quota.sessionLimit} bezpłatnych rozmów.`;
   }
 
-  return `Pozostały ${quota.remainingSessions} z ${quota.sessionLimit} bezpłatnych rozmów na tym koncie.`;
+  return `Zostały ${quota.remainingSessions} z ${quota.sessionLimit} bezpłatnych rozmów.`;
 }

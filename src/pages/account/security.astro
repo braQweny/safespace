@@ -52,14 +52,26 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
           href="/dashboard"
           class="text-brand hover:text-brand-strong focus:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium transition-colors hover:underline focus:ring-2 focus:outline-none"
         >
-          ← Wróć do panelu
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="mr-1.5 h-4 w-4"
+          >
+            <path d="M19 12H5M11 18l-6-6 6-6"></path>
+          </svg>
+          Wróć do panelu
         </a>
         <h1 class="text-ink mt-3 text-4xl leading-tight">Konto</h1>
         <p class="text-ink-muted mt-3 text-sm leading-6">
           Zalogowano jako <span class="text-ink font-semibold">{user?.email}</span>.
         </p>
 
-        <div class="border-line-strong bg-surface shadow-card mt-6 rounded-lg border p-6 sm:p-8" data-account-plan>
+        <div class="border-line-strong bg-surface shadow-card mt-6 rounded-[20px] border p-6 sm:p-8" data-account-plan>
           <h2 class="text-ink text-lg font-semibold">Plan i pula rozmów</h2>
           {
             quota ? (
@@ -75,7 +87,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
                 {quota.plan === "free" && support.mailtoHref ? (
                   <a
                     href={`${support.mailtoHref}?subject=${encodeURIComponent("SafeSpace — dostęp do planu premium")}`}
-                    class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                    class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                   >
                     Napisz w sprawie premium
                   </a>
@@ -90,7 +102,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
           }
         </div>
 
-        <div class="border-line-strong bg-surface shadow-card mt-5 rounded-lg border p-6 sm:p-8">
+        <div class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8">
           <h2 class="text-ink text-lg font-semibold">Hasło</h2>
           <p class="text-ink-muted mt-2 text-sm leading-6">
             Jeśli konto powstało przez Google, ustawienie hasła dodaje logowanie e-mailem bez tworzenia drugiego konta.
@@ -101,7 +113,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
           </div>
         </div>
 
-        <div class="border-line bg-surface-soft mt-5 rounded-lg border p-5">
+        <div class="border-line bg-surface-soft mt-5 rounded-2xl border p-5">
           <h2 class="text-brand-deep text-base font-semibold">Twoje dane i usunięcie konta</h2>
           <p class="text-ink-muted mt-2 text-sm leading-6">
             Rozmowę usuniesz po otwarciu jej zapisu w historii. Więcej o przetwarzaniu danych:
@@ -114,7 +126,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
           </p>
           <a
             href="/account/delete"
-            class="border-danger-line text-danger hover:bg-danger-soft focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
+            class="border-danger-line text-danger hover:bg-danger-soft focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center rounded-full border px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
             >Usuń konto</a
           >
           <p class="text-ink-muted mt-2 text-sm leading-6">
@@ -124,14 +136,14 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
 
         {
           isAdmin ? (
-            <div class="border-line bg-surface-soft mt-5 rounded-lg border p-5">
+            <div class="border-line bg-surface-soft mt-5 rounded-2xl border p-5">
               <h2 class="text-brand-deep text-base font-semibold">Administracja</h2>
               <p class="text-ink-muted mt-2 text-sm leading-6">
                 To konto ma dostęp do statystyk zbiorczych. Panel administracyjny nie pokazuje treści rozmów.
               </p>
               <a
                 href="/admin"
-                class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
               >
                 Otwórz panel administracyjny
               </a>

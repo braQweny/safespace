@@ -322,40 +322,56 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
   return (
     <li
       data-history-item={item.id}
-      className={cn(
-        "rounded-xl transition-colors",
-        isSelected ? "bg-surface-soft ring-brand-soft ring-2" : "hover:bg-surface-soft",
-      )}
+      className={cn("rounded-xl transition-colors", isSelected && "bg-surface-soft ring-brand-soft ring-2")}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
-        <div className="min-w-0 flex-1">
-          <p className="text-ink text-[15px] leading-6">
-            <span className="font-semibold tabular-nums">{timeOfDay}</span>
-            <span className="text-ink-muted text-[13px]"> · {durationLabel}</span>
-          </p>
-          {badgeClassName || item.summaryState !== "none" ? (
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-              {badgeClassName ? (
-                <span
-                  title={statusLegend.description}
-                  className={cn(
-                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                    badgeClassName,
-                  )}
-                >
-                  {statusLegend.label}
-                </span>
-              ) : null}
-              <SummaryMark state={item.summaryState} />
-            </div>
-          ) : null}
-        </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {/*
+          Jeden przycisk na wiersz — i jest nim cały wiersz. Wcześniej działała
+          tylko strzałka na końcu (na telefonie bez etykiety), a godzina i status
+          wyglądały jak coś do dotknięcia i nie robiły nic. Usuwanie zostaje w
+          podglądzie: kasowanie z listy, na której każdy wiersz wygląda tak samo,
+          było proszeniem się o pomyłkę.
+        */}
+        <button
+          id={getOpenDetailButtonId(item.id)}
+          type="button"
+          disabled={!isInteractive}
+          onClick={() => {
+            onOpenDetail(item.id);
+          }}
+          className="text-ink hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className="sr-only">Otwórz zapis rozmowy: {formatDateTime(item.startedAt ?? item.createdAt)}.</span>
+          <span className="min-w-0 flex-1">
+            <span className="text-ink block text-[15px] leading-6">
+              <span className="font-semibold tabular-nums">{timeOfDay}</span>
+              <span className="text-ink-muted text-[13px]"> · {durationLabel}</span>
+            </span>
+            {badgeClassName || item.summaryState !== "none" ? (
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                {badgeClassName ? (
+                  <span
+                    title={statusLegend.description}
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                      badgeClassName,
+                    )}
+                  >
+                    {statusLegend.label}
+                  </span>
+                ) : null}
+                <SummaryMark state={item.summaryState} />
+              </span>
+            ) : null}
+          </span>
+          <ChevronRight aria-hidden="true" className="text-ink-muted h-4 w-4 shrink-0" />
+        </button>
 
         {isActive ? (
-          <>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 pb-2 sm:pb-0">
             <div
               role="timer"
-              aria-label="Pozostały czas sesji"
+              aria-label="Pozostały czas rozmowy"
               className="bg-brand-tint text-brand-deep inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-semibold tabular-nums"
             >
               <Clock aria-hidden="true" className="text-brand h-3.5 w-3.5" />
@@ -368,27 +384,8 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
               <PlayCircle aria-hidden="true" className="h-3.5 w-3.5" />
               Wróć do rozmowy
             </a>
-          </>
+          </div>
         ) : null}
-
-        {/*
-          Jeden przycisk na wiersz zamiast trzech. Usuwanie przeniosło się do
-          podglądu — kasowanie z listy, na której każdy wiersz wygląda tak samo,
-          było proszeniem się o pomyłkę.
-        */}
-        <button
-          id={getOpenDetailButtonId(item.id)}
-          type="button"
-          disabled={!isInteractive}
-          aria-label={`Otwórz zapis rozmowy: ${formatDateTime(item.startedAt ?? item.createdAt)}`}
-          onClick={() => {
-            onOpenDetail(item.id);
-          }}
-          className="text-ink-muted hover:bg-surface hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <span className="hidden sm:inline">Otwórz</span>
-          <ChevronRight aria-hidden="true" className="h-4 w-4" />
-        </button>
       </div>
     </li>
   );

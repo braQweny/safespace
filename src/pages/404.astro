@@ -14,7 +14,7 @@ const { user } = Astro.locals;
 
     <main class="flex flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
       <section class="mx-auto w-full max-w-2xl">
-        <div class="border-line-strong shadow-card bg-surface w-full rounded-lg border p-6 sm:p-8">
+        <div class="border-line-strong shadow-card bg-surface w-full rounded-[20px] border p-6 sm:p-8">
           <p class="text-brand text-sm font-medium">SafeSpace</p>
           <h1 class="text-ink mt-3 text-3xl leading-tight">Nie znaleźliśmy tej strony</h1>
           <p class="text-ink-muted mt-4 text-sm leading-6">
@@ -27,14 +27,14 @@ const { user } = Astro.locals;
               user ? (
                 <a
                   href="/dashboard"
-                  class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Przejdź do panelu
                 </a>
               ) : (
                 <a
                   href="/"
-                  class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                  class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   Wróć na stronę główną
                 </a>
@@ -42,7 +42,7 @@ const { user } = Astro.locals;
             }
             <a
               href={user ? "/" : "/auth/signin"}
-              class="border-line-strong text-brand hover:bg-surface-hover focus-visible:ring-brand-ring bg-surface inline-flex h-11 items-center justify-center rounded-lg border px-5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+              class="border-line-accent text-ink hover:bg-surface-hover focus-visible:ring-brand-ring bg-surface inline-flex h-12 items-center justify-center rounded-full border px-5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
               {user ? "Strona główna" : "Zaloguj się"}
             </a>

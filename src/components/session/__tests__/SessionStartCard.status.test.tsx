@@ -36,7 +36,13 @@ describe("SessionStartCard progress", () => {
 
     expect(status).not.toBeNull();
     expect(status?.[1]).not.toContain("sr-only");
-    expect(status?.[2]).toContain(isPreparingMemory ? "Twój czas jeszcze nie biegnie" : "Przygotowujemy rozmowę");
+    expect(status?.[2]).toContain(
+      isPreparingMemory ? "Czas rozmowy jeszcze nie biegnie" : "Za chwilę przejdziesz do ekranu rozmowy",
+    );
     expect(html).toMatch(/<button[^>]*disabled=""/);
+    // Start z pamięcią trwa do kilkudziesięciu sekund: przycisk ma się ruszać,
+    // a nie stać z nieruchomym napisem jak zawieszony.
+    expect(html).toContain("animate-spin");
+    expect(html).toContain("Przygotowujemy rozmowę…");
   });
 });

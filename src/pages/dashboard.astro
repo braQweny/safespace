@@ -2,7 +2,7 @@
 import AppHeader from "@/components/AppHeader.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
 import SessionStartCard, { AllowanceMeter } from "@/components/session/SessionStartCard";
-import { getOwnedAvatarMemoryPreview } from "@/lib/session-data/repository";
+import { countOwnedSessionsByAvatar, getOwnedAvatarMemoryPreview } from "@/lib/session-data/repository";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import {
@@ -15,9 +15,8 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
-import type { SessionQuota } from "@/lib/session-data/types";
+import type { OwnedSessionCountsByAvatar, SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
-import { SESSION_BOUNDARIES_COPY } from "@/lib/session-copy";
 import { perspectiveFocus } from "@/lib/perspective-copy";
 import {
   readActiveSessionBadge,
@@ -121,13 +120,15 @@ let avatarMemoryPreview: string | null = null;
 let firstStepsQuota: SessionQuota | null = null;
 // Rozmowa w toku z dowolną perspektywą — dla nagłówka i bloku obok karty.
 let anyOwnedActiveSession: ActiveSessionBadge | null = null;
+// Ile rozmów stoi za każdą twarzą: filtr historii pokazuje tylko te z zapisami.
+let sessionCountsByAvatar: OwnedSessionCountsByAvatar | null = null;
 
 if (sessionContext.ok) {
   // Po poznaniu perspektywy żaden z tych odczytów nie zależy od pozostałych,
   // więc zamiast czterech rund do bazy po kolei jest jedna. Znaczek rozmowy w
   // toku jest czytany zawsze: gdy stan startu sam ją niesie, wynik i tak
   // zostanie nadpisany, ale czekanie na ten stan kosztowałoby osobną rundę.
-  const [historyResult, quotaResult, startStateResult, activeBadge, memoryPreview] = await Promise.all([
+  const [historyResult, quotaResult, startStateResult, activeBadge, memoryPreview, avatarCounts] = await Promise.all([
     !initialHistory && historyAvatar
       ? readSessionHistoryList(sessionContext.data, {
           avatar: historyAvatar.avatarId,
@@ -145,6 +146,7 @@ if (sessionContext.ok) {
     currentAvatarChoice
       ? getOwnedAvatarMemoryPreview(sessionContext.data, currentAvatarChoice.selected.avatarId)
       : null,
+    currentAvatarChoice ? countOwnedSessionsByAvatar(sessionContext.data) : null,
   ]);
 
   if (historyResult) {
@@ -162,6 +164,8 @@ if (sessionContext.ok) {
 
   anyOwnedActiveSession = activeBadge;
   avatarMemoryPreview = memoryPreview?.ok ? memoryPreview.data : null;
+  // Nieudany odczyt liczb nie zabiera historii — filtr wraca do pełnej piątki.
+  sessionCountsByAvatar = avatarCounts?.ok ? avatarCounts.data : null;
 }
 
 // Rozmowa w toku z zapisaną perspektywą blokuje kartę startu. Rozmowa w toku
@@ -184,6 +188,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(
 );
 const firstStepsAllowanceCopy = formatRemainingFreeSessions(firstStepsQuota);
 const currentTint = currentSelection ? getPerspectiveTint(currentSelection.modalityId) : null;
+const currentFirstName = currentSelection?.avatarName.split(",")[0]?.trim() ?? null;
 
 // Z zapisaną perspektywą panel dzieli się na dwie kolumny: po lewej karta startu
 // i granice rozmowy, po prawej historia rozciągnięta na oba wiersze (karta i
@@ -204,6 +209,7 @@ const historyProps = currentSelection
       modalities: MVP_MODALITIES,
       initialHistoryPage,
       initialHistory,
+      sessionCountsByAvatar,
     }
   : null;
 ---
@@ -297,7 +303,7 @@ const historyProps = currentSelection
                       </p>
                       <a
                         href={`/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`}
-                        class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-4 inline-flex h-12 items-center justify-center rounded-2xl px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+                        class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-4 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                       >
                         Wróć do rozmowy
                       </a>
@@ -312,19 +318,21 @@ const historyProps = currentSelection
                     </p>
                   )}
 
+                  {/* Granice rozmowy nie stoją już tutaj: są w stopce tej strony i pod
+                      polem pisania w rozmowie. Trzecia kopia na jednym ekranie była szumem. */}
                   {avatarMemoryPreview ? (
-                    <details class="bg-surface-soft mt-5 rounded-2xl p-5 text-sm leading-6">
-                      <summary class="text-brand min-h-11 cursor-pointer py-2.5 font-medium">
-                        Przeczytaj obecną pamięć awatara
+                    <details class="mt-4 text-sm leading-6">
+                      <summary class="text-brand focus-visible:ring-brand-ring inline-flex min-h-11 cursor-pointer items-center rounded font-medium focus:outline-none focus-visible:ring-2">
+                        Zobacz, co {currentFirstName} pamięta
                       </summary>
-                      <p class="text-ink-muted mt-2">
-                        Przed kolejnym startem uzupełnimy ją o rozmowy, których jeszcze nie obejmuje.
-                      </p>
-                      <p class="text-ink mt-3 font-serif text-[17px] whitespace-pre-wrap">{avatarMemoryPreview}</p>
+                      <div class="bg-surface-soft mt-2 rounded-2xl p-5">
+                        <p class="text-ink-muted">
+                          Przed kolejnym startem uzupełnimy tę pamięć o rozmowy, których jeszcze nie obejmuje.
+                        </p>
+                        <p class="text-ink mt-3 font-serif text-[17px] whitespace-pre-wrap">{avatarMemoryPreview}</p>
+                      </div>
                     </details>
                   ) : null}
-
-                  <p class="text-ink-muted mt-6 text-[13px] leading-5">{SESSION_BOUNDARIES_COPY}</p>
                 </div>
               ) : (
                 <div data-first-steps>
@@ -332,11 +340,11 @@ const historyProps = currentSelection
                     Dwa kroki do pierwszej rozmowy
                   </p>
                   <h2 class="text-ink mt-1.5 font-serif text-[28px] leading-tight font-medium">
-                    Najpierw wybierz, kto ma słuchać
+                    Najpierw wybierz perspektywę
                   </h2>
                   <p class="text-ink-muted mt-2 text-sm leading-6">
-                    Pięć sposobów rozmowy z AI. Wybierz jeden i zdecyduj, kiedy zacząć. Perspektywę możesz zmienić przed
-                    następną rozmową.
+                    Pięć sposobów słuchania. Wybierz, kto ma słuchać, i zdecyduj, kiedy zacząć. Perspektywę możesz
+                    zmienić przed następną rozmową.
                   </p>
                   {/* Twarze przed krokami: pierwszy krok przestaje być abstrakcją. */}
                   <ul class="mt-5 flex flex-wrap gap-3">
@@ -358,7 +366,7 @@ const historyProps = currentSelection
                   <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                     <a
                       href="/dashboard/avatar"
-                      class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-2xl px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+                      class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                     >
                       Wybierz perspektywę
                       <svg
@@ -386,13 +394,33 @@ const historyProps = currentSelection
                   <p class="text-ink-muted mt-4 text-sm leading-6">
                     Rozmowa potrwa do {sessionBudgetMinutes}. Czas zacznie biec dopiero po jej rozpoczęciu.
                   </p>
-                  <p class="text-ink-muted mt-6 text-[13px] leading-5">{SESSION_BOUNDARIES_COPY}</p>
                 </div>
               )
             }
           </section>
 
-          {/* Cichy blok obok karty: numery pod ręką, bez ostrzegawczych kolorów. */}
+          {
+            /*
+            Historia przed blokiem pomocy: na telefonie kolejność źródła jest
+            kolejnością ekranu, a osoba wracająca po wczorajszy zapis nie powinna
+            przewijać dwóch ekranów. Na monitorze siatka i tak stawia historię w
+            prawej kolumnie, a blok pomocy pod kartą.
+          */
+          }
+          {
+            historyProps ? (
+              requestsHistorySession ? (
+                <DashboardSessionHistory client:load {...historyProps} />
+              ) : (
+                <DashboardSessionHistory client:visible {...historyProps} />
+              )
+            ) : null
+          }
+
+          {
+            /* Cichy blok pod kartą: same numery, bez ostrzegawczych kolorów. Zastrzeżenie
+              o symulacji zostaje w stopce, żeby na ekranie padało raz. */
+          }
           <aside class="bg-brand-tint rounded-[20px] p-5 sm:p-6">
             {
               anyActiveSession ? (
@@ -417,27 +445,31 @@ const historyProps = currentSelection
               ) : null
             }
             <h2 class="text-brand-deep text-[15px] font-semibold">Gdyby działo się coś pilnego</h2>
-            <p class="text-ink-soft mt-2 text-sm leading-6">
-              Realna pomoc jest zawsze pod ręką: <a href="tel:112" class="text-ink font-semibold">112</a> w nagłym zagrożeniu,{
-                " "
-              }
-              <a href="tel:800702222" class="text-ink font-semibold">800 70 2222</a> — wsparcie dla dorosłych w kryzysie psychicznym.
-            </p>
-            <p class="text-ink-muted mt-3 text-[13px] leading-5">
-              SafeSpace jest symulacją edukacyjną, nie pomocą kryzysową. W rozmowie przycisk „Pomoc teraz” jest zawsze
-              na widoku.
-            </p>
+            <div class="mt-3 grid gap-4 sm:grid-cols-2">
+              <a
+                href="tel:112"
+                class="focus-visible:ring-brand-ring group flex min-h-11 flex-col rounded focus:outline-none focus-visible:ring-2"
+              >
+                <span
+                  class="text-brand-deep font-serif text-[26px] leading-tight tabular-nums underline-offset-4 group-hover:underline"
+                >
+                  112
+                </span>
+                <span class="text-ink-soft text-sm leading-5">Numer alarmowy, w nagłym zagrożeniu</span>
+              </a>
+              <a
+                href="tel:800702222"
+                class="focus-visible:ring-brand-ring group flex min-h-11 flex-col rounded focus:outline-none focus-visible:ring-2"
+              >
+                <span
+                  class="text-brand-deep font-serif text-[26px] leading-tight tabular-nums underline-offset-4 group-hover:underline"
+                >
+                  800 70 2222
+                </span>
+                <span class="text-ink-soft text-sm leading-5">Wsparcie dla dorosłych w kryzysie psychicznym</span>
+              </a>
+            </div>
           </aside>
-
-          {
-            historyProps ? (
-              requestsHistorySession ? (
-                <DashboardSessionHistory client:load {...historyProps} />
-              ) : (
-                <DashboardSessionHistory client:visible {...historyProps} />
-              )
-            ) : null
-          }
         </div>
       </section>
     </main>

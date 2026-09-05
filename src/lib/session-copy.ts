@@ -4,7 +4,7 @@
  * dwóch wersji tego zdania byłby rozjazdem obietnicy produktu.
  */
 export const SESSION_BOUNDARIES_COPY =
-  "SafeSpace jest symulacją rozmowy edukacyjnej. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.";
+  "SafeSpace jest edukacyjną symulacją rozmowy. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.";
 
 export const SESSION_PERSPECTIVE_COPY =
   "Wybrana perspektywa obowiązuje przez całą sesję. Każda nowa rozmowa automatycznie korzysta z podsumowania wszystkich wcześniejszych rozmów z tym awatarem. Rozmowy z innymi awatarami mają osobną pamięć.";

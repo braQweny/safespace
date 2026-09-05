@@ -17,6 +17,7 @@ export { getOwnedAccountPlan, toOwnedAccountPlan } from "./account-plan";
 export {
   canTransitionSessionLifecycle,
   countOwnedSessions,
+  countOwnedSessionsByAvatar,
   createPendingSession,
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata,

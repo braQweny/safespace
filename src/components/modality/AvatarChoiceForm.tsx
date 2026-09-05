@@ -38,7 +38,7 @@ function SaveBar({ message, canStartConversation, sessionBudgetMinutes }: SaveBa
           name="intent"
           value="save"
           className={cn(
-            "focus-visible:ring-brand-ring inline-flex min-h-11 items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2",
+            "focus-visible:ring-brand-ring inline-flex min-h-11 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2",
             canStartConversation
               ? "text-ink-soft hover:bg-surface-soft"
               : "bg-brand hover:bg-brand-strong text-surface",
@@ -51,7 +51,7 @@ function SaveBar({ message, canStartConversation, sessionBudgetMinutes }: SaveBa
             type="submit"
             name="intent"
             value="save_and_start"
-            className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+            className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
           >
             Zacznij rozmowę
             <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />

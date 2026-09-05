@@ -139,10 +139,10 @@ export default function SessionTimer({
         role="timer"
         aria-label={
           level === "critical"
-            ? "Pozostały czas sesji — mniej niż 2 minuty"
+            ? "Pozostały czas rozmowy — mniej niż 2 minuty"
             : level === "warning"
-              ? "Pozostały czas sesji — mniej niż 5 minut"
-              : "Pozostały czas sesji"
+              ? "Pozostały czas rozmowy — mniej niż 5 minut"
+              : "Pozostały czas rozmowy"
         }
         className="inline-flex items-center gap-2 sm:gap-2.5"
       >
@@ -188,9 +188,9 @@ export default function SessionTimer({
         {/* Zmiana progu ogłaszana czytnikowi ekranu raz, bez odczytywania każdej sekundy. */}
         <span role="status" className="sr-only">
           {level === "critical"
-            ? "Zostało mniej niż 2 minuty sesji."
+            ? "Zostało mniej niż 2 minuty rozmowy."
             : level === "warning"
-              ? "Zostało mniej niż 5 minut sesji."
+              ? "Zostało mniej niż 5 minut rozmowy."
               : null}
         </span>
       </div>

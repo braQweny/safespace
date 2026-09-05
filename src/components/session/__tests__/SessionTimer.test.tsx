@@ -37,6 +37,6 @@ describe("SessionTimer", () => {
     );
 
     expect(html).toContain("01:30");
-    expect(html).toContain("Zostało mniej niż 2 minuty sesji.");
+    expect(html).toContain("Zostało mniej niż 2 minuty rozmowy.");
   });
 });
