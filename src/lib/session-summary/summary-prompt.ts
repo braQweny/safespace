@@ -1,11 +1,13 @@
 import type { GenerateSessionSummaryInput, SessionSummaryPromptMessage } from "./types";
+import { isWithinAvatarMemoryBudget } from "./avatar-memory-budget";
 
 const MAX_SUMMARY_SOURCE_MESSAGES = 40;
 const MAX_SUMMARY_SOURCE_MESSAGE_CHARS = 1_200;
 const MAX_SUMMARY_LENS_HINT_CHARS = 600;
 
 export const AVATAR_MEMORY_SYSTEM_PROMPT = [
-  "Update the cumulative continuity summary of ALL earlier conversations with this one SafeSpace avatar using the supplied previous memory and next conversation fragment.",
+  "Update the cumulative continuity summary of ALL earlier conversations with this one SafeSpace avatar using the supplied previous memory and next batch of conversation text.",
+  "Messages are in chronological conversation order. conversationIndex groups messages from separate conversations in this batch; a change of index is a conversation boundary, not the next reply in the same exchange. A batch can start or end partway through a conversation. Preserve the distinctions between separate conversations when interpreting the text.",
   "This is a user-visible automatic summary, not a diagnosis, clinical record, risk assessment or treatment plan. SafeSpace is an educational simulation, not medical care.",
   "Preserve important facts from the previous memory even when the next fragment does not mention them. Include the user's stated circumstances, people and relationships, ongoing themes, preferences, emotions, changes, and open questions. Remove repetition and explicitly superseded facts. Distinguish user statements from assistant suggestions; never turn suggestions into user facts.",
   "Do not infer diagnoses, hidden motives or unsupported details. Record uncertain or disputed statements as the user's account, not established facts. Later corrections take precedence.",
@@ -35,12 +37,7 @@ export const SESSION_SUMMARY_SYSTEM_PROMPT = [
 export function buildSessionSummaryMessages(
   input: GenerateSessionSummaryInput,
 ): readonly SessionSummaryPromptMessage[] {
-  if (
-    input.continuityMemory !== undefined &&
-    (Array.from(input.continuityMemory).length > 6000 ||
-      input.messages.length > 16 ||
-      input.messages.some((message) => Array.from(message.content).length > 1200))
-  )
+  if (input.continuityMemory !== undefined && !isWithinAvatarMemoryBudget(input.messages, input.continuityMemory))
     throw new TypeError("Avatar memory input exceeds its bounded batch");
   return [
     {
@@ -67,7 +64,11 @@ function buildSessionSummaryUserContent(input: GenerateSessionSummaryInput) {
       : null,
     conversationMessages:
       input.continuityMemory !== undefined
-        ? input.messages.map(({ role, content }) => ({ role, content }))
+        ? input.messages.map(({ role, content, conversationIndex }) => ({
+            role,
+            content,
+            ...(conversationIndex !== undefined ? { conversationIndex } : {}),
+          }))
         : buildBoundedSummaryMessages(input.messages),
   });
 }

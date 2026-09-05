@@ -52,14 +52,38 @@ describe("buildSessionSummaryMessages", () => {
       buildSessionSummaryMessages({
         ...input,
         continuityMemory: "",
-        messages: Array.from({ length: 17 }, () => input.messages[0]),
+        messages: Array.from({ length: 129 }, () => input.messages[0]),
       }),
     ).toThrow();
     expect(() =>
       buildSessionSummaryMessages({
         ...input,
         continuityMemory: "",
-        messages: [{ ...input.messages[0], content: "🙂".repeat(1201) }],
+        messages: [{ ...input.messages[0], content: "🙂".repeat(48001) }],
+      }),
+    ).toThrow();
+  });
+
+  it("keeps multiple conversations and long messages intact inside the total character budget", () => {
+    const longContent = "🙂".repeat(24000);
+    const messages = buildSessionSummaryMessages({
+      continuityMemory: "Dotychczasowa pamięć",
+      messages: [
+        { role: "user", content: longContent, conversationIndex: 1, sequenceIndex: 10 },
+        { role: "user", content: longContent, conversationIndex: 2, sequenceIndex: 0 },
+      ],
+    });
+    expect(JSON.parse(messages[1].content)).toMatchObject({
+      conversationMessages: [
+        { role: "user", content: longContent, conversationIndex: 1 },
+        { role: "user", content: longContent, conversationIndex: 2 },
+      ],
+    });
+    expect(messages[0].content).toContain("a conversation boundary");
+    expect(() =>
+      buildSessionSummaryMessages({
+        continuityMemory: "",
+        messages: Array.from({ length: 3 }, () => ({ role: "user", content: longContent })),
       }),
     ).toThrow();
   });

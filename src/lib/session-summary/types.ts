@@ -5,6 +5,8 @@ export interface SessionSummaryConversationMessage {
   role: SessionSummaryMessageRole;
   content: string;
   sequenceIndex?: number;
+  /** Lokalny numer rozmowy w partii pamięci; nigdy identyfikator sesji z bazy. */
+  conversationIndex?: number;
 }
 
 export interface SessionSummaryModalityContext {

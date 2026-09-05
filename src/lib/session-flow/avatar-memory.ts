@@ -1,37 +1,34 @@
 import { getValidAvatarChoice } from "@/lib/modalities";
 import { getOwnedAvatarMemoryWork, saveOwnedAvatarMemoryWork } from "@/lib/session-data/repository";
-import type { AvatarMemoryWork } from "@/lib/session-data/avatar-memory";
+import type { AvatarMemoryCursor, AvatarMemoryWork } from "@/lib/session-data/avatar-memory";
 import type { SessionAvatarId, SessionDataContext, SessionModalityId } from "@/lib/session-data/types";
 import { generateSessionSummary } from "@/lib/session-summary/provider";
 import type { SessionSummaryConversationMessage } from "@/lib/session-summary/types";
 import { SessionSummaryError, type SessionSummaryErrorCategory } from "@/lib/session-summary/errors";
+import { AVATAR_MEMORY_MAX_CHARS, isWithinAvatarMemoryBudget } from "@/lib/session-summary/avatar-memory-budget";
 
-export const AVATAR_MEMORY_MAX_CHARS = 6000;
-const MEMORY_BATCH_PARTS = 16;
-const MEMORY_PART_CHARS = 1200;
+export { AVATAR_MEMORY_MAX_CHARS };
 
-/** Każdy znak przechodzi przez podsumowanie, również początek długich rozmów i emoji. */
+/** Baza ogranicza partię po długości; identyfikatory źródeł zostają poza promptem. */
 export function buildAvatarMemoryBatch(work: AvatarMemoryWork) {
-  const messages: SessionSummaryConversationMessage[] = [];
-  let sequenceIndex = work.sequenceIndex;
-  let characterOffset = work.characterOffset;
-  for (const message of work.messages) {
-    const characters = Array.from(message.content);
-    let offset = message.sequenceIndex === work.sequenceIndex ? work.characterOffset : 0;
-    while (offset < characters.length && messages.length < MEMORY_BATCH_PARTS) {
-      const end = Math.min(characters.length, offset + MEMORY_PART_CHARS);
-      messages.push({
-        role: message.role,
-        content: characters.slice(offset, end).join(""),
-        sequenceIndex: message.sequenceIndex,
-      });
-      sequenceIndex = message.sequenceIndex;
-      characterOffset = end;
-      offset = end;
-    }
-    if (messages.length === MEMORY_BATCH_PARTS) break;
+  if (!isWithinAvatarMemoryBudget(work.messages, work.summaryText)) {
+    throw new TypeError("Avatar memory input exceeds its bounded batch");
   }
-  return { messages, sequenceIndex, characterOffset };
+  const messages: SessionSummaryConversationMessage[] = [];
+  const cursors = new Map<string, AvatarMemoryCursor>();
+  for (const message of work.messages) {
+    cursors.set(message.sessionId, {
+      sessionId: message.sessionId,
+      sequenceIndex: message.sequenceIndex,
+      characterOffset: message.characterOffset,
+    });
+    messages.push({
+      role: message.role,
+      content: message.content,
+      conversationIndex: cursors.size,
+    });
+  }
+  return { messages, cursors: [...cursors.values()] };
 }
 
 const dependencies = { getOwnedAvatarMemoryWork, saveOwnedAvatarMemoryWork, generateSessionSummary };
@@ -44,11 +41,11 @@ export async function prepareOwnedAvatarMemory(
 ): Promise<{ ok: true; ready: boolean } | { ok: false; providerFailure?: SessionSummaryErrorCategory }> {
   const work = await repository.getOwnedAvatarMemoryWork(context, avatar.avatarId);
   if (!work.ok) return { ok: false };
-  if (work.data.sessionId === null) return { ok: true, ready: true };
-  const batch = buildAvatarMemoryBatch(work.data);
+  if (work.data.messages.length === 0) return { ok: true, ready: true };
   const modality = getValidAvatarChoice(avatar.modalityId, avatar.avatarId);
-  if (!modality || batch.messages.length === 0) return { ok: false };
+  if (!modality) return { ok: false };
   try {
+    const batch = buildAvatarMemoryBatch(work.data);
     const response = await repository.generateSessionSummary({
       messages: batch.messages,
       continuityMemory: work.data.summaryText,
@@ -64,10 +61,8 @@ export async function prepareOwnedAvatarMemory(
     if (!summaryText || Array.from(summaryText).length > AVATAR_MEMORY_MAX_CHARS) return { ok: false };
     const saved = await repository.saveOwnedAvatarMemoryWork(context, avatar.avatarId, {
       revision: work.data.revision,
-      sessionId: work.data.sessionId,
       summaryText,
-      sequenceIndex: batch.sequenceIndex,
-      characterOffset: batch.characterOffset,
+      cursors: batch.cursors,
     });
     // Przegrany CAS oznacza równoległy postęp lub usunięcie źródła. Kolejny krok odczyta nowy stan.
     if (!saved.ok) return { ok: false };
@@ -75,7 +70,7 @@ export async function prepareOwnedAvatarMemory(
     // Sprawdzenie ostatniej partii tutaj oszczędza cały kolejny POST startu
     // (autoryzację, odczyt perspektywy i limitu). Insert nadal sprawdza kompletność.
     const remaining = await repository.getOwnedAvatarMemoryWork(context, avatar.avatarId);
-    return remaining.ok ? { ok: true, ready: remaining.data.sessionId === null } : { ok: false };
+    return remaining.ok ? { ok: true, ready: remaining.data.messages.length === 0 } : { ok: false };
   } catch (error) {
     return error instanceof SessionSummaryError ? { ok: false, providerFailure: error.category } : { ok: false };
   }

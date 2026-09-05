@@ -260,6 +260,257 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
     return id;
   }
 
+  const memoryBatch = async (owner, avatar = "cbt-guide") =>
+    (await owner.client.query("select public.get_avatar_memory_batch($1) as work", [avatar])).rows[0].work;
+  const batchCursors = (work) => [
+    ...new Map(
+      work.messages.map(({ sessionId, sequenceIndex, characterOffset }) => [
+        sessionId,
+        { sessionId, sequenceIndex, characterOffset },
+      ]),
+    ).values(),
+  ];
+  const saveBatch = async (
+    owner,
+    work,
+    summary = "Łączna pamięć",
+    cursors = batchCursors(work),
+    avatar = "cbt-guide",
+  ) =>
+    (
+      await owner.client.query("select public.save_avatar_memory_batch($1, $2, $3, $4) as saved", [
+        avatar,
+        work.revision,
+        JSON.stringify(cursors),
+        summary,
+      ])
+    ).rows[0].saved;
+
+  async function endedBatchSession(owner, contents) {
+    const id = await activeSession(owner);
+    for (let index = 0; index < contents.length; index++) {
+      await owner.client.query(
+        `insert into public.session_messages(session_id,user_id,role,sequence_index,content)
+         values ($1,$2,$3,$4,$5)`,
+        [id, owner.userId, index % 2 === 0 ? "user" : "assistant", index, contents[index]],
+      );
+    }
+    await owner.client.query("update public.therapy_sessions set status='completed' where id=$1", [id]);
+    return id;
+  }
+
+  it("combines ten short conversations into one batch and pins all of them with one save", async () => {
+    const owner = await db.owner();
+    await db.admin.query("update public.admin_user_profiles set premium_granted_at=now() where user_id=$1", [
+      owner.userId,
+    ]);
+    const ids = [];
+    for (let index = 0; index < 10; index++) {
+      ids.push(
+        await endedBatchSession(
+          owner,
+          Array.from({ length: 8 }, (_, turn) => `Fakt ${index}, wiadomość ${turn}.`),
+        ),
+      );
+    }
+    const work = await memoryBatch(owner);
+    assert.equal(work.messages.length, 80);
+    assert.deepEqual([...new Set(work.messages.map((m) => m.sessionId))], ids);
+    assert.equal(await saveBatch(owner, work, "Fakty z dziesięciu rozmów"), true);
+    assert.equal((await memoryBatch(owner)).messages.length, 0);
+    // Starszy Worker i trigger kompletności rozumieją postęp zapisany nowym RPC.
+    assert.equal((await memoryWork(owner)).sessionId, null);
+    assert.equal(
+      (
+        await owner.client.query("select count(*)::int as n from public.avatar_memory_sources where user_id=$1", [
+          owner.userId,
+        ])
+      ).rows[0].n,
+      10,
+    );
+    const { rows } = await owner.client.query(
+      `insert into public.therapy_sessions(user_id,modality_id,avatar_id,uses_avatar_memory)
+       values ($1,'cbt','cbt-guide',true) returning id`,
+      [owner.userId],
+    );
+    assert.equal(
+      (
+        await owner.client.query("select summary_text from public.avatar_session_contexts where session_id=$1", [
+          rows[0].id,
+        ])
+      ).rows[0].summary_text,
+      "Fakty z dziesięciu rozmów",
+    );
+  });
+
+  it("fits forty 1200-character messages into one batch and bounds tiny-message overhead", async () => {
+    const owner = await db.owner();
+    await endedBatchSession(
+      owner,
+      Array.from({ length: 40 }, () => "🙂".repeat(1200)),
+    );
+    const work = await memoryBatch(owner);
+    assert.equal(work.messages.length, 40);
+    assert.equal(
+      work.messages.reduce((sum, m) => sum + Array.from(m.content).length, 0),
+      48000,
+    );
+    assert.equal(await saveBatch(owner, work), true);
+    await endedBatchSession(
+      owner,
+      Array.from({ length: 129 }, () => "x"),
+    );
+    const tiny = await memoryBatch(owner);
+    assert.equal(tiny.messages.length, 128);
+    assert.equal(await saveBatch(owner, tiny), true);
+    const rest = await memoryBatch(owner);
+    assert.equal(rest.messages.length, 1);
+    assert.equal(rest.messages[0].sequenceIndex, 128);
+  });
+
+  it("resumes an old partial cursor and traverses long Unicode text without dropping any character", async () => {
+    const owner = await db.owner();
+    const text = "🙂".repeat(98000) + "Koniec pierwszej rozmowy";
+    const id = await endedMemorySession(owner, text);
+    const legacy = await memoryWork(owner);
+    assert.equal(
+      (
+        await owner.client.query(
+          "select public.save_avatar_memory_work('cbt-guide',$1,$2,0,1200,'Stary postęp') as saved",
+          [legacy.revision, id],
+        )
+      ).rows[0].saved,
+      true,
+    );
+    await endedMemorySession(owner, "Druga rozmowa");
+    const collected = [];
+    for (let step = 0; step < 3; step++) {
+      const batch = await memoryBatch(owner);
+      assert.ok(batch.messages.length > 0);
+      assert.ok(batch.messages.reduce((sum, m) => sum + Array.from(m.content).length, 0) <= 48000);
+      collected.push(...batch.messages.map((m) => m.content));
+      assert.equal(await saveBatch(owner, batch), true);
+    }
+    assert.equal(collected.join(""), Array.from(text).slice(1200).join("") + "Druga rozmowa");
+    assert.equal((await memoryBatch(owner)).messages.length, 0);
+    assert.equal((await memoryWork(owner)).sessionId, null);
+  });
+
+  it("excludes live conversations and other avatars, and rejects the whole batch if one cursor is invalid", async () => {
+    const owner = await db.owner();
+    const first = await endedMemorySession(owner);
+    await endedMemorySession(owner, "Drugi fakt");
+    const live = await activeSession(owner);
+    await owner.client.query(
+      "insert into public.session_messages(session_id,user_id,role,sequence_index,content) values ($1,$2,'user',0,'Jeszcze rozmawiam')",
+      [live, owner.userId],
+    );
+    const work = await memoryBatch(owner);
+    assert.equal(work.messages.length, 2);
+    assert.ok(work.messages.every((m) => m.sessionId !== live));
+    assert.equal((await memoryBatch(owner, "psychodynamic-listener")).messages.length, 0);
+    const cursors = batchCursors(work);
+    const invalid = cursors.map((c, index) => (index === 1 ? { ...c, characterOffset: 99999 } : c));
+    assert.equal(await saveBatch(owner, work, "Nie zapisuj częściowo", invalid), false);
+    assert.equal((await memoryBatch(owner)).revision, work.revision);
+    assert.equal(
+      (
+        await owner.client.query("select count(*)::int as n from public.avatar_memory_sources where user_id=$1", [
+          owner.userId,
+        ])
+      ).rows[0].n,
+      0,
+    );
+    assert.equal(await saveBatch(owner, work, "Zły awatar", cursors, "psychodynamic-listener"), false);
+    assert.equal(await saveBatch(owner, work, "Powtórzony kursor", [cursors[0], cursors[0]]), false);
+    assert.equal(
+      await saveBatch(owner, work, "Aktywna sesja", [
+        ...cursors,
+        { sessionId: live, sequenceIndex: 0, characterOffset: 1 },
+      ]),
+      false,
+    );
+    assert.equal(await saveBatch(owner, work, "Poprawna całość"), true);
+    const updated = await memoryBatch(owner);
+    assert.equal(
+      await saveBatch(owner, updated, "Cofnięty postęp", [{ sessionId: first, sequenceIndex: 0, characterOffset: 1 }]),
+      false,
+    );
+  });
+
+  it("keeps batch RPCs owner-only, including when the other owner is an admin", async () => {
+    const owner = await db.owner();
+    const other = await db.owner();
+    await db.admin.query("insert into public.admin_users(user_id) values ($1)", [other.userId]);
+    await endedMemorySession(owner);
+    const work = await memoryBatch(owner);
+    assert.equal((await memoryBatch(other)).messages.length, 0);
+    assert.equal(await saveBatch(other, work), false);
+    for (const signature of [
+      "public.get_avatar_memory_batch(text)",
+      "public.save_avatar_memory_batch(text,uuid,jsonb,text)",
+    ]) {
+      const { rows } = await db.admin.query(
+        "select has_function_privilege('anon',$1,'EXECUTE') as allowed, (select prosecdef from pg_proc where oid=$1::regprocedure) as definer",
+        [signature],
+      );
+      assert.equal(rows[0].allowed, false);
+      assert.equal(rows[0].definer, false);
+    }
+  });
+
+  it("serializes competing batch saves and rejects an old Worker trying to overwrite newer memory", async () => {
+    const owner = await db.owner();
+    const other = await db.owner(owner.userId);
+    await endedMemorySession(owner);
+    await endedMemorySession(owner, "Drugi fakt");
+    const work = await memoryBatch(owner);
+    const legacy = await memoryWork(owner);
+    const results = await Promise.all([
+      saveBatch(owner, work, "Pierwsza wersja"),
+      saveBatch(other, work, "Druga wersja"),
+    ]);
+    assert.deepEqual(results.sort(), [false, true]);
+    assert.equal(await saveMemory(owner, legacy, "Spóźniony stary Worker"), false);
+    assert.equal((await memoryBatch(owner)).messages.length, 0);
+  });
+
+  it("rejects every cursor after deletion races with a multi-conversation generation", async () => {
+    const owner = await db.owner();
+    const other = await db.owner(owner.userId);
+    const deleted = await endedMemorySession(owner);
+    const kept = await endedMemorySession(owner, "Pozostawiony fakt");
+    const work = await memoryBatch(other);
+    await owner.client.query("begin");
+    try {
+      await owner.client.query(
+        "update public.therapy_sessions set status='deleted', deletion_reason_code='user_request' where id=$1",
+        [deleted],
+      );
+      const pending = saveBatch(other, work, "Zawiera usunięty fakt");
+      await db.waitForLock(other.client);
+      await owner.client.query("commit");
+      assert.equal(await pending, false);
+    } finally {
+      await owner.client.query("rollback");
+    }
+    const rebuilt = await memoryBatch(owner);
+    assert.equal(rebuilt.summaryText, "");
+    assert.deepEqual(
+      rebuilt.messages.map((m) => m.sessionId),
+      [kept],
+    );
+    assert.equal(
+      (
+        await owner.client.query("select count(*)::int as n from public.avatar_memory_sources where user_id=$1", [
+          owner.userId,
+        ])
+      ).rows[0].n,
+      0,
+    );
+    assert.equal(await saveBatch(owner, rebuilt, "Pozostawiony fakt"), true);
+  });
+
   it("automatically covers all prior sessions, including more than three, and pins the full summary at start", async () => {
     const owner = await db.owner();
     await db.admin.query("update public.admin_user_profiles set premium_granted_at = now() where user_id = $1", [

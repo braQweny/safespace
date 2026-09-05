@@ -66,6 +66,7 @@ set is_active = true, deactivated_at = null;
   - Blokada `deploy-main` obejmuje cały job (`queue: max`, `cancel-in-progress: false`). Nie rozdzielać migracji i publikacji na joby z osobnymi blokadami. Nieaktualny commit zostaje odrzucony przed zmianami produkcyjnymi.
   - Deploy używa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.126.0"` i `deploy --secrets-file .env.production`.
   - Migracja `20260904204248` dodaje integralność cyklu sesji i prywatne potwierdzenia tur bez nowych sekretów. Zachowuje zapis wiadomości ze starego Workera; nowe triggery sprawdzają status, termin i usunięcie. Migracja musi wejść przed kodem używającym nowych RPC.
+  - Migracja `20260905075745` dodaje `get_avatar_memory_batch` i `save_avatar_memory_batch`: jedna generacja pamięci może objąć wiele rozmów do wspólnego budżetu tekstu. Stare RPC pamięci pozostają dostępne i dzielą postęp z nowymi, więc starszy Worker działa podczas wdrożenia. Migracja musi wejść przed nowym Workerem; nie ma nowych zmiennych ani sekretów.
   - `.env.production` jest tworzony tymczasowo z GitHub secrets (`SUPABASE_URL`, `SUPABASE_KEY`, `OPENROUTER_API_KEY` oraz opcjonalnie `OPERATIONAL_LOG_HASH_SECRET`) i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.
 - Po pushu sprawdzic workflow, URL Workera, redirect `/dashboard -> /auth/signin` oraz callback `/auth/callback` dodany do Supabase Auth Redirect URLs.
