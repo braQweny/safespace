@@ -112,21 +112,14 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
               Prywatność i zasady
             </a>
           </p>
-          {
-            support.mailtoHref ? (
-              <>
-                <a
-                  href={`${support.mailtoHref}?subject=${encodeURIComponent("SafeSpace — prośba o usunięcie konta")}`}
-                  class="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
-                >
-                  Poproś o usunięcie konta
-                </a>
-                <p class="text-ink-muted mt-2 text-sm leading-6">
-                  Prośby obsługujemy ręcznie. Link otworzy wiadomość e-mail; samo kliknięcie nie usuwa konta.
-                </p>
-              </>
-            ) : null
-          }
+          <a
+            href="/account/delete"
+            class="border-danger-line text-danger hover:bg-danger-soft focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
+            >Usuń konto</a
+          >
+          <p class="text-ink-muted mt-2 text-sm leading-6">
+            Usuniesz konto razem z historią rozmów i pamięcią awatarów. W następnym kroku poprosimy o potwierdzenie.
+          </p>
         </div>
 
         {

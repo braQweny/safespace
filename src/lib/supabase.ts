@@ -2,6 +2,22 @@ import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import type { AstroCookies } from "astro";
 import { SUPABASE_URL, SUPABASE_KEY } from "astro:env/server";
 
+export function clearAuthCookies(requestHeaders: Headers, cookies: AstroCookies) {
+  if (!SUPABASE_URL) return;
+  const storageKey = `sb-${new URL(SUPABASE_URL).hostname.split(".")[0]}-auth-token`;
+  // The middleware may have refreshed cookies during this same request. Include
+  // newly written chunks as well as the original request's cookie names.
+  const names = new Set([
+    ...parseCookieHeader(requestHeaders.get("Cookie") ?? "").map(({ name }) => name),
+    ...Array.from(cookies.headers(), (header) => header.slice(0, header.indexOf("="))),
+  ]);
+  for (const name of names) {
+    if (name === storageKey || name.startsWith(`${storageKey}.`) || name.startsWith(`${storageKey}-`)) {
+      cookies.delete(name, { path: "/" });
+    }
+  }
+}
+
 export function createClient(requestHeaders: Headers, cookies: AstroCookies) {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     return null;

@@ -3,7 +3,7 @@ import { isRecord } from "@/lib/type-guards";
 
 export interface AdminAuditEventRow {
   id: string;
-  admin_user_id: AdminUserId;
+  admin_user_id: AdminUserId | null;
   target_user_id: AdminUserId | null;
   action: AdminAuditEventType;
   reason_code: AdminAuditReasonCode;

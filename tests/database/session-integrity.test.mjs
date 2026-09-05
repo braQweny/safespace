@@ -704,6 +704,160 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
     assert.equal((await memoryWork(owner)).summaryText, "Fakt który zostaje");
   });
 
+  it("requires an authenticated owner and exact confirmation for account erasure", async () => {
+    const owner = await db.owner();
+    for (const confirmation of [null, "", "usuwam"]) {
+      await assert.rejects(owner.client.query("select public.delete_own_account($1)", [confirmation]), {
+        code: "22023",
+      });
+    }
+    await owner.client.query("select set_config('request.jwt.claim.sub', '', false)");
+    await assert.rejects(owner.client.query("select public.delete_own_account('USUWAM')"), { code: "42501" });
+    await owner.client.query("set role anon");
+    await assert.rejects(owner.client.query("select public.delete_own_account('USUWAM')"), { code: "42501" });
+    await assert.rejects(owner.client.query("select private.delete_own_account('USUWAM')"), { code: "42501" });
+    assert.equal(
+      (await db.admin.query("select count(*)::int n from auth.users where id=$1", [owner.userId])).rows[0].n,
+      1,
+    );
+  });
+
+  it("erases only the owner and all private data, including active work, while preserving audit and other accounts", async () => {
+    const owner = await db.owner();
+    const other = await db.owner();
+    const historyId = (await owner.client.query("select public.claim_free_trial_session('cbt', 'cbt-guide') as result"))
+      .rows[0].result.session.id;
+    await owner.client.query(
+      `update public.therapy_sessions set status='active', started_at=now(), expires_at=now()+interval '15 minutes' where id=$1`,
+      [historyId],
+    );
+    await owner.client.query(
+      `insert into public.session_messages(session_id, user_id, role, sequence_index, content)
+      values ($1, $2, 'user', 0, 'Historia do usunięcia')`,
+      [historyId, owner.userId],
+    );
+    await owner.client.query("update public.therapy_sessions set status='completed' where id=$1", [historyId]);
+    await saveMemory(owner, await memoryWork(owner), "Pamięć do skasowania");
+    await owner.client.query(
+      `insert into public.therapy_sessions(user_id, modality_id, avatar_id, uses_avatar_memory)
+      values ($1, 'cbt', 'cbt-guide', true)`,
+      [owner.userId],
+    );
+    const activeId = await activeSession(owner);
+    const turnId = randomUUID();
+    const turn = await claim(owner.client, activeId, turnId);
+    await complete(owner.client, activeId, turnId, turn.attempt_id);
+    await endedMemorySession(other, "Dane innego konta");
+    await db.admin.query(
+      `insert into public.user_avatar_choices(user_id, modality_id, avatar_id) values ($1, 'cbt', 'cbt-guide');`,
+      [owner.userId],
+    );
+    await owner.client.query(
+      `insert into public.session_summaries(session_id, user_id, summary_text) values ($1, $2, 'Podsumowanie');`,
+      [historyId, owner.userId],
+    );
+    await db.admin.query(`insert into public.admin_users(user_id) values ($1)`, [owner.userId]);
+    // Both an audit actor and a blocked target must remain deletable. Deleting
+    // an admin must not silently unblock an unrelated account they blocked.
+    await db.admin.query(
+      `update public.admin_user_profiles set blocked_at=now(), blocked_by=$1, block_reason_code='owner_request' where user_id in ($1, $2)`,
+      [owner.userId, other.userId],
+    );
+    const audit = await db.admin.query(
+      `insert into public.admin_audit_events(admin_user_id, target_user_id, action, reason_code)
+      values ($1, $1, 'account_blocked', 'owner_request') returning id`,
+      [owner.userId],
+    );
+
+    const tables = [
+      "therapy_sessions",
+      "session_messages",
+      "session_summaries",
+      "session_trial_claims",
+      "session_message_turns",
+      "avatar_memories",
+      "avatar_memory_sources",
+      "avatar_session_contexts",
+      "user_avatar_choices",
+      "admin_user_profiles",
+      "admin_users",
+    ];
+    for (const table of tables) {
+      assert.ok(
+        (await db.admin.query(`select count(*)::int n from public.${table} where user_id=$1`, [owner.userId])).rows[0]
+          .n > 0,
+        `${table} must be seeded`,
+      );
+    }
+    assert.equal(
+      (await owner.client.query("select public.delete_own_account('USUWAM') deleted")).rows[0].deleted,
+      true,
+    );
+    for (const table of tables) {
+      assert.equal(
+        (await db.admin.query(`select count(*)::int n from public.${table} where user_id=$1`, [owner.userId])).rows[0]
+          .n,
+        0,
+        table,
+      );
+    }
+    assert.equal(
+      (await db.admin.query("select count(*)::int n from auth.users where id=$1", [owner.userId])).rows[0].n,
+      0,
+    );
+    assert.equal(
+      (await db.admin.query("select content from public.session_messages where user_id=$1", [other.userId])).rows[0]
+        .content,
+      "Dane innego konta",
+    );
+    const auditRow = (
+      await db.admin.query("select admin_user_id, target_user_id from public.admin_audit_events where id=$1", [
+        audit.rows[0].id,
+      ])
+    ).rows[0];
+    assert.deepEqual(auditRow, { admin_user_id: null, target_user_id: null });
+    const blocked = (
+      await db.admin.query("select blocked_at, blocked_by from public.admin_user_profiles where user_id=$1", [
+        other.userId,
+      ])
+    ).rows[0];
+    assert.ok(blocked.blocked_at);
+    assert.equal(blocked.blocked_by, null);
+    // A stale caller cannot restore data or cause another deletion.
+    assert.equal(
+      (await owner.client.query("select public.delete_own_account('USUWAM') deleted")).rows[0].deleted,
+      false,
+    );
+    await assert.rejects(activeSession(owner), { code: "23503" });
+    await assert.rejects(complete(owner.client, activeId, turnId, turn.attempt_id));
+  });
+
+  it("prevents an in-flight reply from recreating data after account deletion commits", async () => {
+    const owner = await db.owner();
+    const sender = await db.owner(owner.userId);
+    const sessionId = await activeSession(owner);
+    const messageId = randomUUID();
+    const turn = await claim(sender.client, sessionId, messageId);
+    await owner.client.query("begin");
+    try {
+      await owner.client.query("select public.delete_own_account('USUWAM')");
+      const pending = complete(sender.client, sessionId, messageId, turn.attempt_id).then(
+        () => null,
+        (error) => error,
+      );
+      await db.waitForLock(sender.client);
+      await owner.client.query("commit");
+      assert.equal((await pending).code, "P0002");
+      assert.equal(
+        (await db.admin.query("select count(*)::int n from public.session_messages where user_id=$1", [owner.userId]))
+          .rows[0].n,
+        0,
+      );
+    } finally {
+      await owner.client.query("rollback");
+    }
+  });
+
   it("lets the Auth database role delete an account without private-table privileges", async () => {
     const owner = await db.owner();
     await endedMemorySession(owner);

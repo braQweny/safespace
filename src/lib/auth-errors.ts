@@ -1,4 +1,6 @@
 const AUTH_ERROR_MESSAGES = {
+  account_deletion_failed: "Nie udało się potwierdzić usunięcia konta. Spróbuj ponownie za chwilę.",
+  account_deletion_confirmation_required: "Aby potwierdzić usunięcie konta, wpisz USUWAM.",
   auth_not_configured: "Logowanie jest chwilowo niedostępne. Spróbuj ponownie później.",
   invalid_email: "Podaj poprawny adres e-mail.",
   missing_password: "Podaj hasło.",

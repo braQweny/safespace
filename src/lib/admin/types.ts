@@ -64,7 +64,7 @@ export interface SafeAdminUserProfile {
 
 export interface AdminAuditEvent {
   id: string;
-  adminUserId: AdminUserId;
+  adminUserId: AdminUserId | null;
   /** Null once the target account has been deleted (the audit row outlives it). */
   targetUserId: AdminUserId | null;
   action: AdminAuditEventType;

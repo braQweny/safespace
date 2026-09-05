@@ -139,6 +139,18 @@ CI applies migrations _before_ publishing code inside one locked `deploy` job, s
 
 **Grants: revoke first.** Supabase's default privileges give `anon`/`authenticated` ALL on every new table in `public`, so a column-level `grant` only narrows anything after a table-level `revoke all privileges ... from anon, authenticated` (`20260901120000` does this for every private table and `schema-drift.test.ts` pins the list). A new table must follow the same pattern or the column list is decorative. Three database gates now back what the app assumes about a session row: `therapy_sessions_enforce_budget` (SQLSTATE `P0006`) freezes `started_at`/`expires_at`/`duration_bucket_seconds` once a row leaves `created`, rejects `expires_at` beyond `started_at + bucket`, and keeps a free account's bucket at the free budget — only a _change_ is judged, so a premium revoke never cuts a session under way; `therapy_sessions_purge_on_tombstone` deletes messages and summaries whenever a row becomes `deleted`, whichever path set the status; `admin_audit_events.target_user_id` is nullable with `on delete set null`, so an account can be deleted after it was ever blocked or granted premium. There is still **no retention job**: transcripts of finished sessions live until the owner deletes them, which is a product decision (window length) that has not been made yet.
 
+### Self-service account deletion
+
+`/account/security` links to `/account/delete`, a server-rendered confirmation form requiring `USUWAM`.
+The deletion page and `POST /api/auth/delete-account` require authentication but allow blocked accounts to erase
+their data. The endpoint requires a same-origin request and calls `delete_own_account` with the caller's SSR client.
+The public RPC is a security-invoker wrapper around a private security-definer function with an empty search path,
+explicit grants and `auth.uid()` ownership; it accepts no target user id. One Auth user deletion cascades through
+all account data and Auth sessions. Both audit actor and target references become null while events remain.
+Existing access JWTs are stateless, but the middleware's `getUser()` rejects a deleted user and foreign keys prevent
+recreating owner data. The endpoint clears browser Auth cookies even if post-deletion sign-out fails.
+No new secrets are needed; apply the additive account-deletion migration before publishing the Worker.
+
 ## Environment
 
 - Node v22.23.2 (`.nvmrc`, `engines >=22.22.1`). Dependabot (`.github/dependabot.yml`) opens weekly grouped minor/patch PRs; `npm outdated` drift is otherwise invisible.

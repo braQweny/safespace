@@ -20,7 +20,27 @@ vi.mock("@supabase/ssr", () => ({
       }),
 }));
 
-const { createClient } = await import("@/lib/supabase");
+const { createClient, clearAuthCookies } = await import("@/lib/supabase");
+
+it("clears all project auth cookie chunks without deleting unrelated preferences", () => {
+  const deleteCookie = vi.fn();
+  clearAuthCookies(
+    new Headers({
+      Cookie:
+        "sb-project-auth-token.0=a; sb-project-auth-token.1=b; sb-project-auth-token-code-verifier=c; theme=dark; sb-other-auth-token=d",
+    }),
+    {
+      delete: deleteCookie,
+      headers: () => ["sb-project-auth-token.2=refreshed; Path=/", "theme=light; Path=/"],
+    } as never,
+  );
+  expect(deleteCookie.mock.calls).toEqual([
+    ["sb-project-auth-token.0", { path: "/" }],
+    ["sb-project-auth-token.1", { path: "/" }],
+    ["sb-project-auth-token-code-verifier", { path: "/" }],
+    ["sb-project-auth-token.2", { path: "/" }],
+  ]);
+});
 
 interface CapturedOptions {
   cookieOptions?: { secure?: boolean };

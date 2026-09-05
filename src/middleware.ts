@@ -58,7 +58,7 @@ function getProtectedRouteBucket(pathname: string) {
 }
 
 function shouldCheckAccountAccess(pathname: string) {
-  return isProtectedRoute(pathname) && pathname !== BLOCKED_ACCOUNT_PATH;
+  return isProtectedRoute(pathname) && pathname !== BLOCKED_ACCOUNT_PATH && pathname !== "/account/delete";
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {

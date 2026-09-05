@@ -1,0 +1,63 @@
+---
+import SiteFooter from "@/components/SiteFooter.astro";
+import Layout from "@/layouts/Layout.astro";
+import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
+
+const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
+---
+
+<Layout title="Usuń konto - SafeSpace" lang="pl">
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
+    <main class="flex flex-1 items-center px-4 py-8 sm:px-6">
+      <section class="border-line-strong bg-surface shadow-card mx-auto w-full max-w-xl rounded-lg border p-6 sm:p-8">
+        <h1 class="text-ink text-3xl leading-tight">Usuń konto</h1>
+        <p class="text-ink-muted mt-4 text-sm leading-6">
+          Usuwasz konto <strong class="text-ink break-all">{Astro.locals.user?.email}</strong>. Ta operacja jest trwała
+          i nie można jej cofnąć.
+        </p>
+        <ul class="text-ink-soft mt-4 list-disc space-y-2 pl-5 text-sm leading-6" id="deletion-consequences">
+          <li>Usuniemy wszystkie Twoje rozmowy, wiadomości, podsumowania i pamięć awatarów.</li>
+          <li>Usuniemy profil i wybranego awatara. Utracisz też dostęp do obecnego planu konta.</li>
+          <li>Trwające rozmowy zostaną przerwane, a konto zostanie wylogowane na wszystkich urządzeniach.</li>
+        </ul>
+        <form method="POST" action="/api/auth/delete-account" class="mt-6 space-y-4">
+          <div>
+            <label for="confirmation" class="text-ink block text-sm font-semibold">Aby potwierdzić, wpisz USUWAM</label>
+            <input
+              id="confirmation"
+              name="confirmation"
+              type="text"
+              required
+              pattern="USUWAM"
+              maxlength="6"
+              autocomplete="off"
+              spellcheck="false"
+              aria-describedby="deletion-consequences"
+              class="border-line-strong bg-surface text-ink focus:ring-brand-ring mt-2 min-h-11 w-full rounded-lg border px-3 py-2 focus:ring-2 focus:outline-none"
+            />
+          </div>
+          {
+            error ? (
+              <p role="alert" class="text-danger text-sm leading-6">
+                {error}
+              </p>
+            ) : null
+          }
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <a
+              href="/account/security"
+              class="border-line-accent text-brand hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex min-h-11 items-center justify-center rounded-lg border px-5 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
+              >Anuluj</a
+            >
+            <button
+              type="submit"
+              class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-brand-ring inline-flex min-h-11 items-center justify-center rounded-lg px-5 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
+              >Usuń konto bezpowrotnie</button
+            >
+          </div>
+        </form>
+      </section>
+    </main>
+    <SiteFooter compact />
+  </div>
+</Layout>

@@ -28,6 +28,15 @@ if (shouldRedirectToDashboard) {
               <p class="text-ink-muted mt-2 text-sm leading-6">Wybierz Google albo konto e-mail.</p>
             </div>
 
+            {Astro.url.searchParams.get("status") === "account_deleted" ? (
+              <p
+                role="status"
+                class="border-brand-soft bg-brand-tint text-brand-deep mb-5 rounded-lg border px-4 py-3 text-sm leading-6"
+              >
+                Konto zostało usunięte wraz z historią rozmów i pamięcią awatarów. Wylogowano Cię.
+              </p>
+            ) : null}
+
             <div class="space-y-3">
               {SOCIAL_AUTH_PROVIDERS.map((authProvider) => (
                 <form method="POST" action="/api/auth/google">
