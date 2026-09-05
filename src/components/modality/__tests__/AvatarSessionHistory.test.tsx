@@ -171,7 +171,7 @@ describe("AvatarSessionHistory", () => {
   it("explains the status badges in a collapsed legend next to the list description", () => {
     const html = renderHistory();
 
-    expect(html).toContain("Lista pokazuje tylko datę, status i czas trwania.");
+    expect(html).toContain("Treść rozmowy zobaczysz dopiero po otwarciu zapisu.");
     expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>Co oznaczają statusy/);
 
     for (const status of SESSION_STATUS_LEGEND_ORDER) {
@@ -190,17 +190,24 @@ describe("AvatarSessionHistory", () => {
   it("starts without any preview: the server never puts conversation content in the first render", () => {
     const html = renderHistory();
 
-    expect(html).not.toContain("Podgląd tylko do odczytu");
-    expect(html).not.toContain("Zamknij podgląd");
-    expect(html).not.toContain('class="scroll-mt-20"');
+    expect(html).not.toContain("Tylko do odczytu");
+    expect(html).not.toContain("Zamknij");
+    expect(html).not.toContain("<dialog");
   });
 
-  it("keeps the opened detail panel clear of the sticky header and lets it be closed", () => {
+  it("opens a labelled native dialog with a way back to the list", () => {
     const html = renderHistory({}, { detail: createDetail() });
 
-    expect(html).toContain('<div class="scroll-mt-20"><aside');
-    expect(html).toContain("Zamknij podgląd");
+    expect(html).toContain('<dialog aria-label="Zapis rozmowy" tabindex="-1"');
+    expect(html).toContain("Zamknij");
     expect(html).toContain('id="session-history-open-session-1"');
+  });
+
+  it("can open a linked conversation even when the current list is empty", () => {
+    const html = renderHistory({ initialHistory: createHistoryResponse([]) }, { detail: createDetail() });
+
+    expect(html).toContain('<dialog aria-label="Zapis rozmowy"');
+    expect(html).toContain("Zamknij");
   });
 
   it("renders selected-avatar labels, pagination controls, and read-only detail affordances", () => {
@@ -218,10 +225,9 @@ describe("AvatarSessionHistory", () => {
     const html = renderHistory({}, { detail });
 
     expect(html).toContain("Marek, praktyczny przewodnik");
-    expect(html).toContain("Podejście poznawczo-behawioralne");
     expect(html).toContain("Poprzednia");
     expect(html).toContain("Następna");
-    expect(html).toContain("Podgląd tylko do odczytu");
+    expect(html).toContain("Tylko do odczytu");
     expect(html).toContain("Pelny zapis rozmowy");
     expect(html).not.toContain("Wyślij");
     expect(html).not.toContain("Rozpocznij");

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useFormValidationFocus } from "@/components/hooks/useFormValidationFocus";
 import { Mail, Lock, UserPlus } from "lucide-react";
 import { FormField } from "@/components/auth/FormField";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
@@ -17,6 +18,7 @@ export default function SignUpForm({ serverError }: Props) {
   const { email, setEmail, rememberEmailBeforeSubmit } = useRememberedAuthEmail({
     shouldRestore: Boolean(serverError),
   });
+  const { formRef, focusFirstError } = useFormValidationFocus();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,6 +47,7 @@ export default function SignUpForm({ serverError }: Props) {
     }
 
     setErrors(next);
+    focusFirstError(next);
     return Object.keys(next).length === 0;
   }
 
@@ -61,16 +64,27 @@ export default function SignUpForm({ serverError }: Props) {
     rememberEmailBeforeSubmit();
   }
 
-  const passwordHint =
-    !errors.password && password.length > 0 && password.length < MIN_PASSWORD_LENGTH ? (
-      <p className="text-ink-muted mt-1 text-xs">Brakuje znaków: {MIN_PASSWORD_LENGTH - password.length}</p>
-    ) : undefined;
+  const passwordHint = (
+    <p className="text-ink-muted mt-1 text-xs">
+      {password.length > 0 && password.length < MIN_PASSWORD_LENGTH
+        ? `Brakuje znaków: ${MIN_PASSWORD_LENGTH - password.length}`
+        : `Co najmniej ${MIN_PASSWORD_LENGTH} znaków.`}
+    </p>
+  );
 
   return (
-    <form method="POST" action="/api/auth/signup" className="space-y-4" onSubmit={handleSubmit} noValidate>
+    <form
+      ref={formRef}
+      method="POST"
+      action="/api/auth/signup"
+      className="space-y-4"
+      onSubmit={handleSubmit}
+      noValidate
+    >
       <FormField
         id="email"
         type="email"
+        autoComplete="email"
         label="E-mail"
         value={email}
         onChange={(v) => {
@@ -85,13 +99,14 @@ export default function SignUpForm({ serverError }: Props) {
       <FormField
         id="password"
         label="Hasło"
+        autoComplete="new-password"
         type={showPassword ? "text" : "password"}
         value={password}
         onChange={(v) => {
           setPassword(v);
           clearError("password");
         }}
-        placeholder="Minimum 6 znaków"
+        placeholder="Wpisz nowe hasło"
         error={errors.password}
         hint={passwordHint}
         icon={<Lock className="size-4" />}
@@ -109,6 +124,7 @@ export default function SignUpForm({ serverError }: Props) {
         id="confirmPassword"
         name="confirmPassword"
         label="Powtórz hasło"
+        autoComplete="new-password"
         type={showConfirmPassword ? "text" : "password"}
         value={confirmPassword}
         onChange={(v) => {

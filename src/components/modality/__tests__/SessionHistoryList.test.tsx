@@ -95,7 +95,7 @@ describe("sessionStatusLegend", () => {
   });
 
   it("ties the completed status to the explicit end-session action", () => {
-    expect(sessionStatusLegend.completed.description).toContain("Zakończ sesję");
+    expect(sessionStatusLegend.completed.description).toContain("zakończona przez Ciebie");
     expect(sessionStatusLegend.expired.description).toContain("limit czasu");
     expect(sessionStatusLegend.interrupted.description).toContain("bezpieczeństwa");
     expect(sessionStatusLegend.active.description).toContain("wrócić");

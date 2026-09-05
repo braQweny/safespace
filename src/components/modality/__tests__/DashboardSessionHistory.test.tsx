@@ -17,7 +17,7 @@ describe("getAvatarFirstName", () => {
 });
 
 describe("DashboardSessionHistory", () => {
-  it("names every perspective face and marks the saved one", () => {
+  it("names each filter visibly and accessibly and checks the saved perspective", () => {
     const html = renderToStaticMarkup(
       <DashboardSessionHistory
         selectedAvatar={selectedAvatar}
@@ -27,18 +27,16 @@ describe("DashboardSessionHistory", () => {
       />,
     );
 
-    // Przełącznik to rząd twarzy — imię jest dostępną nazwą obrazka, bo żaden
-    // widoczny tekst już go nie niesie.
     for (const modality of MVP_MODALITIES) {
-      expect(html).toContain(`alt="${getAvatarFirstName(modality.avatarName)}`);
+      const name = getAvatarFirstName(modality.avatarName);
+      expect(html).toContain(`aria-label="${name}"`);
+      expect(html).toContain(`>${name}</span>`);
     }
-
-    expect(html).toContain(`alt="${getAvatarFirstName(selectedAvatar.avatarName)} (wybrany)"`);
+    expect(html).toMatch(new RegExp(`aria-label="${getAvatarFirstName(selectedAvatar.avatarName)}"[^>]*checked=""`));
     expect(html).toContain('role="radiogroup"');
     expect(html).not.toContain("<select");
-    // Pełna nazwa i nurt zostają w nagłówku sekcji, nie w kontrolce.
+    // Pełna nazwa zostaje w nagłówku sekcji.
     expect(html).toContain(selectedAvatar.avatarName);
-    expect(html).toContain(selectedAvatar.modalityName);
   });
 
   it("lets the dashboard place the section in its own grid column", () => {

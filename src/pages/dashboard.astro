@@ -18,6 +18,7 @@ import { readSessionQuota } from "@/lib/session-data/quota";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
 import { SESSION_BOUNDARIES_COPY } from "@/lib/session-copy";
+import { perspectiveFocus } from "@/lib/perspective-copy";
 import {
   readActiveSessionBadge,
   toActiveSessionBadge,
@@ -181,9 +182,6 @@ const support = getSupportContact();
 const sessionBudgetMinutes = formatSessionBudgetMinutes(
   resolveSessionDurationSeconds(startPageState?.sessionQuota?.plan ?? firstStepsQuota?.plan),
 );
-// Karta startu pokazuje, jak ta perspektywa słucha — zdanie z katalogu, nie z
-// zapisanego wyboru (ten niesie tylko identyfikatory i nazwy).
-const currentModality = currentSelection ? getModalityByAvatarId(currentSelection.avatarId) : null;
 const firstStepsAllowanceCopy = formatRemainingFreeSessions(firstStepsQuota);
 const currentTint = currentSelection ? getPerspectiveTint(currentSelection.modalityId) : null;
 
@@ -214,7 +212,7 @@ const historyProps = currentSelection
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={anyActiveSession} />
 
-    <main class="flex-1 px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
+    <main class="flex-1 px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
       <section class="mx-auto max-w-6xl">
         <h1 class="text-ink text-4xl leading-tight">Dzień dobry.</h1>
         <p class="text-ink-muted mt-2 max-w-3xl text-[17px] leading-7">
@@ -227,7 +225,7 @@ const historyProps = currentSelection
               class="border-line-accent bg-surface text-brand-deep mt-6 rounded-2xl border p-4 text-sm leading-6"
               role="status"
             >
-              Perspektywa została zapisana. Krok 2 z 2: rozpocznij rozmowę poniżej, kiedy będzie na to dobry moment.
+              Perspektywa została zapisana. Możesz rozpocząć rozmowę.
             </div>
           ) : null
         }
@@ -240,37 +238,31 @@ const historyProps = currentSelection
           ) : null
         }
 
-        <div class:list={["mt-9 grid gap-8 lg:items-start", panelGridClass]}>
-          <section class="border-line-strong bg-surface shadow-card rounded-[20px] border p-6 sm:p-8">
+        <div class:list={["mt-6 grid gap-6 lg:items-start", panelGridClass]}>
+          <section class="border-line-strong bg-surface shadow-card rounded-[20px] border p-5 sm:p-7">
             {
               currentSelection ? (
                 <div class="flex flex-col">
-                  <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+                  <div class="flex items-center gap-4">
                     <img
                       src={currentSelection.assetPath}
-                      alt={currentSelection.altText}
+                      alt=""
                       width="256"
                       height="256"
-                      class="aspect-square w-28 shrink-0 rounded-2xl object-cover sm:w-32"
+                      class="h-16 w-16 shrink-0 rounded-full object-cover sm:h-20 sm:w-20"
                       loading="eager"
                       decoding="async"
                     />
                     <div class="min-w-0">
-                      <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">
-                        Perspektywa na tę rozmowę
-                      </p>
-                      <h2 class="text-ink mt-1.5 font-serif text-[28px] leading-tight font-medium">
-                        {currentSelection.avatarName}
+                      <h2 class="text-ink font-serif text-[28px] leading-tight font-medium">
+                        {currentSelection.avatarName.split(",")[0]}
                       </h2>
                       <p class:list={["mt-1 text-[15px] font-medium", currentTint?.text]}>
-                        {currentSelection.modalityName}
+                        {perspectiveFocus[currentSelection.modalityId]}
                       </p>
-                      {currentModality ? (
-                        <p class="text-ink-soft mt-3 text-base leading-relaxed">{currentModality.explanation}</p>
-                      ) : null}
                       <a
                         href="/dashboard/avatar"
-                        class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-3 inline-flex rounded text-sm font-medium underline underline-offset-4 transition-colors focus:outline-none focus-visible:ring-2"
+                        class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 transition-colors focus:outline-none focus-visible:ring-2"
                       >
                         Zmień perspektywę
                       </a>
@@ -322,7 +314,9 @@ const historyProps = currentSelection
 
                   {avatarMemoryPreview ? (
                     <details class="bg-surface-soft mt-5 rounded-2xl p-5 text-sm leading-6">
-                      <summary class="text-brand cursor-pointer font-medium">Przeczytaj obecną pamięć awatara</summary>
+                      <summary class="text-brand min-h-11 cursor-pointer py-2.5 font-medium">
+                        Przeczytaj obecną pamięć awatara
+                      </summary>
                       <p class="text-ink-muted mt-2">
                         Przed kolejnym startem uzupełnimy ją o rozmowy, których jeszcze nie obejmuje.
                       </p>
@@ -341,13 +335,13 @@ const historyProps = currentSelection
                     Najpierw wybierz, kto ma słuchać
                   </h2>
                   <p class="text-ink-muted mt-2 text-sm leading-6">
-                    Pięć awatarów, każdy w innym nurcie psychoterapii. To wybór edukacyjny — nie diagnoza i nie dobór
-                    terapii. Zmienisz go przed każdą kolejną rozmową.
+                    Pięć sposobów rozmowy z AI. Wybierz jeden i zdecyduj, kiedy zacząć. Perspektywę możesz zmienić przed
+                    następną rozmową.
                   </p>
                   {/* Twarze przed krokami: pierwszy krok przestaje być abstrakcją. */}
-                  <ul class="mt-5 flex flex-wrap gap-4">
+                  <ul class="mt-5 flex flex-wrap gap-3">
                     {MVP_MODALITIES.map((modality) => (
-                      <li class="flex w-14 flex-col items-center gap-1.5">
+                      <li class="flex w-11 flex-col items-center gap-1.5">
                         <img
                           src={modality.assetPath}
                           alt=""
@@ -355,41 +349,12 @@ const historyProps = currentSelection
                           height="256"
                           loading="lazy"
                           decoding="async"
-                          class="h-14 w-14 rounded-full object-cover"
+                          class="h-11 w-11 rounded-full object-cover"
                         />
                         <span class="text-ink-muted text-[13px] leading-4">{modality.avatarName.split(",")[0]}</span>
                       </li>
                     ))}
                   </ul>
-                  <ol class="mt-6 grid gap-3 sm:grid-cols-2">
-                    <li class="bg-surface-soft flex gap-4 rounded-2xl p-4" aria-current="step">
-                      <span class="text-brand shrink-0 font-serif text-2xl leading-none font-medium" aria-hidden="true">
-                        1
-                      </span>
-                      <div class="min-w-0">
-                        <p class="text-ink text-[15px] font-semibold">Wybierz perspektywę</p>
-                        <p class="text-ink-muted mt-1 text-sm leading-6">
-                          Posłuchasz po jednym zdaniu każdej z nich i zaznaczysz tę, która brzmi jak rozmowa, jakiej
-                          teraz potrzebujesz.
-                        </p>
-                      </div>
-                    </li>
-                    <li class="border-line flex gap-4 rounded-2xl border p-4">
-                      <span
-                        class="text-ink-muted shrink-0 font-serif text-2xl leading-none font-medium"
-                        aria-hidden="true"
-                      >
-                        2
-                      </span>
-                      <div class="min-w-0">
-                        <p class="text-ink text-[15px] font-semibold">Rozpocznij rozmowę</p>
-                        <p class="text-ink-muted mt-1 text-sm leading-6">
-                          Po zapisaniu wrócisz tutaj. Rozmowa ruszy dopiero po Twoim kliknięciu i potrwa do{" "}
-                          {sessionBudgetMinutes} z widocznym czasem.
-                        </p>
-                      </div>
-                    </li>
-                  </ol>
                   <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                     <a
                       href="/dashboard/avatar"
@@ -418,6 +383,9 @@ const historyProps = currentSelection
                       </div>
                     ) : null}
                   </div>
+                  <p class="text-ink-muted mt-4 text-sm leading-6">
+                    Rozmowa potrwa do {sessionBudgetMinutes}. Czas zacznie biec dopiero po jej rozpoczęciu.
+                  </p>
                   <p class="text-ink-muted mt-6 text-[13px] leading-5">{SESSION_BOUNDARIES_COPY}</p>
                 </div>
               )
@@ -440,7 +408,7 @@ const historyProps = currentSelection
                   </p>
                   <a
                     href={`/dashboard/session?sessionId=${encodeURIComponent(anyActiveSession.sessionId)}`}
-                    class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-2 inline-flex rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+                    class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-2 inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
                   >
                     Wróć do rozmowy
                   </a>
@@ -450,7 +418,9 @@ const historyProps = currentSelection
             }
             <h2 class="text-brand-deep text-[15px] font-semibold">Gdyby działo się coś pilnego</h2>
             <p class="text-ink-soft mt-2 text-sm leading-6">
-              Realna pomoc jest zawsze pod ręką: <a href="tel:112" class="text-ink font-semibold">112</a> w nagłym zagrożeniu,
+              Realna pomoc jest zawsze pod ręką: <a href="tel:112" class="text-ink font-semibold">112</a> w nagłym zagrożeniu,{
+                " "
+              }
               <a href="tel:800702222" class="text-ink font-semibold">800 70 2222</a> — wsparcie dla dorosłych w kryzysie psychicznym.
             </p>
             <p class="text-ink-muted mt-3 text-[13px] leading-5">

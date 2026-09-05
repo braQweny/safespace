@@ -34,9 +34,9 @@ describe("AvatarChoiceForm", () => {
     const noscript = readNoscript(renderForm({ canStartConversation: true, sessionBudgetMinutes: "15 min" }));
 
     expect(noscript).toMatch(/<button type="submit" value="save"[^>]*name="intent"/);
-    expect(noscript).toContain("Zapisz wybór");
+    expect(noscript).toContain("Tylko zapisz");
     expect(noscript).toMatch(/<button type="submit" value="save_and_start"[^>]*name="intent"/);
-    expect(noscript).toContain("Zapisz i zacznij rozmowę");
+    expect(noscript).toContain("Zacznij rozmowę");
     expect(noscript).toContain("do 15 min");
     expect(noscript).toContain(SAVE_BAR_FALLBACK_MESSAGE);
   });
@@ -46,7 +46,7 @@ describe("AvatarChoiceForm", () => {
 
     expect(html).toContain('value="save"');
     expect(html).not.toContain('value="save_and_start"');
-    expect(html).not.toContain("Zapisz i zacznij rozmowę");
+    expect(html).not.toContain("Zacznij rozmowę");
   });
 
   it("renders every perspective as a native radio and checks the saved one", () => {
@@ -56,14 +56,22 @@ describe("AvatarChoiceForm", () => {
     expect(html).toMatch(/<form[^>]*action="\/api\/profile\/avatar"[^>]*method="POST"/);
 
     for (const modality of MVP_MODALITIES) {
-      expect(html).toMatch(new RegExp(`<input type="radio"[^>]*name="modalityId"[^>]*value="${modality.modalityId}"`));
+      expect(html).toMatch(
+        new RegExp(`<input[^>]*type="radio"[^>]*name="modalityId"[^>]*value="${modality.modalityId}"`),
+      );
     }
 
-    expect(html).toMatch(new RegExp(`<input type="radio"[^>]*checked=""[^>]*value="${saved.modalityId}"`));
+    expect(html).toMatch(new RegExp(`<input[^>]*type="radio"[^>]*checked=""[^>]*value="${saved.modalityId}"`));
     expect(html.match(/checked=""/g)?.length).toBe(1);
-    // Zdanie porównawcze pokazuje się tylko przy zaznaczonej karcie.
-    expect(html).toContain(saved.pairingNote);
-    expect(html).not.toContain(MVP_MODALITIES[1].pairingNote);
+    // Szczegóły można porównać bez zmiany wyboru; domyślnie są zwinięte.
+    expect(html.match(/<details/g)).toHaveLength(MVP_MODALITIES.length);
+    expect(html).not.toMatch(/<details[^>]* open/);
+    for (const modality of MVP_MODALITIES) {
+      expect(html).toContain(modality.pairingNote);
+      expect(html).toContain(
+        `aria-labelledby="perspective-${modality.modalityId}-name perspective-${modality.modalityId}-focus"`,
+      );
+    }
   });
 
   it("serves the lighter avatar files and lets them decode off the main thread", () => {

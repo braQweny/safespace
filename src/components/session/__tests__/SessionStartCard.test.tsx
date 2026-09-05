@@ -73,9 +73,9 @@ describe("SessionStartCard", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Rozpocznij pierwszą darmową rozmowę");
+    expect(html).toContain("Rozpocznij rozmowę");
     // Wejście do panelu nie może wyglądać na zużycie darmowej próby.
-    expect(html).toContain("samo otwarcie panelu nie zużywa próby");
+    expect(html).toContain("Samo otwarcie panelu nie zużywa próby");
     expect(html).not.toContain("Z czym zacznie się ta rozmowa");
   });
 
@@ -92,10 +92,10 @@ describe("SessionStartCard", () => {
       sessionQuota: null,
     });
 
-    expect(html).toContain("Pamięć rozmów z tym awatarem");
+    expect(html).toContain("Jak działa pamięć rozmów?");
     expect(html).not.toContain("Zatwierdzone podsumowanie widoczne przed startem.");
     expect(html).toContain("Rozpocznij rozmowę");
-    // The opt-out has to be reachable next to the context it opts out of.
+    // Pamięć przygotowuje się automatycznie, bez ręcznego zatwierdzania.
     expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
     expect(html).not.toContain('id="skip-approved-context"');
   });
@@ -209,8 +209,8 @@ describe("SessionStartCard", () => {
       sessionQuota: freeQuota,
     });
 
-    expect(html).toContain("Każda rozmowa trwa do 15 minut");
-    expect(html).toContain("Rozpocznij pierwszą darmową rozmowę");
+    expect(html).toContain("Do 15 min rozmowy z AI");
+    expect(html).toContain("Rozpocznij rozmowę");
   });
 
   it("tells free accounts how many sessions remain before they start", () => {
@@ -245,8 +245,9 @@ describe("SessionStartCard", () => {
 
     expect(html).not.toContain("bezpłatnych rozmów");
     expect(html).not.toContain("Plan bezpłatny");
-    expect(html).toContain("Rozpocznij pierwszą rozmowę");
-    expect(html).not.toContain("Rozpocznij pierwszą darmową rozmowę");
+    expect(html).toContain("Rozpocznij rozmowę");
+    expect(html).not.toContain("darmową rozmowę");
+    expect(html).toContain("Do 60 min rozmowy z AI");
   });
 
   it("formats the remaining free sessions only when there is something left to count", () => {

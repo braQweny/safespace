@@ -45,19 +45,38 @@ const errorCopy: Record<SessionHistoryFailureCode, string> = {
   account_access_unavailable: "Nie udało się zweryfikować dostępu do konta. Spróbuj ponownie.",
 };
 
-export default function AvatarSessionHistory({
+export default function AvatarSessionHistory(props: AvatarSessionHistoryProps) {
+  const { selectedAvatar, controls, className } = props;
+  return (
+    <section
+      className={cn("border-line-strong bg-surface shadow-card mt-8 rounded-[20px] border p-5 sm:p-6", className)}
+    >
+      <div className="space-y-4">
+        <div>
+          <h2 id="history-title" tabIndex={-1} className="text-ink font-serif text-2xl leading-tight font-medium">
+            Historia rozmów
+          </h2>
+          {selectedAvatar ? <p className="text-ink-muted mt-1 text-sm">{selectedAvatar.avatarName}</p> : null}
+        </div>
+        {controls}
+      </div>
+      {/* Tylko dane są odmontowywane: radia filtra zachowują fokus przy zmianie. */}
+      <SessionHistoryContent key={`${selectedAvatar?.avatarId ?? "none"}:${props.page}`} {...props} />
+    </section>
+  );
+}
+
+function SessionHistoryContent({
   selectedAvatar,
   page,
   onPageChange,
   initialHistory = null,
   autoOpenSessionId = null,
-  controls = null,
   contextNotice = null,
-  className,
 }: AvatarSessionHistoryProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const isHydrated = useIsHydrated();
-  const detailPanelRef = useRef<HTMLDivElement | null>(null);
+  const detailPanelRef = useRef<HTMLDialogElement | null>(null);
   const autoOpenedRef = useRef(false);
   // Ostatnio żądana rozmowa — po zamknięciu podglądu fokus wraca na jej wiersz,
   // także gdy podgląd zamknięto jeszcze w trakcie ładowania (detail === null).
@@ -91,8 +110,10 @@ export default function AvatarSessionHistory({
       removeHistoryItem(sessionId);
 
       if (detail?.session.id === sessionId) {
+        detailPanelRef.current?.close();
         clearDetail();
         resetSummary();
+        document.getElementById("history-title")?.focus({ preventScroll: true });
       }
 
       if (selectedAvatar) {
@@ -115,11 +136,13 @@ export default function AvatarSessionHistory({
   function handleCloseDetail() {
     const sessionId = detail?.session.id ?? requestedSessionIdRef.current;
 
+    detailPanelRef.current?.close();
+    cancelDelete();
     clearDetail();
     resetSummary();
 
     if (sessionId) {
-      document.getElementById(getOpenDetailButtonId(sessionId))?.focus();
+      document.getElementById(getOpenDetailButtonId(sessionId))?.focus({ preventScroll: true });
     }
   }
 
@@ -137,23 +160,21 @@ export default function AvatarSessionHistory({
     void openDetail(autoOpenSessionId);
   }, [autoOpenSessionId, selectedAvatar, openDetail]);
 
-  // On narrow screens the detail panel renders below a list that can be taller
-  // than the viewport, so opening a conversation looked like nothing happened.
-  // `block: "start"` + `scroll-mt-20` on the panel keep its title clear of the
-  // sticky 56px header instead of tucking it underneath.
-  useEffect(() => {
-    if (!detail) {
-      return;
-    }
+  const showDetailPanel = detail !== null || detailStatus === "loading";
 
-    detailPanelRef.current?.scrollIntoView({
-      block: "start",
-      behavior:
-        typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-    });
-  }, [detail]);
+  useEffect(() => {
+    const dialog = detailPanelRef.current;
+    if (!showDetailPanel || !dialog) return;
+
+    dialog.showModal();
+    dialog.focus();
+    const previousOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.documentElement.style.overflow = previousOverflow;
+    };
+  }, [showDetailPanel]);
 
   function handleConfirmDelete(sessionId: string) {
     setNotice(null);
@@ -187,9 +208,6 @@ export default function AvatarSessionHistory({
   const activePage = history.pagination?.page ?? page;
   const canGoBack = history.pagination?.hasPreviousPage ?? activePage > 1;
   const canGoForward = history.pagination?.hasNextPage ?? false;
-  // Panel podglądu pojawia się dopiero po otwarciu rozmowy — pusta kolumna obok listy
-  // tylko zabierała miejsce.
-  const showDetailPanel = detail !== null || detailStatus === "loading";
   const showPagination = canGoBack || canGoForward;
   const canSummarizeDetail =
     detail !== null &&
@@ -199,33 +217,11 @@ export default function AvatarSessionHistory({
       detail.session.status === "interrupted");
 
   return (
-    <section
-      className={cn(
-        // `@container`: podział na listę i podgląd zależy od szerokości samej sekcji,
-        // nie okna — w kolumnie obok wyboru awatara breakpoint `lg:` byłby kłamstwem.
-        "border-line-strong bg-surface shadow-card @container mt-8 rounded-[20px] border p-5 sm:p-6",
-        className,
-      )}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-ink font-serif text-2xl leading-tight font-medium">Historia rozmów</h2>
-          {selectedAvatar ? (
-            <p className="text-ink-muted mt-1 text-sm">
-              <span className="text-ink-soft font-medium">{selectedAvatar.avatarName}</span> ·{" "}
-              {selectedAvatar.modalityName}
-            </p>
-          ) : null}
-        </div>
-        {controls}
-      </div>
-
-      <p className="text-ink-muted mt-3 text-sm leading-6">
-        Lista pokazuje tylko datę, status i czas trwania. Treść otwierasz świadomie.
-      </p>
+    <>
+      <p className="text-ink-muted mt-3 text-sm leading-6">Treść rozmowy zobaczysz dopiero po otwarciu zapisu.</p>
 
       <details className="group mt-2">
-        <summary className="text-brand focus-visible:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:outline-none focus-visible:ring-2">
+        <summary className="text-brand focus-visible:ring-brand-ring inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:outline-none focus-visible:ring-2">
           Co oznaczają statusy
           <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
         </summary>
@@ -275,38 +271,46 @@ export default function AvatarSessionHistory({
       ) : null}
 
       {history.items.length > 0 ? (
-        <div className={cn("mt-5 grid gap-3", showDetailPanel && "@3xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]")}>
+        <div className="mt-4">
           <SessionHistoryList
             items={history.items.slice(0, 20)}
             selectedSessionId={detail?.session.id ?? null}
             isInteractive={isHydrated}
             onOpenDetail={handleOpenDetail}
           />
-
-          {showDetailPanel ? (
-            <div ref={detailPanelRef} className="scroll-mt-20">
-              <SessionHistoryDetailPanel
-                detail={detail}
-                detailStatus={detailStatus}
-                selectedAvatar={selectedAvatar}
-                summaryState={summaryState}
-                summaryStatus={summaryStatus}
-                summaryErrorCode={summaryErrorCode}
-                canSummarize={canSummarizeDetail}
-                onGenerateSummary={handleGenerateSummary}
-                onApproveSummary={handleApproveSummary}
-                onClose={handleCloseDetail}
-                isConfirmingDelete={detail !== null && pendingDeleteId === detail.session.id}
-                isDeleting={detail !== null && deletingId === detail.session.id}
-                onRequestDelete={requestDelete}
-                onCancelDelete={cancelDelete}
-                onConfirmDelete={handleConfirmDelete}
-              />
-            </div>
-          ) : null}
         </div>
       ) : null}
 
+      {showDetailPanel ? (
+        <dialog
+          ref={detailPanelRef}
+          aria-label="Zapis rozmowy"
+          tabIndex={-1}
+          onCancel={(event) => {
+            event.preventDefault();
+            handleCloseDetail();
+          }}
+          className="border-line-strong bg-surface text-ink fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl border p-0 backdrop:bg-black/50"
+        >
+          <SessionHistoryDetailPanel
+            detail={detail}
+            detailStatus={detailStatus}
+            selectedAvatar={selectedAvatar}
+            summaryState={summaryState}
+            summaryStatus={summaryStatus}
+            summaryErrorCode={summaryErrorCode}
+            canSummarize={canSummarizeDetail}
+            onGenerateSummary={handleGenerateSummary}
+            onApproveSummary={handleApproveSummary}
+            onClose={handleCloseDetail}
+            isConfirmingDelete={detail !== null && pendingDeleteId === detail.session.id}
+            isDeleting={detail !== null && deletingId === detail.session.id}
+            onRequestDelete={requestDelete}
+            onCancelDelete={cancelDelete}
+            onConfirmDelete={handleConfirmDelete}
+          />
+        </dialog>
+      ) : null}
       {selectedAvatar && showPagination ? (
         <div className="border-line mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-ink-muted text-sm">Strona {activePage}</p>
@@ -336,6 +340,6 @@ export default function AvatarSessionHistory({
           </div>
         </div>
       ) : null}
-    </section>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useFormValidationFocus } from "@/components/hooks/useFormValidationFocus";
 import { Mail, Lock, LogIn } from "lucide-react";
 import { FormField } from "@/components/auth/FormField";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
@@ -16,6 +17,7 @@ export default function SignInForm({ serverError }: Props) {
   const { email, setEmail, rememberEmailBeforeSubmit } = useRememberedAuthEmail({
     shouldRestore: Boolean(serverError),
   });
+  const { formRef, focusFirstError } = useFormValidationFocus();
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -31,6 +33,7 @@ export default function SignInForm({ serverError }: Props) {
       next.password = "Podaj hasło";
     }
     setErrors(next);
+    focusFirstError(next);
     return Object.keys(next).length === 0;
   }
 
@@ -48,10 +51,18 @@ export default function SignInForm({ serverError }: Props) {
   }
 
   return (
-    <form method="POST" action="/api/auth/signin" className="space-y-4" onSubmit={handleSubmit} noValidate>
+    <form
+      ref={formRef}
+      method="POST"
+      action="/api/auth/signin"
+      className="space-y-4"
+      onSubmit={handleSubmit}
+      noValidate
+    >
       <FormField
         id="email"
         type="email"
+        autoComplete="email"
         label="E-mail"
         value={email}
         onChange={(v) => {
@@ -66,6 +77,7 @@ export default function SignInForm({ serverError }: Props) {
       <FormField
         id="password"
         label="Hasło"
+        autoComplete="current-password"
         type={showPassword ? "text" : "password"}
         value={password}
         onChange={(v) => {

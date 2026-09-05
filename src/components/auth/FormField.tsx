@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,8 @@ interface FormFieldProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  autoComplete?: InputHTMLAttributes<HTMLInputElement>["autoComplete"];
+  required?: boolean;
   error?: string;
   hint?: ReactNode;
   icon: ReactNode;
@@ -33,6 +35,8 @@ export function FormField({
   value,
   onChange,
   placeholder,
+  autoComplete,
+  required = true,
   error,
   hint,
   icon,
@@ -54,10 +58,13 @@ export function FormField({
             onChange(e.target.value);
           }}
           placeholder={placeholder}
+          autoComplete={autoComplete}
+          required={required}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           className={cn(
             inputBase,
+            endContent && "pr-14",
             error ? "border-danger focus:ring-danger-line" : "border-line-strong focus:ring-brand-ring",
           )}
         />
@@ -68,9 +75,9 @@ export function FormField({
           <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />
           {error}
         </p>
-      ) : (
-        hint
-      )}
+      ) : hint ? (
+        <div id={`${id}-hint`}>{hint}</div>
+      ) : null}
     </div>
   );
 }

@@ -111,7 +111,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={activeSession} />
 
-    <main class="flex-1 px-4 py-10 sm:px-6 lg:px-8">
+    <main class="flex-1 px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
       <section class="mx-auto max-w-6xl">
         {
           /* Two long paragraphs plus a privacy card used to fill the entire first
@@ -120,7 +120,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
         }
         <a
           href="/dashboard"
-          class="text-ink-muted hover:text-ink focus-visible:ring-brand-ring inline-flex items-center gap-1.5 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+          class="text-ink-muted hover:text-ink focus-visible:ring-brand-ring inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
         >
           <svg
             aria-hidden="true"
@@ -136,17 +136,14 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
           </svg>
           Wróć do panelu
         </a>
-        <h1 class="text-ink mt-3 max-w-4xl font-serif text-4xl font-medium tracking-tight">
-          Posłuchaj, zanim wybierzesz
-        </h1>
+        <h1 class="text-ink mt-3 max-w-4xl font-serif text-4xl font-medium tracking-tight">Wybierz sposób rozmowy</h1>
         <p class="text-ink-muted mt-3 max-w-3xl text-[17px] leading-7">
-          Każda perspektywa to inny nurt psychoterapii i inny sposób słuchania. Poniżej brzmi po jednym zdaniu każdej z
-          nich. Wybór dotyczy kolejnej rozmowy — możesz go później zmienić. To wybór edukacyjny, nie dobór terapii.
+          Przeczytaj przykładowe zdania i wybierz styl, który jest Ci bliski. To wybór edukacyjny, nie dobór terapii.
         </p>
 
         <details class="group mt-3 max-w-3xl">
           <summary
-            class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex cursor-pointer list-none items-center gap-1 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+            class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             Co to znaczy dla rozmowy
             <svg

@@ -90,9 +90,9 @@ export default function SessionHistoryDetailPanel({
   }
 
   return (
-    <aside className="bg-surface-soft rounded-2xl p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="text-ink font-serif text-lg leading-snug font-medium">Podgląd tylko do odczytu</p>
+    <div className="bg-surface rounded-2xl p-4 sm:p-6">
+      <div className="border-line bg-surface sticky top-0 z-10 -mx-4 -mt-4 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6">
+        <h2 className="text-ink font-serif text-xl leading-snug font-medium">Zapis rozmowy</h2>
         <div className="-mt-1 -mr-1 flex shrink-0 items-center gap-2">
           {detail ? (
             <button
@@ -113,13 +113,11 @@ export default function SessionHistoryDetailPanel({
             className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             <X aria-hidden="true" className="h-4 w-4" />
-            Zamknij podgląd
+            Zamknij
           </button>
         </div>
       </div>
-      <p className="text-ink-muted mt-1 text-sm leading-6">
-        Ten widok nie pozwala wysyłać wiadomości, ponawiać odpowiedzi ani restartować czasu sesji.
-      </p>
+      <p className="text-ink-muted mt-4 text-sm leading-6">{selectedAvatar?.avatarName} · Tylko do odczytu</p>
 
       {detail && isConfirmingDelete ? (
         <div
@@ -174,20 +172,20 @@ export default function SessionHistoryDetailPanel({
 
       {detail && selectedAvatar ? (
         <div className="mt-4 space-y-4">
-          <SessionSummaryPanel
-            summaryState={summaryState}
-            summaryStatus={summaryStatus}
-            summaryErrorCode={summaryErrorCode}
-            canSummarize={canSummarize}
-            onGenerate={onGenerateSummary}
-            onApprove={onApproveSummary}
-          />
-          {/*
-            Wewnętrzny scroll tylko w układzie obok listy (`@3xl:` z `@container`
-            sekcji) — na wąskim kontenerze panel stoi pod listą i rozmowa płynie
-            w stronie, bez scrolla w scrollu.
-          */}
-          <div className="@3xl:max-h-[70vh] @3xl:overflow-y-auto">
+          <details className="border-line rounded-xl border px-4">
+            <summary className="text-brand focus-visible:ring-brand-ring min-h-11 cursor-pointer rounded py-2.5 text-sm font-medium focus:outline-none focus-visible:ring-2">
+              Podsumowanie tej rozmowy
+            </summary>
+            <SessionSummaryPanel
+              summaryState={summaryState}
+              summaryStatus={summaryStatus}
+              summaryErrorCode={summaryErrorCode}
+              canSummarize={canSummarize}
+              onGenerate={onGenerateSummary}
+              onApprove={onApproveSummary}
+            />
+          </details>
+          <div>
             <SessionMessages
               messages={detailMessages}
               assistantAvatar={selectedAvatar}
@@ -200,6 +198,6 @@ export default function SessionHistoryDetailPanel({
           Otwórz rozmowę z listy, żeby zobaczyć pełny zapis tylko do odczytu.
         </div>
       ) : null}
-    </aside>
+    </div>
   );
 }

@@ -35,8 +35,7 @@ export const sessionStatusLegend: Record<SessionHistoryListItem["status"], Sessi
   },
   completed: {
     label: "Zakończona",
-    description:
-      "Rozmowa zamknięta przez Ciebie przyciskiem „Zakończ sesję” — zwykły koniec, więc wiersz nie dostaje odznaki.",
+    description: "Rozmowa zakończona przez Ciebie. Jej zapis pozostaje dostępny.",
   },
   expired: {
     label: "Po czasie",

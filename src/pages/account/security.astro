@@ -50,7 +50,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
       <section class="mx-auto max-w-2xl">
         <a
           href="/dashboard"
-          class="text-brand hover:text-brand-strong focus:ring-brand-ring rounded text-sm font-medium transition-colors hover:underline focus:ring-2 focus:outline-none"
+          class="text-brand hover:text-brand-strong focus:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium transition-colors hover:underline focus:ring-2 focus:outline-none"
         >
           ← Wróć do panelu
         </a>
@@ -66,8 +66,8 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
               <>
                 <p class="text-brand mt-2 text-base font-semibold">{formatPlanName(quota.plan)}</p>
                 <p class="text-ink-muted mt-1 text-sm leading-6">
-                  {formatSessionAllowance(quota)} Każda rozmowa trwa do {sessionBudgetMinutes}. Usunięcie rozmowy z
-                  historii nie przywraca jej do puli.
+                  {formatSessionAllowance(quota)} Każda rozmowa trwa do {sessionBudgetMinutes}.
+                  {quota.plan === "free" ? " Usunięcie rozmowy z historii nie przywraca jej do puli." : null}
                 </p>
                 {quota.plan === "free" ? (
                   <p class="text-ink-muted mt-3 text-sm leading-6">{PREMIUM_HOW_TO_COPY}</p>
@@ -104,8 +104,7 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
         <div class="border-line bg-surface-soft mt-5 rounded-lg border p-5">
           <h2 class="text-brand-deep text-base font-semibold">Twoje dane i usunięcie konta</h2>
           <p class="text-ink-muted mt-2 text-sm leading-6">
-            Treść rozmów widzisz tylko Ty; każdą rozmowę możesz trwale usunąć w historii w panelu. Jak działa prywatność
-            i jak usunąć całe konto, opisujemy na stronie
+            Rozmowę usuniesz po otwarciu jej zapisu w historii. Więcej o przetwarzaniu danych:
             <a
               href="/privacy"
               class="text-brand hover:text-brand-strong focus:ring-brand-ring ml-1 rounded font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
@@ -113,6 +112,21 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
               Prywatność i zasady
             </a>
           </p>
+          {
+            support.mailtoHref ? (
+              <>
+                <a
+                  href={`${support.mailtoHref}?subject=${encodeURIComponent("SafeSpace — prośba o usunięcie konta")}`}
+                  class="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center rounded-xl border px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
+                >
+                  Poproś o usunięcie konta
+                </a>
+                <p class="text-ink-muted mt-2 text-sm leading-6">
+                  Prośby obsługujemy ręcznie. Link otworzy wiadomość e-mail; samo kliknięcie nie usuwa konta.
+                </p>
+              </>
+            ) : null
+          }
         </div>
 
         {

@@ -58,25 +58,24 @@ describe("SessionHistoryDetailPanel", () => {
   it("offers a close action next to the read-only title", () => {
     const html = renderPanel();
 
-    expect(html).toContain("Podgląd tylko do odczytu");
-    expect(html).toMatch(/<button type="button"[^>]*>(?:(?!<\/button>).)*Zamknij podgląd<\/button>/);
+    expect(html).toContain("Tylko do odczytu");
+    expect(html).toMatch(/<button type="button"[^>]*>(?:(?!<\/button>).)*Zamknij<\/button>/);
   });
 
   it("keeps the close action available while a conversation is still loading", () => {
     const html = renderPanel({ detail: null, detailStatus: "loading" });
 
     expect(html).toContain("Ładowanie rozmowy");
-    expect(html).toContain("Zamknij podgląd");
+    expect(html).toContain("Zamknij");
   });
 
-  it("scrolls the transcript inside the panel only in the side-by-side layout", () => {
+  it("keeps one scroll area and collapses the optional summary", () => {
     const html = renderPanel();
 
-    // On a narrow container the panel sits below the list and the transcript
-    // flows with the page — a nested scroll area there is a scroll-in-scroll trap.
-    expect(html).toContain('class="@3xl:max-h-[70vh] @3xl:overflow-y-auto"');
-    expect(html).not.toMatch(/class="[^"]*(?<![@\w:-])max-h-\[70vh\]/);
-    expect(html).not.toMatch(/class="[^"]*(?<![@\w:-])overflow-y-auto/);
+    // Całe okno przewija się w dialogu rodzica, bez drugiego scrolla w zapisie.
+    expect(html).not.toContain("overflow-y-auto");
+    expect(html).toMatch(/<details[^>]*><summary[^>]*>Podsumowanie tej rozmowy/);
+    expect(html).not.toMatch(/<details[^>]* open/);
     expect(html).toContain("Pelny zapis rozmowy widoczny tylko po otwarciu.");
   });
 

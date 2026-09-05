@@ -4,11 +4,7 @@ import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions, PREMIUM_HOW_TO_COPY } from "@/lib/session-flow/plan-copy";
-import {
-  formatSessionBudgetCopy,
-  formatSessionBudgetMinutes,
-  resolveSessionDurationSeconds,
-} from "@/lib/session-flow/session-budget";
+import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 
@@ -24,16 +20,8 @@ interface SessionStartCardProps {
   supportEmail?: string | null;
 }
 
-const READY_FREE_COPY =
-  "Plan bezpłatny obejmuje trzy rozmowy próbne z limitem czasu. Rozmowa zaczyna się dopiero po kliknięciu — samo otwarcie panelu nie zużywa próby.";
-
-const READY_PREMIUM_COPY =
-  "Rozmowa ma limit czasu i zaczyna się dopiero po kliknięciu — samo otwarcie panelu nie zużywa próby.";
-
-const FOLLOWUP_COPY = "Rozmowa ma limit czasu i zaczyna się dopiero po kliknięciu startu.";
-
 const LIMIT_REACHED_COPY =
-  "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już wykorzystane na tym koncie. Dalsze rozmowy są dostępne w planie premium. Zapisy dotychczasowych rozmów znajdziesz w historii poniżej.";
+  "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już wykorzystane na tym koncie. Dalsze rozmowy są dostępne w planie premium. Zapisy dotychczasowych rozmów znajdziesz w historii rozmów.";
 
 export function buildSessionHref(sessionId: string) {
   return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
@@ -64,14 +52,6 @@ export function resolveAutoStartRequest(search: string, canStart: boolean) {
     shouldStart: canStart,
     nextSearch: remaining.length > 0 ? `?${remaining}` : "",
   };
-}
-
-function getStartCopy(kind: SessionStartPageState["kind"], quota: SessionQuota | null) {
-  if (kind === "ready") {
-    return quota?.plan === "premium" ? READY_PREMIUM_COPY : READY_FREE_COPY;
-  }
-
-  return FOLLOWUP_COPY;
 }
 
 /**
@@ -144,7 +124,6 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
   // Rozmowa premium trwa dłużej, więc obietnica czasu musi iść za planem —
   // to samo źródło, z którego trasa startu liczy `expires_at`.
   const sessionDurationSeconds = resolveSessionDurationSeconds(initialState.sessionQuota?.plan);
-  const sessionBudgetCopy = formatSessionBudgetCopy(sessionDurationSeconds);
   const sessionBudgetMinutes = formatSessionBudgetMinutes(sessionDurationSeconds);
 
   if (kind === "session_limit_reached") {
@@ -174,82 +153,72 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
     return (
       <div className="bg-surface-soft text-ink-muted mt-6 rounded-2xl p-5 text-sm leading-6">
         {kind === "trial_already_claimed"
-          ? "Pierwsza darmowa rozmowa została już wykorzystana na tym koncie. Zapisy znajdziesz w historii poniżej."
+          ? "Pierwsza darmowa rozmowa została już wykorzystana na tym koncie. Zapisy znajdziesz w historii rozmów."
           : "Nie udało się potwierdzić dostępności rozmowy. Odśwież panel za chwilę."}
       </div>
     );
   }
 
   return (
-    <div className="mt-6 flex flex-col gap-5">
-      <p className="text-ink-muted text-sm leading-6">
-        {getStartCopy(kind, initialState.sessionQuota)} {sessionBudgetCopy}
-      </p>
-
-      <div className="bg-surface-soft text-ink-soft rounded-2xl p-5 text-sm leading-6">
-        <p className="text-ink text-[15px] font-semibold">Pamięć rozmów z tym awatarem</p>
-        <p className="mt-2">
-          Nowa rozmowa automatycznie otrzyma podsumowanie wszystkich wcześniejszych rozmów z tym awatarem. Nie musisz
-          niczego generować ani zatwierdzać ręcznie. Rozmowy z innymi awatarami mają osobną pamięć.
-        </p>
-        <p className="text-ink-muted mt-2">
-          Przy pierwszym przygotowaniu historii start może potrwać dłużej. Czas rozmowy zacznie biec dopiero po
-          przygotowaniu pamięci.
+    <div className="mt-4 flex flex-col gap-4">
+      <div>
+        <p className="text-ink text-base font-medium">Do {sessionBudgetMinutes} rozmowy z AI</p>
+        {remainingCopy ? (
+          <div className="mt-2 flex items-center gap-3">
+            <AllowanceMeter quota={initialState.sessionQuota} />
+            <p className="text-ink-muted text-sm" data-session-quota>
+              {remainingCopy}
+            </p>
+          </div>
+        ) : null}
+        <p className="text-ink-muted mt-2 text-sm leading-6">
+          {kind === "followup_ready"
+            ? "Uwzględnimy wcześniejsze rozmowy z tą perspektywą."
+            : "Pierwsza rozmowa zaczyna się od tego, co chcesz dziś poruszyć."}
         </p>
       </div>
 
       {notice ? (
-        <div className="border-danger-line bg-danger-soft text-danger rounded-2xl border p-4 text-sm leading-6">
+        <div
+          role="alert"
+          className="border-danger-line bg-danger-soft text-danger rounded-2xl border p-4 text-sm leading-6"
+        >
           <p className="font-semibold">{notice.title}</p>
           <p className="mt-1">{notice.body}</p>
         </div>
       ) : null}
 
-      <div className="border-line flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-        {remainingCopy ? (
-          <div className="flex items-center gap-3">
-            <AllowanceMeter quota={initialState.sessionQuota} />
-            <p className="text-ink-soft text-sm" data-session-quota>
-              {remainingCopy}
-            </p>
-          </div>
-        ) : (
-          <span />
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            void startSession();
-          }}
-          disabled={!isHydrated || isStarting}
-          className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-2xl border border-transparent px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
-        >
-          <span>
-            {isStarting
-              ? isPreparingMemory
-                ? "Przygotowywanie pamięci…"
-                : "Rozpoczynanie…"
-              : kind === "ready"
-                ? initialState.sessionQuota?.plan === "premium"
-                  ? "Rozpocznij pierwszą rozmowę"
-                  : "Rozpocznij pierwszą darmową rozmowę"
-                : "Rozpocznij rozmowę"}
-          </span>
-          {isStarting ? null : (
-            <>
-              <span className="font-normal opacity-80">do {sessionBudgetMinutes}</span>
-              <ArrowRight aria-hidden="true" className="h-4 w-4" />
-            </>
-          )}
-        </button>
-      </div>
-      <p className="sr-only" role="status" aria-live="polite">
+      <button
+        type="button"
+        onClick={() => {
+          void startSession();
+        }}
+        disabled={!isHydrated || isStarting}
+        className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
+      >
+        {isStarting ? (isPreparingMemory ? "Przygotowywanie pamięci…" : "Rozpoczynanie…") : "Rozpocznij rozmowę"}
+        {isStarting ? null : <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />}
+      </button>
+      <p className={cn("text-ink-muted text-sm leading-6", !isStarting && "sr-only")} role="status" aria-live="polite">
         {isPreparingMemory
-          ? "Przygotowywanie pamięci wcześniejszych rozmów."
+          ? "Przygotowujemy kontekst wcześniejszych rozmów. Twój czas jeszcze nie biegnie. Przy dłuższej historii może to chwilę potrwać."
           : isStarting
-            ? "Rozpoczynanie rozmowy."
+            ? "Przygotowujemy rozmowę. Za chwilę przejdziesz do jej ekranu."
             : ""}
       </p>
+
+      <details className="text-ink-muted text-sm leading-6">
+        <summary className="text-brand focus-visible:ring-brand-ring min-h-11 cursor-pointer rounded py-2.5 font-medium focus:outline-none focus-visible:ring-2">
+          Jak działa pamięć rozmów?
+        </summary>
+        <p className="mt-2">
+          Nowa rozmowa automatycznie otrzyma podsumowanie wcześniejszych rozmów z tą perspektywą. Nie musisz niczego
+          generować ani zatwierdzać ręcznie. Inne perspektywy mają osobną pamięć.
+        </p>
+        <p className="mt-2">
+          Pamięć przygotowujemy przed startem, zanim zacznie biec czas rozmowy. Samo otwarcie panelu nie zużywa próby.
+        </p>
+      </details>
     </div>
   );
 }
