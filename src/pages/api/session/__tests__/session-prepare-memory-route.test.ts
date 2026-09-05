@@ -35,6 +35,7 @@ describe("POST /api/session/prepare-memory", () => {
     expect(prepareOwnedAvatarMemory).toHaveBeenCalledWith(
       owner,
       expect.objectContaining({ avatarId: "cbt-guide", modalityId: "cbt" }),
+      { locale: "en" },
     );
   });
 

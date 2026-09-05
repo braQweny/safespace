@@ -1,8 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import SessionHistoryDetailPanel from "../SessionHistoryDetail";
+
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
 
 const selectedAvatar = toSelectedModalityAvatar(MVP_MODALITIES[1]);
 

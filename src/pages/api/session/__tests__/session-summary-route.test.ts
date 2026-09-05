@@ -203,7 +203,7 @@ describe("/api/session/summary/[sessionId]", () => {
       contextData,
       {
         sessionId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
-        locale: "pl",
+        locale: "en",
       },
       expect.any(Object),
     );

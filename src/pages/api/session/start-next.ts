@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
 import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
 import { toSessionView } from "@/lib/session-flow/session-state";
@@ -131,7 +132,9 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
   }
 
-  const memory = await prepareOwnedAvatarMemory(sessionContext.data, avatarChoice.data.modality);
+  const memory = await prepareOwnedAvatarMemory(sessionContext.data, avatarChoice.data.modality, {
+    locale: getRequestLocale(context.locals),
+  });
 
   if (!memory.ok) {
     if (memory.providerFailure) {
@@ -198,7 +201,9 @@ export const POST: APIRoute = async (context) => {
   logStartAttempt("success", 201, startedAtMs, operationalContext);
 
   // Otwarcie czyta tę samą prywatną kopię pamięci co wszystkie późniejsze odpowiedzi.
-  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data);
+  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data, {
+    locale: getRequestLocale(context.locals),
+  });
 
   if (!opening.ok) {
     logOperationalEvent(

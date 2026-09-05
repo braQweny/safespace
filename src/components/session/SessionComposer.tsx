@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { ArrowUp, Loader2, Mic, Square } from "lucide-react";
+import { useLocale } from "@/components/hooks/useLocale";
 import { requestApiJson } from "@/lib/api-client";
-import { DICTATION_COPY } from "@/lib/session-copy";
+import type { Locale } from "@/lib/i18n/locale";
+import { getSessionCopy } from "@/lib/session-copy";
 import { SESSION_MESSAGE_MAX_CHARS } from "@/lib/session-flow/message-contract";
 import {
   isSessionTranscriptionFailure,
@@ -11,6 +13,7 @@ import {
 } from "@/lib/session-flow/session-transcription-contract";
 import { isRecord } from "@/lib/type-guards";
 import { cn } from "@/lib/utils";
+import { getSessionComposerCopy } from "./session-composer-copy";
 
 interface SessionComposerProps {
   sessionId: string;
@@ -110,28 +113,30 @@ export function getDictationSupport(input: {
  * Nazwa wyjątku z `getUserMedia` mówi, co poszło nie tak; ogólne „nie udało
  * się przepisać” było fałszywe, bo nic jeszcze nie zostało nagrane.
  */
-export function getDictationErrorCopy(error: unknown) {
+export function getDictationErrorCopy(locale: Locale, error: unknown) {
   const name = getErrorName(error);
+  const { dictation } = getSessionCopy(locale);
 
   if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
-    return DICTATION_COPY.microphoneDenied;
+    return dictation.microphoneDenied;
   }
 
   if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError") {
-    return DICTATION_COPY.microphoneMissing;
+    return dictation.microphoneMissing;
   }
 
-  return DICTATION_COPY.microphoneUnavailable;
+  return dictation.microphoneUnavailable;
 }
 
 export function formatRecordingProgress(
+  locale: Locale,
   elapsedSeconds: number,
   maxRecordingMs = SESSION_TRANSCRIPTION_MAX_RECORDING_MS,
 ) {
   const maxSeconds = Math.round(maxRecordingMs / 1000);
   const shownSeconds = Math.min(maxSeconds, Math.max(0, Math.floor(elapsedSeconds)));
 
-  return `Nagrywanie… ${shownSeconds} s / ${maxSeconds} s`;
+  return getSessionComposerCopy(locale).recordingProgress(shownSeconds, maxSeconds);
 }
 
 /**
@@ -192,6 +197,9 @@ export default function SessionComposer({
   onChange,
   onSubmit,
 }: SessionComposerProps) {
+  const locale = useLocale();
+  const copy = getSessionComposerCopy(locale);
+  const { dictation } = getSessionCopy(locale);
   const [dictationStatus, setDictationStatus] = useState<DictationStatus>("idle");
   const [dictationError, setDictationError] = useState<string | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -271,13 +279,13 @@ export default function SessionComposer({
 
     if (audio.size <= 0) {
       setDictationStatus("idle");
-      setDictationError(DICTATION_COPY.transcriptionFailed);
+      setDictationError(dictation.transcriptionFailed);
       return;
     }
 
     if (audio.size > SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES) {
       setDictationStatus("idle");
-      setDictationError(DICTATION_COPY.recordingTooLarge);
+      setDictationError(dictation.recordingTooLarge);
       return;
     }
 
@@ -296,30 +304,30 @@ export default function SessionComposer({
       });
 
       if (result.kind === "json" && (result.status === 413 || isAudioTooLargeFailure(result.body))) {
-        setDictationError(DICTATION_COPY.recordingTooLarge);
+        setDictationError(dictation.recordingTooLarge);
         return;
       }
 
       if (result.kind !== "json" || result.status !== 200 || !isSessionTranscriptionSuccess(result.body)) {
-        setDictationError(DICTATION_COPY.transcriptionFailed);
+        setDictationError(dictation.transcriptionFailed);
         return;
       }
 
       const appendedDraft = appendTranscriptionToDraft(latestValueRef.current, result.body.text);
 
       if (!appendedDraft.didAppend) {
-        setDictationError(DICTATION_COPY.transcriptionTooLong);
+        setDictationError(dictation.transcriptionTooLong);
         return;
       }
 
       onChange(appendedDraft.value);
-      setDictationError(appendedDraft.wasTruncated ? DICTATION_COPY.transcriptionTooLong : null);
+      setDictationError(appendedDraft.wasTruncated ? dictation.transcriptionTooLong : null);
     } catch {
-      setDictationError(DICTATION_COPY.transcriptionFailed);
+      setDictationError(dictation.transcriptionFailed);
     } finally {
       setDictationStatus("idle");
     }
-  }, [cleanupRecordingStream, clearRecordingTimers, onChange, sessionId]);
+  }, [cleanupRecordingStream, clearRecordingTimers, dictation, onChange, sessionId]);
 
   const startRecording = useCallback(async () => {
     if (!canUseDictation) {
@@ -331,14 +339,14 @@ export default function SessionComposer({
     const mediaDevices = getMediaDevices();
 
     if (typeof MediaRecorder === "undefined" || typeof mediaDevices?.getUserMedia !== "function") {
-      setDictationError(DICTATION_COPY.microphoneUnavailable);
+      setDictationError(dictation.microphoneUnavailable);
       return;
     }
 
     const mimeType = getSupportedWebmMimeType(MediaRecorder);
 
     if (!mimeType) {
-      setDictationError(DICTATION_COPY.microphoneUnavailable);
+      setDictationError(dictation.microphoneUnavailable);
       return;
     }
 
@@ -360,7 +368,7 @@ export default function SessionComposer({
         chunksRef.current = [];
         recorderRef.current = null;
         setDictationStatus("idle");
-        setDictationError(DICTATION_COPY.transcriptionFailed);
+        setDictationError(dictation.transcriptionFailed);
       };
       recorder.onstop = () => {
         void handleRecordingStop();
@@ -381,9 +389,17 @@ export default function SessionComposer({
       chunksRef.current = [];
       recorderRef.current = null;
       setDictationStatus("idle");
-      setDictationError(getDictationErrorCopy(error));
+      setDictationError(getDictationErrorCopy(locale, error));
     }
-  }, [canUseDictation, cleanupRecordingStream, clearRecordingTimers, handleRecordingStop, stopRecording]);
+  }, [
+    canUseDictation,
+    cleanupRecordingStream,
+    clearRecordingTimers,
+    dictation,
+    handleRecordingStop,
+    locale,
+    stopRecording,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -412,9 +428,9 @@ export default function SessionComposer({
 
   const dictationStatusCopy =
     dictationStatus === "recording"
-      ? formatRecordingProgress(recordingSeconds)
+      ? formatRecordingProgress(locale, recordingSeconds)
       : dictationStatus === "transcribing"
-        ? "Przepisywanie…"
+        ? copy.transcribing
         : null;
 
   return (
@@ -431,7 +447,7 @@ export default function SessionComposer({
       className="mx-auto w-full max-w-3xl"
     >
       <label htmlFor="session-message" className="sr-only">
-        Treść wiadomości
+        {copy.label}
       </label>
       {/* Pole i przyciski tworzą jedną kartę: tekst u góry, sterowanie w dolnym
           rzędzie — jak kartka, nie formularz. */}
@@ -471,7 +487,7 @@ export default function SessionComposer({
             event.preventDefault();
             submitAndKeepFocus();
           }}
-          placeholder="Napisz, od czego chcesz zacząć…"
+          placeholder={copy.placeholder}
           className="text-ink placeholder:text-ink-muted block max-h-60 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-base leading-relaxed outline-none disabled:cursor-not-allowed sm:min-h-[4.5rem]"
         />
         <div className="flex items-center justify-between gap-3 px-2.5 pb-2.5 pl-4">
@@ -486,9 +502,7 @@ export default function SessionComposer({
             )}
           >
             {showsShortcutHint ? (
-              <span className={cn("hidden sm:inline", isShortcutHintVisible && "inline")}>
-                Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.
-              </span>
+              <span className={cn("hidden sm:inline", isShortcutHintVisible && "inline")}>{copy.shortcutHint}</span>
             ) : null}
             {isNearCharLimit ? (
               <span className="text-ink-muted font-medium tabular-nums sm:ml-2">
@@ -520,10 +534,10 @@ export default function SessionComposer({
                   <Mic aria-hidden="true" className="h-4 w-4" />
                 )}
                 {dictationStatus === "recording"
-                  ? "Zatrzymaj"
+                  ? copy.stopRecording
                   : dictationStatus === "transcribing"
-                    ? "Przepisywanie…"
-                    : "Dyktuj"}
+                    ? copy.transcribing
+                    : copy.dictate}
               </button>
             ) : null}
             <button
@@ -536,7 +550,7 @@ export default function SessionComposer({
               ) : (
                 <ArrowUp aria-hidden="true" className="h-4 w-4" />
               )}
-              Wyślij
+              {copy.send}
             </button>
           </div>
         </div>

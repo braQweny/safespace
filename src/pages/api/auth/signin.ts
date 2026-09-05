@@ -3,6 +3,7 @@ import { mapSignInError } from "@/lib/auth-errors";
 import { createAuthRoute, readFormData } from "@/lib/auth-route";
 import { getSafeAuthRedirect } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, getFormString } from "@/lib/auth-validation";
+import { syncLocaleAfterSignIn } from "@/lib/i18n/account-locale";
 
 export const prerender = false;
 
@@ -25,11 +26,14 @@ export const POST: APIRoute = async (context) => {
     return route.failureRedirect("/auth/signin", "auth_not_configured", { level: "error", provider: "supabase" });
   }
 
-  const { error } = await route.supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await route.supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return route.failureRedirect("/auth/signin", mapSignInError(error), { provider: "supabase" });
   }
+
+  // Przed redirectem, żeby ewentualne cookie języka z konta wyszło razem z nim.
+  await syncLocaleAfterSignIn(context, route.supabase, data.user);
 
   return route.successRedirect(redirectTo);
 };

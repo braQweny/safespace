@@ -2,27 +2,30 @@
 import AppHeader from "@/components/AppHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
-import { MVP_MODALITIES, getPerspectiveLabel } from "@/lib/modalities";
+import { MVP_MODALITIES } from "@/lib/modalities";
+import { getModalityCopy } from "@/lib/modality-copy";
+import { getWelcomeCopy } from "@/lib/page-copy/welcome-copy";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
-import { CRISIS_RESOURCE_CATALOG } from "@/lib/session-safety/crisis-resources";
+import { getCrisisResourceCatalog } from "@/lib/session-safety/crisis-resources";
 import { FREE_TRIAL_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
 
-const { user } = Astro.locals;
+const { user, locale } = Astro.locals;
+const copy = getWelcomeCopy(locale);
 const primaryCta = user
   ? {
       href: AUTHENTICATED_REDIRECT_PATH,
-      label: "Przejdź do panelu",
+      label: copy.ctaDashboard,
     }
   : {
       href: "/auth/signup",
-      label: "Utwórz konto",
+      label: copy.ctaSignup,
     };
 const secondaryCta = user
   ? null
   : {
       href: "/auth/signin",
-      label: "Mam już konto",
+      label: copy.ctaSignin,
     };
 
 // „do 15 minut” wynika z budżetu sesji — landing nie może obiecywać innej
@@ -32,37 +35,20 @@ const budgetMinutes = Math.max(1, Math.round(FREE_TRIAL_DURATION_SECONDS / 60));
 // Narysowana karta rozmowy w hero: pierwsza perspektywa z katalogu, dwie
 // minuty po starcie. Pierścień to ten sam łuk, który pokazuje prawdziwa sesja.
 const featured = MVP_MODALITIES[0];
-const featuredFirstName = featured.avatarName.split(",")[0]?.trim() || featured.avatarName;
+const featuredCopy = getModalityCopy(locale, featured.modalityId);
+const featuredFirstName = featured.avatarFirstName;
 const previewElapsedMinutes = Math.min(2, budgetMinutes);
 const previewRemainingMinutes = budgetMinutes - previewElapsedMinutes;
 const RING_RADIUS = 14;
 const ringCircumference = 2 * Math.PI * RING_RADIUS;
 const ringElapsed = (previewElapsedMinutes / budgetMinutes) * ringCircumference;
 
-const emergencyContact = CRISIS_RESOURCE_CATALOG.pl.contacts.find((contact) => contact.kind === "emergency_number");
-const crisisLineContact = CRISIS_RESOURCE_CATALOG.pl.contacts.find((contact) => contact.kind === "crisis_line");
+const crisisCatalog = getCrisisResourceCatalog(locale);
+const emergencyContact = crisisCatalog.pl.contacts.find((contact) => contact.kind === "emergency_number");
+const crisisLineContact = crisisCatalog.pl.contacts.find((contact) => contact.kind === "crisis_line");
 
-const steps = [
-  {
-    title: "Zakładasz konto",
-    body: "Logujesz się przez Google lub e-mail, żeby mieć dostęp do swoich rozmów.",
-  },
-  {
-    title: "Wybierasz perspektywę",
-    body: "Pięć awatarów, każdy w innym nurcie psychoterapii, z krótkim opisem podejścia.",
-  },
-  {
-    title: "Zaczynasz rozmowę",
-    body: `Do ${budgetMinutes} minut, z widocznym czasem i jasną informacją, że to symulacja edukacyjna.`,
-  },
-];
-
-const boundaries = [
-  "SafeSpace nie zastępuje psychoterapeuty, lekarza ani konsultacji ze specjalistą.",
-  "Produkt nie stawia diagnozy i nie dobiera leczenia ani nurtu terapii za Ciebie.",
-  "Treść rozmowy ma charakter symulacji i wsparcia edukacyjnego, a nie porady medycznej.",
-  "W sytuacji bezpośredniego zagrożenia potrzebny jest kontakt z realną pomocą, nie z aplikacją.",
-];
+const steps = copy.steps(budgetMinutes);
+const boundaries = copy.boundaries;
 ---
 
 <div class="bg-paper text-ink min-h-screen w-full">
@@ -77,16 +63,11 @@ const boundaries = [
       class="mx-auto grid w-full max-w-6xl gap-12 overflow-x-hidden px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:px-8 lg:py-20"
     >
       <div class="flex max-w-2xl min-w-0 flex-col gap-6">
-        <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">
-          Edukacyjna symulacja rozmowy · nie terapia
-        </p>
+        <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">{copy.eyebrow}</p>
         <h1 class="text-ink text-4xl leading-[1.05] font-medium tracking-tight text-pretty sm:text-5xl lg:text-[66px]">
-          Spokojne miejsce na pierwszą rozmowę.
+          {copy.heroTitle}
         </h1>
-        <p class="text-ink-soft max-w-xl text-lg leading-8 text-pretty">
-          Uporządkuj myśli w rozmowie z AI i poznaj różne podejścia psychoterapeutyczne. We własnym tempie, przed
-          rozmową ze specjalistą.
-        </p>
+        <p class="text-ink-soft max-w-xl text-lg leading-8 text-pretty">{copy.heroBody}</p>
         <div class="mt-2 flex min-w-0 flex-col gap-3 sm:flex-row">
           <a
             href={primaryCta.href}
@@ -118,11 +99,7 @@ const boundaries = [
           }
         </div>
         <p class="text-ink-muted max-w-xl text-sm leading-6">
-          {
-            user
-              ? "Twoje rozmowy i wybrana perspektywa czekają w panelu."
-              : `${FREE_PLAN_SESSION_LIMIT} bezpłatne rozmowy, każda do ${budgetMinutes} minut. Dostępne po zalogowaniu.`
-          }
+          {user ? copy.heroNoteSignedIn : copy.heroNoteSignedOut(FREE_PLAN_SESSION_LIMIT, budgetMinutes)}
         </p>
       </div>
 
@@ -132,7 +109,7 @@ const boundaries = [
       }
       <figure
         role="img"
-        aria-label={`Podgląd rozmowy z awatarem ${featuredFirstName}: widoczny czas sesji, odpowiedzi jako spokojna proza i pole na Twoją wiadomość.`}
+        aria-label={copy.previewAria(featuredFirstName)}
         class="relative mx-auto w-full max-w-xl lg:mx-0 lg:h-[560px] lg:max-w-[640px] lg:justify-self-end"
       >
         <div
@@ -155,7 +132,7 @@ const boundaries = [
                 loading="eager"
                 decoding="async"
               />
-              <span class="truncate text-sm font-semibold">{featured.avatarName}</span>
+              <span class="truncate text-sm font-semibold">{featuredCopy.avatarName}</span>
             </div>
             <div class="flex shrink-0 items-center gap-2">
               <svg width="28" height="28" viewBox="0 0 36 36" class="h-7 w-7">
@@ -172,7 +149,7 @@ const boundaries = [
                   stroke-dasharray={`${ringElapsed.toFixed(2)} ${ringCircumference.toFixed(2)}`}
                   transform="rotate(-90 18 18)"></circle>
               </svg>
-              <span class="text-ink-muted text-xs">ok. {previewRemainingMinutes} min · początek</span>
+              <span class="text-ink-muted text-xs">{copy.previewTimer(previewRemainingMinutes)}</span>
             </div>
           </div>
           <div class="flex flex-col gap-4 px-6 pt-6 pb-5">
@@ -180,26 +157,22 @@ const boundaries = [
               <span class="text-persp-psychodynamic text-[11px] font-semibold tracking-[0.08em] uppercase">
                 {featuredFirstName}
               </span>
-              <p class="font-serif text-[17px] leading-relaxed">
-                Nie musimy się spieszyć. Od czego chcesz dziś zacząć?
-              </p>
+              <p class="font-serif text-[17px] leading-relaxed">{copy.previewAvatarLine1}</p>
             </div>
             <div class="bg-speaker-soft max-w-[360px] self-end rounded-2xl rounded-br-[4px] px-3.5 py-3">
-              <p class="text-sm leading-relaxed">Chyba od tego, że nie wiem, czy terapia jest w ogóle dla mnie.</p>
+              <p class="text-sm leading-relaxed">{copy.previewUser}</p>
             </div>
             <div class="flex flex-col gap-1.5">
               <span class="text-persp-psychodynamic text-[11px] font-semibold tracking-[0.08em] uppercase">
                 {featuredFirstName}
               </span>
-              <p class="font-serif text-[17px] leading-relaxed">
-                „W ogóle dla mnie” — zastanawiam się, co się za tym kryje. Zostańmy przy tym chwilę.
-              </p>
+              <p class="font-serif text-[17px] leading-relaxed">{copy.previewAvatarLine2}</p>
             </div>
           </div>
           <div
             class="border-line-strong bg-surface mx-4 mb-4 flex items-center justify-between gap-3 rounded-2xl border py-2.5 pr-2.5 pl-4"
           >
-            <span class="text-ink-muted text-sm">Napisz…</span>
+            <span class="text-ink-muted text-sm">{copy.previewPlaceholder}</span>
             <span class="bg-brand flex h-[34px] w-[34px] items-center justify-center rounded-full">
               <svg
                 viewBox="0 0 24 24"
@@ -220,25 +193,23 @@ const boundaries = [
 
     <section class="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-14 sm:px-6 lg:px-8 lg:py-18">
       <div class="flex max-w-2xl flex-col gap-2.5">
-        <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">Pięć perspektyw</p>
+        <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">{copy.perspectivesEyebrow}</p>
         <h2 class="text-ink font-serif text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
-          Pięć sposobów słuchania, jeden spokojny ton
+          {copy.perspectivesTitle}
         </h2>
-        <p class="text-ink-muted text-base leading-7 sm:text-lg">
-          Każdy awatar reprezentuje inny nurt psychoterapii. Wybierasz perspektywę przed rozmową i możesz ją zmienić
-          przed kolejną.
-        </p>
+        <p class="text-ink-muted text-base leading-7 sm:text-lg">{copy.perspectivesBody}</p>
       </div>
       <ul class="grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-6">
         {
           MVP_MODALITIES.map((modality) => {
             const tint = getPerspectiveTint(modality.modalityId);
+            const modalityCopy = getModalityCopy(locale, modality.modalityId);
 
             return (
               <li class="flex flex-col gap-3">
                 <img
                   src={modality.assetPath}
-                  alt={modality.altText}
+                  alt={modalityCopy.altText}
                   width="256"
                   height="256"
                   class="h-20 w-20 rounded-full object-cover"
@@ -246,10 +217,10 @@ const boundaries = [
                   decoding="async"
                 />
                 <div class="flex flex-col gap-0.5">
-                  <p class="text-ink text-base font-semibold">{modality.avatarName}</p>
-                  <p class:list={["text-[13px] font-medium", tint.text]}>{getPerspectiveLabel(modality.modalityId)}</p>
+                  <p class="text-ink text-base font-semibold">{modalityCopy.avatarName}</p>
+                  <p class:list={["text-[13px] font-medium", tint.text]}>{modalityCopy.perspectiveLabel}</p>
                 </div>
-                <p class="text-ink-muted text-sm leading-6">{modality.explanation}</p>
+                <p class="text-ink-muted text-sm leading-6">{modalityCopy.explanation}</p>
               </li>
             );
           })
@@ -262,10 +233,8 @@ const boundaries = [
         class="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-16 lg:px-8"
       >
         <div class="flex flex-col gap-2.5">
-          <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">Jak to działa</p>
-          <h2 class="text-ink font-serif text-3xl leading-tight font-medium tracking-tight">
-            Trzy kroki do pierwszej rozmowy
-          </h2>
+          <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">{copy.howEyebrow}</p>
+          <h2 class="text-ink font-serif text-3xl leading-tight font-medium tracking-tight">{copy.howTitle}</h2>
         </div>
         <ol class="grid gap-8 sm:grid-cols-3">
           {
@@ -285,14 +254,11 @@ const boundaries = [
       <div class="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pt-16 pb-14 sm:px-6 lg:px-8">
         <div class="grid gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
           <div class="flex flex-col gap-3">
-            <p class="text-brand-soft text-xs font-semibold tracking-[0.08em] uppercase">Granice bezpieczeństwa</p>
+            <p class="text-brand-soft text-xs font-semibold tracking-[0.08em] uppercase">{copy.boundariesEyebrow}</p>
             <h2 class="text-canvas font-serif text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
-              Zanim zaczniesz, wiedz, czego SafeSpace nie robi
+              {copy.boundariesTitle}
             </h2>
-            <p class="text-canvas/85 text-base leading-7">
-              SafeSpace ma pomagać w przygotowaniu do realnej rozmowy i edukacyjnie pokazywać możliwe sposoby pracy. Nie
-              ma zastępować kontaktu z wykwalifikowaną osobą.
-            </p>
+            <p class="text-canvas/85 text-base leading-7">{copy.boundariesBody}</p>
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
             {
@@ -305,11 +271,11 @@ const boundaries = [
           </div>
         </div>
         <p class="text-clay-soft border-canvas/20 border-t pt-6 text-[15px] leading-6">
-          Jeśli jesteś w bezpośrednim niebezpieczeństwie, zadzwoń pod{" "}
-          <strong class="text-canvas font-semibold">{emergencyContact?.value ?? "112"}</strong> albo skontaktuj się z lokalną
-          pomocą kryzysową (<strong class="text-canvas font-semibold"
+          {copy.crisisBefore}{" "}
+          <strong class="text-canvas font-semibold">{emergencyContact?.value ?? "112"}</strong>{" "}
+          {copy.crisisMiddle}<strong class="text-canvas font-semibold"
             >{crisisLineContact?.value ?? "800 70 2222"}</strong
-          >), telefonem zaufania lub specjalistą. Nie czekaj na odpowiedź aplikacji.
+          >{copy.crisisAfter}
         </p>
       </div>
     </section>
@@ -319,14 +285,10 @@ const boundaries = [
     >
       <div class="flex max-w-2xl flex-col gap-2">
         <h2 class="text-ink font-serif text-3xl leading-tight font-medium tracking-tight">
-          {user ? "Wróć do swoich rozmów" : "Czas na pierwszy krok?"}
+          {user ? copy.finalTitleSignedIn : copy.finalTitleSignedOut}
         </h2>
         <p class="text-ink-muted text-base leading-7">
-          {
-            user
-              ? "Wybierz perspektywę, rozpocznij rozmowę lub wróć do jej zapisu."
-              : "Utwórz konto, wybierz perspektywę i zacznij, kiedy zechcesz."
-          }
+          {user ? copy.finalBodySignedIn : copy.finalBodySignedOut}
         </p>
       </div>
       <a

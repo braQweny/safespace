@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getAuthErrorRedirect } from "@/lib/auth-errors";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
+import { syncLocaleAfterSignIn } from "@/lib/i18n/account-locale";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { createClient } from "@/lib/supabase";
@@ -51,7 +52,7 @@ export const GET: APIRoute = async (context) => {
     return context.redirect(getAuthErrorRedirect("/auth/signin", "auth_not_configured"));
   }
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     logOperationalEvent(
       {
@@ -67,6 +68,10 @@ export const GET: APIRoute = async (context) => {
 
     return context.redirect(getAuthErrorRedirect("/auth/signin", "oauth_callback_failed"));
   }
+
+  // Google, potwierdzenie e-maila i odzyskiwanie hasła lądują tutaj — jedno
+  // miejsce, w którym język z konta trafia do cookie tego urządzenia.
+  await syncLocaleAfterSignIn(context, supabase, data.user);
 
   logOperationalEvent(
     {

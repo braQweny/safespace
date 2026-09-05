@@ -1,3 +1,6 @@
+import { defineCopy } from "@/lib/i18n/copy";
+import type { Locale } from "@/lib/i18n/locale";
+import { plural } from "@/lib/i18n/plural";
 import type { AccountPlan, SessionDurationBucketSeconds } from "@/lib/session-data/types";
 
 /**
@@ -29,16 +32,32 @@ export function resolveSessionDurationSeconds(
   return plan === "premium" ? PREMIUM_SESSION_DURATION_SECONDS : FREE_TRIAL_DURATION_SECONDS;
 }
 
-export function formatSessionBudgetMinutes(durationSeconds: number = FREE_TRIAL_DURATION_SECONDS) {
-  const minutes = Math.max(1, Math.round(durationSeconds / 60));
+const SESSION_BUDGET_COPY = defineCopy(
+  {
+    minutesUnit: { one: "minute", many: "minutes" },
+    preStart: (minutes: number, unit: string) =>
+      `Each conversation lasts up to ${minutes} ${unit} — the time stays visible on screen throughout.`,
+  },
+  {
+    // Dopełniacz po „do”: „do 1 minuty”, „do 15 minut”, „do 60 minut”.
+    minutesUnit: { one: "minuty", many: "minut" },
+    preStart: (minutes, unit) => `Każda rozmowa trwa do ${minutes} ${unit} — czas widzisz przez cały czas na ekranie.`,
+  },
+);
 
-  return `${minutes} min`;
+function toBudgetMinutes(durationSeconds: number) {
+  return Math.max(1, Math.round(durationSeconds / 60));
+}
+
+/** „15 min” — skrót jest ten sam w obu językach; `locale` zostaje dla spójnej sygnatury. */
+export function formatSessionBudgetMinutes(_locale: Locale, durationSeconds: number = FREE_TRIAL_DURATION_SECONDS) {
+  return `${toBudgetMinutes(durationSeconds)} min`;
 }
 
 /** „Każda rozmowa trwa do 15 minut.” — zdanie pokazywane przed startem. */
-export function formatSessionBudgetCopy(durationSeconds: number = FREE_TRIAL_DURATION_SECONDS) {
-  const minutes = Math.max(1, Math.round(durationSeconds / 60));
-  const unit = minutes === 1 ? "minuty" : "minut";
+export function formatSessionBudgetCopy(locale: Locale, durationSeconds: number = FREE_TRIAL_DURATION_SECONDS) {
+  const copy = SESSION_BUDGET_COPY[locale];
+  const minutes = toBudgetMinutes(durationSeconds);
 
-  return `Każda rozmowa trwa do ${minutes} ${unit} — czas widzisz przez cały czas na ekranie.`;
+  return copy.preStart(minutes, plural(locale, minutes, copy.minutesUnit));
 }

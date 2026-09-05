@@ -102,5 +102,15 @@ export default tseslint.config(
   // The disposable PostgreSQL harness runs as native Node JavaScript. Keep
   // syntax/style checks; the application's type-aware TS rules do not apply.
   { ...tseslint.configs.disableTypeChecked, files: ["tests/**/*.mjs"] },
+  // Repo maintenance scripts (favicon generation) run as native Node too and
+  // report to the terminal on purpose.
+  {
+    ...tseslint.configs.disableTypeChecked,
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { process: "readonly", Buffer: "readonly", console: "readonly" },
+    },
+    rules: { ...tseslint.configs.disableTypeChecked.rules, "no-console": "off" },
+  },
   eslintPluginPrettier,
 );

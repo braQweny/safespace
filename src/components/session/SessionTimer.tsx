@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useLocale } from "@/components/hooks/useLocale";
+import type { Locale } from "@/lib/i18n/locale";
 import {
   computeClientRemainingSeconds,
   computeServerClockOffsetMs,
@@ -6,6 +8,7 @@ import {
 } from "@/lib/session-flow/message-state";
 import { resolveSessionPhase, type SessionPhase } from "@/lib/session-flow/session-phase";
 import { cn } from "@/lib/utils";
+import { getSessionTimerCopy } from "./session-timer-copy";
 
 interface SessionTimerProps {
   expiresAt: string | null;
@@ -62,28 +65,24 @@ function getSessionPhase(
   );
 }
 
-const phaseLabels: Record<SessionPhase, string> = {
-  opening: "początek",
-  middle: "w trakcie",
-  closing: "domykanie",
-};
-
 /**
  * Czas pokazany jako łuk, nie odliczanie: pierścień wypełnia się w tempie
  * sesji, obok stoi „ok. N min” i faza rozmowy. Na telefonie pierścień ustępuje
  * miejsca paskowi pod nagłówkiem. Sekundy pojawiają się dopiero w ostatnich
  * dwóch minutach — wtedy precyzja naprawdę pomaga.
  */
-function formatRemainingLabel(remainingSeconds: number | null, level: TimerLevel) {
+function formatRemainingLabel(locale: Locale, remainingSeconds: number | null, level: TimerLevel) {
+  const copy = getSessionTimerCopy(locale);
+
   if (remainingSeconds === null) {
-    return "—";
+    return copy.unknown;
   }
 
   if (level === "critical") {
     return formatRemainingTime(remainingSeconds);
   }
 
-  return `ok. ${Math.max(1, Math.round(remainingSeconds / 60))} min`;
+  return copy.approxMinutes(Math.max(1, Math.round(remainingSeconds / 60)));
 }
 
 const RING_RADIUS = 14;
@@ -95,6 +94,8 @@ export default function SessionTimer({
   totalSeconds = null,
   onExpired,
 }: SessionTimerProps) {
+  const locale = useLocale();
+  const copy = getSessionTimerCopy(locale);
   const [remainingSeconds, setRemainingSeconds] = useState(initialRemainingSeconds);
 
   useEffect(() => {
@@ -139,10 +140,10 @@ export default function SessionTimer({
         role="timer"
         aria-label={
           level === "critical"
-            ? "Pozostały czas rozmowy — mniej niż 2 minuty"
+            ? copy.ariaRemainingCritical
             : level === "warning"
-              ? "Pozostały czas rozmowy — mniej niż 5 minut"
-              : "Pozostały czas rozmowy"
+              ? copy.ariaRemainingWarning
+              : copy.ariaRemaining
         }
         className="inline-flex items-center gap-2 sm:gap-2.5"
       >
@@ -173,25 +174,21 @@ export default function SessionTimer({
         </svg>
         <div className="flex flex-col leading-tight">
           <span className={cn("text-sm font-semibold tabular-nums", isClosing ? "text-clay-strong" : "text-ink")}>
-            {formatRemainingLabel(remainingSeconds, level)}
+            {formatRemainingLabel(locale, remainingSeconds, level)}
           </span>
           {/* Faza i budżet nie mieszczą się w jednym rzędzie telefonu — tam czas
               niesie pierścień i pasek pod nagłówkiem. */}
           <span className="text-ink-muted hidden text-xs sm:block">
             {level === "critical"
-              ? "kończy się czas"
-              : [phase ? phaseLabels[phase] : null, totalMinutes ? `z ${totalMinutes} min` : null]
+              ? copy.timeRunningOut
+              : [phase ? copy.phaseLabels[phase] : null, totalMinutes ? copy.ofTotalMinutes(totalMinutes) : null]
                   .filter(Boolean)
                   .join(" · ")}
           </span>
         </div>
         {/* Zmiana progu ogłaszana czytnikowi ekranu raz, bez odczytywania każdej sekundy. */}
         <span role="status" className="sr-only">
-          {level === "critical"
-            ? "Zostało mniej niż 2 minuty rozmowy."
-            : level === "warning"
-              ? "Zostało mniej niż 5 minut rozmowy."
-              : null}
+          {level === "critical" ? copy.statusCritical : level === "warning" ? copy.statusWarning : null}
         </span>
       </div>
       {/*

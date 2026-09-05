@@ -2,7 +2,7 @@
 
 SafeSpace is a mental-health / therapy-simulation web app. A user picks a therapeutic modality (a "perspective" represented by an avatar) and runs a time-limited AI chat session in the browser. Conversations are private by design: the architecture is built around a **privacy boundary** that keeps raw conversation content out of logs, admin surfaces, and unbounded context reuse. The product is a simulation and an educational aid, not a replacement for a therapist — a crisis classifier interrupts the session and points to real help when needed.
 
-The UI and all user-facing copy are in Polish. Contributor guidance for AI agents lives in `CLAUDE.md` (architecture, boundaries) and `AGENTS.md` (conventions, 10xDevs toolkit).
+The UI is available in English (default) and Polish; the choice is stored in a cookie and, for signed-in users, on the account (`user_preferences`). Every user-facing string lives in a locale copy module (`*-copy.ts`), never inline in JSX/Astro. Contributor guidance for AI agents lives in `CLAUDE.md` (architecture, boundaries) and `AGENTS.md` (conventions, 10xDevs toolkit).
 
 ## Tech Stack
 

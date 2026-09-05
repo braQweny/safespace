@@ -8,7 +8,8 @@ import {
   getAvatarChoiceErrorMessage,
   parseAvatarChoiceErrorCode,
 } from "@/lib/avatar-choice-errors";
-import { MVP_MODALITIES, type SelectedModalityAvatar } from "@/lib/modalities";
+import { MODALITY_CHOICES, type SelectedModalityAvatar } from "@/lib/modalities";
+import { getAvatarPageCopy } from "@/lib/page-copy/avatar-page-copy";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
@@ -18,6 +19,8 @@ import { readSessionQuota } from "@/lib/session-data/quota";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 
+const locale = Astro.locals.locale;
+const copy = getAvatarPageCopy(locale);
 const queryErrorCode = parseAvatarChoiceErrorCode(Astro.url.searchParams.get(AVATAR_CHOICE_ERROR_PARAM));
 const operationalContext = await buildOperationalRequestContext(Astro);
 const sessionContext = getSessionDataContext(Astro);
@@ -25,10 +28,11 @@ const sessionContext = getSessionDataContext(Astro);
 let currentSelection: SelectedModalityAvatar | null = null;
 let activeSession: ActiveSessionBadge | null = null;
 let sessionQuota: SessionQuota | null = null;
-let pageError = queryErrorCode ? getAvatarChoiceErrorMessage(queryErrorCode) : null;
+let pageError = queryErrorCode ? getAvatarChoiceErrorMessage(locale, queryErrorCode) : null;
 
 if (!sessionContext.ok) {
   pageError = getAvatarChoiceErrorMessage(
+    locale,
     sessionContext.error.code === "missing_auth" ? "missing_auth" : "config_unavailable",
   );
   logOperationalEvent(
@@ -70,6 +74,7 @@ if (!sessionContext.ok) {
     );
   } else {
     pageError = getAvatarChoiceErrorMessage(
+      locale,
       avatarChoice.error.code === "invalid_avatar_choice" ? "invalid_choice" : "fetch_failed",
     );
     logOperationalEvent(
@@ -104,10 +109,10 @@ const canStartConversation =
   activeSession === null &&
   sessionQuota !== null &&
   (sessionQuota.plan === "premium" || (sessionQuota.remainingSessions ?? 0) > 0);
-const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSeconds(sessionQuota?.plan));
+const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDurationSeconds(sessionQuota?.plan));
 ---
 
-<Layout title="Wybór perspektywy - SafeSpace" lang="pl">
+<Layout title={copy.pageTitle}>
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={activeSession} />
 
@@ -134,18 +139,16 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
           >
             <path d="M19 12H5M11 18l-6-6 6-6"></path>
           </svg>
-          Wróć do panelu
+          {copy.back}
         </a>
-        <h1 class="text-ink mt-3 max-w-4xl font-serif text-4xl font-medium tracking-tight">Wybierz perspektywę</h1>
-        <p class="text-ink-muted mt-3 max-w-3xl text-[17px] leading-7">
-          Przeczytaj przykładowe zdania i wybierz styl, który jest Ci bliski. To wybór edukacyjny, nie dobór terapii.
-        </p>
+        <h1 class="text-ink mt-3 max-w-4xl font-serif text-4xl font-medium tracking-tight">{copy.title}</h1>
+        <p class="text-ink-muted mt-3 max-w-3xl text-[17px] leading-7">{copy.intro}</p>
 
         <details class="group mt-3 max-w-3xl">
           <summary
             class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
-            Co to znaczy dla rozmowy
+            {copy.disclosure}
             <svg
               aria-hidden="true"
               viewBox="0 0 24 24"
@@ -160,21 +163,14 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
             </svg>
           </summary>
           <div class="text-ink-muted mt-3 space-y-2 text-sm leading-6">
-            <p>
-              To edukacyjny wybór perspektywy do przyszłej symulacji rozmowy. SafeSpace nie zastępuje specjalisty i nie
-              dobiera nurtu za Ciebie; decyzje dotyczące realnej terapii warto omawiać z wykwalifikowaną osobą.
-            </p>
-            <p>
-              Zapisy rozmów są prowadzone osobno dla każdej perspektywy. Znajdziesz je w panelu, w historii rozmów — tam
-              też przełączysz się między perspektywami, żeby przejrzeć starsze zapisy.
-            </p>
+            {copy.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
           </div>
         </details>
 
         {
           activeSession ? (
             <div class="border-line-accent bg-surface text-brand-deep mt-6 max-w-3xl rounded-2xl border p-4 text-sm leading-6">
-              Masz rozmowę w toku. Zapisana tu zmiana zadziała dopiero od następnej rozmowy.
+              {copy.activeNotice}
             </div>
           ) : null
         }
@@ -189,7 +185,8 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(resolveSessionDurationSe
 
         <AvatarChoiceForm
           client:idle
-          modalities={MVP_MODALITIES}
+          locale={locale}
+          modalities={MODALITY_CHOICES}
           currentSelection={currentSelection}
           canStartConversation={canStartConversation}
           sessionBudgetMinutes={sessionBudgetMinutes}

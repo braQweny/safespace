@@ -5,14 +5,27 @@ import { FormField } from "@/components/auth/FormField";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
 import { ServerError } from "@/components/auth/ServerError";
 import { SubmitButton } from "@/components/auth/SubmitButton";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-validation";
+import type { Locale } from "@/lib/i18n/locale";
+import { getAuthFormCopy } from "./auth-form-copy";
 
 interface Props {
+  locale: Locale;
   serverError?: string | null;
   serverSuccess?: string | null;
 }
 
-export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
+export default function SetPasswordForm({ locale, serverError, serverSuccess }: Props) {
+  return (
+    <LocaleProvider locale={locale}>
+      <SetPasswordFormView locale={locale} serverError={serverError} serverSuccess={serverSuccess} />
+    </LocaleProvider>
+  );
+}
+
+function SetPasswordFormView({ locale, serverError, serverSuccess }: Props) {
+  const copy = getAuthFormCopy(locale);
   const { formRef, focusFirstError } = useFormValidationFocus();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,15 +37,15 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
     const next: typeof errors = {};
 
     if (!password) {
-      next.password = "Podaj hasło";
+      next.password = copy.errors.passwordRequired;
     } else if (password.length < MIN_PASSWORD_LENGTH) {
-      next.password = `Hasło musi mieć co najmniej ${MIN_PASSWORD_LENGTH} znaków`;
+      next.password = copy.errors.passwordTooShort(MIN_PASSWORD_LENGTH);
     }
 
     if (!confirmPassword) {
-      next.confirmPassword = "Powtórz hasło";
+      next.confirmPassword = copy.errors.confirmRequired;
     } else if (password !== confirmPassword) {
-      next.confirmPassword = "Hasła muszą być takie same";
+      next.confirmPassword = copy.errors.passwordsMismatch;
     }
 
     setErrors(next);
@@ -53,8 +66,8 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
   const passwordHint = (
     <p className="text-ink-muted mt-1 text-xs">
       {password.length > 0 && password.length < MIN_PASSWORD_LENGTH
-        ? `Brakuje znaków: ${MIN_PASSWORD_LENGTH - password.length}`
-        : `Co najmniej ${MIN_PASSWORD_LENGTH} znaków.`}
+        ? copy.hints.missingChars(MIN_PASSWORD_LENGTH - password.length)
+        : copy.hints.minChars(MIN_PASSWORD_LENGTH)}
     </p>
   );
 
@@ -69,7 +82,7 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
     >
       <FormField
         id="password"
-        label="Nowe hasło"
+        label={copy.newPasswordLabel}
         autoComplete="new-password"
         type={showPassword ? "text" : "password"}
         value={password}
@@ -77,7 +90,7 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
           setPassword(v);
           clearError("password");
         }}
-        placeholder="Wpisz nowe hasło"
+        placeholder={copy.newPasswordPlaceholder}
         error={errors.password}
         hint={passwordHint}
         icon={<Lock className="size-4" />}
@@ -94,7 +107,7 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
       <FormField
         id="confirmPassword"
         name="confirmPassword"
-        label="Powtórz hasło"
+        label={copy.repeatPasswordLabel}
         autoComplete="new-password"
         type={showConfirmPassword ? "text" : "password"}
         value={confirmPassword}
@@ -102,7 +115,7 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
           setConfirmPassword(v);
           clearError("confirmPassword");
         }}
-        placeholder="Wpisz hasło ponownie"
+        placeholder={copy.repeatPasswordPlaceholder}
         error={errors.confirmPassword}
         icon={<Lock className="size-4" />}
         endContent={
@@ -127,8 +140,8 @@ export default function SetPasswordForm({ serverError, serverSuccess }: Props) {
         </p>
       ) : null}
 
-      <SubmitButton pendingText="Zapisywanie..." icon={<KeyRound className="size-4" />}>
-        Zapisz hasło
+      <SubmitButton pendingText={copy.savePending} icon={<KeyRound className="size-4" />}>
+        {copy.savePassword}
       </SubmitButton>
     </form>
   );

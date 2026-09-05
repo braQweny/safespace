@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { CurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import type { SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
+import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
 
 const getSessionDataContext = vi.fn();
 const requireActiveAccountAccess = vi.fn();
@@ -69,30 +70,15 @@ const contextData = {
   },
 } as SessionDataContext;
 
+// Katalog jest jedynym źródłem kształtu perspektywy; testy dokładają tylko krótkie hinty.
+const CBT_MODALITY = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
 const avatar = {
   modality: {
-    modalityId: "cbt",
-    avatarId: "cbt-guide",
-    modalityName: "Podejście poznawczo-behawioralne",
-    avatarName: "Marek, praktyczny przewodnik",
-    explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
-    focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
-    voiceSample: "oddzielmy na chwilę fakt od interpretacji…",
-    pairingNote:
-      "Marek mówi konkretnie i po ludzku, bez tonu trenera. Najpierw przyjmuje uczucie, potem porządkuje jedną sytuację i może zaproponować mały, dobrowolny krok. Jeśli wolisz zostać przy przeżywaniu zamiast porządkować, bliżej Ci może być do Nadii.",
+    ...CBT_MODALITY,
     sessionStyleHint: "Uzywa jasnej struktury.",
     summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-    assetPath: "/avatars/cbt-guide.webp",
-    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
-  selected: {
-    modalityId: "cbt",
-    avatarId: "cbt-guide",
-    modalityName: "Podejście poznawczo-behawioralne",
-    avatarName: "Marek, praktyczny przewodnik",
-    assetPath: "/avatars/cbt-guide.webp",
-    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
-  },
+  selected: toSelectedModalityAvatar(CBT_MODALITY),
 } satisfies CurrentAvatarChoice;
 
 const createdSession: SessionMetadata = {
@@ -207,7 +193,7 @@ describe("POST /api/session/start-next", () => {
         remainingSeconds: 900,
       },
     });
-    expect(prepareOwnedAvatarMemory).toHaveBeenCalledWith(contextData, avatar.modality);
+    expect(prepareOwnedAvatarMemory).toHaveBeenCalledWith(contextData, avatar.modality, { locale: "en" });
     expect(createPendingSession).toHaveBeenCalledWith(contextData, {
       startedAt: "2026-06-07T10:00:00.000Z",
       expiresAt: "2026-06-07T10:15:00.000Z",
@@ -230,7 +216,7 @@ describe("POST /api/session/start-next", () => {
   it("lets the opening load the context pinned to the new session", async () => {
     await POST(createContext() as never);
 
-    expect(createSessionOpeningMessage).toHaveBeenCalledWith(contextData, activeSession);
+    expect(createSessionOpeningMessage).toHaveBeenCalledWith(contextData, activeSession, { locale: "en" });
   });
 
   it("includes the avatar's opening message in the success response", async () => {

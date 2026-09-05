@@ -1,4 +1,5 @@
 ---
+import { getSiteFooterCopy } from "@/components/site-footer-copy";
 import { getSupportContact } from "@/lib/support-contact";
 
 /**
@@ -13,6 +14,7 @@ interface Props {
 
 const { compact = false } = Astro.props;
 const support = getSupportContact();
+const copy = getSiteFooterCopy(Astro.locals.locale);
 const year = new Date().getFullYear();
 ---
 
@@ -23,14 +25,14 @@ const year = new Date().getFullYear();
     <p class="leading-6">
       <span class="text-ink font-semibold">SafeSpace</span>
       <span aria-hidden="true"> · </span>
-      edukacyjna symulacja rozmowy — nie terapia, diagnoza ani pomoc kryzysowa. W nagłym zagrożeniu zadzwoń pod 112.
+      {copy.disclaimer}
     </p>
-    <nav aria-label="Informacje o serwisie" class="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <nav aria-label={copy.navAria} class="flex flex-wrap items-center gap-x-4 gap-y-2">
       <a
         href="/privacy"
         class="hover:text-ink focus-visible:ring-brand-ring rounded underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2"
       >
-        Prywatność i zasady
+        {copy.privacy}
       </a>
       {
         support.mailtoHref ? (
@@ -38,7 +40,7 @@ const year = new Date().getFullYear();
             href={support.mailtoHref}
             class="hover:text-ink focus-visible:ring-brand-ring rounded underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:ring-2"
           >
-            Kontakt
+            {copy.contact}
           </a>
         ) : null
       }

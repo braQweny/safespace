@@ -1,9 +1,11 @@
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useLocale } from "@/components/hooks/useLocale";
 import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
 import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
 import { cn } from "@/lib/utils";
 import { CrisisContactList } from "./crisis-contact";
+import { getSessionMessagesCopy } from "./session-messages-copy";
 
 type NoticeVariant = "caution" | "hard_stop" | "retry" | "info";
 
@@ -36,6 +38,7 @@ function NoticeIcon({ variant }: { variant: NoticeVariant }) {
 
 export default function SessionSafetyNotice({ variant, copy, crisisResources = [] }: SessionSafetyNoticeProps) {
   const containerRef = useRef<HTMLElement | null>(null);
+  const { safetyBoundary } = getSessionMessagesCopy(useLocale());
   const isHardStop = variant === "hard_stop";
   const title = copy?.title ?? null;
 
@@ -62,7 +65,7 @@ export default function SessionSafetyNotice({ variant, copy, crisisResources = [
     >
       {isHardStop ? (
         <div>
-          <p className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">Granica bezpieczeństwa</p>
+          <p className="text-ink-muted text-xs font-semibold tracking-[0.08em] uppercase">{safetyBoundary}</p>
           <h2 className="text-ink mt-2 font-serif text-2xl leading-tight font-medium sm:text-3xl">{copy.title}</h2>
           <p className="text-ink-soft mt-3 text-base leading-7">{copy.body}</p>
           {"nextSteps" in copy && copy.nextSteps.length > 0 ? (

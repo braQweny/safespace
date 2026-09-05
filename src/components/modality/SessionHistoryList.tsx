@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, Clock, PlayCircle } from "lucide-react";
+import { useLocale } from "@/components/hooks/useLocale";
+import { formatDay, formatTimeOfDay as formatTimeOfDayFor, getDayKey } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/locale";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
 import { computeClientRemainingSeconds, formatRemainingTime } from "@/lib/session-flow/message-state";
 import { cn } from "@/lib/utils";
+import { getSessionHistoryCopy } from "./session-history-copy";
 
 interface SessionHistoryListProps {
   items: SessionHistoryListItem[];
@@ -15,37 +19,12 @@ interface SessionHistoryListProps {
   onOpenDetail: (sessionId: string) => void;
 }
 
-export interface SessionStatusLegendEntry {
-  label: string;
-  description: string;
-}
+export type { SessionStatusLegendEntry } from "./session-history-copy";
 
-/**
- * Jedno źródło etykiet i wyjaśnień statusów: `title` odznaki na liście i zwijana
- * legenda w nagłówku sekcji muszą mówić dokładnie to samo.
- */
-export const sessionStatusLegend: Record<SessionHistoryListItem["status"], SessionStatusLegendEntry> = {
-  created: {
-    label: "Utworzona",
-    description: "Rozmowa została przygotowana, ale nie zdążyła się rozpocząć.",
-  },
-  active: {
-    label: "Aktywna",
-    description: "Rozmowa trwa — możesz do niej wrócić, dopóki nie minie czas sesji.",
-  },
-  completed: {
-    label: "Zakończona",
-    description: "Rozmowa zakończona przez Ciebie. Jej zapis pozostaje dostępny.",
-  },
-  expired: {
-    label: "Po czasie",
-    description: "Minął limit czasu rozmowy — nie da się już w niej pisać.",
-  },
-  interrupted: {
-    label: "Przerwana",
-    description: "Rozmowa zatrzymana przez mechanizm bezpieczeństwa.",
-  },
-};
+/** Jedno źródło etykiet i wyjaśnień statusów, w języku żądania. */
+export function getSessionStatusLegend(locale: Locale) {
+  return getSessionHistoryCopy(locale).statusLegend;
+}
 
 /**
  * Statusy pokazywane w legendzie. `created` to stan przejściowy między startem a
@@ -80,46 +59,48 @@ const statusBadgeClasses: Partial<Record<SessionHistoryListItem["status"], strin
   interrupted: "bg-clay-soft text-clay-strong",
 };
 
-const SESSION_TIME_ZONE = "Europe/Warsaw";
-
-const dayFormatter = new Intl.DateTimeFormat("pl-PL", {
-  dateStyle: "medium",
-  timeZone: SESSION_TIME_ZONE,
-});
-
-const timeFormatter = new Intl.DateTimeFormat("pl-PL", {
-  timeStyle: "short",
-  timeZone: SESSION_TIME_ZONE,
-});
-
 /**
  * The list deliberately shows no conversation content, so the date is the only
- * thing telling two entries apart. "Dzisiaj"/"Wczoraj" reads faster than three
- * identical medium dates.
+ * thing telling two entries apart. "Today"/"Yesterday" reads faster than three
+ * identical medium dates. Days are compared by a locale-independent key in the
+ * session time zone, never by the formatted label.
  */
-export function formatDateTime(timestamp: string | null, now = new Date()) {
+function parseTimestamp(timestamp: string | null) {
   if (!timestamp) {
-    return "Brak daty";
+    return null;
   }
 
   const date = new Date(timestamp);
 
-  if (Number.isNaN(date.getTime())) {
-    return "Brak daty";
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function relativeDayLabel(locale: Locale, date: Date, now: Date) {
+  const copy = getSessionHistoryCopy(locale);
+  const dayKey = getDayKey(date);
+
+  if (dayKey === getDayKey(now)) {
+    return copy.today;
   }
 
-  const day = dayFormatter.format(date);
-  const time = timeFormatter.format(date);
-
-  if (day === dayFormatter.format(now)) {
-    return `Dzisiaj, ${time}`;
+  if (dayKey === getDayKey(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
+    return copy.yesterday;
   }
 
-  if (day === dayFormatter.format(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
-    return `Wczoraj, ${time}`;
+  return null;
+}
+
+export function formatDateTime(locale: Locale, timestamp: string | null, now = new Date()) {
+  const date = parseTimestamp(timestamp);
+
+  if (!date) {
+    return getSessionHistoryCopy(locale).noDate;
   }
 
-  return `${day}, ${time}`;
+  const time = formatTimeOfDayFor(locale, date);
+  const relative = relativeDayLabel(locale, date, now);
+
+  return `${relative ?? formatDay(locale, date)}, ${time}`;
 }
 
 /**
@@ -127,38 +108,20 @@ export function formatDateTime(timestamp: string | null, now = new Date()) {
  * wierszu zostaje sama godzina — kilka rozmów z jednego dnia przestaje wyglądać
  * jak kilka kopii tego samego napisu.
  */
-export function formatDayGroupLabel(timestamp: string | null, now = new Date()) {
-  if (!timestamp) {
-    return "Brak daty";
+export function formatDayGroupLabel(locale: Locale, timestamp: string | null, now = new Date()) {
+  const date = parseTimestamp(timestamp);
+
+  if (!date) {
+    return getSessionHistoryCopy(locale).noDate;
   }
 
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Brak daty";
-  }
-
-  const day = dayFormatter.format(date);
-
-  if (day === dayFormatter.format(now)) {
-    return "Dzisiaj";
-  }
-
-  if (day === dayFormatter.format(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
-    return "Wczoraj";
-  }
-
-  return day;
+  return relativeDayLabel(locale, date, now) ?? formatDay(locale, date);
 }
 
-export function formatTimeOfDay(timestamp: string | null) {
-  if (!timestamp) {
-    return "—";
-  }
+export function formatTimeOfDay(locale: Locale, timestamp: string | null) {
+  const date = parseTimestamp(timestamp);
 
-  const date = new Date(timestamp);
-
-  return Number.isNaN(date.getTime()) ? "—" : timeFormatter.format(date);
+  return date ? formatTimeOfDayFor(locale, date) : getSessionHistoryCopy(locale).unknownTime;
 }
 
 export interface SessionHistoryDayGroup {
@@ -173,26 +136,30 @@ function getItemTimestamp(item: SessionHistoryListItem) {
 
 /**
  * Lista przychodzi już posortowana od najnowszej, więc grupowanie zachowuje
- * kolejność i nie sortuje niczego po raz drugi.
+ * kolejność i nie sortuje niczego po raz drugi. Klucz grupy to dzień w strefie
+ * sesji, nie etykieta — „Dzisiaj” i „Today” to ten sam dzień.
  */
 export function groupSessionHistoryItemsByDay(
+  locale: Locale,
   items: readonly SessionHistoryListItem[],
   now = new Date(),
 ): SessionHistoryDayGroup[] {
   const groups: SessionHistoryDayGroup[] = [];
 
   for (const item of items) {
-    const label = formatDayGroupLabel(getItemTimestamp(item), now);
+    const timestamp = getItemTimestamp(item);
+    const date = parseTimestamp(timestamp);
+    const key = date ? getDayKey(date) : "no-date";
     const lastGroup = groups.at(-1);
 
-    if (lastGroup?.key === label) {
+    if (lastGroup?.key === key) {
       lastGroup.items.push(item);
       continue;
     }
 
     groups.push({
-      key: label,
-      label,
+      key,
+      label: formatDayGroupLabel(locale, timestamp, now),
       items: [item],
     });
   }
@@ -206,7 +173,9 @@ export function groupSessionHistoryItemsByDay(
  * plan, 3600 on premium), so the list showed "15 min" next to a two-minute
  * conversation. Prefer the actual span and mark the bucket as a bound.
  */
-export function getDurationLabel(item: SessionHistoryListItem) {
+export function getDurationLabel(locale: Locale, item: SessionHistoryListItem) {
+  const { duration } = getSessionHistoryCopy(locale);
+
   if (item.startedAt && item.endedAt) {
     const started = Date.parse(item.startedAt);
     const ended = Date.parse(item.endedAt);
@@ -214,19 +183,18 @@ export function getDurationLabel(item: SessionHistoryListItem) {
     if (Number.isFinite(started) && Number.isFinite(ended) && ended >= started) {
       const minutes = Math.round((ended - started) / 60_000);
 
-      return minutes < 1 ? "krócej niż minutę" : `${minutes} min rozmowy`;
+      return minutes < 1 ? duration.underMinute : duration.minutes(minutes);
     }
   }
 
   if (typeof item.durationBucketSeconds === "number" && item.durationBucketSeconds > 0) {
-    return `do ${Math.round(item.durationBucketSeconds / 60)} min`;
+    return duration.upTo(Math.round(item.durationBucketSeconds / 60));
   }
 
-  return "Czas nieustalony";
+  return duration.unknown;
 }
 
-interface SummaryMarkCopy {
-  label: string;
+interface SummaryMarkStyle {
   className: string;
   dashed: boolean;
 }
@@ -235,29 +203,18 @@ interface SummaryMarkCopy {
  * Znacznik mówi wyłącznie o stanie: czy z tej rozmowy coś przechodzi dalej.
  * Treść podsumowania zostaje w podglądzie, tak jak treść rozmowy.
  */
-const summaryMarkCopy: Partial<Record<SessionHistoryListItem["summaryState"], SummaryMarkCopy>> = {
-  approved: {
-    label: "Podsumowanie",
-    className: "text-brand",
-    dashed: false,
-  },
-  preview: {
-    label: "Podsumowanie czeka na decyzję",
-    className: "text-ink-soft",
-    dashed: false,
-  },
-  stale: {
-    label: "Podsumowanie nieaktualne",
-    className: "text-ink-muted",
-    dashed: true,
-  },
+const summaryMarkStyles: Partial<Record<SessionHistoryListItem["summaryState"], SummaryMarkStyle>> = {
+  approved: { className: "text-brand", dashed: false },
+  preview: { className: "text-ink-soft", dashed: false },
+  stale: { className: "text-ink-muted", dashed: true },
 };
 
 /** Łuk ze znaku marki: to, co przechodzi przez próg do kolejnej rozmowy. */
 function SummaryMark({ state }: { state: SessionHistoryListItem["summaryState"] }) {
-  const copy = summaryMarkCopy[state];
+  const copy = summaryMarkStyles[state];
+  const { summaryMarks } = getSessionHistoryCopy(useLocale());
 
-  if (!copy) {
+  if (!copy || state === "none") {
     return null;
   }
 
@@ -273,7 +230,7 @@ function SummaryMark({ state }: { state: SessionHistoryListItem["summaryState"] 
           strokeDasharray={copy.dashed ? "3 3" : undefined}
         />
       </svg>
-      {copy.label}
+      {summaryMarks[state]}
     </span>
   );
 }
@@ -294,6 +251,8 @@ interface SessionHistoryListItemRowProps {
 }
 
 function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDetail }: SessionHistoryListItemRowProps) {
+  const locale = useLocale();
+  const copy = getSessionHistoryCopy(locale);
   const [remainingSeconds, setRemainingSeconds] = useState(() => getInitialActiveRemainingSeconds(item));
 
   useEffect(() => {
@@ -314,10 +273,10 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
 
   const effectiveStatus = item.status === "active" && remainingSeconds === 0 ? "expired" : item.status;
   const isActive = effectiveStatus === "active";
-  const statusLegend = sessionStatusLegend[effectiveStatus];
+  const statusLegend = copy.statusLegend[effectiveStatus];
   const badgeClassName = statusBadgeClasses[effectiveStatus];
-  const timeOfDay = formatTimeOfDay(item.startedAt ?? item.createdAt);
-  const durationLabel = getDurationLabel(item);
+  const timeOfDay = formatTimeOfDay(locale, item.startedAt ?? item.createdAt);
+  const durationLabel = getDurationLabel(locale, item);
 
   return (
     <li
@@ -341,7 +300,9 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
           }}
           className="text-ink hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <span className="sr-only">Otwórz zapis rozmowy: {formatDateTime(item.startedAt ?? item.createdAt)}.</span>
+          <span className="sr-only">
+            {copy.openTranscriptSr(formatDateTime(locale, item.startedAt ?? item.createdAt))}
+          </span>
           <span className="min-w-0 flex-1">
             <span className="text-ink block text-[15px] leading-6">
               <span className="font-semibold tabular-nums">{timeOfDay}</span>
@@ -371,18 +332,18 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
           <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 pb-2 sm:pb-0">
             <div
               role="timer"
-              aria-label="Pozostały czas rozmowy"
+              aria-label={copy.remainingAria}
               className="bg-brand-tint text-brand-deep inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-semibold tabular-nums"
             >
               <Clock aria-hidden="true" className="text-brand h-3.5 w-3.5" />
-              Pozostało {formatRemainingTime(remainingSeconds)}
+              {copy.remaining(formatRemainingTime(remainingSeconds))}
             </div>
             <a
               href={getActiveSessionHref(item.id)}
               className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
               <PlayCircle aria-hidden="true" className="h-3.5 w-3.5" />
-              Wróć do rozmowy
+              {copy.backToConversation}
             </a>
           </div>
         ) : null}
@@ -397,7 +358,7 @@ export default function SessionHistoryList({
   isInteractive = true,
   onOpenDetail,
 }: SessionHistoryListProps) {
-  const groups = groupSessionHistoryItemsByDay(items);
+  const groups = groupSessionHistoryItemsByDay(useLocale(), items);
 
   return (
     <div className="flex flex-col gap-4">

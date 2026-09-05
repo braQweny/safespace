@@ -1,37 +1,31 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { SESSION_TURN_COPY } from "@/lib/session-copy";
+import { describe, expect, it, vi } from "vitest";
+import { getSessionCopy } from "@/lib/session-copy";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import TimedSession, { UnsentMessageNotice } from "../TimedSession";
+import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
 
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
+
+// Katalog jest jedynym źródłem kształtu perspektywy; testy dokładają tylko krótkie hinty.
+const CBT_MODALITY = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
 const avatar = {
   modality: {
-    modalityId: "cbt",
-    avatarId: "cbt-guide",
-    modalityName: "Podejście poznawczo-behawioralne",
-    avatarName: "Marek, praktyczny przewodnik",
-    explanation: "Pomaga zauważać powiązania między myślami, emocjami, reakcjami ciała i codziennymi działaniami.",
-    focus: "Porządkuje sytuacje krok po kroku i szuka konkretnych obserwacji, które da się nazwać.",
-    voiceSample: "oddzielmy na chwilę fakt od interpretacji…",
-    pairingNote:
-      "Marek mówi konkretnie i po ludzku, bez tonu trenera. Najpierw przyjmuje uczucie, potem porządkuje jedną sytuację i może zaproponować mały, dobrowolny krok. Jeśli wolisz zostać przy przeżywaniu zamiast porządkować, bliżej Ci może być do Nadii.",
+    ...CBT_MODALITY,
     sessionStyleHint: "Uzywa jasnej struktury.",
     summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-    assetPath: "/avatars/cbt-guide.webp",
-    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
   },
-  selected: {
-    modalityId: "cbt",
-    avatarId: "cbt-guide",
-    modalityName: "Podejście poznawczo-behawioralne",
-    avatarName: "Marek, praktyczny przewodnik",
-    assetPath: "/avatars/cbt-guide.webp",
-    altText: "Ilustracyjny portret neutralnego awatara Marka z notesem",
-  },
+  selected: toSelectedModalityAvatar(CBT_MODALITY),
 } satisfies SessionStartPageState["avatar"];
 
+const SESSION_TURN_COPY = getSessionCopy("pl").turn;
+
 function renderSession(initialState: SessionStartPageState) {
-  return renderToStaticMarkup(<TimedSession initialState={initialState} />);
+  return renderToStaticMarkup(<TimedSession locale="pl" initialState={initialState} />);
 }
 
 describe("TimedSession", () => {

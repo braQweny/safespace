@@ -6,12 +6,25 @@ import { PasswordToggle } from "@/components/auth/PasswordToggle";
 import { SubmitButton } from "@/components/auth/SubmitButton";
 import { ServerError } from "@/components/auth/ServerError";
 import { useRememberedAuthEmail } from "@/components/hooks/useRememberedAuthEmail";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import type { Locale } from "@/lib/i18n/locale";
+import { getAuthFormCopy } from "./auth-form-copy";
 
 interface Props {
+  locale: Locale;
   serverError?: string | null;
 }
 
-export default function SignInForm({ serverError }: Props) {
+export default function SignInForm({ locale, serverError }: Props) {
+  return (
+    <LocaleProvider locale={locale}>
+      <SignInFormView locale={locale} serverError={serverError} />
+    </LocaleProvider>
+  );
+}
+
+function SignInFormView({ locale, serverError }: Props) {
+  const copy = getAuthFormCopy(locale);
   // Native POST + redirect would otherwise drop the typed address on every
   // server-side error; it is restored only when such an error is shown.
   const { email, setEmail, rememberEmailBeforeSubmit } = useRememberedAuthEmail({
@@ -25,12 +38,12 @@ export default function SignInForm({ serverError }: Props) {
   function validate() {
     const next: typeof errors = {};
     if (!email.trim()) {
-      next.email = "Podaj adres e-mail";
+      next.email = copy.errors.emailRequired;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      next.email = "Podaj poprawny adres e-mail";
+      next.email = copy.errors.emailInvalid;
     }
     if (!password) {
-      next.password = "Podaj hasło";
+      next.password = copy.errors.passwordRequired;
     }
     setErrors(next);
     focusFirstError(next);
@@ -63,20 +76,20 @@ export default function SignInForm({ serverError }: Props) {
         id="email"
         type="email"
         autoComplete="email"
-        label="E-mail"
+        label={copy.emailLabel}
         value={email}
         onChange={(v) => {
           setEmail(v);
           clearError("email");
         }}
-        placeholder="ty@example.com"
+        placeholder={copy.emailPlaceholder}
         error={errors.email}
         icon={<Mail className="size-4" />}
       />
 
       <FormField
         id="password"
-        label="Hasło"
+        label={copy.passwordLabel}
         autoComplete="current-password"
         type={showPassword ? "text" : "password"}
         value={password}
@@ -84,7 +97,7 @@ export default function SignInForm({ serverError }: Props) {
           setPassword(v);
           clearError("password");
         }}
-        placeholder="Twoje hasło"
+        placeholder={copy.passwordPlaceholder}
         error={errors.password}
         icon={<Lock className="size-4" />}
         endContent={
@@ -99,8 +112,8 @@ export default function SignInForm({ serverError }: Props) {
 
       <ServerError message={serverError} />
 
-      <SubmitButton pendingText="Logowanie..." icon={<LogIn className="size-4" />}>
-        Zaloguj się
+      <SubmitButton pendingText={copy.signInPending} icon={<LogIn className="size-4" />}>
+        {copy.signIn}
       </SubmitButton>
     </form>
   );

@@ -16,6 +16,12 @@ vi.mock("@/lib/supabase", () => ({
   createClient,
 }));
 
+const syncLocaleAfterSignIn = vi.fn();
+
+vi.mock("@/lib/i18n/account-locale", () => ({
+  syncLocaleAfterSignIn,
+}));
+
 const { GET } = await import("@/pages/auth/callback");
 
 const exchangeCodeForSession = vi.fn();
@@ -51,7 +57,7 @@ describe("GET /auth/callback", () => {
     vi.clearAllMocks();
     buildOperationalRequestContext.mockResolvedValue({ requestId: "req-1" });
     createClient.mockReturnValue({ auth: { exchangeCodeForSession } });
-    exchangeCodeForSession.mockResolvedValue({ error: null });
+    exchangeCodeForSession.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
   });
 
   it("rejects a provider error or missing code without touching supabase", async () => {
@@ -73,16 +79,20 @@ describe("GET /auth/callback", () => {
   });
 
   it("maps a failed code exchange to a stable code", async () => {
-    exchangeCodeForSession.mockResolvedValue({ error: { message: "boom" } });
+    exchangeCodeForSession.mockResolvedValue({ data: { user: null }, error: { message: "boom" } });
 
     const response = await GET(createContext({ code: "abc" }));
 
     expect(location(response)).toBe("/auth/signin?error=oauth_callback_failed");
+    expect(syncLocaleAfterSignIn).not.toHaveBeenCalled();
   });
 
   it("lands on the dashboard by default and only allows allowlisted next paths", async () => {
     const dashboard = await GET(createContext({ code: "abc" }));
     expect(location(dashboard)).toBe("/dashboard");
+    // Google, potwierdzenie e-maila i odzyskiwanie hasła: język z konta
+    // wchodzi do cookie tego urządzenia w jednym miejscu.
+    expect(syncLocaleAfterSignIn).toHaveBeenCalledWith(expect.anything(), expect.anything(), { id: "user-1" });
 
     const security = await GET(createContext({ code: "abc", next: "/account/security" }));
     expect(location(security)).toBe("/account/security");

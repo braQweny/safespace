@@ -1,0 +1,63 @@
+---
+import LocaleFlag from "@/components/LocaleFlag.astro";
+import { getLocaleSwitchCopy, LOCALE_ENDONYM } from "@/components/locale-switch-copy";
+import { LOCALES, otherLocale } from "@/lib/i18n/locale";
+
+/**
+ * Przełącznik języka jako natywny formularz: działa bez JS, bez skryptu
+ * inline (CSP hashuje tylko skrypt motywu) i przed zalogowaniem. Endpoint
+ * zapisuje cookie, dla zalogowanych także konto, i wraca na `returnTo`.
+ * Języki są pokazane jako flagi; nazwa (endonim) zostaje w tekście dla
+ * czytników ekranu i w podpowiedzi, więc przycisk nadal nazywa się „Polski”.
+ */
+interface Props {
+  /** `segmented` w menu konta i na stronie konta, `toggle` jako pigułka. */
+  variant?: "segmented" | "toggle";
+  /** Dokąd wrócić po zapisie; domyślnie bieżąca strona z zapytaniem. */
+  returnTo?: string;
+}
+
+const { variant = "toggle", returnTo = `${Astro.url.pathname}${Astro.url.search}` } = Astro.props;
+const locale = Astro.locals.locale;
+const copy = getLocaleSwitchCopy(locale);
+const other = otherLocale(locale);
+---
+
+<form method="POST" action="/api/profile/locale" data-locale-switch>
+  <input type="hidden" name="returnTo" value={returnTo} />
+  {
+    variant === "segmented" ? (
+      <fieldset class="m-0 min-w-0 border-0 p-0">
+        <legend class="text-ink-muted text-xs">{copy.label}</legend>
+        <div class="border-line-strong mt-1.5 flex gap-0.5 rounded-xl border p-0.5">
+          {LOCALES.map((option) => (
+            <button
+              type="submit"
+              name="locale"
+              value={option}
+              lang={option}
+              title={LOCALE_ENDONYM[option]}
+              aria-pressed={locale === option}
+              class="hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint flex h-11 flex-1 items-center justify-center rounded-[10px] transition-colors focus:outline-none focus-visible:ring-2"
+            >
+              <LocaleFlag locale={option} />
+              <span class="sr-only">{LOCALE_ENDONYM[option]}</span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+    ) : (
+      <button
+        type="submit"
+        name="locale"
+        value={other}
+        lang={other}
+        title={copy.switchTo[other]}
+        class="border-line-accent hover:bg-surface-soft focus-visible:ring-brand-ring flex h-11 w-11 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2"
+      >
+        <LocaleFlag locale={other} />
+        <span class="sr-only">{LOCALE_ENDONYM[other]}</span>
+      </button>
+    )
+  }
+</form>

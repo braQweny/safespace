@@ -1,23 +1,22 @@
 import { useState, type ReactNode } from "react";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
-import {
-  getPerspectiveLabel,
-  type ModalityAvatar,
-  type ModalityId,
-  type SelectedModalityAvatar,
-} from "@/lib/modalities";
-import { perspectiveFocus } from "@/lib/perspective-copy";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import { useLocale } from "@/components/hooks/useLocale";
+import type { Locale } from "@/lib/i18n/locale";
+import type { ModalityId, SelectedModalityAvatar } from "@/lib/modalities";
+import { getModalityCopy } from "@/lib/modality-copy";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
 import { cn } from "@/lib/utils";
+import { getAvatarChoiceFormCopy } from "./avatar-choice-form-copy";
 
 interface AvatarChoiceFormProps {
-  modalities: readonly ModalityAvatar[];
+  locale: Locale;
+  /** Neutralna lista wyboru (ids, imię, grafika); teksty dokłada `getModalityCopy`. */
+  modalities: readonly SelectedModalityAvatar[];
   currentSelection: SelectedModalityAvatar | null;
   canStartConversation?: boolean;
   sessionBudgetMinutes?: string;
 }
-
-export const SAVE_BAR_FALLBACK_MESSAGE = "Wybór dotyczy kolejnej rozmowy.";
 
 interface SaveBarProps {
   message: ReactNode;
@@ -26,11 +25,13 @@ interface SaveBarProps {
 }
 
 function SaveBar({ message, canStartConversation, sessionBudgetMinutes }: SaveBarProps) {
+  const copy = getAvatarChoiceFormCopy(useLocale());
+
   return (
     <div className="border-line-strong bg-surface/95 sticky bottom-0 z-10 mt-5 rounded-t-2xl border-t px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:px-4">
       <p className="text-ink-muted mb-2 text-sm leading-5" role="status">
         {message}
-        {canStartConversation && sessionBudgetMinutes ? ` · do ${sessionBudgetMinutes}` : null}
+        {canStartConversation && sessionBudgetMinutes ? copy.upTo(sessionBudgetMinutes) : null}
       </p>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <button
@@ -44,7 +45,7 @@ function SaveBar({ message, canStartConversation, sessionBudgetMinutes }: SaveBa
               : "bg-brand hover:bg-brand-strong text-surface",
           )}
         >
-          {canStartConversation ? "Tylko zapisz" : "Zapisz wybór"}
+          {canStartConversation ? copy.saveOnly : copy.save}
         </button>
         {canStartConversation ? (
           <button
@@ -53,7 +54,7 @@ function SaveBar({ message, canStartConversation, sessionBudgetMinutes }: SaveBa
             value="save_and_start"
             className="bg-brand hover:bg-brand-strong focus-visible:ring-brand-ring text-surface inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
           >
-            Zacznij rozmowę
+            {copy.start}
             <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />
           </button>
         ) : null}
@@ -62,12 +63,22 @@ function SaveBar({ message, canStartConversation, sessionBudgetMinutes }: SaveBa
   );
 }
 
-export default function AvatarChoiceForm({
+export default function AvatarChoiceForm({ locale, ...props }: AvatarChoiceFormProps) {
+  return (
+    <LocaleProvider locale={locale}>
+      <AvatarChoiceFormView {...props} />
+    </LocaleProvider>
+  );
+}
+
+function AvatarChoiceFormView({
   modalities,
   currentSelection,
   canStartConversation = false,
   sessionBudgetMinutes,
-}: AvatarChoiceFormProps) {
+}: Omit<AvatarChoiceFormProps, "locale">) {
+  const locale = useLocale();
+  const copy = getAvatarChoiceFormCopy(locale);
   const [selectedModalityId, setSelectedModalityId] = useState<ModalityId | "">(currentSelection?.modalityId ?? "");
   const selectedModality = modalities.find((modality) => modality.modalityId === selectedModalityId) ?? null;
   const hasUnsavedChoice = selectedModality !== null && selectedModality.modalityId !== currentSelection?.modalityId;
@@ -76,13 +87,14 @@ export default function AvatarChoiceForm({
     <form method="POST" action="/api/profile/avatar" className="mt-5">
       <div
         role="radiogroup"
-        aria-label="Perspektywy rozmowy"
+        aria-label={copy.groupAria}
         className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3"
       >
         {modalities.map((modality) => {
           const isSelected = modality.modalityId === selectedModalityId;
           const tint = getPerspectiveTint(modality.modalityId);
-          const name = modality.avatarName.split(",")[0];
+          const modalityCopy = getModalityCopy(locale, modality.modalityId);
+          const name = modality.avatarFirstName;
           const id = `perspective-${modality.modalityId}`;
 
           return (
@@ -126,7 +138,7 @@ export default function AvatarChoiceForm({
                       {name}
                     </span>
                     <span id={`${id}-focus`} className={cn("block text-sm leading-5", tint.text)}>
-                      {perspectiveFocus[modality.modalityId]}
+                      {modalityCopy.perspectiveFocus}
                     </span>
                   </span>
                   <span
@@ -140,39 +152,38 @@ export default function AvatarChoiceForm({
                   </span>
                 </span>
                 <span id={`${id}-voice`} className="text-ink mt-3 block font-serif text-lg leading-snug italic">
-                  „{modality.voiceSample}”
+                  {copy.quote(modalityCopy.voiceSample)}
                 </span>
               </label>
               <details className="group px-4 pb-1">
                 <summary className="text-brand focus-visible:ring-brand-ring flex min-h-11 cursor-pointer list-none items-center gap-1 rounded text-sm font-medium focus:outline-none focus-visible:ring-2">
-                  O podejściu<span className="sr-only">: {name}</span>
+                  {copy.about}
+                  <span className="sr-only">: {name}</span>
                   <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="text-ink-muted space-y-2 pb-3 text-sm leading-6">
-                  <p className={cn("font-medium", tint.text)}>{getPerspectiveLabel(modality.modalityId)}</p>
-                  <p>{modality.focus}</p>
-                  <p>{modality.pairingNote}</p>
+                  <p className={cn("font-medium", tint.text)}>{modalityCopy.perspectiveLabel}</p>
+                  <p>{modalityCopy.focus}</p>
+                  <p>{modalityCopy.pairingNote}</p>
                 </div>
               </details>
             </div>
           );
         })}
       </div>
-      <p className="text-ink-muted mt-4 text-sm leading-6">
-        Każda perspektywa ma osobną historię. Zmiana wyboru nie usuwa wcześniejszych rozmów.
-      </p>
+      <p className="text-ink-muted mt-4 text-sm leading-6">{copy.note}</p>
       {hasUnsavedChoice ? (
         <SaveBar
           canStartConversation={canStartConversation}
           sessionBudgetMinutes={sessionBudgetMinutes}
-          message={<span className="text-ink font-medium">Wybrano: {selectedModality.avatarName.split(",")[0]}</span>}
+          message={<span className="text-ink font-medium">{copy.chosen(selectedModality.avatarFirstName)}</span>}
         />
       ) : null}
       <noscript>
         <SaveBar
           canStartConversation={canStartConversation}
           sessionBudgetMinutes={sessionBudgetMinutes}
-          message={SAVE_BAR_FALLBACK_MESSAGE}
+          message={copy.saveBarFallback}
         />
       </noscript>
     </form>

@@ -1,4 +1,5 @@
-import { CRISIS_RESOURCE_REGIONS } from "./crisis-resources";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+import { getCrisisResourceRegions } from "./crisis-resources";
 import { openRouterSafetyProvider } from "./openrouter-classifier";
 import { parseProviderDecisionObject } from "./parse-provider-decision";
 import {
@@ -44,6 +45,7 @@ export async function evaluateSessionSafety(
   options: EvaluateSessionSafetyOptions = {},
 ): Promise<SessionSafetyDecision> {
   const provider = options.provider ?? openRouterSafetyProvider;
+  const locale = input.metadata?.locale ?? DEFAULT_LOCALE;
 
   try {
     const providerDecision = parseProviderDecisionObject(toRecord(await provider.classify(input)));
@@ -63,9 +65,9 @@ export async function evaluateSessionSafety(
       return buildCautionDecision();
     }
 
-    return buildCrisisDecision(resolveCrisisReasonCode(providerDecision.reasonCode));
+    return buildCrisisDecision(resolveCrisisReasonCode(providerDecision.reasonCode), locale);
   } catch (error) {
-    return buildUnavailableDecision(resolveProviderErrorCategory(error));
+    return buildUnavailableDecision(resolveProviderErrorCategory(error), locale);
   }
 }
 
@@ -80,25 +82,31 @@ function buildCautionDecision(): ConstrainedSessionSafetyDecision {
   };
 }
 
-function buildCrisisDecision(reasonCode: HardStopSessionSafetyDecision["reasonCode"]): HardStopSessionSafetyDecision {
+function buildCrisisDecision(
+  reasonCode: HardStopSessionSafetyDecision["reasonCode"],
+  locale: Locale,
+): HardStopSessionSafetyDecision {
   return {
     risk: "crisis",
     action: "hard_stop",
     reasonCode,
-    copy: getCrisisSafetyCopy(),
+    copy: getCrisisSafetyCopy(locale),
     constraints: [],
-    crisisResources: CRISIS_RESOURCE_REGIONS,
+    crisisResources: getCrisisResourceRegions(locale),
   };
 }
 
-function buildUnavailableDecision(reasonCode: ProviderSafetyErrorCategory): HardStopSessionSafetyDecision {
+function buildUnavailableDecision(
+  reasonCode: ProviderSafetyErrorCategory,
+  locale: Locale,
+): HardStopSessionSafetyDecision {
   return {
     risk: "crisis",
     action: "hard_stop",
     reasonCode,
-    copy: getSafetyUnavailableCopy(),
+    copy: getSafetyUnavailableCopy(locale),
     constraints: [],
-    crisisResources: CRISIS_RESOURCE_REGIONS,
+    crisisResources: getCrisisResourceRegions(locale),
   };
 }
 

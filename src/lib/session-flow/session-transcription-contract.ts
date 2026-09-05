@@ -21,7 +21,8 @@ export type SessionTranscriptionFailureCode =
   | "provider_unavailable"
   | "invalid_provider_response";
 
-export type SessionTranscriptionRequest = TranscribeSessionAudioInput & {
+// Język dyktowania ustala serwer z cookie żądania, więc klient go nie przysyła.
+export type SessionTranscriptionRequest = Omit<TranscribeSessionAudioInput, "language"> & {
   sessionId: SessionId;
 };
 

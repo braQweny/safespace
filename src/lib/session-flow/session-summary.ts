@@ -1,4 +1,6 @@
 import { getValidAvatarChoice } from "@/lib/modalities";
+import type { Locale } from "@/lib/i18n/locale";
+import { getModalityPromptNames } from "@/lib/modality-copy";
 import { getOwnedSessionHistoryDetail } from "@/lib/session-data/repository";
 import type { SessionDataContext, SessionId, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
 import { SessionSummaryError } from "@/lib/session-summary/errors";
@@ -30,7 +32,8 @@ export interface SessionSummarySourceRepository {
 
 export interface BuildSessionSummaryGenerationInputOptions {
   sessionId: unknown;
-  locale?: string;
+  /** Język podsumowania — język interfejsu w chwili żądania. */
+  locale: Locale;
   now?: Date;
 }
 
@@ -133,13 +136,12 @@ export async function buildOwnedSessionSummaryGenerationInput(
       ...(modality
         ? {
             modality: {
-              modalityName: modality.modalityName,
-              avatarName: modality.avatarName,
+              ...getModalityPromptNames(modality.modalityId),
               summaryLensHint: modality.summaryLensHint,
             },
           }
         : {}),
-      locale: options.locale ?? "pl",
+      locale: options.locale,
     },
   };
 }

@@ -4,35 +4,36 @@ import AdminOverview from "@/components/admin/AdminOverview";
 import AdminShell from "@/components/admin/AdminShell.astro";
 import { getAdminContext } from "@/lib/admin/auth";
 import { readAdminOverviewMetrics } from "@/lib/admin/aggregates";
+import { getAdminCopy } from "@/components/admin/admin-copy";
 
+const locale = Astro.locals.locale;
+const copy = getAdminCopy(locale).pages;
 const adminContext = await getAdminContext(Astro);
 const overview = adminContext.ok ? await readAdminOverviewMetrics(adminContext.data) : null;
 ---
 
-<Layout title="Admin - SafeSpace" lang="pl">
+<Layout title={copy.overviewPageTitle}>
   {
     adminContext.ok ? (
-      <AdminShell title="Statystyki produktu" active="overview" adminEmail={adminContext.data.user.email}>
+      <AdminShell title={copy.overviewTitle} active="overview" adminEmail={adminContext.data.user.email}>
         {overview?.ok ? (
-          <AdminOverview metrics={overview.data} />
+          <AdminOverview locale={locale} metrics={overview.data} />
         ) : (
           <div class="border-danger-line bg-danger-soft text-danger rounded-lg border p-4 text-sm">
-            Nie udało się pobrać statystyk administracyjnych.
+            {copy.overviewFailed}
           </div>
         )}
       </AdminShell>
     ) : (
       <main class="text-ink bg-paper min-h-screen px-4 py-10">
         <section class="border-line bg-surface mx-auto max-w-2xl rounded-lg border p-6">
-          <h1 class="text-ink text-3xl leading-tight">Brak dostępu</h1>
-          <p class="text-ink-muted mt-3 text-sm leading-6">
-            Ta część produktu jest dostępna tylko dla aktywnych administratorów.
-          </p>
+          <h1 class="text-ink text-3xl leading-tight">{copy.noAccessTitle}</h1>
+          <p class="text-ink-muted mt-3 text-sm leading-6">{copy.noAccessBody}</p>
           <a
             href="/dashboard"
             class="text-brand hover:text-brand-strong mt-4 inline-block text-sm font-medium transition-colors hover:underline"
           >
-            Wróć do panelu
+            {copy.backToDashboard}
           </a>
         </section>
       </main>

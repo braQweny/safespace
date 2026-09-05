@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
 import { FREE_PLAN_SESSION_LIMIT } from "../quota";
+import { LOCALES, type Locale } from "@/lib/i18n/locale";
 import { FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 import type {
   SessionAvatarId,
@@ -39,19 +40,31 @@ const PRIVILEGE_HARDENING_MIGRATION_PATH = resolve(
   "../../../../supabase/migrations/20260901120000_harden_session_privileges_and_budget.sql",
 );
 
-// Every table the app touches through PostgREST with a user JWT. Supabase's
-// default privileges grant `anon`/`authenticated` ALL on new tables, so a
-// column-level grant only means something after a table-level revoke.
-const PRIVATE_TABLES = [
-  "public.therapy_sessions",
-  "public.session_messages",
-  "public.session_summaries",
-  "public.session_trial_claims",
-  "public.user_avatar_choices",
-  "public.admin_users",
-  "public.admin_user_profiles",
-  "public.admin_audit_events",
-] as const;
+const USER_PREFERENCES_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260905090000_add_user_preferences.sql",
+);
+
+// Every table the app touches through PostgREST with a user JWT, mapped to
+// the migration that carries its table-level revoke. Supabase's default
+// privileges grant `anon`/`authenticated` ALL on new tables, so a
+// column-level grant only means something after a table-level revoke — a new
+// table must revoke in its own migration and be listed here.
+const PRIVATE_TABLE_REVOKES = {
+  "public.therapy_sessions": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.session_messages": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.session_summaries": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.session_trial_claims": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.user_avatar_choices": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.admin_users": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.admin_user_profiles": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.admin_audit_events": PRIVILEGE_HARDENING_MIGRATION_PATH,
+  "public.user_preferences": USER_PREFERENCES_MIGRATION_PATH,
+} as const;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 const TS_LIFECYCLE_STATUSES = [
   "created",
@@ -103,6 +116,7 @@ const deletionCovered: AssertExhaustive<SessionDeletionReasonCode, (typeof TS_DE
 const bucketsCovered: AssertExhaustive<SessionDurationBucketSeconds, (typeof TS_DURATION_BUCKETS)[number]> = true;
 const modalitiesCovered: AssertExhaustive<SessionModalityId, (typeof TS_MODALITY_IDS)[number]> = true;
 const avatarsCovered: AssertExhaustive<SessionAvatarId, (typeof TS_AVATAR_IDS)[number]> = true;
+const localesCovered: AssertExhaustive<Locale, (typeof LOCALES)[number]> = true;
 
 function readBoundaryMigration() {
   return readFileSync(BOUNDARY_MIGRATION_PATH, "utf8");
@@ -233,14 +247,14 @@ describe("privilege hardening migration", () => {
   const sql = readFileSync(PRIVILEGE_HARDENING_MIGRATION_PATH, "utf8");
 
   it("revokes the default table privileges from anon and authenticated on every private table", () => {
-    const revokeIndex = sql.indexOf("revoke all privileges on table");
-    expect(revokeIndex).toBeGreaterThanOrEqual(0);
+    for (const [table, migrationPath] of Object.entries(PRIVATE_TABLE_REVOKES)) {
+      const migration = readFileSync(migrationPath, "utf8");
+      const revoke = new RegExp(
+        `revoke all privileges on table[^;]*${escapeRegExp(table)}[^;]*from anon, authenticated`,
+      );
 
-    const revokeStatement = sql.slice(revokeIndex, sql.indexOf(";", revokeIndex));
-    for (const table of PRIVATE_TABLES) {
-      expect(revokeStatement, `${table} is missing from the revoke`).toContain(table);
+      expect(migration, `${table} is missing a table-level revoke in ${migrationPath}`).toMatch(revoke);
     }
-    expect(revokeStatement).toContain("from anon, authenticated");
   });
 
   it("re-grants updates on therapy_sessions without the perspective columns", () => {
@@ -264,5 +278,31 @@ describe("privilege hardening migration", () => {
     expect(new Set(extractNumericListValues(body))).toEqual(
       new Set([FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS]),
     );
+  });
+});
+
+describe("user preferences migration", () => {
+  const sql = readFileSync(USER_PREFERENCES_MIGRATION_PATH, "utf8");
+
+  it("keeps the locale check constraint equal to the locales the code knows", () => {
+    const body = extractConstraintBody(sql, "user_preferences_locale_check");
+
+    expect(new Set(extractQuotedValues(body))).toEqual(new Set(LOCALES));
+    expect(localesCovered).toBe(true);
+  });
+
+  it("grants only the payload columns and lets the PostgREST upsert update them", () => {
+    // An upsert puts every payload column into `on conflict do update set`,
+    // so `user_id` must be updatable; the trigger pins it to the old value.
+    expect(sql).toContain("grant insert (user_id, locale) on table public.user_preferences to authenticated");
+    expect(sql).toContain("grant update (user_id, locale) on table public.user_preferences to authenticated");
+    expect(sql).not.toMatch(/grant (insert|update) \([^)]*(created_at|updated_at)/);
+    expect(sql).toContain("new.user_id = old.user_id");
+  });
+
+  it("is owner-bound and disappears with the account", () => {
+    expect(sql).toContain("references auth.users(id) on delete cascade");
+    expect(sql).toContain("alter table public.user_preferences enable row level security");
+    expect(sql).not.toContain("for delete");
   });
 });

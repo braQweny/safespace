@@ -382,9 +382,10 @@ describe("POST /api/session/message", () => {
     ];
 
     expect(generationInput.modality).toMatchObject({
-      modalityName: "Podejście poznawczo-behawioralne",
-      avatarName: "Marek, praktyczny przewodnik",
+      modalityName: "Cognitive-behavioural approach",
+      avatarName: "Marek, practical guide",
     });
+    expect(generationInput.locale).toBe("en");
     expect(generationInput.modality.sessionStyleHint).toContain("Avatar: Marek");
     expect(generationInput.sessionPhase).toBe("opening");
     expect(generationInput.approvedSummaries).toEqual([
@@ -522,7 +523,7 @@ describe("POST /api/session/message", () => {
       code: "ai_retry",
       category: reasonCode,
       copy: {
-        title: "Nie możemy teraz bezpiecznie kontynuować",
+        title: "We can't safely continue right now",
       },
     });
     expect(transitionSessionLifecycle).not.toHaveBeenCalled();

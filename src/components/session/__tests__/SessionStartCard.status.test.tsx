@@ -31,7 +31,7 @@ describe("SessionStartCard progress", () => {
   it.each([false, true])("shows a visible live status while starting (preparing memory: %s)", (isPreparingMemory) => {
     startState.isStarting = true;
     startState.isPreparingMemory = isPreparingMemory;
-    const html = renderToStaticMarkup(<SessionStartCard initialState={initialState} />);
+    const html = renderToStaticMarkup(<SessionStartCard locale="pl" initialState={initialState} />);
     const status = /<p class="([^"]*)" role="status" aria-live="polite">([^<]*)<\/p>/.exec(html);
 
     expect(status).not.toBeNull();

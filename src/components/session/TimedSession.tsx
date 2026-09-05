@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronDown, Copy, History, Loader2 } from "lucide-react";
+import { useLocale } from "@/components/hooks/useLocale";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import { useAvatarMemoryPreparation } from "@/components/hooks/useAvatarMemoryPreparation";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
+import type { Locale } from "@/lib/i18n/locale";
+import { getModalityCopy } from "@/lib/modality-copy";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
-import { SESSION_BOUNDARIES_COPY, SESSION_TURN_COPY } from "@/lib/session-copy";
+import { getSessionCopy } from "@/lib/session-copy";
 import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
-import type { SessionStartPageState, SessionStartPageStateKind, SessionView } from "@/lib/session-flow/session-state";
+import type { SessionStartPageState, SessionView } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 import { CrisisHelpPanel, CrisisHelpTrigger } from "./CrisisHelpPanel";
 import SessionComposer from "./SessionComposer";
@@ -15,8 +19,10 @@ import SessionMessages from "./SessionMessages";
 import SessionSafetyNotice from "./SessionSafetyNotice";
 import SessionStarterPrompts from "./SessionStarterPrompts";
 import SessionTimer from "./SessionTimer";
+import { getTimedSessionCopy } from "./timed-session-copy";
 
 interface TimedSessionProps {
+  locale: Locale;
   initialState: SessionStartPageState;
   /**
    * Podsumowanie zakończonej rozmowy jest częścią jej zakończenia, nie osobnym
@@ -24,47 +30,6 @@ interface TimedSessionProps {
    */
   initialSummary?: LatestSessionSummaryState | null;
 }
-
-// Rozmowa startuje w panelu, więc strona rozmowy widuje wyłącznie stany z sesją.
-// Pozostałe wpisy zostają dla kompletności typu i wracają użytkownika do panelu.
-const stateCopy: Record<SessionStartPageStateKind, { title: string; body: string }> = {
-  ready: {
-    title: "Rozmowa jeszcze się nie zaczęła",
-    body: "Rozmowę rozpoczniesz w panelu — tam jest przycisk startu i informacja, z czym się zacznie.",
-  },
-  active: {
-    title: "Rozmowa trwa",
-    body: "Możesz pisać wiadomości, dopóki trwa czas rozmowy.",
-  },
-  expired: {
-    title: "Czas rozmowy minął",
-    body: "Nie da się już wysyłać wiadomości. Zapis został zachowany prywatnie, a następna rozmowa z tą perspektywą uwzględni go sama.",
-  },
-  completed: {
-    title: "Rozmowa zakończona",
-    body: "Zapis został zachowany prywatnie. Następna rozmowa z tą perspektywą uwzględni go sama.",
-  },
-  interrupted: {
-    title: "Rozmowa przerwana",
-    body: "Rozmowa została zatrzymana w bezpiecznym stanie i nie będzie kontynuowana.",
-  },
-  followup_ready: {
-    title: "Rozmowa jeszcze się nie zaczęła",
-    body: "Kolejną rozmowę rozpoczniesz w panelu. Pamięć wcześniejszych rozmów z wybranym awatarem zostanie przygotowana automatycznie.",
-  },
-  trial_already_claimed: {
-    title: "Pierwsza darmowa rozmowa została już wykorzystana",
-    body: "Pierwsza darmowa sesja została już użyta na tym koncie. Kolejną rozmowę rozpoczniesz w panelu, a zapis tej znajdziesz w historii.",
-  },
-  session_limit_reached: {
-    title: "Limit bezpłatnych rozmów został wykorzystany",
-    body: "Plan bezpłatny obejmuje trzy rozmowy próbne i wszystkie zostały już użyte na tym koncie. Dalsze rozmowy są dostępne w planie premium; zapisy znajdziesz w historii w panelu.",
-  },
-  unavailable: {
-    title: "Stan sesji jest chwilowo niedostępny",
-    body: "Nie udało się potwierdzić dostępności darmowej próby. Spróbuj ponownie za chwilę.",
-  },
-};
 
 const subscribeNever = () => () => {
   // Dostępność schowka nie zmienia się po hydratacji.
@@ -90,6 +55,7 @@ function readClientClipboardSupport() {
  * przynajmniej do przeczytania. Nigdy po zatrzymaniu bezpieczeństwa.
  */
 export function UnsentMessageNotice({ text }: { text: string }) {
+  const { turn } = getSessionCopy(useLocale());
   const canCopy = useSyncExternalStore(subscribeNever, readClientClipboardSupport, readServerFalse);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
@@ -104,7 +70,7 @@ export function UnsentMessageNotice({ text }: { text: string }) {
 
   return (
     <div className="border-line-accent bg-surface-soft mt-4 rounded-2xl border p-4 sm:p-5">
-      <p className="text-ink-soft text-sm font-medium">{SESSION_TURN_COPY.unsentMessage}</p>
+      <p className="text-ink-soft text-sm font-medium">{turn.unsentMessage}</p>
       <blockquote className="text-ink mt-2 text-base leading-relaxed whitespace-pre-wrap">{text}</blockquote>
       {canCopy ? (
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -114,14 +80,10 @@ export function UnsentMessageNotice({ text }: { text: string }) {
             className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
           >
             <Copy aria-hidden="true" className="h-4 w-4" />
-            {copyStatus === "copied" ? SESSION_TURN_COPY.copiedUnsent : SESSION_TURN_COPY.copyUnsent}
+            {copyStatus === "copied" ? turn.copiedUnsent : turn.copyUnsent}
           </button>
           <p role="status" className={cn("text-ink-muted text-xs", copyStatus !== "failed" && "sr-only")}>
-            {copyStatus === "copied"
-              ? SESSION_TURN_COPY.copiedUnsent
-              : copyStatus === "failed"
-                ? SESSION_TURN_COPY.copyUnsentFailed
-                : null}
+            {copyStatus === "copied" ? turn.copiedUnsent : copyStatus === "failed" ? turn.copyUnsentFailed : null}
           </p>
         </div>
       ) : null}
@@ -144,8 +106,23 @@ function getSessionTotalSeconds(session: SessionView | null) {
   return Math.round((expiresAtMs - startedAtMs) / 1000);
 }
 
-export default function TimedSession({ initialState, initialSummary = null }: TimedSessionProps) {
-  const { state, composerAvailable, handleExpired, setDraft, sendMessage, endSession } = useTimedSession(initialState);
+export default function TimedSession({ locale, initialState, initialSummary = null }: TimedSessionProps) {
+  // Korzeń islandu: język przychodzi propsem z Astro i wchodzi do drzewa tutaj.
+  return (
+    <LocaleProvider locale={locale}>
+      <TimedSessionView initialState={initialState} initialSummary={initialSummary} />
+    </LocaleProvider>
+  );
+}
+
+function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionProps, "locale">) {
+  const locale = useLocale();
+  const copy = getTimedSessionCopy(locale);
+  const { boundaries } = getSessionCopy(locale);
+  const stateCopy = copy.states;
+  const { state, composerAvailable, handleExpired, setDraft, sendMessage, endSession } = useTimedSession(initialState, {
+    locale,
+  });
   const {
     kind,
     session,
@@ -261,8 +238,9 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
   // same-day entries and hunting for the right one is the wrong last step.
   const historyHref = session ? `/dashboard?session=${encodeURIComponent(session.id)}` : "/dashboard";
   const avatar = initialState.avatar.selected;
-  const avatarFirstName = avatar.avatarName.split(",")[0]?.trim() || avatar.avatarName;
-  const remainingSessionsCopy = formatRemainingFreeSessions(initialState.sessionQuota);
+  const avatarCopy = getModalityCopy(locale, avatar.modalityId);
+  const avatarFirstName = avatar.avatarFirstName;
+  const remainingSessionsCopy = formatRemainingFreeSessions(locale, initialState.sessionQuota);
   // Powiadomienia tury (odpowiedź nie dotarła, ponów, błąd wysyłki) stoją przy
   // polu pisania, gdzie jest wzrok i kciuk. Zatrzymanie bezpieczeństwa i stany
   // końcowe zostają u góry, bo zastępują rozmowę, a nie komentują jedną turę.
@@ -287,7 +265,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             */}
             <a
               href="/dashboard"
-              aria-label="Wróć do panelu"
+              aria-label={copy.backToDashboard}
               className="border-line-strong bg-surface hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="h-[22px] w-[22px]">
@@ -315,9 +293,9 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                   piksel — to on robi miejsce na „Zakończ” słowem. */}
               <h1 className="text-ink truncate font-sans text-[15px] leading-tight font-semibold tracking-normal">
                 <span className="sm:hidden">{avatarFirstName}</span>
-                <span className="hidden sm:inline">{avatar.avatarName}</span>
+                <span className="hidden sm:inline">{avatarCopy.avatarName}</span>
               </h1>
-              <p className="text-ink-muted hidden truncate text-xs leading-tight sm:block">{avatar.modalityName}</p>
+              <p className="text-ink-muted hidden truncate text-xs leading-tight sm:block">{avatarCopy.modalityName}</p>
             </div>
           </div>
 
@@ -351,12 +329,12 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                   {isEnding ? (
                     <>
                       <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                      <span>Kończenie…</span>
+                      <span>{copy.ending}</span>
                     </>
                   ) : (
                     <>
-                      <span className="sm:hidden">Zakończ</span>
-                      <span className="hidden sm:inline">Zakończ rozmowę</span>
+                      <span className="sm:hidden">{copy.endShort}</span>
+                      <span className="hidden sm:inline">{copy.endLong}</span>
                     </>
                   )}
                 </button>
@@ -384,7 +362,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
             <div
               ref={confirmEndRef}
               role="alertdialog"
-              aria-label="Potwierdź zakończenie rozmowy"
+              aria-label={copy.confirmEndAria}
               tabIndex={-1}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
@@ -395,8 +373,8 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               }}
               className="border-line-accent bg-surface text-ink-soft shadow-card mx-auto mt-1 w-full max-w-3xl rounded-2xl border p-5 text-sm leading-6 focus:outline-none"
             >
-              <p className="text-ink font-serif text-lg leading-snug font-medium">Na pewno zakończyć rozmowę?</p>
-              <p className="mt-1">Zakończonej rozmowy nie da się wznowić, ale jej zapis pozostanie w historii.</p>
+              <p className="text-ink font-serif text-lg leading-snug font-medium">{copy.confirmEndTitle}</p>
+              <p className="mt-1">{copy.confirmEndBody}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -407,14 +385,14 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                   disabled={isEnding}
                   className="bg-brand-deep text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Zakończ teraz
+                  {copy.confirmEndNow}
                 </button>
                 <button
                   type="button"
                   onClick={cancelEndConfirmation}
                   className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
-                  Wróć do rozmowy
+                  {copy.confirmEndCancel}
                 </button>
               </div>
             </div>
@@ -435,13 +413,13 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
         {!session ? (
           <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
             <p className="text-ink-muted text-xs leading-5">
-              <span className="text-ink-soft font-medium">Granice rozmowy:</span> {SESSION_BOUNDARIES_COPY}
+              <span className="text-ink-soft font-medium">{copy.boundariesLabel}</span> {boundaries}
             </p>
             <a
               href="/dashboard"
               className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
             >
-              Wróć do panelu
+              {copy.backToDashboard}
             </a>
           </div>
         ) : null}
@@ -472,14 +450,14 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
                   href="/dashboard"
                   className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                 >
-                  Wróć do panelu
+                  {copy.backToDashboard}
                 </a>
                 <a
                   href={historyHref}
                   className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   <History aria-hidden="true" className="h-4 w-4" />
-                  Otwórz zapis
+                  {copy.openTranscript}
                 </a>
               </div>
               {remainingSessionsCopy ? (
@@ -500,12 +478,12 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
 
             {/* Jedno zastrzeżenie na ekran, pod kartą, a nie w niej. */}
             <p className="text-ink-muted text-xs leading-5">
-              <span className="text-ink-soft font-medium">Granice rozmowy:</span> {SESSION_BOUNDARIES_COPY}{" "}
+              <span className="text-ink-soft font-medium">{copy.boundariesLabel}</span> {boundaries}{" "}
               <a
                 href="/dashboard/avatar"
                 className="text-brand focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
               >
-                Zmień perspektywę
+                {copy.changePerspective}
               </a>
             </p>
           </div>
@@ -557,7 +535,7 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
               className="text-ink-muted hover:text-ink focus-visible:ring-brand-ring flex items-start gap-1.5 rounded text-left text-xs leading-5 transition-colors focus:outline-none focus-visible:ring-2"
             >
               <span className={cn(!areBoundariesOpen && "line-clamp-1")}>
-                <span className="text-ink-soft font-medium">Granice rozmowy:</span> {SESSION_BOUNDARIES_COPY}
+                <span className="text-ink-soft font-medium">{copy.boundariesLabel}</span> {boundaries}
               </span>
               <ChevronDown
                 aria-hidden="true"

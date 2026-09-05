@@ -69,6 +69,7 @@ describe("buildOpenRouterTranscriptionRequest", () => {
         {
           audioBase64: "UklGRg==",
           format: "webm",
+          language: "pl",
         },
         "openai/gpt-4o-mini-transcribe",
       ),
@@ -81,6 +82,15 @@ describe("buildOpenRouterTranscriptionRequest", () => {
       language: "pl",
       temperature: 0,
     });
+  });
+
+  it("sends the language of the interface, not a fixed Polish", () => {
+    expect(
+      buildOpenRouterTranscriptionRequest(
+        { audioBase64: "UklGRg==", format: "webm", language: "en" },
+        "openai/gpt-4o-mini-transcribe",
+      ),
+    ).toMatchObject({ language: "en" });
   });
 });
 
@@ -102,6 +112,7 @@ describe("transcribeSessionAudioWithOpenRouter", () => {
       {
         audioBase64: "UklGRg==",
         format: "webm",
+        language: "pl",
       },
       {
         apiKey: "test-openrouter-key",
@@ -137,6 +148,7 @@ describe("transcribeSessionAudioWithOpenRouter", () => {
       transcribeSessionAudioWithOpenRouter({
         audioBase64: "UklGRg==",
         format: "webm",
+        language: "pl",
       }),
     ).rejects.toMatchObject({
       category: "missing_configuration",
@@ -157,6 +169,7 @@ describe("transcribeSessionAudioWithOpenRouter", () => {
         {
           audioBase64: "UklGRg==",
           format: "webm",
+          language: "pl",
         },
         {
           apiKey: "test-openrouter-key",
@@ -181,6 +194,7 @@ describe("transcribeSessionAudioWithOpenRouter", () => {
         {
           audioBase64: "UklGRg==",
           format: "webm",
+          language: "pl",
         },
         {
           apiKey: "test-openrouter-key",
@@ -201,6 +215,7 @@ describe("transcribeSessionAudioWithOpenRouter", () => {
         {
           audioBase64: "UklGRg==",
           format: "webm",
+          language: "pl",
         },
         {
           apiKey: "test-openrouter-key",
@@ -216,6 +231,7 @@ describe("transcribeSessionAudioWithOpenRouter", () => {
         {
           audioBase64: "UklGRg==",
           format: "webm",
+          language: "pl",
         },
         {
           apiKey: "test-openrouter-key",

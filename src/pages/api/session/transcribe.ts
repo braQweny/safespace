@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
 import {
@@ -121,6 +122,7 @@ export const POST: APIRoute = async (context) => {
     const transcription = await transcribeSessionAudio({
       audioBase64: transcriptionRequest.data.audioBase64,
       format: transcriptionRequest.data.format,
+      language: getRequestLocale(context.locals),
     });
 
     return jsonResponse(sessionTranscriptionSuccess(transcription.text), 200);

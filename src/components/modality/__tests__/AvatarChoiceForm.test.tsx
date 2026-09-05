@@ -1,10 +1,22 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
-import AvatarChoiceForm, { SAVE_BAR_FALLBACK_MESSAGE } from "../AvatarChoiceForm";
+import { describe, expect, it, vi } from "vitest";
+import { MODALITY_CHOICES, MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import { getModalityCopy } from "@/lib/modality-copy";
+import AvatarChoiceForm from "../AvatarChoiceForm";
+import { getAvatarChoiceFormCopy } from "../avatar-choice-form-copy";
+
+vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
+  // Istniejące asercje są po polsku; angielski render islandów pokrywa `english-locale.test.tsx`.
+  useLocale: () => "pl",
+}));
+
+const SAVE_BAR_FALLBACK_MESSAGE = getAvatarChoiceFormCopy("pl").saveBarFallback;
 
 function renderForm(props: Partial<Parameters<typeof AvatarChoiceForm>[0]> = {}) {
-  return renderToStaticMarkup(<AvatarChoiceForm modalities={MVP_MODALITIES} currentSelection={null} {...props} />);
+  return renderToStaticMarkup(
+    <AvatarChoiceForm locale="pl" modalities={MODALITY_CHOICES} currentSelection={null} {...props} />,
+  );
 }
 
 function stripNoscript(html: string) {
@@ -67,7 +79,7 @@ describe("AvatarChoiceForm", () => {
     expect(html.match(/<details/g)).toHaveLength(MVP_MODALITIES.length);
     expect(html).not.toMatch(/<details[^>]* open/);
     for (const modality of MVP_MODALITIES) {
-      expect(html).toContain(modality.pairingNote);
+      expect(html).toContain(getModalityCopy("pl", modality.modalityId).pairingNote);
       expect(html).toContain(
         `aria-labelledby="perspective-${modality.modalityId}-name perspective-${modality.modalityId}-focus"`,
       );

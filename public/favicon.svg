@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>SafeSpace</title>
+  <rect width="64" height="64" rx="16" fill="#2d6a5e"/>
+  <path d="M14 52V26a18 18 0 0 1 36 0v26Z" fill="#f5f1e9"/>
+  <path d="M20 52V27a12 12 0 0 1 24 0v25" fill="none" stroke="#d9e7e0" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M14 52h36" stroke="#1c4a42" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiJsonResult } from "@/lib/api-client";
-import { SESSION_TURN_COPY } from "@/lib/session-copy";
+import { getSessionCopy } from "@/lib/session-copy";
 import type { SessionView } from "@/lib/session-flow/session-state";
 import {
   endTimedSession,
@@ -15,6 +15,8 @@ import {
   type TimedSessionTransport,
   type TimedSessionUiState,
 } from "../useTimedSession";
+
+const SESSION_TURN_COPY = getSessionCopy("pl").turn;
 
 const activeSession: SessionView = {
   id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
@@ -359,9 +361,9 @@ describe("sendTimedSessionMessage", () => {
   it("reuses the same receipt through a lost response, but changes it for edited text or another session", async () => {
     const first = resolveMessageRetryIdentity(null, activeSession.id, "pytanie");
     const { transport, request, dispatch } = createTransport({ kind: "network_error", reason: "timeout" });
-    await sendTimedSessionMessage(first, dispatch, transport);
+    await sendTimedSessionMessage({ ...first, locale: "pl" }, dispatch, transport);
     const retry = resolveMessageRetryIdentity(first, activeSession.id, " pytanie ");
-    await sendTimedSessionMessage(retry, dispatch, transport);
+    await sendTimedSessionMessage({ ...retry, locale: "pl" }, dispatch, transport);
     const bodies = request.mock.calls.map((call) => JSON.parse(call[1]?.body as string) as { clientMessageId: string });
     expect(bodies.map((body) => body.clientMessageId)).toEqual([first.clientMessageId, first.clientMessageId]);
     expect(resolveMessageRetryIdentity(first, activeSession.id, "zmienione pytanie").clientMessageId).not.toBe(
@@ -387,7 +389,7 @@ describe("sendTimedSessionMessage", () => {
     const { transport, dispatch, dispatched } = createTransport(
       jsonResult({ ok: false, type: "message_in_progress", code: "message_in_progress" }, 409),
     );
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, dispatch, transport);
     const failure = dispatched.find((action) => action.type === "message_failed");
     expect(failure).toMatchObject({ type: "message_failed", draft: "pytanie" });
     expect(failure?.notice.copy.title).toBe("Poprzednia wiadomość jest jeszcze przetwarzana");
@@ -397,7 +399,7 @@ describe("sendTimedSessionMessage", () => {
       jsonResult({ ok: true, type: "success", messages: turn, session: activeSession }),
     );
 
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, dispatch, transport);
 
     expect(request).toHaveBeenCalledWith(
       "/api/session/message",
@@ -408,7 +410,7 @@ describe("sendTimedSessionMessage", () => {
   it("restores the draft with a dedicated notice when the response does not arrive in time", async () => {
     const { transport, dispatch, dispatched } = createTransport({ kind: "network_error", reason: "timeout" });
 
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, dispatch, transport);
 
     expect(actionTypes(dispatched)).toEqual(["message_requested", "message_failed", "message_settled"]);
     const failed = dispatched[1];
@@ -420,7 +422,7 @@ describe("sendTimedSessionMessage", () => {
   it("keeps the generic connectivity notice for a plain network failure", async () => {
     const { transport, dispatch, dispatched } = createTransport({ kind: "network_error" });
 
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, dispatch, transport);
 
     const failed = dispatched[1];
     expect(failed.type === "message_failed" && failed.notice.copy.title).toBe("Nie udało się wysłać wiadomości");
@@ -437,7 +439,11 @@ describe("sendTimedSessionMessage", () => {
         }),
     );
 
-    const pending = sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    const pending = sendTimedSessionMessage(
+      { sessionId: activeSession.id, text: "pytanie", locale: "pl" },
+      dispatch,
+      transport,
+    );
 
     await vi.advanceTimersByTimeAsync(SLOW_RESPONSE_THRESHOLD_MS - 1);
     expect(actionTypes(dispatched)).toEqual(["message_requested"]);
@@ -461,7 +467,11 @@ describe("sendTimedSessionMessage", () => {
         }),
     );
 
-    const pending = sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    const pending = sendTimedSessionMessage(
+      { sessionId: activeSession.id, text: "pytanie", locale: "pl" },
+      dispatch,
+      transport,
+    );
     await vi.advanceTimersByTimeAsync(2_000);
     await pending;
     await vi.advanceTimersByTimeAsync(SLOW_RESPONSE_THRESHOLD_MS * 2);
@@ -475,7 +485,7 @@ describe("sendTimedSessionMessage", () => {
       jsonResult({ ok: false, type: "missing_or_unauthorized", code: "missing_auth" }, 401),
     );
 
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, dispatch, transport);
 
     expect(navigate).toHaveBeenCalledWith("/auth/signin");
     expect(actionTypes(dispatched)).toEqual(["message_requested", "message_settled"]);
@@ -486,7 +496,7 @@ describe("sendTimedSessionMessage", () => {
       jsonResult({ ok: false, type: "missing_or_unauthorized", code: "account_blocked" }, 403),
     );
 
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, dispatch, transport);
 
     expect(navigate).toHaveBeenCalledWith("/account/blocked");
     expect(actionTypes(dispatched)).not.toContain("message_failed");
@@ -497,7 +507,7 @@ describe("sendTimedSessionMessage", () => {
       jsonResult({ ok: false, type: "missing_or_unauthorized", code: "session_not_found" }, 404),
     );
 
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, dispatch, transport);
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, dispatch, transport);
 
     expect(navigate).not.toHaveBeenCalled();
     expect(actionTypes(dispatched)).toEqual(["message_requested", "message_failed", "message_settled"]);
@@ -519,7 +529,7 @@ describe("sendTimedSessionMessage", () => {
     );
     const dispatched: TimedSessionAction[] = [];
 
-    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie" }, (action) => {
+    await sendTimedSessionMessage({ sessionId: activeSession.id, text: "pytanie", locale: "pl" }, (action) => {
       dispatched.push(action);
     });
 
@@ -534,7 +544,7 @@ describe("endTimedSession", () => {
       jsonResult({ ok: true, type: "session_completed", session: completedSession }),
     );
 
-    await endTimedSession({ sessionId: activeSession.id }, dispatch, transport);
+    await endTimedSession({ sessionId: activeSession.id, locale: "pl" }, dispatch, transport);
 
     expect(actionTypes(dispatched)).toEqual(["end_requested", "end_succeeded", "end_settled"]);
   });
@@ -544,7 +554,7 @@ describe("endTimedSession", () => {
       jsonResult({ ok: false, type: "session_completion_error", code: "missing_auth" }, 401),
     );
 
-    await endTimedSession({ sessionId: activeSession.id }, dispatch, transport);
+    await endTimedSession({ sessionId: activeSession.id, locale: "pl" }, dispatch, transport);
 
     expect(navigate).toHaveBeenCalledWith("/auth/signin");
     expect(actionTypes(dispatched)).toEqual(["end_requested", "end_settled"]);
@@ -555,9 +565,9 @@ describe("endTimedSession", () => {
       jsonResult({ ok: false, type: "session_completion_error", code: "session_not_active" }, 409),
     );
 
-    await endTimedSession({ sessionId: activeSession.id }, dispatch, transport);
+    await endTimedSession({ sessionId: activeSession.id, locale: "pl" }, dispatch, transport);
 
     const failed = dispatched[1];
-    expect(failed.type === "end_failed" && failed.notice.copy.title).toBe("Sesja nie jest już aktywna");
+    expect(failed.type === "end_failed" && failed.notice.copy.title).toBe(SESSION_TURN_COPY.sessionNotActiveTitle);
   });
 });

@@ -1,37 +1,42 @@
 ---
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
+import { getAccountDeletionConfirmationWord } from "@/lib/account-deletion";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
+import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
 
-const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("error"));
+const locale = Astro.locals.locale;
+const copy = getAccountPagesCopy(locale).delete;
+const confirmationWord = getAccountDeletionConfirmationWord(locale);
+const error = getAuthErrorMessageFromSearchParam(locale, Astro.url.searchParams.get("error"));
 ---
 
-<Layout title="Usuń konto - SafeSpace" lang="pl">
+<Layout title={copy.pageTitle}>
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <main class="flex flex-1 items-center px-4 py-8 sm:px-6">
       <section
         class="border-line-strong bg-surface shadow-card mx-auto w-full max-w-xl rounded-[20px] border p-6 sm:p-8"
       >
-        <h1 class="text-ink text-3xl leading-tight">Usuń konto</h1>
+        <h1 class="text-ink text-3xl leading-tight">{copy.title}</h1>
         <p class="text-ink-muted mt-4 text-sm leading-6">
-          Usuwasz konto <strong class="text-ink break-all">{Astro.locals.user?.email}</strong>. Ta operacja jest trwała
-          i nie można jej cofnąć.
+          {copy.introBefore}
+          <strong class="text-ink break-all">{Astro.locals.user?.email}</strong>{copy.introAfter}
         </p>
         <ul class="text-ink-soft mt-4 list-disc space-y-2 pl-5 text-sm leading-6" id="deletion-consequences">
-          <li>Usuniemy wszystkie Twoje rozmowy, wiadomości, podsumowania i pamięć awatarów.</li>
-          <li>Usuniemy profil i wybranego awatara. Utracisz też dostęp do obecnego planu konta.</li>
-          <li>Trwające rozmowy zostaną przerwane, a konto zostanie wylogowane na wszystkich urządzeniach.</li>
+          {copy.consequences.map((consequence) => <li>{consequence}</li>)}
         </ul>
         <form method="POST" action="/api/auth/delete-account" class="mt-6 space-y-4">
           <div>
-            <label for="confirmation" class="text-ink block text-sm font-semibold">Aby potwierdzić, wpisz USUWAM</label>
+            <label for="confirmation" class="text-ink block text-sm font-semibold">
+              {copy.confirmLabel(confirmationWord)}
+            </label>
             <input
               id="confirmation"
               name="confirmation"
               type="text"
               required
-              pattern="USUWAM"
-              maxlength="6"
+              pattern={confirmationWord}
+              maxlength={confirmationWord.length}
               autocomplete="off"
               spellcheck="false"
               aria-describedby="deletion-consequences"
@@ -49,12 +54,12 @@ const error = getAuthErrorMessageFromSearchParam(Astro.url.searchParams.get("err
             <a
               href="/account/security"
               class="border-line-accent text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-full border px-5 text-sm font-medium focus:outline-none focus-visible:ring-2"
-              >Anuluj</a
+              >{copy.cancel}</a
             >
             <button
               type="submit"
               class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold focus:outline-none focus-visible:ring-2"
-              >Usuń konto bezpowrotnie</button
+              >{copy.submit}</button
             >
           </div>
         </form>

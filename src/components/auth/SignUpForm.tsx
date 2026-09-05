@@ -6,13 +6,26 @@ import { PasswordToggle } from "@/components/auth/PasswordToggle";
 import { SubmitButton } from "@/components/auth/SubmitButton";
 import { ServerError } from "@/components/auth/ServerError";
 import { useRememberedAuthEmail } from "@/components/hooks/useRememberedAuthEmail";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-validation";
+import type { Locale } from "@/lib/i18n/locale";
+import { getAuthFormCopy } from "./auth-form-copy";
 
 interface Props {
+  locale: Locale;
   serverError?: string | null;
 }
 
-export default function SignUpForm({ serverError }: Props) {
+export default function SignUpForm({ locale, serverError }: Props) {
+  return (
+    <LocaleProvider locale={locale}>
+      <SignUpFormView locale={locale} serverError={serverError} />
+    </LocaleProvider>
+  );
+}
+
+function SignUpFormView({ locale, serverError }: Props) {
+  const copy = getAuthFormCopy(locale);
   // Native POST + redirect would otherwise drop the typed address on every
   // server-side error; it is restored only when such an error is shown.
   const { email, setEmail, rememberEmailBeforeSubmit } = useRememberedAuthEmail({
@@ -29,21 +42,21 @@ export default function SignUpForm({ serverError }: Props) {
     const next: typeof errors = {};
 
     if (!email.trim()) {
-      next.email = "Podaj adres e-mail";
+      next.email = copy.errors.emailRequired;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      next.email = "Podaj poprawny adres e-mail";
+      next.email = copy.errors.emailInvalid;
     }
 
     if (!password) {
-      next.password = "Podaj hasło";
+      next.password = copy.errors.passwordRequired;
     } else if (password.length < MIN_PASSWORD_LENGTH) {
-      next.password = `Hasło musi mieć co najmniej ${MIN_PASSWORD_LENGTH} znaków`;
+      next.password = copy.errors.passwordTooShort(MIN_PASSWORD_LENGTH);
     }
 
     if (!confirmPassword) {
-      next.confirmPassword = "Powtórz hasło";
+      next.confirmPassword = copy.errors.confirmRequired;
     } else if (password !== confirmPassword) {
-      next.confirmPassword = "Hasła muszą być takie same";
+      next.confirmPassword = copy.errors.passwordsMismatch;
     }
 
     setErrors(next);
@@ -67,8 +80,8 @@ export default function SignUpForm({ serverError }: Props) {
   const passwordHint = (
     <p className="text-ink-muted mt-1 text-xs">
       {password.length > 0 && password.length < MIN_PASSWORD_LENGTH
-        ? `Brakuje znaków: ${MIN_PASSWORD_LENGTH - password.length}`
-        : `Co najmniej ${MIN_PASSWORD_LENGTH} znaków.`}
+        ? copy.hints.missingChars(MIN_PASSWORD_LENGTH - password.length)
+        : copy.hints.minChars(MIN_PASSWORD_LENGTH)}
     </p>
   );
 
@@ -85,20 +98,20 @@ export default function SignUpForm({ serverError }: Props) {
         id="email"
         type="email"
         autoComplete="email"
-        label="E-mail"
+        label={copy.emailLabel}
         value={email}
         onChange={(v) => {
           setEmail(v);
           clearError("email");
         }}
-        placeholder="ty@example.com"
+        placeholder={copy.emailPlaceholder}
         error={errors.email}
         icon={<Mail className="size-4" />}
       />
 
       <FormField
         id="password"
-        label="Hasło"
+        label={copy.passwordLabel}
         autoComplete="new-password"
         type={showPassword ? "text" : "password"}
         value={password}
@@ -106,7 +119,7 @@ export default function SignUpForm({ serverError }: Props) {
           setPassword(v);
           clearError("password");
         }}
-        placeholder="Wpisz nowe hasło"
+        placeholder={copy.newPasswordPlaceholder}
         error={errors.password}
         hint={passwordHint}
         icon={<Lock className="size-4" />}
@@ -123,7 +136,7 @@ export default function SignUpForm({ serverError }: Props) {
       <FormField
         id="confirmPassword"
         name="confirmPassword"
-        label="Powtórz hasło"
+        label={copy.repeatPasswordLabel}
         autoComplete="new-password"
         type={showConfirmPassword ? "text" : "password"}
         value={confirmPassword}
@@ -131,7 +144,7 @@ export default function SignUpForm({ serverError }: Props) {
           setConfirmPassword(v);
           clearError("confirmPassword");
         }}
-        placeholder="Wpisz hasło ponownie"
+        placeholder={copy.repeatPasswordPlaceholder}
         error={errors.confirmPassword}
         icon={<Lock className="size-4" />}
         endContent={
@@ -146,8 +159,8 @@ export default function SignUpForm({ serverError }: Props) {
 
       <ServerError message={serverError} />
 
-      <SubmitButton pendingText="Tworzenie konta..." icon={<UserPlus className="size-4" />}>
-        Utwórz konto
+      <SubmitButton pendingText={copy.signUpPending} icon={<UserPlus className="size-4" />}>
+        {copy.signUp}
       </SubmitButton>
     </form>
   );

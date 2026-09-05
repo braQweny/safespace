@@ -1,21 +1,22 @@
 import { useState } from "react";
-import {
-  toSelectedModalityAvatar,
-  type AvatarId,
-  type ModalityAvatar,
-  type SelectedModalityAvatar,
-} from "@/lib/modalities";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import { useLocale } from "@/components/hooks/useLocale";
+import type { Locale } from "@/lib/i18n/locale";
+import type { AvatarId, SelectedModalityAvatar } from "@/lib/modalities";
 import { cn } from "@/lib/utils";
 import type { OwnedSessionCountsByAvatar } from "@/lib/session-data/types";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 import AvatarSessionHistory from "./AvatarSessionHistory";
+import { getSessionHistoryCopy } from "./session-history-copy";
 
 interface DashboardSessionHistoryProps {
+  locale: Locale;
   /** Perspektywa zapisana do kolejnej rozmowy — domyślna, ale nie jedyna do przejrzenia. */
   selectedAvatar: SelectedModalityAvatar;
   /** Perspektywa wskazana w adresie, żeby odświeżenie strony nie gubiło podglądu. */
   initialViewedAvatarId?: AvatarId | null;
-  modalities: readonly ModalityAvatar[];
+  /** Neutralna lista wyboru (ids, imię, grafika) — bez hintów promptów w propsach. */
+  modalities: readonly SelectedModalityAvatar[];
   initialHistoryPage: number;
   initialHistory: SessionHistoryListResponse | null;
   /**
@@ -34,7 +35,7 @@ interface DashboardSessionHistoryProps {
  * których cztery prowadziły do pustej listy, obiecywało coś, czego nie było.
  */
 export function selectHistoryFilterModalities(
-  modalities: readonly ModalityAvatar[],
+  modalities: readonly SelectedModalityAvatar[],
   counts: OwnedSessionCountsByAvatar | null | undefined,
   keepAvatarIds: readonly AvatarId[],
 ) {
@@ -45,13 +46,6 @@ export function selectHistoryFilterModalities(
   return modalities.filter(
     (modality) => (counts[modality.avatarId] ?? 0) > 0 || keepAvatarIds.includes(modality.avatarId),
   );
-}
-
-/** Krótkie, widoczne imiona w filtrze historii. */
-export function getAvatarFirstName(avatarName: string) {
-  const [firstName] = avatarName.split(",");
-
-  return firstName.trim() || avatarName;
 }
 
 function readRequestedSessionId() {
@@ -86,7 +80,15 @@ function updateHistoryUrl(avatarId: AvatarId, savedAvatarId: AvatarId, page: num
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-export default function DashboardSessionHistory({
+export default function DashboardSessionHistory({ locale, ...props }: DashboardSessionHistoryProps) {
+  return (
+    <LocaleProvider locale={locale}>
+      <DashboardSessionHistoryView {...props} />
+    </LocaleProvider>
+  );
+}
+
+function DashboardSessionHistoryView({
   selectedAvatar,
   initialViewedAvatarId = null,
   modalities,
@@ -94,14 +96,14 @@ export default function DashboardSessionHistory({
   initialHistory,
   sessionCountsByAvatar = null,
   className,
-}: DashboardSessionHistoryProps) {
+}: Omit<DashboardSessionHistoryProps, "locale">) {
+  const copy = getSessionHistoryCopy(useLocale());
   const [historyPage, setHistoryPage] = useState(initialHistoryPage);
   const [viewedAvatarId, setViewedAvatarId] = useState<AvatarId>(initialViewedAvatarId ?? selectedAvatar.avatarId);
   // Read once: the id is only meaningful for the first render after the link.
   const [requestedSessionId] = useState(readRequestedSessionId);
 
-  const viewedModality = modalities.find((modality) => modality.avatarId === viewedAvatarId) ?? null;
-  const viewedAvatar = viewedModality ? toSelectedModalityAvatar(viewedModality) : selectedAvatar;
+  const viewedAvatar = modalities.find((modality) => modality.avatarId === viewedAvatarId) ?? selectedAvatar;
   const isViewingSavedAvatar = viewedAvatar.avatarId === selectedAvatar.avatarId;
   const filterModalities = selectHistoryFilterModalities(modalities, sessionCountsByAvatar, [
     selectedAvatar.avatarId,
@@ -132,16 +134,12 @@ export default function DashboardSessionHistory({
       onPageChange={changeHistoryPage}
       initialHistory={isInitialView ? initialHistory : null}
       autoOpenSessionId={isInitialView ? requestedSessionId : null}
-      contextNotice={
-        isViewingSavedAvatar
-          ? null
-          : "Kolejną rozmowę rozpoczniesz z zapisaną perspektywą. Ten filtr zmienia tylko historię."
-      }
+      contextNotice={isViewingSavedAvatar ? null : copy.filterNotice}
       controls={
         showsFilter ? (
           <div className="w-full">
             <span id="history-avatar-label" className="text-ink-muted mb-2 block text-sm">
-              Rozmowy z:
+              {copy.filterLabel}
             </span>
             <div role="radiogroup" aria-labelledby="history-avatar-label" className="flex flex-wrap gap-1.5">
               {filterModalities.map((modality) => {
@@ -162,7 +160,7 @@ export default function DashboardSessionHistory({
                       type="radio"
                       name="history-avatar"
                       value={modality.avatarId}
-                      aria-label={getAvatarFirstName(modality.avatarName)}
+                      aria-label={modality.avatarFirstName}
                       checked={isViewed}
                       onChange={() => {
                         changeViewedAvatar(modality.avatarId);
@@ -178,11 +176,11 @@ export default function DashboardSessionHistory({
                       decoding="async"
                       className="h-6 w-6 rounded-full object-cover"
                     />
-                    <span>{getAvatarFirstName(modality.avatarName)}</span>
+                    <span>{modality.avatarFirstName}</span>
                     {count !== null ? (
                       <span className="text-ink-muted tabular-nums">
                         <span aria-hidden="true"> · </span>
-                        <span className="sr-only">, rozmów: </span>
+                        <span className="sr-only">{copy.countSr}</span>
                         {count}
                       </span>
                     ) : null}

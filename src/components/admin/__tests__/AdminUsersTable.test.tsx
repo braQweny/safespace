@@ -76,7 +76,7 @@ const usersResponse: AdminUsersResponse = {
 };
 
 function renderUsers(response: AdminUsersResponse = usersResponse) {
-  return renderToStaticMarkup(<AdminUsersTable initialResponse={response} currentAdminUserId="admin-1" />);
+  return renderToStaticMarkup(<AdminUsersTable locale="pl" initialResponse={response} currentAdminUserId="admin-1" />);
 }
 
 describe("AdminUsersTable", () => {
@@ -144,12 +144,12 @@ describe("AdminUsersTable", () => {
   });
 
   it("explains every failure code in Polish and falls back to a generic line", () => {
-    expect(getAdminUsersErrorMessage("self_target_forbidden")).toBe(
+    expect(getAdminUsersErrorMessage("pl", "self_target_forbidden")).toBe(
       "Nie możesz zmienić blokady ani planu własnego konta.",
     );
-    expect(getAdminUsersErrorMessage("target_not_found")).toContain("Nie znaleziono takiego konta");
-    expect(getAdminUsersErrorMessage("write_failed")).toContain("Nie udało się zapisać zmiany");
-    expect(getAdminUsersErrorMessage("account_blocked")).toBe(
+    expect(getAdminUsersErrorMessage("pl", "target_not_found")).toContain("Nie znaleziono takiego konta");
+    expect(getAdminUsersErrorMessage("pl", "write_failed")).toContain("Nie udało się zapisać zmiany");
+    expect(getAdminUsersErrorMessage("pl", "account_blocked")).toBe(
       "Nie udało się pobrać danych administracyjnych. Spróbuj ponownie za chwilę.",
     );
   });
