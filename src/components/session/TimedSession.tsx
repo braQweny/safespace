@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { ChevronDown, Copy, DoorOpen, History, Loader2 } from "lucide-react";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
+import { useAvatarMemoryPreparation } from "@/components/hooks/useAvatarMemoryPreparation";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import { SESSION_BOUNDARIES_COPY, SESSION_PERSPECTIVE_COPY, SESSION_TURN_COPY } from "@/lib/session-copy";
@@ -156,6 +157,10 @@ export default function TimedSession({ initialState, initialSummary = null }: Ti
     unsentText,
     notice,
   } = state;
+  useAvatarMemoryPreparation(
+    initialState.avatar.modality,
+    session !== null && (kind === "completed" || kind === "expired" || kind === "interrupted"),
+  );
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const [isCrisisHelpOpen, setIsCrisisHelpOpen] = useState(false);
   // Granice muszą być na widoku przez całą rozmowę, ale na telefonie trzy

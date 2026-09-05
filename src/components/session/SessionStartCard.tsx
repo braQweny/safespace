@@ -216,7 +216,8 @@ export default function SessionStartCard({ initialState, supportEmail = null }: 
           generować ani zatwierdzać ręcznie. Inne perspektywy mają osobną pamięć.
         </p>
         <p className="mt-2">
-          Pamięć przygotowujemy przed startem, zanim zacznie biec czas rozmowy. Samo otwarcie panelu nie zużywa próby.
+          Pamięć uzupełniamy w tle po rozmowie i podczas pobytu w panelu, aby kolejny start był szybszy. Samo otwarcie
+          panelu nie zużywa próby ani czasu rozmowy.
         </p>
       </details>
     </div>

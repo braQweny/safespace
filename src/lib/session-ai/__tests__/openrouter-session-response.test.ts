@@ -5,12 +5,14 @@ import { SessionAiError } from "../errors";
 import { buildOpenRouterSessionRequest, generateSessionResponseWithOpenRouter } from "../openrouter-session-response";
 import type { GenerateSessionResponseInput } from "../types";
 
+const sessionConfig = vi.hoisted(() => ({
+  apiKey: undefined,
+  model: "openai/gpt-4o-mini",
+  reasoningEffort: undefined as "xhigh" | undefined,
+}));
+
 vi.mock("../env", () => ({
-  getOpenRouterSessionConfig: () => ({
-    apiKey: undefined,
-    model: "openai/gpt-4o-mini",
-    reasoningEffort: undefined,
-  }),
+  getOpenRouterSessionConfig: () => sessionConfig,
   resolveSessionModel: (modelOverride?: string | null) => {
     const trimmedModel = modelOverride?.trim();
 
@@ -375,6 +377,27 @@ describe("generateSessionResponseWithOpenRouter", () => {
     await expect(generateSessionResponseWithOpenRouter(input, { apiKey: "" })).rejects.toMatchObject({
       category: "missing_configuration",
     });
+  });
+
+  it("uses light reasoning for the opening and configured xhigh for conversation turns", async () => {
+    sessionConfig.reasoningEffort = "xhigh";
+    try {
+      for (const mode of ["opening", "reply"] as const) {
+        const fetcher = vi.fn(() =>
+          Promise.resolve(createJsonResponse(createChatCompletionResponse("Możemy zacząć."))),
+        );
+        await generateSessionResponseWithOpenRouter(
+          { ...input, mode: mode === "opening" ? "opening" : undefined, avatarMemory: "Ważny wcześniejszy fakt." },
+          { apiKey: "test-key", model: "openai/gpt-5.6-luna", fetcher },
+        );
+        const { body } = await readOpenRouterRequest(fetcher);
+        expect(body.reasoning).toEqual({ effort: mode === "opening" ? "low" : "xhigh" });
+        expect(body.max_completion_tokens).toBe(mode === "opening" ? 2400 : 16000);
+        expect(JSON.stringify(body.messages)).toContain("Ważny wcześniejszy fakt.");
+      }
+    } finally {
+      sessionConfig.reasoningEffort = undefined;
+    }
   });
 
   it.each([

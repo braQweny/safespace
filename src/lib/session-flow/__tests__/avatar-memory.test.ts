@@ -58,6 +58,26 @@ describe("automatic avatar memory", () => {
     expect(deps.generateSessionSummary).not.toHaveBeenCalled();
   });
 
+  it("finishes the last batch in the same request without requiring another start POST", async () => {
+    const deps = dependencies();
+    deps.getOwnedAvatarMemoryWork
+      .mockResolvedValueOnce(ok(work))
+      .mockResolvedValueOnce(ok({ ...work, sessionId: null, messages: [] }));
+    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: true, ready: true });
+    expect(deps.generateSessionSummary).toHaveBeenCalledTimes(1);
+    expect(deps.getOwnedAvatarMemoryWork.mock.invocationCallOrder[1]).toBeGreaterThan(
+      deps.saveOwnedAvatarMemoryWork.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not claim readiness if checking the saved memory fails", async () => {
+    const deps = dependencies();
+    deps.getOwnedAvatarMemoryWork
+      .mockResolvedValueOnce(ok(work))
+      .mockResolvedValueOnce(sessionDataError("read_failed"));
+    expect(await prepareOwnedAvatarMemory(context, avatar, deps)).toEqual({ ok: false });
+  });
+
   it("keeps a failed generation retryable and never advances its cursor", async () => {
     const deps = dependencies();
     deps.generateSessionSummary.mockRejectedValue(new Error("private provider error"));

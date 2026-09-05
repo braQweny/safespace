@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { isAvatarMemoryPreparing, useAvatarMemoryPreparation } from "./useAvatarMemoryPreparation";
 import { isRateLimitedApiResult, requestApiJson, type ApiJsonResult } from "@/lib/api-client";
 import { isRecord } from "@/lib/type-guards";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
@@ -63,12 +64,7 @@ export async function requestSessionStart(
       method: "POST",
       timeoutMs: 80_000,
     });
-    const preparing =
-      result.kind === "json" &&
-      result.status === 202 &&
-      isRecord(result.body) &&
-      result.body.ok === true &&
-      result.body.type === "avatar_memory_preparing";
+    const preparing = isAvatarMemoryPreparing(result);
     onPreparing(preparing);
     if (!preparing) return result;
   }
@@ -80,6 +76,7 @@ export function useSessionStart({ initialState, onStarted }: UseSessionStartOpti
   const [isPreparingMemory, setIsPreparingMemory] = useState(false);
   const startingRef = useRef(false);
   const [notice, setNotice] = useState<SessionStartNotice | null>(null);
+  const stopMemoryPreparation = useAvatarMemoryPreparation(initialState.avatar.modality, kind === "followup_ready");
 
   async function startSession() {
     if (startingRef.current) {
@@ -92,6 +89,10 @@ export function useSessionStart({ initialState, onStarted }: UseSessionStartOpti
 
     try {
       const isFollowupStart = kind === "followup_ready";
+      if (isFollowupStart) {
+        setIsPreparingMemory(true);
+        await stopMemoryPreparation();
+      }
       const result = await requestSessionStart(isFollowupStart, setIsPreparingMemory);
 
       if (result.kind === "network_error") {

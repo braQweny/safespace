@@ -70,7 +70,12 @@ export async function prepareOwnedAvatarMemory(
       characterOffset: batch.characterOffset,
     });
     // Przegrany CAS oznacza równoległy postęp lub usunięcie źródła. Kolejny krok odczyta nowy stan.
-    return saved.ok ? { ok: true, ready: false } : { ok: false };
+    if (!saved.ok) return { ok: false };
+    if (!saved.data) return { ok: true, ready: false };
+    // Sprawdzenie ostatniej partii tutaj oszczędza cały kolejny POST startu
+    // (autoryzację, odczyt perspektywy i limitu). Insert nadal sprawdza kompletność.
+    const remaining = await repository.getOwnedAvatarMemoryWork(context, avatar.avatarId);
+    return remaining.ok ? { ok: true, ready: remaining.data.sessionId === null } : { ok: false };
   } catch (error) {
     return error instanceof SessionSummaryError ? { ok: false, providerFailure: error.category } : { ok: false };
   }

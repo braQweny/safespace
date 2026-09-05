@@ -23,6 +23,7 @@ const RATE_LIMITED_API_PATHS = new Set([
   "/api/session/message",
   "/api/session/start",
   "/api/session/start-next",
+  "/api/session/prepare-memory",
   "/api/session/transcribe",
 ]);
 

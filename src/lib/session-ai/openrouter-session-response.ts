@@ -83,7 +83,9 @@ export async function generateSessionResponseWithOpenRouter(
   const config = getOpenRouterSessionConfig();
   const apiKey = options.apiKey ?? config.apiKey;
   const model = resolveSessionModel(options.model ?? config.model);
-  const reasoningEffort = options.reasoningEffort ?? config.reasoningEffort;
+  // Krótkie powitanie jest na ścieżce startu. Nie potrzebuje kosztu xhigh
+  // skonfigurowanego dla właściwych odpowiedzi w rozmowie.
+  const reasoningEffort = options.reasoningEffort ?? (input.mode === "opening" ? "low" : config.reasoningEffort);
 
   try {
     const response = await sendSessionChatWithRetry({
