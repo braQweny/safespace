@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useDifficultyMutations } from "@/components/hooks/useDifficultyMutations";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useLocale } from "@/components/hooks/useLocale";
@@ -12,8 +12,19 @@ import { isTopicListSuccess } from "@/lib/session-flow/topic-map-contract";
 import { cn } from "@/lib/utils";
 import DifficultyDialog from "./DifficultyDialog";
 import PendingLinks, { listPendingLinks } from "./PendingLinks";
+import TopicGraph from "./TopicGraph";
 import TopicList, { getOpenDifficultyButtonId } from "./TopicList";
 import { getTopicMapCopy } from "./topic-map-copy";
+import {
+  getServerTopicMapView,
+  readTopicMapView,
+  setTopicMapView,
+  subscribeTopicMapView,
+  type TopicMapView,
+} from "./topic-map-view";
+
+const SEGMENT =
+  "text-ink hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep flex h-10 flex-1 items-center justify-center rounded-[10px] px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 interface TopicMapProps {
   locale: Locale;
@@ -24,9 +35,13 @@ interface TopicMapProps {
   topicMapEnabled: boolean;
   /** Aktywna rozmowa tej samej perspektywy; z inną nie ma dokąd wracać z kartą. */
   resumeSessionId?: string | null;
+  /** Liczba kart osób tej perspektywy (zdanie o osobach bez tematów); `null` = karty osób wyłączone. */
+  peopleCardCount?: number | null;
   className?: string;
   /** Tylko do testów: otwarty dialog w pierwszym renderze. */
   initialSelectedDifficultyId?: string | null;
+  /** Tylko do testów: wymuszony widok zamiast zapamiętanego wyboru. */
+  forcedView?: TopicMapView | null;
 }
 
 export default function TopicMap({ locale, ...props }: TopicMapProps) {
@@ -42,11 +57,17 @@ function TopicMapView({
   initialCards,
   topicMapEnabled,
   resumeSessionId = null,
+  peopleCardCount = null,
   className,
   initialSelectedDifficultyId = null,
+  forcedView = null,
 }: Omit<TopicMapProps, "locale">) {
   const copy = getTopicMapCopy(useLocale());
   const isHydrated = useIsHydrated();
+  // Serwer i hydratacja pokazują listę; zapamiętany wybór albo szerokość ekranu
+  // wchodzą dopiero po hydratacji, bez rozjazdu znaczników.
+  const storedView = useSyncExternalStore(subscribeTopicMapView, readTopicMapView, getServerTopicMapView);
+  const view = forcedView ?? storedView;
   const [cards, setCards] = useState<DifficultyCard[] | null>(initialCards);
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedDifficultyId);
   const [notice, setNotice] = useState<string | null>(null);
@@ -194,9 +215,48 @@ function TopicMapView({
       <PendingLinks links={pendingLinks} isInteractive={isHydrated} mutations={mutations} />
 
       {cards && cards.length > 0 ? (
-        <div className="mt-3">
-          <TopicList cards={cards} isInteractive={isHydrated} onOpen={handleOpen} />
-        </div>
+        <>
+          {/* Dwa równoważne widoki: mapa domyślnie od 768 px, lista poniżej; wybór zapamiętany. */}
+          <fieldset className="m-0 mt-4 max-w-xs min-w-0 border-0 p-0">
+            <legend className="sr-only">{copy.viewLegend}</legend>
+            <div className="border-line-strong flex gap-0.5 rounded-xl border p-0.5">
+              <button
+                type="button"
+                aria-pressed={view === "graph"}
+                disabled={!isHydrated}
+                onClick={() => {
+                  setTopicMapView("graph");
+                }}
+                className={SEGMENT}
+              >
+                {copy.viewMap}
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === "list"}
+                disabled={!isHydrated}
+                onClick={() => {
+                  setTopicMapView("list");
+                }}
+                className={SEGMENT}
+              >
+                {copy.viewList}
+              </button>
+            </div>
+          </fieldset>
+          <div className="mt-3">
+            {view === "graph" ? (
+              <TopicGraph
+                cards={cards}
+                isInteractive={isHydrated}
+                onOpen={handleOpen}
+                peopleCardCount={peopleCardCount}
+              />
+            ) : (
+              <TopicList cards={cards} isInteractive={isHydrated} onOpen={handleOpen} />
+            )}
+          </div>
+        </>
       ) : null}
 
       {selectedCard && cards ? (

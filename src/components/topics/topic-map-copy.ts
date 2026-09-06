@@ -90,6 +90,21 @@ interface TopicMapCopy {
   merging: string;
   merged: (source: string, target: string) => string;
   duplicateOffer: (label: string) => string;
+  viewLegend: string;
+  viewMap: string;
+  viewList: string;
+  graphAria: string;
+  youNode: string;
+  nodeCounts: (entries: number, persons: number) => string;
+  legendTitle: string;
+  legendConfirmed: string;
+  legendSuggested: string;
+  legendArchived: string;
+  unlinkedPeople: (count: number) => string;
+  peopleLink: string;
+  personNodeSr: (name: string) => string;
+  personFocus: (name: string, labels: string) => string;
+  showAll: string;
   talkAbout: string;
   talkAboutResume: string;
   talkAboutDraft: (label: string) => string;
@@ -197,6 +212,26 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     merging: "Merging…",
     merged: (source, target) => `“${source}” has been merged into “${target}”.`,
     duplicateOffer: (label) => `This name already belongs to “${label}”. Merge the two difficulties?`,
+    viewLegend: "View",
+    viewMap: "Map",
+    viewList: "List",
+    graphAria: "Topic map: you in the middle, your difficulties around you, linked people on the edge.",
+    youNode: "You",
+    nodeCounts: (entries, persons) =>
+      `${plural("en", entries, { one: "1 entry", many: `${entries} entries` })} · ${plural("en", persons, { one: "1 person", many: `${persons} people` })}`,
+    legendTitle: "How to read the map",
+    legendConfirmed: "solid line: confirmed link",
+    legendSuggested: "dashed line: link to confirm",
+    legendArchived: "faded: less current",
+    unlinkedPeople: (count) =>
+      plural("en", count, {
+        one: "1 person from your conversations has no topics yet.",
+        many: `${count} people from your conversations have no topics yet.`,
+      }),
+    peopleLink: "People cards",
+    personNodeSr: (name) => `Highlight the topics that come up with ${name}`,
+    personFocus: (name, labels) => `${name}: ${labels}`,
+    showAll: "Show all",
     talkAbout: "Talk about this",
     talkAboutResume: "Back to the conversation, about this",
     talkAboutDraft: (label) => `I'd like to talk about this today: ${label}.`,
@@ -316,6 +351,27 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     merging: "Scalanie…",
     merged: (source, target) => `Scalono „${source}” z „${target}”.`,
     duplicateOffer: (label) => `Ta nazwa należy już do trudności „${label}”. Scalić obie?`,
+    viewLegend: "Widok",
+    viewMap: "Mapa",
+    viewList: "Lista",
+    graphAria: "Mapa tematów: Ty w środku, Twoje trudności wokół, powiązane osoby na obwodzie.",
+    youNode: "Ty",
+    nodeCounts: (entries, persons) =>
+      `${plural("pl", entries, { one: "1 wpis", few: `${entries} wpisy`, many: `${entries} wpisów` })} · ${plural("pl", persons, { one: "1 osoba", few: `${persons} osoby`, many: `${persons} osób` })}`,
+    legendTitle: "Jak czytać mapę",
+    legendConfirmed: "linia ciągła: potwierdzone powiązanie",
+    legendSuggested: "linia kreskowana: powiązanie do potwierdzenia",
+    legendArchived: "wyblakłe: mniej aktualne",
+    unlinkedPeople: (count) =>
+      plural("pl", count, {
+        one: "1 osoba z Twoich rozmów nie ma jeszcze tematów.",
+        few: `${count} osoby z Twoich rozmów nie mają jeszcze tematów.`,
+        many: `${count} osób z Twoich rozmów nie ma jeszcze tematów.`,
+      }),
+    peopleLink: "Karty osób",
+    personNodeSr: (name) => `Wyróżnij tematy przy tej osobie: ${name}`,
+    personFocus: (name, labels) => `${name}: ${labels}`,
+    showAll: "Pokaż wszystko",
     talkAbout: "Porozmawiaj o tym",
     talkAboutResume: "Wróć do rozmowy i porozmawiaj o tym",
     talkAboutDraft: (label) => `Dziś chcę porozmawiać o tym: ${label}.`,

@@ -34,6 +34,8 @@ describe("dashboard topic map section", () => {
     expect(page).toContain("lg:col-start-1 lg:row-start-4");
     expect(page).toContain('? "mt-0 lg:col-start-1 lg:row-start-3"\n  : "mt-0 lg:col-start-1 lg:row-start-2"');
     expect(page).toContain("topicMapEnabled={topicMapEnabled}");
+    // Zdanie „N osób bez tematów” liczy się z kart osób tej samej perspektywy.
+    expect(page).toContain("peopleCardCount={personCards?.length ?? null}");
     expect(page).toContain("resumeSessionId={resumeSessionId}");
   });
 });

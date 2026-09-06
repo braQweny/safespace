@@ -298,6 +298,48 @@ describe("TopicMap", () => {
     expect(deletingEntry.match(/Usunąć ten wpis\?/g)).toHaveLength(1);
   });
 
+  it("offers the map/list switch only when there are cards and renders the list before hydration", () => {
+    const html = render();
+    expect(html).toContain("Widok");
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>Lista<\/button>/);
+    expect(html).toContain("<ol");
+    expect(html).not.toContain("data-topic-graph");
+    expect(render({ initialCards: [] })).not.toContain(">Mapa</button>");
+  });
+
+  it("renders the map: you in the middle, difficulties and people as nodes, edges by state, legend and people without topics", () => {
+    const html = render({ forcedView: "graph", peopleCardCount: 4 });
+    expect(html).toContain(
+      'role="group" aria-label="Mapa tematów: Ty w środku, Twoje trudności wokół, powiązane osoby na obwodzie."',
+    );
+    expect(html).toContain(">Ty</text>");
+    expect(html).not.toContain("<ol");
+    expect(html).toMatch(
+      /<g id="topic-card-open-difficulty-odmawianie"[^>]*role="button"[^>]*aria-label="Otwórz trudność: Odmawianie\."/,
+    );
+    expect(html).toContain("6 wpisów · 2 osoby · lepiej");
+    expect(html).toContain("0 wpisów · 0 osób · rozwiązane");
+    expect(html).toContain('aria-label="Wyróżnij tematy przy tej osobie: Marta"');
+    expect(html).toContain('aria-label="Wyróżnij tematy przy tej osobie: Ola"');
+    expect(html).toContain("koleżanka z pracy");
+    expect(html.match(/stroke-dasharray="6 5"/g)).toHaveLength(1);
+    expect(html.match(/class="stroke-brand"/g)).toHaveLength(1);
+    // Trudność „mniej aktualna” jest wyblakła i kreskowana.
+    expect(html).toContain('stroke-dasharray="5 4"');
+    expect(html).toContain("Jak czytać mapę: linia ciągła: potwierdzone powiązanie");
+    expect(html).toContain("2 osoby z Twoich rozmów nie mają jeszcze tematów.");
+    expect(html).toContain('href="#people-title"');
+    // Węzły nie są przyciskami przed hydratacją, ale wciąż są opisane.
+    expect(html).toContain('tabindex="-1"');
+    expect(html).not.toContain("Zgadzam się na wszystko");
+  });
+
+  it("hides the sentence about people without topics when people cards are off or everyone is on the map", () => {
+    expect(render({ forcedView: "graph", peopleCardCount: null })).not.toContain("nie ma jeszcze tematów");
+    expect(render({ forcedView: "graph", peopleCardCount: 2 })).not.toContain("nie mają jeszcze tematów");
+  });
+
   it("shows a card without entries honestly and finds a merge target by label or alias", () => {
     const html = render({ initialSelectedDifficultyId: "difficulty-spanie" });
     expect(html).toContain("Brak wpisów.");
