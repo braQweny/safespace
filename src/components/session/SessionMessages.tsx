@@ -18,9 +18,12 @@ interface SessionMessagesProps {
   emptyCopy?: string;
   /**
    * `live` — trwająca rozmowa: własny scroll i doklejanie do dołu przy nowej wiadomości.
+   * `finished` — zakończona rozmowa pod kartą zamknięcia: ten sam skład co `live`, ale
+   *   bez własnego scrolla i bez `aria-live`. Przewija się cała kolumna, więc na małym
+   *   telefonie zapis nie kurczy się do kilku linijek, a dół karty nie jest odcięty.
    * `static` — podgląd historii w panelu: rośnie razem ze stroną.
    */
-  variant?: "live" | "static";
+  variant?: "live" | "static" | "finished";
 }
 
 const PIN_TO_BOTTOM_TOLERANCE_PX = 80;
@@ -217,7 +220,9 @@ export default function SessionMessages({
       className={cn(
         isLive
           ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6"
-          : "border-line bg-surface min-h-[280px] rounded-2xl border p-4 sm:p-6",
+          : variant === "finished"
+            ? "shrink-0 px-4 py-6 sm:px-6"
+            : "border-line bg-surface min-h-[280px] rounded-2xl border p-4 sm:p-6",
       )}
     >
       <div className={cn("mx-auto w-full max-w-3xl", isLive && "flex min-h-full flex-col")}>

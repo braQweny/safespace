@@ -35,7 +35,14 @@ const showConfigBanners = import.meta.env.DEV;
 <html lang={lang}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      `interactive-widget=resizes-content`: Chromium na Androidzie (od 108) po
+      otwarciu klawiatury ekranowej domyślnie zmniejsza tylko visual viewport,
+      więc `100dvh` zostaje pełnej wysokości i pole pisania w rozmowie ląduje
+      pod klawiaturą. Ta wartość każe zmniejszać też layout viewport. Safari
+      ją ignoruje — tam rozmowę dopasowuje `useVisualViewportBox`.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
     <meta name="description" content={description} />
     <!-- Publiczny znacznik własności Google Search Console dla konta SafeSpace; wymagany do weryfikacji marki OAuth. -->
     <meta name="google-site-verification" content="ZDIJdGoSJCTZZNXsXuLsJ_eKO9kbVXBgb3WCKlEShpE" />

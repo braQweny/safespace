@@ -53,7 +53,9 @@ export function CrisisHelpPanel({ onClose }: CrisisHelpPanelProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    panelRef.current?.focus();
+    // Panel leży w nakładce pod paskiem, więc jest na widoku; domyślny
+    // `focus()` przewijałby jeszcze przycięty `main`, chowając rząd z „Zakończ”.
+    panelRef.current?.focus({ preventScroll: true });
 
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -75,7 +77,10 @@ export function CrisisHelpPanel({ onClose }: CrisisHelpPanelProps) {
       role="dialog"
       aria-label={copy.panelAria}
       tabIndex={-1}
-      className="border-line-accent bg-surface text-ink-soft shadow-card mx-auto mt-3 w-full max-w-3xl rounded-2xl border p-5 text-sm leading-6 focus:outline-none sm:p-6"
+      // Trzy regiony numerów to na telefonie ponad 1000 px, a strona rozmowy
+      // nie przewija się jako całość — panel musi przewijać się sam, inaczej
+      // dolne numery są nieosiągalne. 6rem to pasek rozmowy i odstępy nakładki.
+      className="border-line-accent bg-surface text-ink-soft shadow-card mx-auto mt-3 max-h-[calc(100dvh-6rem)] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border p-5 text-sm leading-6 focus:outline-none sm:p-6"
     >
       <div className="flex items-start justify-between gap-3">
         <div>

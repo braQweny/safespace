@@ -120,3 +120,18 @@ describe("SessionMessages", () => {
     expect(preview).toContain("Od czego chcesz zacząć?");
   });
 });
+
+describe("SessionMessages finished variant", () => {
+  it("keeps the transcript in the page flow without a live region or its own scroller", () => {
+    const html = renderToStaticMarkup(
+      <SessionMessages variant="finished" assistantAvatar={assistantAvatar} messages={[assistantMessage]} />,
+    );
+
+    expect(html).toContain("Od czego chcesz zacząć?");
+    expect(html).not.toContain('role="log"');
+    expect(html).not.toContain("aria-live");
+    expect(html).not.toContain("overflow-y-auto");
+    // Nie karta podglądu historii: zapis stoi pod kartą zamknięcia jak w rozmowie.
+    expect(html).not.toContain("min-h-[280px]");
+  });
+});

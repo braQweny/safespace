@@ -3,6 +3,7 @@ import { ChevronDown, Copy, History, Loader2 } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
+import { useVisualViewportBox } from "@/components/hooks/useVisualViewportBox";
 import { useAvatarMemoryPreparation } from "@/components/hooks/useAvatarMemoryPreparation";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
@@ -147,6 +148,7 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
   const [areBoundariesOpen, setAreBoundariesOpen] = useState(false);
   const { summaryState, summaryStatus, summaryErrorCode, generateSummary, approveSummary } =
     useSessionSummary(initialSummary);
+  const viewportBox = useVisualViewportBox();
   const confirmEndRef = useRef<HTMLDivElement | null>(null);
   const endButtonRef = useRef<HTMLButtonElement | null>(null);
   const restoreEndFocusRef = useRef(false);
@@ -248,13 +250,21 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
   // Gdy istnieje sesja, strona zachowuje się jak komunikator: nagłówek i pole
   // wpisywania są przypięte, a przewija się wyłącznie zapis rozmowy.
   const isChatLayout = Boolean(session);
+  // Klawiatura ekranowa w Safari i w części WebView nie zmniejsza layout
+  // viewportu, tylko przesuwa stronę. Rozmowa dopasowuje się wtedy sama do
+  // widocznego wycinka, żeby pole pisania nie zostało pod klawiaturą. Chromium
+  // na Androidzie załatwia to meta `interactive-widget` i tu dostaje `null`.
+  const keyboardAwareStyle =
+    isChatLayout && kind === "active" && viewportBox
+      ? { height: `${viewportBox.height}px`, transform: `translateY(${viewportBox.offsetTop}px)` }
+      : undefined;
 
   return (
     // Rozmowa jest jedną kolumną tekstu na całej wysokości ekranu: bez ramki,
     // bez bocznego panelu. Wszystko, co nie jest rozmową (granice, pomoc,
     // czas), siedzi w cienkim pasku u góry albo w jednej linijce pod polem.
-    <div className={cn("flex h-full w-full flex-col", !isChatLayout && "overflow-y-auto")}>
-      <header className="border-line bg-surface/70 relative shrink-0 border-b backdrop-blur">
+    <div className={cn("flex h-full w-full flex-col", !isChatLayout && "overflow-y-auto")} style={keyboardAwareStyle}>
+      <header className="border-line bg-surface/70 relative z-10 shrink-0 border-b backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5 sm:gap-x-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             {/*
@@ -352,7 +362,11 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
         </div>
 
         {isCrisisHelpOpen ? (
-          <div className="px-4 pb-4 sm:px-6">
+          // Nakładka pod paskiem, nie wstawka w nagłówku: wstawiony w `shrink-0`
+          // nagłówek panel z numerami spychał na telefonie zapis i pole pisania
+          // za ekran, a sam kończył się poza nim bez możliwości przewinięcia.
+          // Pływa nad rozmową, która zostaje na swoim miejscu, i przewija się sam.
+          <div className="absolute inset-x-0 top-full z-20 px-4 pb-4 sm:px-6">
             <CrisisHelpPanel onClose={closeCrisisHelp} />
           </div>
         ) : null}
@@ -400,7 +414,16 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
         ) : null}
       </header>
 
-      <div className={cn("flex flex-col", isChatLayout ? "min-h-0 flex-1" : "flex-1")}>
+      <div
+        className={cn(
+          "flex flex-col",
+          isChatLayout ? "min-h-0 flex-1" : "flex-1",
+          // Po zakończeniu rozmowy przewija się cała kolumna: karta zamknięcia,
+          // podsumowanie i zapis razem. Zapis w osobnym scrollu kurczył się na
+          // małym telefonie do kilku linijek, a dół karty był odcięty na stałe.
+          isChatLayout && showHistoryCta && "overflow-y-auto overscroll-contain",
+        )}
+      >
         {/* The closing card below repeats this copy verbatim for finished sessions. */}
         {(!isChatLayout || messages.length === 0) && !notice && !showHistoryCta ? (
           <p className="text-ink-muted mx-auto w-full max-w-3xl shrink-0 px-4 pt-6 text-sm leading-6 sm:px-6">
@@ -426,13 +449,10 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
 
         {notice && !isTurnNotice ? (
           <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-5 sm:px-6">
-            <div className="max-h-[60vh] overflow-y-auto">
-              <SessionSafetyNotice
-                variant={notice.variant}
-                copy={notice.copy}
-                crisisResources={notice.crisisResources}
-              />
-            </div>
+            {/* Bez własnego scrolla: po zatrzymaniu rozmowa jest zakończona, więc
+                przewija się cała kolumna, a zagnieżdżony scroll w 60vh na telefonie
+                tylko łapał palec w połowie listy numerów. */}
+            <SessionSafetyNotice variant={notice.variant} copy={notice.copy} crisisResources={notice.crisisResources} />
           </div>
         ) : null}
 
@@ -491,7 +511,7 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
 
         {session ? (
           <SessionMessages
-            variant="live"
+            variant={showHistoryCta ? "finished" : "live"}
             messages={messages}
             isPending={isMessagePending}
             isResponseSlow={isResponseSlow}

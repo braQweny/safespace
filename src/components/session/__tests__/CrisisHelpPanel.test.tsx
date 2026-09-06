@@ -38,3 +38,12 @@ describe("CrisisHelpPanel", () => {
     expect(html).toContain("Pomoc teraz");
   });
 });
+
+describe("CrisisHelpPanel on a phone", () => {
+  it("scrolls on its own so the lower numbers stay reachable inside the fixed-height conversation", () => {
+    const html = renderToStaticMarkup(<CrisisHelpPanel onClose={() => undefined} />);
+
+    expect(html).toContain("overflow-y-auto");
+    expect(html).toContain("max-h-[calc(100dvh-6rem)]");
+  });
+});

@@ -245,3 +245,61 @@ describe("UnsentMessageNotice", () => {
     expect(html).not.toContain(SESSION_TURN_COPY.copyUnsent);
   });
 });
+
+describe("TimedSession on a small phone", () => {
+  const completedSession = {
+    id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+    status: "completed" as const,
+    startedAt: "2026-06-12T10:00:00.000Z",
+    endedAt: "2026-06-12T10:05:00.000Z",
+    expiresAt: "2026-06-12T10:15:00.000Z",
+    remainingSeconds: 0,
+    isTrial: true,
+    durationBucketSeconds: 900,
+  };
+  const messages = [
+    {
+      id: "message-1",
+      role: "assistant" as const,
+      sequenceIndex: 1,
+      content: "Od czego chcesz zacząć?",
+      createdAt: "2026-06-12T10:00:00.000Z",
+    },
+  ];
+
+  it("scrolls the closing card, the summary and the transcript as one column after the conversation", () => {
+    const html = renderSession({
+      kind: "completed",
+      trialAvailable: false,
+      avatar,
+      session: completedSession,
+      messages,
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+      sessionQuota: null,
+    });
+
+    // Zapis nie ma już własnego scrolla ani regionu na żywo — przewija się cała kolumna.
+    expect(html).toContain("Od czego chcesz zacząć?");
+    expect(html).not.toContain('role="log"');
+    expect(html).toMatch(/<div class="[^"]*min-h-0 flex-1[^"]*overflow-y-auto[^"]*">/);
+  });
+
+  it("keeps the live transcript as the only scroller while the conversation runs", () => {
+    const html = renderSession({
+      kind: "active",
+      trialAvailable: false,
+      avatar,
+      session: { ...completedSession, status: "active", endedAt: null, remainingSeconds: 600 },
+      messages,
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+      sessionQuota: null,
+    });
+
+    expect(html).toContain('role="log"');
+    expect(html).not.toMatch(/<div class="[^"]*min-h-0 flex-1[^"]*overflow-y-auto[^"]*">/);
+  });
+});

@@ -56,8 +56,15 @@ if (activeSession && pageState.kind !== "active") {
   */
   }
   <div class="bg-paper text-ink flex h-[100dvh] flex-col">
-    {/* `display: contents` na wyspie Astro, żeby wysokość 100dvh dochodziła do layoutu rozmowy. */}
-    <main class="min-h-0 flex-1 overflow-hidden [&>astro-island]:contents">
+    {
+      /*
+      `display: contents` na wyspie Astro, żeby wysokość 100dvh dochodziła do layoutu rozmowy.
+      `relative`: elementy `sr-only` (position: absolute) w zapisie i pod polem pisania muszą
+      mieć containing block tutaj — bez tego wypadają poza `overflow-hidden`, rozciągają
+      dokument i telefon pozwala przeciągnąć całą rozmowę w górę, zostawiając pusty pas.
+    */
+    }
+    <main class="relative min-h-0 flex-1 overflow-hidden [&>astro-island]:contents">
       <TimedSession client:load locale={Astro.locals.locale} initialState={pageState} initialSummary={initialSummary} />
     </main>
   </div>

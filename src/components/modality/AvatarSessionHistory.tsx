@@ -268,7 +268,7 @@ function SessionHistoryContent({
             event.preventDefault();
             handleCloseDetail();
           }}
-          className="border-line-strong bg-surface text-ink fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl border p-0 backdrop:bg-black/50"
+          className="border-line-strong bg-surface text-ink fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border p-0 backdrop:bg-black/50"
         >
           <SessionHistoryDetailPanel
             detail={detail}
