@@ -35,6 +35,14 @@ function requestMemoryBatch(avatar: AvatarChoice) {
   return request;
 }
 
+/**
+ * Trwająca partia pamięci tej perspektywy (albo nic). Pętla kart osób czeka na
+ * nią przed własnym żądaniem, żeby nie uruchamiać dwóch generacji naraz.
+ */
+export function getPendingAvatarMemoryBatch(avatar: AvatarChoice): Promise<unknown> {
+  return pendingBatches.get(`${avatar.modalityId}:${avatar.avatarId}`) ?? Promise.resolve();
+}
+
 export function startAvatarMemoryPreparation(avatar: AvatarChoice) {
   const state = { stopped: false };
   const done = (async () => {

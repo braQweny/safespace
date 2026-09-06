@@ -4,6 +4,7 @@ import {
   buildSessionAiProviderFailedEvent,
   buildSessionAiTurnCompletedEvent,
   buildSessionCompletedEvent,
+  buildSessionPeopleMemoryUpdatedEvent,
   buildSessionSafetyEvaluatedEvent,
   buildSessionSafetyEvaluatedEventFromDecision,
   buildSessionStartAttemptedEvent,
@@ -12,6 +13,33 @@ import {
 } from "../session-events";
 
 describe("session operational event builders", () => {
+  it("reports a saved people-cards batch with unit counters only, and marks a split-and-accepted batch", () => {
+    const event = buildSessionPeopleMemoryUpdatedEvent({
+      requestId: "req-9",
+      durationMs: 4460.4,
+      inputUnits: 1200,
+      outputUnits: 340.5,
+      personCount: 3,
+      names: ["Marta"],
+    } as Parameters<typeof buildSessionPeopleMemoryUpdatedEvent>[0] & Record<string, unknown>);
+
+    expect(event).toEqual({
+      event: "session.people_memory_updated",
+      level: "info",
+      requestId: "req-9",
+      outcome: "success",
+      durationMs: 4460,
+      provider: "openrouter",
+      inputUnits: 1200,
+    });
+    expect(event).not.toHaveProperty("names");
+    expect(event).not.toHaveProperty("personCount");
+    expect(buildSessionPeopleMemoryUpdatedEvent({ partial: true })).toMatchObject({
+      level: "warn",
+      reasonCode: "people_memory_partial",
+    });
+  });
+
   it("builds lifecycle events with only safe operational metadata", () => {
     const event = buildSessionStartAttemptedEvent({
       requestId: "req-1",

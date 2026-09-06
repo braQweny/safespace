@@ -19,6 +19,18 @@ describe("privacy page partials", () => {
     expect(readSectionIds(fileName)).toEqual([...PRIVACY_SECTION_IDS]);
   });
 
+  it.each(["PrivacyContentPl.astro", "PrivacyContentEn.astro"])(
+    "%s describes people cards behind the same flag that ships them: one paragraph in #ai and one deletion bullet",
+    (fileName) => {
+      const source = readFileSync(resolve(__dirname, "..", fileName), "utf8");
+
+      expect(source).toContain('import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode"');
+      expect(source.match(/data-people-memory/g)).toHaveLength(2);
+      expect(source).toMatch(/<p class="text-ink-soft mt-3" data-people-memory>/);
+      expect(source).toMatch(/<li data-people-memory>/);
+    },
+  );
+
   it("keeps the English partial free of Polish letters outside comments", () => {
     const source = readFileSync(resolve(__dirname, "..", "PrivacyContentEn.astro"), "utf8");
     const markup = source.slice(source.lastIndexOf("---") + 3);

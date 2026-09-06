@@ -111,12 +111,16 @@ function isConversationOpen(state: TimedSessionUiState) {
   return !isTerminalSessionKind(state.kind) && !state.isClientExpired && !state.isHardStopped;
 }
 
-export function getInitialTimedSessionState(initialState: SessionStartPageState): TimedSessionUiState {
+export function getInitialTimedSessionState(
+  initialState: SessionStartPageState,
+  initialDraft: string | null = null,
+): TimedSessionUiState {
   return {
     kind: initialState.kind,
     session: initialState.session,
     messages: initialState.messages,
-    draft: "",
+    // Prefill tylko dla trwającej rozmowy: zakończona nie ma już pola pisania.
+    draft: initialState.kind === "active" && initialDraft ? initialDraft : "",
     isEnding: false,
     isMessagePending: false,
     isResponseSlow: false,
@@ -466,11 +470,17 @@ export async function endTimedSession(
 
 export interface UseTimedSessionOptions {
   locale: Locale;
+  /** Zdanie z karty osoby wstawione do pola przed pierwszą wiadomością. */
+  initialDraft?: string | null;
 }
 
 export function useTimedSession(initialState: SessionStartPageState, options: UseTimedSessionOptions) {
   const { locale } = options;
-  const [state, dispatch] = useReducer(timedSessionReducer, initialState, getInitialTimedSessionState);
+  const [state, dispatch] = useReducer(
+    timedSessionReducer,
+    { initialState, initialDraft: options.initialDraft ?? null },
+    (init) => getInitialTimedSessionState(init.initialState, init.initialDraft),
+  );
   const retryIdentity = useRef<MessageRetryIdentity | null>(null);
   const sending = useRef(false);
 

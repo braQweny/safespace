@@ -1,7 +1,11 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
 import LocaleSwitch from "@/components/LocaleSwitch.astro";
+import PeopleMemoryToggle from "@/components/account/PeopleMemoryToggle.astro";
 import { getLocaleSwitchCopy } from "@/components/locale-switch-copy";
+import { hasOwnedPeopleRows, readOwnedPeopleMemoryEnabled } from "@/lib/session-data/repository";
+import { isPeopleSettingsStatusCode } from "@/lib/session-flow/people-contract";
+import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
@@ -42,16 +46,33 @@ const isAdmin = adminContext.ok;
 const sessionContext = getSessionDataContext(Astro);
 let quota: SessionQuota | null = null;
 let activeSession: ActiveSessionBadge | null = null;
+// Karty osób: przełącznik za flagą, ale usuwanie zapisów zawsze — jeśli jakieś
+// są, karta ustawień pokazuje się także przy wyłączonej fladze.
+const peopleMemoryMode = isPeopleMemoryEnabled();
+let peopleMemoryEnabled: boolean | null = null;
+let hasPeopleRows = false;
 
 if (sessionContext.ok) {
-  const quotaResult = await readSessionQuota(sessionContext.data);
+  const [quotaResult, badge, preference, rows] = await Promise.all([
+    readSessionQuota(sessionContext.data),
+    readActiveSessionBadge(sessionContext.data),
+    peopleMemoryMode ? readOwnedPeopleMemoryEnabled(sessionContext.data) : null,
+    hasOwnedPeopleRows(sessionContext.data),
+  ]);
   quota = quotaResult.ok ? quotaResult.data : null;
-  activeSession = await readActiveSessionBadge(sessionContext.data);
+  activeSession = badge;
+  peopleMemoryEnabled = preference?.ok ? preference.data : null;
+  hasPeopleRows = rows.ok ? rows.data : false;
 }
 
 const support = getSupportContact();
 const localeCopy = getLocaleSwitchCopy(locale);
 const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDurationSeconds(quota?.plan));
+const peopleCopy = copy.peopleMemory;
+const showsPeopleCard = peopleMemoryMode || hasPeopleRows;
+const peopleStatus = Astro.url.searchParams.get("people");
+const peopleStatusMessage = isPeopleSettingsStatusCode(peopleStatus) ? peopleCopy.status[peopleStatus] : null;
+const peopleStatusIsError = peopleStatus !== "saved" && peopleStatus !== "deleted";
 ---
 
 <Layout title={copy.pageTitle}>
@@ -137,6 +158,65 @@ const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDu
             <LocaleSwitch variant="segmented" />
           </div>
         </div>
+
+        {
+          showsPeopleCard ? (
+            <div
+              class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8"
+              id="people-memory"
+              data-account-people
+            >
+              <h2 class="text-ink text-lg font-semibold">{peopleCopy.title}</h2>
+              <p class="text-ink-muted mt-2 text-sm leading-6">
+                {peopleMemoryMode ? peopleCopy.intro : peopleCopy.modeOffIntro}
+              </p>
+              {peopleStatusMessage ? (
+                <p
+                  role={peopleStatusIsError ? "alert" : "status"}
+                  class:list={[
+                    "mt-3 rounded-xl p-3.5 text-sm leading-6",
+                    peopleStatusIsError
+                      ? "border-danger-line bg-danger-soft text-danger border"
+                      : "bg-brand-tint text-brand-deep",
+                  ]}
+                >
+                  {peopleStatusMessage}
+                </p>
+              ) : null}
+              {peopleMemoryMode ? (
+                peopleMemoryEnabled === null ? (
+                  <p class="text-ink-muted mt-3 text-sm leading-6">{peopleCopy.readFailed}</p>
+                ) : (
+                  <>
+                    <div class="mt-4 max-w-xs">
+                      <PeopleMemoryToggle enabled={peopleMemoryEnabled} />
+                    </div>
+                    <p class="text-ink-muted mt-3 text-sm leading-6">{peopleCopy.effects}</p>
+                  </>
+                )
+              ) : null}
+              {/* Potwierdzenie bez JS: wymagane pole wyboru w natywnym formularzu. */}
+              <details class="mt-5">
+                <summary class="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-11 cursor-pointer items-center rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
+                  {peopleCopy.deleteAllSummary}
+                </summary>
+                <form method="POST" action="/api/session/people/delete-all" class="mt-3" data-people-delete-all>
+                  <p class="text-ink-muted text-sm leading-6">{peopleCopy.deleteAllBody}</p>
+                  <label class="text-ink mt-3 flex items-start gap-2 text-sm leading-6">
+                    <input type="checkbox" name="confirm" value="1" required class="mt-1 h-4 w-4 shrink-0" />
+                    <span>{peopleCopy.deleteAllConfirmLabel}</span>
+                  </label>
+                  <button
+                    type="submit"
+                    class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong mt-4 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+                  >
+                    {peopleCopy.deleteAllSubmit}
+                  </button>
+                </form>
+              </details>
+            </div>
+          ) : null
+        }
 
         <div class="border-line bg-surface-soft mt-5 rounded-2xl border p-5">
           <h2 class="text-brand-deep text-base font-semibold">{copy.dataTitle}</h2>

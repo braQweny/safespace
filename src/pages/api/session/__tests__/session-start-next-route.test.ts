@@ -203,6 +203,7 @@ describe("POST /api/session/start-next", () => {
       durationBucketSeconds: 900,
       usesApprovedContext: true,
       usesAvatarMemory: true,
+      aboutPersonId: null,
     });
     expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
       sessionId: "next-session-1",

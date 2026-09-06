@@ -2,8 +2,15 @@
 import AppHeader from "@/components/AppHeader.astro";
 import CrisisRegionList from "@/components/CrisisRegionList.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
+import PeopleCards from "@/components/people/PeopleCards";
 import SessionStartCard, { AllowanceMeter } from "@/components/session/SessionStartCard";
-import { countOwnedSessionsByAvatar, getOwnedAvatarMemoryPreview } from "@/lib/session-data/repository";
+import {
+  countOwnedSessionsByAvatar,
+  getOwnedAvatarMemoryPreview,
+  listOwnedPersonCards,
+  readOwnedPeopleMemoryEnabled,
+} from "@/lib/session-data/repository";
+import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import {
@@ -18,7 +25,7 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
-import type { OwnedSessionCountsByAvatar, SessionQuota } from "@/lib/session-data/types";
+import type { OwnedSessionCountsByAvatar, PersonCard, SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
 import {
   readActiveSessionBadge,
@@ -127,13 +134,26 @@ let firstStepsQuota: SessionQuota | null = null;
 let anyOwnedActiveSession: ActiveSessionBadge | null = null;
 // Ile rozmów stoi za każdą twarzą: filtr historii pokazuje tylko te z zapisami.
 let sessionCountsByAvatar: OwnedSessionCountsByAvatar | null = null;
+// Karty osób zapisanej perspektywy: `null` = odczyt padł, nie „brak kart”.
+const peopleMemoryMode = isPeopleMemoryEnabled();
+let personCards: PersonCard[] | null = null;
+let peopleMemoryEnabled = true;
 
 if (sessionContext.ok) {
   // Po poznaniu perspektywy żaden z tych odczytów nie zależy od pozostałych,
-  // więc zamiast czterech rund do bazy po kolei jest jedna. Znaczek rozmowy w
+  // więc zamiast kilku rund do bazy po kolei jest jedna. Znaczek rozmowy w
   // toku jest czytany zawsze: gdy stan startu sam ją niesie, wynik i tak
   // zostanie nadpisany, ale czekanie na ten stan kosztowałoby osobną rundę.
-  const [historyResult, quotaResult, startStateResult, activeBadge, memoryPreview, avatarCounts] = await Promise.all([
+  const [
+    historyResult,
+    quotaResult,
+    startStateResult,
+    activeBadge,
+    memoryPreview,
+    avatarCounts,
+    peopleCardsResult,
+    peoplePreference,
+  ] = await Promise.all([
     !initialHistory && historyAvatar
       ? readSessionHistoryList(sessionContext.data, {
           avatar: historyAvatar.avatarId,
@@ -152,11 +172,22 @@ if (sessionContext.ok) {
       ? getOwnedAvatarMemoryPreview(sessionContext.data, currentAvatarChoice.selected.avatarId)
       : null,
     currentAvatarChoice ? countOwnedSessionsByAvatar(sessionContext.data) : null,
+    currentAvatarChoice && peopleMemoryMode
+      ? listOwnedPersonCards(sessionContext.data, currentAvatarChoice.selected.avatarId)
+      : null,
+    currentAvatarChoice && peopleMemoryMode ? readOwnedPeopleMemoryEnabled(sessionContext.data) : null,
   ]);
 
   if (historyResult) {
     initialHistory = historyResult;
   }
+
+  if (peopleCardsResult) {
+    personCards = peopleCardsResult.ok ? peopleCardsResult.data : null;
+  }
+
+  // Nieudany odczyt preferencji nie chowa sekcji: domyślnie jest włączona.
+  peopleMemoryEnabled = peoplePreference?.ok ? peoplePreference.data : true;
 
   if (quotaResult) {
     firstStepsQuota = quotaResult.ok ? quotaResult.data : null;
@@ -199,22 +230,35 @@ const firstStepsAllowanceCopy = formatRemainingFreeSessions(locale, firstStepsQu
 const currentTint = currentSelection ? getPerspectiveTint(currentSelection.modalityId) : null;
 const currentFirstName = currentSelection?.avatarFirstName ?? null;
 const currentCopy = currentSelection ? getModalityCopy(locale, currentSelection.modalityId) : null;
+// Sekcja osób idzie za zapisaną perspektywą (nie za filtrem historii), bo jej
+// akcja główna startuje rozmowę właśnie z nią. Flaga gasi ją w całości.
+const showsPeopleSection = currentSelection !== null && peopleMemoryMode;
+// „Wróć do rozmowy o tej osobie” ma sens tylko dla rozmowy tej samej perspektywy.
+const resumeSessionId =
+  activeSession?.sessionId ??
+  (anyOwnedActiveSession && anyOwnedActiveSession.avatarId === currentSelection?.avatarId
+    ? anyOwnedActiveSession.sessionId
+    : null);
 
-// Z zapisaną perspektywą panel dzieli się na dwie kolumny: po lewej karta startu
-// i granice rozmowy, po prawej historia rozciągnięta na oba wiersze (karta i
-// granice same wpadają do lewej kolumny). Drugi wiersz jest `1fr`, żeby wysoka
-// historia rozpychała tylko jego, a nie wiersz karty — inaczej między kartą a
-// granicami rosłaby pusta przerwa. Bez perspektywy historii nie ma, więc granice
-// stoją w wąskiej kolumnie obok karty pierwszych kroków.
+// Z zapisaną perspektywą panel dzieli się na dwie kolumny: po lewej karta startu,
+// osoby i granice rozmowy, po prawej historia rozciągnięta na wszystkie wiersze
+// (elementy lewej kolumny same wpadają w kolejne wiersze). Ostatni wiersz jest
+// `1fr`, żeby wysoka historia rozpychała tylko jego, a nie wiersz karty — inaczej
+// między kartą a granicami rosłaby pusta przerwa. Bez perspektywy historii nie ma,
+// więc granice stoją w wąskiej kolumnie obok karty pierwszych kroków.
 const panelGridClass = currentSelection
-  ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-[auto_1fr]"
+  ? showsPeopleSection
+    ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-[auto_auto_1fr]"
+    : "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-[auto_1fr]"
   : "lg:grid-cols-[minmax(0,1fr)_360px]";
 // Jeden zestaw propsów dla obu wariantów hydratacji historii (patrz
 // `requestsHistorySession`), żeby nie rozjechały się przy edycji.
 const historyProps = currentSelection
   ? {
       locale,
-      className: "mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-3",
+      className: showsPeopleSection
+        ? "mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-4"
+        : "mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-3",
       selectedAvatar: currentSelection,
       initialViewedAvatarId: viewedAvatar?.avatarId ?? null,
       modalities: MODALITY_CHOICES,
@@ -415,10 +459,36 @@ const historyProps = currentSelection
           }
 
           {
+            /*
+            Osoby z rozmów pod historią: na telefonie ktoś wraca najpierw do
+            wczorajszego zapisu, a dopiero potem do tego, co Lena o kim pamięta.
+            Na monitorze sekcja wpada do lewej kolumny pod kartę startu.
+          */
+          }
+          {
+            showsPeopleSection && currentSelection ? (
+              <PeopleCards
+                client:visible
+                locale={locale}
+                avatar={currentSelection}
+                initialCards={personCards}
+                peopleMemoryEnabled={peopleMemoryEnabled}
+                resumeSessionId={resumeSessionId}
+                className="mt-0 lg:col-start-1 lg:row-start-2"
+              />
+            ) : null
+          }
+
+          {
             /* Cichy blok pod kartą: same numery, bez ostrzegawczych kolorów. Zastrzeżenie
               o symulacji zostaje w stopce, żeby na ekranie padało raz. */
           }
-          <aside class="bg-brand-tint rounded-[20px] p-5 sm:p-6">
+          <aside
+            class:list={[
+              "bg-brand-tint rounded-[20px] p-5 sm:p-6",
+              showsPeopleSection ? "lg:col-start-1 lg:row-start-3" : null,
+            ]}
+          >
             {
               anyActiveSession ? (
                 <>

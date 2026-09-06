@@ -4,9 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import { parseOpenRouterReasoningEffort } from "../env";
 import { buildOpenRouterSessionRequest } from "@/lib/session-ai/openrouter-session-response";
 import { buildOpenRouterSummaryRequest } from "@/lib/session-summary/openrouter-summary";
+import { buildOpenRouterPeopleMemoryRequest } from "@/lib/session-summary/openrouter-people-memory";
 import { buildOpenRouterSafetyRequest } from "@/lib/session-safety/openrouter-classifier";
 import type { GenerateSessionResponseInput } from "@/lib/session-ai/types";
 import type { GenerateSessionSummaryInput } from "@/lib/session-summary/types";
+import type { GeneratePeopleMemoryInput } from "@/lib/session-summary/people-memory-types";
 
 vi.mock("astro:env/server", () => ({
   OPENROUTER_API_KEY: undefined,
@@ -30,6 +32,8 @@ const WRANGLER_CONFIG_PATH = resolve(__dirname, "../../../../wrangler.jsonc");
 const MIN_REASONING_SESSION_TOKENS = 1_600;
 const MIN_REASONING_SUMMARY_TOKENS = 1_600;
 const MIN_REASONING_SAFETY_TOKENS = 256;
+// A JSON change set for a batch with many people is far longer than a summary.
+const MIN_REASONING_PEOPLE_TOKENS = 6_000;
 
 function readWranglerVars(): Partial<Record<string, string>> {
   const raw = readFileSync(WRANGLER_CONFIG_PATH, "utf8");
@@ -62,6 +66,14 @@ const summaryInput: GenerateSessionSummaryInput = {
   ],
 };
 
+const peopleInput: GeneratePeopleMemoryInput = {
+  locale: "pl",
+  avatarFirstName: "Marek",
+  persons: [],
+  forgottenPeople: [],
+  messages: [{ role: "user", content: "Marta z pracy znowu skomentowała mój pomysł.", conversationIndex: 1 }],
+};
+
 describe("deployed OpenRouter models through every request builder", () => {
   const vars = readWranglerVars();
   const sessionModel = vars.OPENROUTER_SESSION_MODEL ?? "";
@@ -91,6 +103,14 @@ describe("deployed OpenRouter models through every request builder", () => {
     expect(tokenCap(request)).toBeGreaterThanOrEqual(MIN_REASONING_SUMMARY_TOKENS);
   });
 
+  it("budgets the people-cards extraction for hidden reasoning plus a long JSON change set", () => {
+    const request = buildOpenRouterPeopleMemoryRequest(peopleInput, summaryModel);
+
+    expect(request.reasoning, `${summaryModel} has no people-memory reasoning branch`).toBeDefined();
+    expect(tokenCap(request)).toBeGreaterThanOrEqual(MIN_REASONING_PEOPLE_TOKENS);
+    expect(request.responseFormat.type).toBe("json_schema");
+  });
+
   it("gives the safety classifier room for a reasoning model's hidden tokens", () => {
     const request = buildOpenRouterSafetyRequest({ currentUserMessage: "Czesc." }, safetyModel);
 
@@ -105,6 +125,7 @@ describe("deployed OpenRouter models through every request builder", () => {
       buildOpenRouterSafetyRequest({ currentUserMessage: "Czesc." }, model),
       buildOpenRouterSessionRequest(sessionInput, model),
       buildOpenRouterSummaryRequest(summaryInput, model),
+      buildOpenRouterPeopleMemoryRequest(peopleInput, model),
     ];
 
     for (const request of requests) {

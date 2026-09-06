@@ -1,0 +1,274 @@
+
+> safespace@0.0.1 test:db
+> node --test tests/database/*.test.mjs
+
+TAP version 13
+# Subtest: Billing authorization and expiry against real PostgreSQL
+    # Subtest: permits an active account's first purchase before the billing row is provisioned and refuses blocked users
+    ok 1 - permits an active account's first purchase before the billing row is provisioned and refuses blocked users
+      ---
+      duration_ms: 16.331625
+      type: 'test'
+      ...
+    # Subtest: keeps billing writes and Stripe identifiers inaccessible to owners and session content inaccessible to the billing role
+    ok 2 - keeps billing writes and Stripe identifiers inaccessible to owners and session content inaccessible to the billing role
+      ---
+      duration_ms: 30.2825
+      type: 'test'
+      ...
+    # Subtest: requires a paid invoice, grants the fourth 60-minute session, and expires by DB time while a started session keeps its budget
+    ok 3 - requires a paid invoice, grants the fourth 60-minute session, and expires by DB time while a started session keeps its budget
+      ---
+      duration_ms: 27.9625
+      type: 'test'
+      ...
+    # Subtest: expires a paid entitlement as database time passes without another webhook
+    ok 4 - expires a paid entitlement as database time passes without another webhook
+      ---
+      duration_ms: 267.860667
+      type: 'test'
+      ...
+    # Subtest: retains paid access after ordinary cancellation and manual premium after payment expiry
+    ok 5 - retains paid access after ordinary cancellation and manual premium after payment expiry
+      ---
+      duration_ms: 20.788791
+      type: 'test'
+      ...
+    # Subtest: uses the same paid premium rule in admin filters, aggregates and mutation replies
+    ok 6 - uses the same paid premium rule in admin filters, aggregates and mutation replies
+      ---
+      duration_ms: 24.973916
+      type: 'test'
+      ...
+    # Subtest: serializes concurrent checkout reservations and prevents duplicate live subscriptions
+    ok 7 - serializes concurrent checkout reservations and prevents duplicate live subscriptions
+      ---
+      duration_ms: 21.585
+      type: 'test'
+      ...
+    # Subtest: pins subscription ownership and checkout recovery parameters
+    ok 8 - pins subscription ownership and checkout recovery parameters
+      ---
+      duration_ms: 27.405959
+      type: 'test'
+      ...
+    # Subtest: commits event deduplication with entitlement changes, including rollback
+    ok 9 - commits event deduplication with entitlement changes, including rollback
+      ---
+      duration_ms: 16.668041
+      type: 'test'
+      ...
+    # Subtest: requires durable cancellation before direct RPC deletion and permits retries after Stripe failure
+    ok 10 - requires durable cancellation before direct RPC deletion and permits retries after Stripe failure
+      ---
+      duration_ms: 22.654667
+      type: 'test'
+      ...
+    # Subtest: blocks deletion on unresolved checkout and never permits an immutable deletion flag to be cleared
+    ok 11 - blocks deletion on unresolved checkout and never permits an immutable deletion flag to be cleared
+      ---
+      duration_ms: 21.775958
+      type: 'test'
+      ...
+    # Subtest: serializes first billing-account creation with deletion even before a billing row exists
+    ok 12 - serializes first billing-account creation with deletion even before a billing row exists
+      ---
+      duration_ms: 27.231125
+      type: 'test'
+      ...
+    # Subtest: serializes deletion behind a first checkout intent and observes the new account
+    ok 13 - serializes deletion behind a first checkout intent and observes the new account
+      ---
+      duration_ms: 27.803167
+      type: 'test'
+      ...
+    1..13
+ok 1 - Billing authorization and expiry against real PostgreSQL
+  ---
+  duration_ms: 1758.572834
+  type: 'suite'
+  ...
+# Subtest: Session integrity against all migrations in real PostgreSQL
+    # Subtest: rejects reopening terminal sessions, including the created-state timer bypass
+    ok 1 - rejects reopening terminal sessions, including the created-state timer bypass
+      ---
+      duration_ms: 53.632584
+      type: 'test'
+      ...
+    # Subtest: rejects direct active inserts and activation without a valid current deadline
+    ok 2 - rejects direct active inserts and activation without a valid current deadline
+      ---
+      duration_ms: 14.473958
+      type: 'test'
+      ...
+    # Subtest: keeps the old Worker's direct active-message insert compatible
+    ok 3 - keeps the old Worker's direct active-message insert compatible
+      ---
+      duration_ms: 11.494333
+      type: 'test'
+      ...
+    # Subtest: replays the saved turn after response loss and completion without duplicating content
+    ok 4 - replays the saved turn after response loss and completion without duplicating content
+      ---
+      duration_ms: 19.386416
+      type: 'test'
+      ...
+    # Subtest: lets only one concurrent request reserve a generation for the session
+    ok 5 - lets only one concurrent request reserve a generation for the session
+      ---
+      duration_ms: 17.759792
+      type: 'test'
+      ...
+    # Subtest: fences an abandoned attempt after its lease has expired and a retry takes over
+    ok 6 - fences an abandoned attempt after its lease has expired and a retry takes over
+      ---
+      duration_ms: 17.251625
+      type: 'test'
+      ...
+    # Subtest: serializes ending with a late response and refuses the late pair
+    ok 7 - serializes ending with a late response and refuses the late pair
+      ---
+      duration_ms: 21.853584
+      type: 'test'
+      ...
+    # Subtest: deletion purges receipts and prevents legacy inserts from resurrecting content
+    ok 8 - deletion purges receipts and prevents legacy inserts from resurrecting content
+      ---
+      duration_ms: 35.443708
+      type: 'test'
+      ...
+    # Subtest: checks elapsed time at commit even when status still says active
+    ok 9 - checks elapsed time at commit even when status still says active
+      ---
+      duration_ms: 14.836167
+      type: 'test'
+      ...
+    # Subtest: enforces ownership for content and receipts even when the other user is an admin
+    ok 10 - enforces ownership for content and receipts even when the other user is an admin
+      ---
+      duration_ms: 21.609375
+      type: 'test'
+      ...
+    # Subtest: combines ten short conversations into one batch and pins all of them with one save
+    ok 11 - combines ten short conversations into one batch and pins all of them with one save
+      ---
+      duration_ms: 71.944875
+      type: 'test'
+      ...
+    # Subtest: fits forty 1200-character messages into one batch and bounds tiny-message overhead
+    ok 12 - fits forty 1200-character messages into one batch and bounds tiny-message overhead
+      ---
+      duration_ms: 97.499209
+      type: 'test'
+      ...
+    # Subtest: resumes an old partial cursor and traverses long Unicode text without dropping any character
+    ok 13 - resumes an old partial cursor and traverses long Unicode text without dropping any character
+      ---
+      duration_ms: 44.431709
+      type: 'test'
+      ...
+    # Subtest: excludes live conversations and other avatars, and rejects the whole batch if one cursor is invalid
+    ok 14 - excludes live conversations and other avatars, and rejects the whole batch if one cursor is invalid
+      ---
+      duration_ms: 25.467083
+      type: 'test'
+      ...
+    # Subtest: keeps batch RPCs owner-only, including when the other owner is an admin
+    ok 15 - keeps batch RPCs owner-only, including when the other owner is an admin
+      ---
+      duration_ms: 24.397459
+      type: 'test'
+      ...
+    # Subtest: serializes competing batch saves and rejects an old Worker trying to overwrite newer memory
+    ok 16 - serializes competing batch saves and rejects an old Worker trying to overwrite newer memory
+      ---
+      duration_ms: 26.433083
+      type: 'test'
+      ...
+    # Subtest: rejects every cursor after deletion races with a multi-conversation generation
+    ok 17 - rejects every cursor after deletion races with a multi-conversation generation
+      ---
+      duration_ms: 39.900333
+      type: 'test'
+      ...
+    # Subtest: automatically covers all prior sessions, including more than three, and pins the full summary at start
+    ok 18 - automatically covers all prior sessions, including more than three, and pins the full summary at start
+      ---
+      duration_ms: 36.78375
+      type: 'test'
+      ...
+    # Subtest: never silently starts with incomplete history and does not consume a session on rejection
+    ok 19 - never silently starts with incomplete history and does not consume a session on rejection
+      ---
+      duration_ms: 14.403625
+      type: 'test'
+      ...
+    # Subtest: isolates avatar memories, sources and session copies from other owners including admins
+    ok 20 - isolates avatar memories, sources and session copies from other owners including admins
+      ---
+      duration_ms: 37.307208
+      type: 'test'
+      ...
+    # Subtest: resumes a long Unicode message without dropping the prefix or skipping later pages
+    ok 21 - resumes a long Unicode message without dropping the prefix or skipping later pages
+      ---
+      duration_ms: 33.223541
+      type: 'test'
+      ...
+    # Subtest: invalidates aggregate and pinned copies on deletion and fences an in-flight generation
+    ok 22 - invalidates aggregate and pinned copies on deletion and fences an in-flight generation
+      ---
+      duration_ms: 44.466041
+      type: 'test'
+      ...
+    # Subtest: requires an authenticated owner and exact confirmation for account erasure
+    ok 23 - requires an authenticated owner and exact confirmation for account erasure
+      ---
+      duration_ms: 8.94425
+      type: 'test'
+      ...
+    # Subtest: erases only the owner and all private data, including active work, while preserving audit and other accounts
+    ok 24 - erases only the owner and all private data, including active work, while preserving audit and other accounts
+      ---
+      duration_ms: 45.486708
+      type: 'test'
+      ...
+    # Subtest: prevents an in-flight reply from recreating data after account deletion commits
+    ok 25 - prevents an in-flight reply from recreating data after account deletion commits
+      ---
+      duration_ms: 21.923375
+      type: 'test'
+      ...
+    # Subtest: lets the Auth database role delete an account without private-table privileges
+    ok 26 - lets the Auth database role delete an account without private-table privileges
+      ---
+      duration_ms: 18.480292
+      type: 'test'
+      ...
+    # Subtest: lets an owner upsert and read only their own locale preference
+    ok 27 - lets an owner upsert and read only their own locale preference
+      ---
+      duration_ms: 11.343041
+      type: 'test'
+      ...
+    # Subtest: isolates locale preferences from other users, admins and anon
+    ok 28 - isolates locale preferences from other users, admins and anon
+      ---
+      duration_ms: 31.709875
+      type: 'test'
+      ...
+    1..28
+ok 2 - Session integrity against all migrations in real PostgreSQL
+  ---
+  duration_ms: 1951.486875
+  type: 'suite'
+  ...
+1..2
+# tests 41
+# suites 2
+# pass 41
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2005.394875

@@ -17,7 +17,10 @@ function context(result: unknown) {
 describe("avatar memory batch repository", () => {
   it("reads the bounded multi-conversation RPC and keeps absolute Unicode offsets", async () => {
     const { data, rpc } = context(work);
-    expect(await getOwnedAvatarMemoryWork(data, "cbt-guide")).toEqual({ ok: true, data: work });
+    expect(await getOwnedAvatarMemoryWork(data, "cbt-guide")).toEqual({
+      ok: true,
+      data: { ...work, forgottenPeople: [] },
+    });
     expect(rpc).toHaveBeenCalledWith("get_avatar_memory_batch", { p_avatar_id: "cbt-guide" });
   });
 

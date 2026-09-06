@@ -4,6 +4,7 @@ import AdminOverview from "@/components/admin/AdminOverview";
 import SignInForm from "@/components/auth/SignInForm";
 import AvatarChoiceForm from "@/components/modality/AvatarChoiceForm";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
+import PeopleCards from "@/components/people/PeopleCards";
 import SessionStartCard from "@/components/session/SessionStartCard";
 import TimedSession from "@/components/session/TimedSession";
 import type { AdminOverviewMetrics } from "@/lib/admin/types";
@@ -96,6 +97,38 @@ describe("islands rendered in English", () => {
     expect(picker).toContain("One situation, step by step");
     expect(picker).toContain("About the approach");
     expect(picker).toContain("separate fact from interpretation for a moment…”");
+  });
+
+  it("renders the people cards in English", () => {
+    const html = renderToStaticMarkup(
+      <PeopleCards
+        locale="en"
+        avatar={avatar.selected}
+        initialCards={[
+          {
+            id: "person-1",
+            avatarId: "cbt-guide",
+            name: "Marta",
+            nameLocked: false,
+            relation: "colleague",
+            relationLocked: false,
+            userNote: "",
+            createdAt: "2026-09-01T10:00:00.000Z",
+            firstMentionedAt: "2026-09-01T10:00:00.000Z",
+            lastMentionedAt: "2026-09-05T10:00:00.000Z",
+            mentionCount: 2,
+            facts: [],
+          },
+        ]}
+        peopleMemoryEnabled
+      />,
+    );
+
+    expect(html).toContain("People from your conversations");
+    expect(html).toContain("Marek remembers who the people you mention are to you.");
+    expect(html).toContain("2 conversations");
+    expect(html).toContain("last on");
+    expect(html).not.toMatch(/[ąćęłńóśźż]/);
   });
 
   it("renders the auth form and the admin overview in English", () => {

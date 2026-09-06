@@ -373,6 +373,7 @@ export const POST: APIRoute = async (context) => {
           cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
           recentMessages: toRecentSessionAiMessages(recentMessages.data),
           avatarMemory: approvedSummaries.avatarMemory,
+          peopleBrief: approvedSummaries.peopleBrief,
           approvedSummaries: approvedSummaries.data.map((summary) => ({
             summaryText: summary.summaryText,
             revision: summary.revision,

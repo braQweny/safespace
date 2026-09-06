@@ -10,8 +10,23 @@ export {
   getOwnedAvatarMemoryWork,
   saveOwnedAvatarMemoryWork,
   getOwnedSessionAvatarMemory,
+  getOwnedSessionPinnedContext,
   getOwnedAvatarMemoryPreview,
 } from "./avatar-memory";
+export {
+  deleteOwnedPersonFact,
+  disableAndDeleteOwnedPeopleMemory,
+  forgetOwnedPerson,
+  getOwnedPeopleMemoryWork,
+  getOwnedPersonCard,
+  hasOwnedPeopleRows,
+  listOwnedPersonCards,
+  readOwnedPeopleMemoryEnabled,
+  saveOwnedPeopleMemoryWork,
+  setOwnedPeopleMemoryEnabled,
+  updateOwnedPersonCard,
+  updateOwnedPersonFact,
+} from "./people-memory";
 export { claimSessionMessageTurn, completeSessionMessageTurn, releaseSessionMessageTurn } from "./message-turns";
 export { getOwnedAccountPlan, toOwnedAccountPlan } from "./account-plan";
 export {

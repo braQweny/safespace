@@ -738,6 +738,40 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
     );
     await owner.client.query("update public.therapy_sessions set status='completed' where id=$1", [historyId]);
     await saveMemory(owner, await memoryWork(owner), "Pamięć do skasowania");
+    // Karty osób: wszystkie siedem tabel musi zniknąć razem z kontem.
+    const peopleWork = (await owner.client.query("select public.get_people_memory_batch('cbt-guide') as work")).rows[0]
+      .work;
+    assert.equal(
+      (
+        await owner.client.query("select public.save_people_memory_batch('cbt-guide', $1, $2, $3) as saved", [
+          peopleWork.revision,
+          JSON.stringify([{ sessionId: historyId, sequenceIndex: 0, characterOffset: 20 }]),
+          JSON.stringify({
+            newPersons: [
+              {
+                name: "Marta",
+                relation: "koleżanka",
+                relationSourceSessionId: historyId,
+                facts: [{ kind: "who", text: "Z pracy.", sourceSessionId: historyId }],
+              },
+              {
+                name: "Ola",
+                relation: null,
+                relationSourceSessionId: null,
+                facts: [{ kind: "who", text: "Siostra.", sourceSessionId: historyId }],
+              },
+            ],
+            updates: [],
+          }),
+        ])
+      ).rows[0].saved,
+      true,
+    );
+    const olaCard = (
+      await owner.client.query("select public.list_person_cards('cbt-guide') as cards")
+    ).rows[0].cards.find((card) => card.name === "Ola");
+    assert.equal((await owner.client.query("select public.forget_person($1) as ok", [olaCard.id])).rows[0].ok, true);
+    await saveMemory(owner, await memoryWork(owner), "Pamięć po zapomnieniu");
     await owner.client.query(
       `insert into public.therapy_sessions(user_id, modality_id, avatar_id, uses_avatar_memory)
       values ($1, 'cbt', 'cbt-guide', true)`,
@@ -779,6 +813,13 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
       "avatar_memories",
       "avatar_memory_sources",
       "avatar_session_contexts",
+      "people_memories",
+      "people_memory_sources",
+      "people_persons",
+      "people_facts",
+      "people_fact_sources",
+      "people_person_mentions",
+      "people_exclusions",
       "user_avatar_choices",
       "user_preferences",
       "admin_user_profiles",

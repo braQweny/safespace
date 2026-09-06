@@ -1,0 +1,13 @@
+
+> safespace@0.0.1 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/pformela/projects/safespace
+
+
+ Test Files  122 passed (122)
+      Tests  1201 passed (1201)
+   Start at  18:42:53
+   Duration  2.32s (transform 4.75s, setup 0ms, import 12.12s, tests 4.16s, environment 6ms)
+

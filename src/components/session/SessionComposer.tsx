@@ -26,6 +26,8 @@ interface SessionComposerProps {
    * zaczynała się od nowa od szukania pola.
    */
   isPending: boolean;
+  /** Pole z prefillem z karty osoby dostaje fokus z kursorem na końcu zdania. */
+  autoFocus?: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -194,6 +196,7 @@ export default function SessionComposer({
   value,
   isDisabled,
   isPending,
+  autoFocus = false,
   onChange,
   onSubmit,
 }: SessionComposerProps) {
@@ -222,6 +225,16 @@ export default function SessionComposer({
   useEffect(() => {
     latestValueRef.current = value;
   }, [value]);
+
+  // Prefill z karty osoby: kursor na końcu zdania, żeby dało się je od razu
+  // dopisać albo skasować — bez przewijania strony do pola.
+  useEffect(() => {
+    if (!autoFocus) return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.focus({ preventScroll: true });
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  }, [autoFocus]);
 
   // Podpowiedź gaśnie sama — ma pomóc raz, a nie zostać ostrzeżeniem nad polem.
   useEffect(() => {

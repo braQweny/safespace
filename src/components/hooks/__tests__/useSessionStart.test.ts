@@ -21,6 +21,17 @@ describe("automatic memory preparation during start", () => {
     expect(progress.mock.calls).toEqual([[true], [true], [false]]);
   });
 
+  it("sends the chosen person card as the only body, and no body at all without one", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ ok: true, session: { id: "s" } }, { status: 201 }));
+    vi.stubGlobal("fetch", fetch);
+    await requestSessionStart(true, vi.fn());
+    expect(fetch.mock.calls[0][1]).not.toHaveProperty("body");
+    await requestSessionStart(true, vi.fn(), { aboutPersonId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a" });
+    expect(fetch.mock.calls[1][1]).toMatchObject({
+      body: JSON.stringify({ aboutPersonId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a" }),
+    });
+  });
+
   it("stops on failure or throttling, allowing a later click to resume saved progress", async () => {
     const fetch = vi
       .fn()

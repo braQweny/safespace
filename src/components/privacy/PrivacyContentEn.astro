@@ -1,6 +1,7 @@
 ---
 import PrivacyCrisisRegions from "@/components/privacy/PrivacyCrisisRegions.astro";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
+import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
 import { getSupportContact } from "@/lib/support-contact";
 
 /**
@@ -9,6 +10,9 @@ import { getSupportContact } from "@/lib/support-contact";
  * neutral and identical in both partials (a test keeps them in sync).
  */
 const support = getSupportContact();
+// People cards are described only while the feature ships; the same flag hides
+// the dashboard section and the extraction, so the page never promises more.
+const peopleMemory = isPeopleMemoryEnabled();
 ---
 
 <section id="what-is" class="scroll-mt-20">
@@ -87,6 +91,20 @@ const support = getSupportContact();
     language, earlier transcripts stay in the language they were written in, and the memory may be rewritten in the new
     one.
   </p>
+  {
+    peopleMemory ? (
+      <p class="text-ink-soft mt-3" data-people-memory>
+        If you keep “Remember people from conversations” switched on, the avatar also keeps short cards about the people
+        you mention: who they are to you, what you said about them, how you feel about it and what you would like to
+        change. Every entry comes only from your own words — the avatar does not assess anyone — and shows the
+        conversations it came from. You can correct a name or relation, fix or remove an entry, add your own note, or
+        ask the avatar to forget a person for good; forgetting also rebuilds the memory of earlier conversations without
+        that person, and the name stays on a private list so it is not recorded again. You can switch this off, or
+        switch it off and delete all cards, in the account settings. Like the conversation memory, the cards are kept
+        separately for each avatar and are produced by the same AI provider under the same zero-retention rules.
+      </p>
+    ) : null
+  }
 </section>
 
 <section id="deletion" class="scroll-mt-20">
@@ -102,6 +120,15 @@ const support = getSupportContact();
       the memory is rebuilt from the remaining conversations. This does not remove statements already saved in other
       conversations.
     </li>
+    {
+      peopleMemory ? (
+        <li data-people-memory>
+          Forgetting a person from their card removes the card, rebuilds the avatar memory without that person and stops
+          the avatar from recording that person again. Deleting a conversation also removes every card entry that came
+          from it. In the account settings you can delete all people cards at once and switch the feature off.
+        </li>
+      ) : null
+    }
     <li>
       You delete the whole account in the account settings: choose “Delete account” and confirm. Deletion covers the
       profile, all conversations, messages, summaries, avatar memory and saved settings. It cannot be undone.

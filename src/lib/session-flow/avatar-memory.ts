@@ -52,6 +52,8 @@ export async function prepareOwnedAvatarMemory(
     const response = await repository.generateSessionSummary({
       messages: batch.messages,
       continuityMemory: work.data.summaryText,
+      // Zapomniane osoby znikają także z pamięci prozą przy jej odbudowie.
+      forgottenPeople: work.data.forgottenPeople,
       modality: {
         ...getModalityPromptNames(modality.modalityId),
         summaryLensHint: modality.summaryLensHint,

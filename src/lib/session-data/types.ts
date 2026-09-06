@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase";
+import type { PeopleFactKind } from "@/lib/session-summary/people-memory-budget";
 
 export type SessionDataSupabaseClient = NonNullable<ReturnType<typeof createClient>>;
 
@@ -98,8 +99,45 @@ export interface SessionMetadata {
   usesApprovedContext: boolean;
   /** Nowe sesje otrzymują przypiętą kopię automatycznej pamięci awatara. */
   usesAvatarMemory?: boolean;
+  /** Karta osoby wybrana na start („Porozmawiaj o tej osobie”); tylko id, nigdy imię. */
+  aboutPersonId?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Karta osoby z rozmów — prywatna treść właściciela (jak wiadomości). Każdy
+ * wpis niesie rozmowy źródłowe, żeby interfejs pokazał pochodzenie, a
+ * usunięcie rozmowy usunęło dokładnie to, co z niej pochodziło.
+ */
+export interface PersonFactSource {
+  sessionId: SessionId;
+  conversationAt: string;
+}
+
+export interface PersonFact {
+  id: string;
+  kind: PeopleFactKind;
+  text: string;
+  /** Poprawione przez użytkownika: model tego nie zastąpi ani nie usunie. */
+  userEdited: boolean;
+  createdAt: string;
+  sources: PersonFactSource[];
+}
+
+export interface PersonCard {
+  id: string;
+  avatarId: SessionAvatarId;
+  name: string;
+  nameLocked: boolean;
+  relation: string | null;
+  relationLocked: boolean;
+  userNote: string;
+  createdAt: string;
+  firstMentionedAt: string | null;
+  lastMentionedAt: string | null;
+  mentionCount: number;
+  facts: PersonFact[];
 }
 
 export interface DeletedSessionTombstone {
@@ -200,6 +238,8 @@ export interface CreatePendingSessionInput {
   durationBucketSeconds?: SessionDurationBucketSeconds | null;
   usesApprovedContext?: boolean;
   usesAvatarMemory?: boolean;
+  /** Zwalidowana wcześniej karta właściciela z tej samej perspektywy. */
+  aboutPersonId?: string | null;
 }
 
 export interface ClaimFreeTrialSessionInput {

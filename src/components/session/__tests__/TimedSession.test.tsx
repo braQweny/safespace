@@ -86,6 +86,42 @@ describe("TimedSession", () => {
     expect(html).toContain(">Pomoc<");
   });
 
+  it("prefills the composer from a person card and hides the starters, but never in a finished conversation", () => {
+    const session = {
+      id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+      status: "active" as const,
+      startedAt: "2026-06-12T10:00:00.000Z",
+      endedAt: null,
+      expiresAt: "2026-06-12T10:15:00.000Z",
+      remainingSeconds: 600,
+      isTrial: true,
+      durationBucketSeconds: 900,
+    };
+    const activeState: SessionStartPageState = {
+      kind: "active",
+      trialAvailable: false,
+      avatar,
+      session,
+      messages: [],
+      messageFetchFailed: false,
+      approvedSummaries: [],
+      canStartWithoutContext: false,
+      sessionQuota: null,
+    };
+    const draft = "Dziś chcę porozmawiać o tej osobie: Marta (koleżanka z pracy).";
+    const html = renderToStaticMarkup(<TimedSession locale="pl" initialState={activeState} initialDraft={draft} />);
+    expect(html).toContain(draft);
+    expect(html).not.toContain("Możesz zacząć od jednego z tych zdań");
+    const finished = renderToStaticMarkup(
+      <TimedSession
+        locale="pl"
+        initialState={{ ...activeState, kind: "completed", session: { ...session, status: "completed" } }}
+        initialDraft={draft}
+      />,
+    );
+    expect(finished).not.toContain(draft);
+  });
+
   it("offers starter prompts until the user writes, not until the conversation is empty", () => {
     // Start zapisuje wiadomość otwierającą awatara, więc warunek „brak
     // wiadomości” chował podpowiedzi zawsze — także przed pierwszym zdaniem.

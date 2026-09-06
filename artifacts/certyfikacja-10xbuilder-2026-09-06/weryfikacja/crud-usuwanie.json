@@ -1,0 +1,22 @@
+{
+  "environment": "Local Supabase 127.0.0.1:54322",
+  "date": "2026-09-06",
+  "scope": "Wyłącznie konto demonstracyjne utworzone na potrzeby tego sprawdzenia",
+  "afterDeletion": {
+    "counts": {
+      "therapy_sessions": 1,
+      "session_messages": 0,
+      "session_summaries": 0,
+      "session_message_turns": 0,
+      "avatar_memory_sources": 0,
+      "avatar_session_contexts": 0
+    },
+    "states": [
+      {
+        "status": "deleted",
+        "modality_id": null,
+        "avatar_id": null
+      }
+    ]
+  }
+}

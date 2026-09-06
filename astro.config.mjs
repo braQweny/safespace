@@ -97,6 +97,10 @@ export default defineConfig({
       // Adres kontaktowy pokazywany użytkownikom (stopka, blokada konta, limit
       // sesji). Bez niego UI nie obiecuje kontaktu, którego nie ma.
       SUPPORT_EMAIL: envField.string({ context: "server", access: "public", optional: true }),
+      // Karty osób („Osoby z Twoich rozmów”): off|on. Wyłączone gasi ekstrakcję,
+      // sekcję na panelu i brief w prompcie; zarządzanie istniejącymi zapisami
+      // (zapomnienie, usunięcie) działa zawsze. Wartość spoza listy = off.
+      PEOPLE_MEMORY_MODE: envField.string({ context: "server", access: "public", optional: true }),
     },
   },
 });

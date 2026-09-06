@@ -28,6 +28,32 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       adminIntro:
         "This account has access to aggregate statistics. The admin panel does not show conversation content.",
       openAdmin: "Open the admin panel",
+      peopleMemory: {
+        title: "People from your conversations",
+        intro:
+          "The avatar keeps short cards about the people you mention: who they are to you, what you said, how you feel about it. Everything comes from your own words and stays private to your account.",
+        modeOffIntro:
+          "This feature is currently switched off. Cards saved earlier are still stored — you can delete them here.",
+        readFailed: "We couldn't read this setting. Refresh the page in a moment.",
+        toggleLegend: "Remember people from conversations",
+        on: "On",
+        off: "Off",
+        effects:
+          "Switching off stops the recording and detaches the cards from an ongoing conversation. After switching back on, the avatar records people only from new conversations.",
+        deleteAllSummary: "Switch off and delete all cards",
+        deleteAllBody:
+          "All people cards for every perspective are deleted and remembering is switched off. Conversation transcripts and the avatar memory stay unchanged. This cannot be undone.",
+        deleteAllConfirmLabel: "I understand that all cards will be deleted permanently.",
+        deleteAllSubmit: "Delete all cards",
+        status: {
+          saved: "The setting has been saved.",
+          save_failed: "The setting couldn't be saved. Please try again in a moment.",
+          deleted: "All people cards have been deleted and remembering is switched off.",
+          delete_failed: "The cards couldn't be deleted. Please try again in a moment.",
+          delete_confirmation_required: "Tick the confirmation before deleting the cards.",
+          unavailable: "Remembering people is currently unavailable, so it can't be switched on.",
+        },
+      },
     },
     delete: {
       pageTitle: "Delete account - SafeSpace",
@@ -84,6 +110,32 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       adminTitle: "Administracja",
       adminIntro: "To konto ma dostęp do statystyk zbiorczych. Panel administracyjny nie pokazuje treści rozmów.",
       openAdmin: "Otwórz panel administracyjny",
+      peopleMemory: {
+        title: "Osoby z Twoich rozmów",
+        intro:
+          "Awatar prowadzi krótkie karty osób, o których wspominasz: kim są dla Ciebie, co o nich mówisz, jak to przeżywasz. Wszystko pochodzi z Twoich słów i zostaje prywatne dla Twojego konta.",
+        modeOffIntro:
+          "Ta funkcja jest obecnie wyłączona. Zapisane wcześniej karty wciąż są przechowywane — możesz je tu usunąć.",
+        readFailed: "Nie udało się odczytać tego ustawienia. Odśwież stronę za chwilę.",
+        toggleLegend: "Zapamiętuj osoby z rozmów",
+        on: "Włączone",
+        off: "Wyłączone",
+        effects:
+          "Wyłączenie zatrzymuje zapisywanie i odłącza karty od trwającej rozmowy. Po ponownym włączeniu awatar zapisuje osoby tylko z nowych rozmów.",
+        deleteAllSummary: "Wyłącz i usuń wszystkie karty",
+        deleteAllBody:
+          "Usuniemy wszystkie karty osób dla każdej perspektywy i wyłączymy zapamiętywanie. Zapisy rozmów i pamięć awatara zostają bez zmian. Tej operacji nie można cofnąć.",
+        deleteAllConfirmLabel: "Rozumiem, że wszystkie karty zostaną trwale usunięte.",
+        deleteAllSubmit: "Usuń wszystkie karty",
+        status: {
+          saved: "Ustawienie zostało zapisane.",
+          save_failed: "Nie udało się zapisać ustawienia. Spróbuj ponownie za chwilę.",
+          deleted: "Wszystkie karty osób zostały usunięte, a zapamiętywanie wyłączone.",
+          delete_failed: "Nie udało się usunąć kart. Spróbuj ponownie za chwilę.",
+          delete_confirmation_required: "Zaznacz potwierdzenie, zanim usuniesz karty.",
+          unavailable: "Zapamiętywanie osób jest obecnie niedostępne, więc nie da się go włączyć.",
+        },
+      },
     },
     delete: {
       pageTitle: "Usuń konto - SafeSpace",

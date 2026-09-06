@@ -92,6 +92,14 @@ export interface SessionAiTurnCompletedEventMetadata extends SessionEventBaseMet
 
 export type SessionTranscriptionFailedEventMetadata = SessionProviderFailedEventMetadata;
 
+export interface SessionPeopleMemoryUpdatedEventMetadata extends SessionEventBaseMetadata {
+  provider?: SessionAiProvider;
+  inputUnits?: number;
+  outputUnits?: number;
+  /** Partia przyjęta mimo przepełnionej odpowiedzi przy najmniejszym podziale. */
+  partial?: boolean;
+}
+
 type SessionEventName = Extract<
   OperationalEvent["event"],
   | "session.start_attempted"
@@ -102,6 +110,7 @@ type SessionEventName = Extract<
   | "session.time_limit_reached"
   | "session.completed"
   | "session.opening_failed"
+  | "session.people_memory_updated"
 >;
 
 interface SafeSessionEventBase {
@@ -311,6 +320,32 @@ export function buildSessionAiTurnCompletedEvent(metadata: SessionAiTurnComplete
       userHash: metadata.userHash,
     }),
     provider,
+    ...(inputUnits !== undefined ? { inputUnits } : {}),
+    ...(outputUnits !== undefined ? { outputUnits } : {}),
+  };
+}
+
+/**
+ * Jedna zapisana partia kart osób: liczniki jednostek providera i czas, nigdy
+ * imiona, liczba osób ani identyfikatory. `partial` to jedyny kod powodu.
+ */
+export function buildSessionPeopleMemoryUpdatedEvent(
+  metadata: SessionPeopleMemoryUpdatedEventMetadata = {},
+): OperationalEvent {
+  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
+  const inputUnits = sanitizeUnitCount(metadata.inputUnits);
+  const outputUnits = sanitizeUnitCount(metadata.outputUnits);
+  const partial = metadata.partial === true;
+
+  return {
+    ...buildSessionEvent("session.people_memory_updated", partial ? "warn" : "info", {
+      requestId: metadata.requestId,
+      outcome: metadata.outcome ?? "success",
+      durationMs: metadata.durationMs,
+      userHash: metadata.userHash,
+    }),
+    provider,
+    ...(partial ? { reasonCode: "people_memory_partial" as const } : {}),
     ...(inputUnits !== undefined ? { inputUnits } : {}),
     ...(outputUnits !== undefined ? { outputUnits } : {}),
   };

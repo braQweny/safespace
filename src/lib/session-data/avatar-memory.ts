@@ -1,5 +1,6 @@
 import { isRecord } from "@/lib/type-guards";
 import { isWithinAvatarMemoryBudget } from "@/lib/session-summary/avatar-memory-budget";
+import type { ForgottenPerson } from "@/lib/session-summary/types";
 import { ok, sessionDataError, type SessionDataResult } from "./errors";
 import type { SessionAvatarId, SessionDataContext, SessionMetadata } from "./types";
 
@@ -7,6 +8,17 @@ export interface AvatarMemoryWork {
   revision: string;
   summaryText: string;
   messages: (AvatarMemoryCursor & { role: "user" | "assistant"; content: string })[];
+  /** Osoby, o których użytkownik kazał zapomnieć; odbudowa pamięci je pomija. */
+  forgottenPeople: ForgottenPerson[];
+}
+
+export function isForgottenPerson(value: unknown): value is ForgottenPerson {
+  return (
+    isRecord(value) &&
+    typeof value.name === "string" &&
+    value.name.length > 0 &&
+    (value.relation === null || typeof value.relation === "string")
+  );
 }
 
 export interface AvatarMemoryCursor {
@@ -68,10 +80,13 @@ export async function getOwnedAvatarMemoryWork(
   ) {
     return sessionDataError("read_failed");
   }
+  // Pole doszło w migracji kart osób; baza sprzed niej odpowiada bez niego.
+  const forgottenPeople = Array.isArray(value.forgottenPeople) ? value.forgottenPeople.filter(isForgottenPerson) : [];
   return ok({
     revision: value.revision,
     summaryText: value.summaryText,
     messages: value.messages,
+    forgottenPeople,
   });
 }
 
@@ -95,15 +110,36 @@ export async function getOwnedSessionAvatarMemory(
   context: SessionDataContext,
   session: Pick<SessionMetadata, "id" | "avatarId">,
 ): Promise<SessionDataResult<string>> {
+  const pinned = await getOwnedSessionPinnedContext(context, session);
+  return pinned.ok ? ok(pinned.data.avatarMemory) : pinned;
+}
+
+export interface SessionPinnedContext {
+  avatarMemory: string;
+  /** Brak = brief nie został przypięty (wyłączone, brak osób, sesja sprzed migracji). */
+  peopleBrief?: string;
+}
+
+/**
+ * Pamięć i brief kart osób z tej samej przypiętej kopii, jednym odczytem.
+ * Wyzerowany brief (`null`) oznacza „bez sekcji”, nigdy awarię.
+ */
+export async function getOwnedSessionPinnedContext(
+  context: SessionDataContext,
+  session: Pick<SessionMetadata, "id" | "avatarId">,
+): Promise<SessionDataResult<SessionPinnedContext>> {
   const { data, error } = await context.supabase
     .from("avatar_session_contexts")
-    .select("summary_text")
+    .select("summary_text,people_brief_text")
     .eq("session_id", session.id)
     .eq("user_id", context.user.id)
     .eq("avatar_id", session.avatarId)
     .maybeSingle();
   const value: unknown = data;
-  return error || !isRecord(value) || typeof value.summary_text !== "string"
-    ? sessionDataError("read_failed")
-    : ok(value.summary_text);
+  if (error || !isRecord(value) || typeof value.summary_text !== "string") return sessionDataError("read_failed");
+  const brief = value.people_brief_text;
+  return ok({
+    avatarMemory: value.summary_text,
+    ...(typeof brief === "string" && brief.trim().length > 0 ? { peopleBrief: brief } : {}),
+  });
 }

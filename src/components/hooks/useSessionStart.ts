@@ -57,15 +57,23 @@ export interface UseSessionStartOptions {
   locale: Locale;
 }
 
+export interface SessionStartRequestOptions {
+  /** Karta osoby, o której ma być rozmowa — trafia do briefu przypinanego przy starcie. */
+  aboutPersonId?: string | null;
+}
+
 /** 202 oznacza trwały postęp, nie rozpoczętą sesję. Każde żądanie ma własny limit czasu. */
 export async function requestSessionStart(
   isFollowupStart: boolean,
   onPreparing: (preparing: boolean) => void,
+  options: SessionStartRequestOptions = {},
 ): Promise<ApiJsonResult> {
   for (;;) {
     const result = await requestApiJson(isFollowupStart ? "/api/session/start-next" : "/api/session/start", {
       method: "POST",
       timeoutMs: 80_000,
+      // Bez karty nie ma body ani Content-Type — dokładnie jak dotąd.
+      ...(options.aboutPersonId ? { body: JSON.stringify({ aboutPersonId: options.aboutPersonId }) } : {}),
     });
     const preparing = isAvatarMemoryPreparing(result);
     onPreparing(preparing);
@@ -82,7 +90,7 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
   const [notice, setNotice] = useState<SessionStartNotice | null>(null);
   const stopMemoryPreparation = useAvatarMemoryPreparation(initialState.avatar.modality, kind === "followup_ready");
 
-  async function startSession() {
+  async function startSession(options: SessionStartRequestOptions = {}) {
     if (startingRef.current) {
       return;
     }
@@ -95,9 +103,11 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
       const isFollowupStart = kind === "followup_ready";
       if (isFollowupStart) {
         setIsPreparingMemory(true);
+        // Czekamy wyłącznie na partię pamięci; karty osób jadą osobną pętlą,
+        // na którą start nigdy nie czeka.
         await stopMemoryPreparation();
       }
-      const result = await requestSessionStart(isFollowupStart, setIsPreparingMemory);
+      const result = await requestSessionStart(isFollowupStart, setIsPreparingMemory, options);
 
       if (result.kind === "network_error") {
         setNotice({ title: notices.startFailedTitle, body: notices.connectionUnavailableBody });
@@ -118,6 +128,13 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
 
       if (isStartSessionFailure(body) && body.code === "summary_context_unavailable") {
         setNotice({ title: notices.memoryFailedTitle, body: notices.memoryFailedBody });
+        return;
+      }
+
+      // Nieaktualna karta osoby (usunięta, inna perspektywa): start bez niej
+      // nadal jest możliwy, więc stan karty startu zostaje bez zmian.
+      if (isStartSessionFailure(body) && body.code === "validation_failed") {
+        setNotice({ title: notices.startFailedTitle, body: notices.startFailedBody });
         return;
       }
 

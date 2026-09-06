@@ -53,6 +53,8 @@ export interface GenerateSessionResponseInput {
   recentMessages?: readonly SessionAiRecentMessage[];
   approvedSummaries?: readonly SessionAiApprovedSummaryContext[];
   avatarMemory?: string;
+  /** Przypięty brief kart osób z tej samej prywatnej kopii co pamięć awatara. */
+  peopleBrief?: string;
   /** Język odpowiedzi — język interfejsu w chwili żądania. */
   locale: Locale;
 }

@@ -27,6 +27,7 @@ export const OPERATIONAL_EVENT_NAMES = [
   "session.opening_failed",
   "session.ai_turn_completed",
   "session.transcription_failed",
+  "session.people_memory_updated",
 ] as const;
 
 export type OperationalEventName = (typeof OPERATIONAL_EVENT_NAMES)[number];
@@ -65,7 +66,8 @@ export type OperationalSessionReasonCode =
   | "interrupted"
   | "opening_provider_failed"
   | "opening_persistence_failed"
-  | "opening_unavailable";
+  | "opening_unavailable"
+  | "people_memory_partial";
 
 export type OperationalReasonCode =
   | AdminErrorCode

@@ -1,0 +1,19 @@
+Zgłaszam autorski projekt SafeSpace do certyfikacji 10xBuilder (moduły 1–3).
+
+SafeSpace to aplikacja full-stack do edukacyjnych rozmów z AI w pięciu perspektywach inspirowanych nurtami psychoterapii. Pomaga uporządkować myśli przed rozmową ze specjalistą. Jasno komunikuje, że nie jest terapią, diagnozą ani pomocą kryzysową.
+
+Stack: Astro SSR, React, TypeScript, Tailwind, Supabase Auth/PostgreSQL, OpenRouter oraz Cloudflare Workers. Aplikacja działa pod adresem https://safespace.safespace-ai.workers.dev/.
+
+Spełnienie wymagań:
+- Kontrola dostępu: logowanie e-mail/hasło i Google, chronione strony oraz dane przypisane właścicielowi przez RLS.
+- CRUD: tworzenie rozmów i wiadomości, odczyt historii, aktualizacja zapisanej perspektywy i stanu rozmowy oraz usuwanie rozmów wraz z ich prywatną treścią. Zapis rozmowy jest celowo tylko do odczytu; aktualizacja nie oznacza edycji historycznych wypowiedzi.
+- Logika biznesowa: limit czasu i liczby bezpłatnych rozmów, dobór perspektywy, decyzja bezpieczeństwa przed generowaniem AI, podsumowanie rozmowy oraz osobna pamięć wcześniejszych rozmów dla każdego awatara.
+- Dokumentacja procesu: context/foundation/prd.md, infrastructure.md, roadmap.md oraz plany i materiały w context/changes/. Plan ryzyk i istniejących testów dołączam jako test-plan.md.
+- Testy: 1201 testów Vitest, 41 testów migracji/RLS/współbieżności w rzeczywistym PostgreSQL oraz 4 testy Chromium w CI. Zestawy adresują m.in. dostęp do cudzych danych, trwałe usuwanie treści, ponawianie wiadomości, limity i działanie formularzy. CI sprawdza też lint, TypeScript, Astro i build.
+- AI w procesie pracy: wykorzystanie agentów do planowania, implementacji, przeglądu i weryfikacji; kontekst projektu i toolkit 10x są zachowane w repozytorium.
+
+Dołączone zrzuty przedstawiają lokalną aplikację ze świeżym kontem demonstracyjnym i fikcyjnym scenariuszem przygotowania prezentacji. Odpowiedź AI i podsumowanie powstały przez rzeczywistą integrację. Sprawdzono logowanie, zapis i zmianę perspektywy, rozmowę, zakończenie, historię po odświeżeniu, podsumowanie i trwałe usunięcie prywatnych rekordów. Screenshot testów pochodzi z GitHub Actions.
+
+Weryfikowana wersja: 282cea1701149bf038630779334f7a6356d5c1a2 (6 września 2026).
+Repozytorium: https://github.com/braQweny/safespace
+CI: https://github.com/braQweny/safespace/actions/runs/34043737394

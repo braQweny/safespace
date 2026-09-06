@@ -1,6 +1,7 @@
 ---
 import PrivacyCrisisRegions from "@/components/privacy/PrivacyCrisisRegions.astro";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
+import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
 import { getSupportContact } from "@/lib/support-contact";
 
 /**
@@ -9,6 +10,9 @@ import { getSupportContact } from "@/lib/support-contact";
  * neutralne i identyczne w obu partialach (pilnuje tego test).
  */
 const support = getSupportContact();
+// Karty osób opisujemy tylko wtedy, gdy funkcja jest włączona; ta sama flaga
+// chowa sekcję na panelu i ekstrakcję, więc strona nigdy nie obiecuje więcej.
+const peopleMemory = isPeopleMemoryEnabled();
 ---
 
 <section id="what-is" class="scroll-mt-20">
@@ -86,6 +90,20 @@ const support = getSupportContact();
     interfejsu wybranym w chwili rozmowy; po zmianie języka wcześniejsze zapisy zostają w języku, w którym powstały, a
     pamięć może zostać przepisana w nowym.
   </p>
+  {
+    peopleMemory ? (
+      <p class="text-ink-soft mt-3" data-people-memory>
+        Jeśli zostawisz włączone „Zapamiętuj osoby z rozmów”, awatar prowadzi też krótkie karty osób, o których
+        wspominasz: kim są dla Ciebie, co o nich mówisz, jak to przeżywasz i co chcesz zmienić. Każdy wpis powstaje
+        wyłącznie z Twoich słów — awatar nikogo nie ocenia — i pokazuje rozmowy, z których pochodzi. Możesz poprawić
+        imię albo relację, poprawić lub usunąć wpis, dopisać własną uwagę albo poprosić, żeby awatar trwale zapomniał o
+        danej osobie; zapomnienie odbudowuje też pamięć wcześniejszych rozmów bez tej osoby, a jej imię zostaje na
+        prywatnej liście, żeby nie zostało zapisane ponownie. Zapamiętywanie wyłączysz — albo wyłączysz i usuniesz
+        wszystkie karty — w ustawieniach konta. Tak jak pamięć rozmów, karty są osobne dla każdego awatara i powstają u
+        tego samego dostawcy AI na tych samych zasadach zerowej retencji.
+      </p>
+    ) : null
+  }
 </section>
 
 <section id="deletion" class="scroll-mt-20">
@@ -100,6 +118,15 @@ const support = getSupportContact();
       Usunięcie rozmowy kasuje też wspólną pamięć tego awatara i jej kopie używane jako kontekst. Przy następnym starcie
       pamięć zostanie odbudowana z pozostałych rozmów. Nie usuwa to wypowiedzi, które już zapisano w innych rozmowach.
     </li>
+    {
+      peopleMemory ? (
+        <li data-people-memory>
+          Zapomnienie osoby z jej karty usuwa kartę, odbudowuje pamięć awatara bez tej osoby i sprawia, że awatar nie
+          zapisze jej ponownie. Usunięcie rozmowy usuwa też każdy wpis karty, który z niej pochodził. W ustawieniach
+          konta usuniesz wszystkie karty naraz i wyłączysz tę funkcję.
+        </li>
+      ) : null
+    }
     <li>
       Całe konto usuniesz w ustawieniach konta: wybierz „Usuń konto” i potwierdź. Usunięcie obejmuje profil, wszystkie
       rozmowy, wiadomości, podsumowania, pamięć awatarów i zapisane ustawienia. Nie można go cofnąć. Zdarzenia

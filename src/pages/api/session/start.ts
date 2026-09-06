@@ -16,6 +16,7 @@ import {
 } from "@/lib/operational-visibility/session-events";
 import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
+import { readSessionStartRequestBody, resolveAboutPersonForStart } from "@/lib/session-flow/session-start-request";
 
 export const prerender = false;
 
@@ -26,6 +27,7 @@ type StartFailureCode =
   | CurrentAvatarChoiceErrorCode
   | "trial_unavailable"
   | "session_quota_unavailable"
+  | "validation_failed"
   | "session_start_failed";
 
 const SESSION_LIMIT_REDIRECT = "/dashboard?start=limit_reached";
@@ -105,6 +107,24 @@ export const POST: APIRoute = async (context) => {
     logStartAttempt("blocked", status, startedAtMs, operationalContext);
 
     return failureResponse(context, avatarChoice.error.code, status, "/dashboard/avatar");
+  }
+
+  // Pierwsza rozmowa nie ma jeszcze kart, więc `aboutPersonId` może tu tylko
+  // przejść walidację (cudza albo nieistniejąca karta → 400) — nigdzie nie trafia.
+  const startRequest = await readSessionStartRequestBody(context.request);
+  const aboutPerson = startRequest.ok
+    ? await resolveAboutPersonForStart(
+        sessionContext.data,
+        startRequest.aboutPersonId,
+        avatarChoice.data.modality.avatarId,
+      )
+    : { ok: false as const, code: "validation_failed" as const };
+
+  if (!aboutPerson.ok) {
+    const status = aboutPerson.code === "validation_failed" ? 400 : 503;
+    logStartAttempt("failure", status, startedAtMs, operationalContext);
+
+    return failureResponse(context, aboutPerson.code, status, "/dashboard");
   }
 
   // Pre-flight only: the insert trigger on therapy_sessions is the real gate,

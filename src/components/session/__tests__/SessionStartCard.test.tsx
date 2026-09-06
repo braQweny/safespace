@@ -2,7 +2,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { SessionQuota } from "@/lib/session-data/types";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
-import SessionStartCard, { formatRemainingFreeSessions, resolveAutoStartRequest } from "../SessionStartCard";
+import SessionStartCard, {
+  buildSessionHref,
+  formatRemainingFreeSessions,
+  resolveAutoStartRequest,
+} from "../SessionStartCard";
 import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
 
 vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
@@ -315,6 +319,7 @@ describe("resolveAutoStartRequest", () => {
       isRequested: false,
       shouldStart: false,
       nextSearch: "?avatar=updated",
+      aboutPersonId: null,
     });
   });
 
@@ -323,6 +328,7 @@ describe("resolveAutoStartRequest", () => {
       isRequested: true,
       shouldStart: true,
       nextSearch: "",
+      aboutPersonId: null,
     });
   });
 
@@ -331,6 +337,7 @@ describe("resolveAutoStartRequest", () => {
       isRequested: true,
       shouldStart: true,
       nextSearch: "?historyAvatar=cbt-guide",
+      aboutPersonId: null,
     });
   });
 
@@ -339,10 +346,24 @@ describe("resolveAutoStartRequest", () => {
       isRequested: true,
       shouldStart: false,
       nextSearch: "",
+      aboutPersonId: null,
     });
   });
 
   it("ignores any other value of the parameter", () => {
     expect(resolveAutoStartRequest("?start=later", true).isRequested).toBe(false);
+  });
+
+  it("carries a person card from the dashboard into the start and strips it from the address too", () => {
+    const personId = "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a";
+    expect(resolveAutoStartRequest(`?start=now&about=${personId}`, true)).toEqual({
+      isRequested: true,
+      shouldStart: true,
+      nextSearch: "",
+      aboutPersonId: personId,
+    });
+    expect(resolveAutoStartRequest("?start=now&about=marta", true).aboutPersonId).toBeNull();
+    expect(buildSessionHref("s", { aboutPersonId: personId })).toBe(`/dashboard/session?sessionId=s&about=${personId}`);
+    expect(buildSessionHref("s")).toBe("/dashboard/session?sessionId=s");
   });
 });

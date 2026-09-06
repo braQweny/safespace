@@ -8,6 +8,7 @@ import { getBillingCopy } from "@/lib/billing/copy";
 import type { SessionQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions, getPlanCopy, getPremiumSupportMailtoHref } from "@/lib/session-flow/plan-copy";
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
+import { parseSessionIdParam } from "@/lib/session-flow/session-id";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 import { getSessionStartCardCopy } from "./session-start-card-copy";
@@ -22,15 +23,18 @@ interface SessionStartCardProps {
   billingEnabled?: boolean;
 }
 
-export function buildSessionHref(sessionId: string) {
-  return `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
+/** Karta osoby jedzie dalej samym id (`about`), nigdy imieniem. */
+export function buildSessionHref(sessionId: string, options: { aboutPersonId?: string | null } = {}) {
+  const href = `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
+  return options.aboutPersonId ? `${href}&about=${encodeURIComponent(options.aboutPersonId)}` : href;
 }
 
 /**
- * Decyzja o starcie po „Zapisz i zacznij rozmowę” z ekranu wyboru perspektywy:
- * zapis wraca na panel z `?start=now`, bo kliknięcie padło już przy wyborze.
+ * Decyzja o starcie po „Zapisz i zacznij rozmowę” z ekranu wyboru perspektywy
+ * i po „Porozmawiaj o tej osobie” z karty: oba wracają na panel z `?start=now`,
+ * bo kliknięcie padło już gdzie indziej. Karta dokłada `about=<id>`.
  *
- * `nextSearch` to adres bez tego parametru i musi zostać zapisany ZANIM poleci
+ * `nextSearch` to adres bez tych parametrów i musi zostać zapisany ZANIM poleci
  * żądanie startu — inaczej odświeżenie panelu zużyłoby kolejną rozmowę z puli.
  * Przy wyczerpanej puli żądanie zostaje rozpoznane (`isRequested`), ale start
  * nie następuje: panel ma wtedy pokazać stan limitu, a nie startować mimo woli.
@@ -39,10 +43,12 @@ export function resolveAutoStartRequest(search: string, canStart: boolean) {
   const params = new URLSearchParams(search);
 
   if (params.get("start") !== "now") {
-    return { isRequested: false, shouldStart: false, nextSearch: search };
+    return { isRequested: false, shouldStart: false, nextSearch: search, aboutPersonId: null };
   }
 
   params.delete("start");
+  const aboutPersonId = parseSessionIdParam(params.get("about") ?? undefined);
+  params.delete("about");
 
   const remaining = params.toString();
 
@@ -50,6 +56,7 @@ export function resolveAutoStartRequest(search: string, canStart: boolean) {
     isRequested: true,
     shouldStart: canStart,
     nextSearch: remaining.length > 0 ? `?${remaining}` : "",
+    aboutPersonId,
   };
 }
 
@@ -111,11 +118,14 @@ function SessionStartCardView({
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
   const isHydrated = useIsHydrated();
+  // Karta osoby z „Porozmawiaj o tej osobie” — przekazana do startu i do adresu
+  // rozmowy, żeby prefill wjechał razem z pierwszym ekranem.
+  const aboutPersonRef = useRef<string | null>(null);
   const { kind, isStarting, isPreparingMemory, notice, startSession } = useSessionStart({
     initialState,
     locale,
     onStarted: (session) => {
-      window.location.assign(buildSessionHref(session.id));
+      window.location.assign(buildSessionHref(session.id, { aboutPersonId: aboutPersonRef.current }));
     },
   });
 
@@ -144,7 +154,8 @@ function SessionStartCardView({
       return;
     }
 
-    void startSession();
+    aboutPersonRef.current = autoStart.aboutPersonId;
+    void startSession({ aboutPersonId: autoStart.aboutPersonId });
   }, [canStart, isHydrated, isStarting, startSession]);
   // Rozmowa premium trwa dłużej, więc obietnica czasu musi iść za planem —
   // to samo źródło, z którego trasa startu liczy `expires_at`.

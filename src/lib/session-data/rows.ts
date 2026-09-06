@@ -20,7 +20,7 @@ import type {
 } from "./types";
 
 export const SESSION_SELECT =
-  "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,uses_approved_context,uses_avatar_memory,created_at,updated_at";
+  "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,uses_approved_context,uses_avatar_memory,about_person_id,created_at,updated_at";
 export const HISTORY_SESSION_SELECT = `${SESSION_SELECT},session_messages!inner(id)`;
 export const MESSAGE_SELECT = "id,session_id,user_id,role,sequence_index,content,created_at";
 export const SUMMARY_SELECT = "id,session_id,user_id,summary_text,status,is_visible,revision,created_at,updated_at";
@@ -48,6 +48,7 @@ export interface TherapySessionRow {
   duration_bucket_seconds: SessionDurationBucketSeconds | null;
   uses_approved_context: boolean;
   uses_avatar_memory?: boolean;
+  about_person_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -149,6 +150,7 @@ export function mapSession(row: TherapySessionRow): SessionMetadata {
     // existed still reports the previous carry-over behaviour.
     usesApprovedContext: row.uses_approved_context,
     usesAvatarMemory: row.uses_avatar_memory ?? false,
+    aboutPersonId: row.about_person_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

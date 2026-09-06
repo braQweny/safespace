@@ -19,15 +19,11 @@ import {
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 import { SessionSummaryError } from "./errors";
+import { assertCompleteSummaryResponse, buildSummaryProviderMetadata, extractFirstChoice } from "./provider-response";
 import { buildSessionSummaryMessages } from "./summary-prompt";
-import type {
-  GenerateSessionSummaryInput,
-  SessionSummaryFinishReason,
-  SessionSummaryProviderMetadata,
-  SessionSummaryResponse,
-  SessionSummaryPromptMessage,
-  SessionSummaryTokenUsage,
-} from "./types";
+import type { GenerateSessionSummaryInput, SessionSummaryResponse, SessionSummaryPromptMessage } from "./types";
+
+export { assertCompleteSummaryResponse, buildSummaryProviderMetadata } from "./provider-response";
 
 const OPENROUTER_SUMMARY_TIMEOUT_MS = 12_000;
 // A model that thinks before it writes needs longer than a plain chat model;
@@ -80,7 +76,7 @@ export async function generateSessionSummaryWithOpenRouter(
 
     return {
       summaryText: extractSummaryText(response),
-      providerMetadata: buildProviderMetadata(response, model),
+      providerMetadata: buildSummaryProviderMetadata(response, model),
     };
   } catch (error) {
     if (error instanceof SessionSummaryError) {
@@ -122,7 +118,7 @@ export function buildOpenRouterSummaryRequest(
  * which `assertCompleteSummaryResponse` rejects — every summary failed. Keep
  * this branch in step with `resolveSessionMaxCompletionTokens` in session-ai.
  */
-function resolveSummaryMaxCompletionTokens(model: string) {
+export function resolveSummaryMaxCompletionTokens(model: string) {
   if (isOpenRouterOxAlphaModel(model)) {
     return OPENROUTER_OX_ALPHA_SUMMARY_MAX_COMPLETION_TOKENS;
   }
@@ -147,7 +143,7 @@ function resolveSummaryMaxCompletionTokens(model: string) {
  * instead of its `medium` session default, which keeps hidden thinking (and
  * the bill) small without dropping the parameter that pins the budget.
  */
-function resolveSummaryReasoningEffort(model: string): OpenRouterReasoningEffort | undefined {
+export function resolveSummaryReasoningEffort(model: string): OpenRouterReasoningEffort | undefined {
   return isOpenRouterGpt56LunaModel(model) ? "low" : undefined;
 }
 
@@ -188,84 +184,4 @@ function extractSummaryText(responseBody: ChatResult) {
   }
 
   return summaryText;
-}
-
-function assertCompleteSummaryResponse(responseBody: ChatResult) {
-  const finishReason = parseFinishReason(responseBody);
-
-  if (finishReason === "length" || finishReason === "content_filter" || finishReason === "tool_calls") {
-    throw new SessionSummaryError("invalid_provider_response");
-  }
-}
-
-function buildProviderMetadata(responseBody: ChatResult, fallbackModel: string): SessionSummaryProviderMetadata {
-  const finishReason = parseFinishReason(responseBody);
-  const usage = parseUsage(responseBody);
-
-  return {
-    provider: "openrouter",
-    model: parseResponseModel(responseBody) ?? fallbackModel,
-    ...(finishReason ? { finishReason } : {}),
-    ...(usage ? { usage } : {}),
-  };
-}
-
-function extractFirstChoice(responseBody: ChatResult) {
-  const { choices } = responseBody;
-
-  if (choices.length === 0) {
-    throw new SessionSummaryError("invalid_provider_response");
-  }
-
-  return choices[0];
-}
-
-function parseResponseModel(responseBody: ChatResult) {
-  const model = responseBody.model.trim();
-
-  return model.length > 0 ? model : undefined;
-}
-
-function parseFinishReason(responseBody: ChatResult): SessionSummaryFinishReason | undefined {
-  const choice = extractFirstChoice(responseBody);
-  // The SDK types finishReason as a branded Unrecognized<string> union that
-  // equality checks cannot narrow; widen to plain string first.
-  const finishReason = choice.finishReason as string | undefined;
-
-  if (finishReason === "stop" || finishReason === "length" || finishReason === "content_filter") {
-    return finishReason;
-  }
-
-  if (finishReason === "tool_calls") {
-    return finishReason;
-  }
-
-  return typeof finishReason === "string" && finishReason.trim().length > 0 ? "unknown" : undefined;
-}
-
-function parseUsage(responseBody: ChatResult): SessionSummaryTokenUsage | undefined {
-  if (!responseBody.usage) {
-    return undefined;
-  }
-
-  const usage = {
-    ...parseTokenCount(responseBody.usage.promptTokens, "promptTokens"),
-    ...parseTokenCount(responseBody.usage.completionTokens, "completionTokens"),
-    ...parseTokenCount(responseBody.usage.totalTokens, "totalTokens"),
-  };
-
-  return Object.keys(usage).length > 0 ? usage : undefined;
-}
-
-function parseTokenCount<K extends keyof SessionSummaryTokenUsage>(
-  value: unknown,
-  key: K,
-): Pick<SessionSummaryTokenUsage, K> | Record<string, never> {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-    return {};
-  }
-
-  return {
-    [key]: Math.round(value),
-  } as Pick<SessionSummaryTokenUsage, K>;
 }

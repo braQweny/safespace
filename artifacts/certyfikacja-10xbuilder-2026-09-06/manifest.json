@@ -1,0 +1,69 @@
+{
+  "date": "2026-09-06",
+  "codeCommit": "282cea1701149bf038630779334f7a6356d5c1a2",
+  "tests": {
+    "localVitest": {
+      "passed": 1201,
+      "files": 122
+    },
+    "localPostgres": {
+      "passed": 41,
+      "failed": 0
+    },
+    "ciChromium": {
+      "passed": 4,
+      "failed": 0
+    }
+  },
+  "screenshots": [
+    {
+      "file": "screenshots/01-logowanie.jpg",
+      "width": 1526,
+      "height": 1078,
+      "bytes": 46629,
+      "sha256": "1f62935d67d6f2c195c142d74405ec56f6737abb92bd5fb2aa885f15aef9be2f"
+    },
+    {
+      "file": "screenshots/02-panel-po-zalogowaniu.jpg",
+      "width": 1511,
+      "height": 1121,
+      "bytes": 78174,
+      "sha256": "e46856aa9c3b987f921e2afea793ad4ade2957fac22753afac908b069ca2d26c"
+    },
+    {
+      "file": "screenshots/03-rozmowa-ai.jpg",
+      "width": 1526,
+      "height": 1078,
+      "bytes": 80327,
+      "sha256": "47fe58fdbb68d5b1ddacacf0b35a8016baa1823a959f2987a1c91b3c1c757065"
+    },
+    {
+      "file": "screenshots/04-historia-i-podsumowanie.jpg",
+      "width": 1526,
+      "height": 1078,
+      "bytes": 123914,
+      "sha256": "0782d33dc9af516af28abfb87461ad4c6e8b98c51ae21d8f0fe25836d5de622f"
+    },
+    {
+      "file": "screenshots/05-testy-ci.jpg",
+      "width": 1526,
+      "height": 1078,
+      "bytes": 81845,
+      "sha256": "66e8e5d73964b786284f69b20c1e36addb864c9c61737514f2c3c5f2c7070d11"
+    },
+    {
+      "file": "screenshots/06-wybor-perspektywy.jpg",
+      "width": 1526,
+      "height": 1078,
+      "bytes": 86605,
+      "sha256": "46ae5d28800263f8fbba83d9854302c5ba93ca910a66b3e1c73441cddcdba6e3"
+    },
+    {
+      "file": "screenshots/07-usuwanie-rozmowy.jpg",
+      "width": 1526,
+      "height": 1078,
+      "bytes": 101683,
+      "sha256": "e30819c4a0070592d78f96bd30314ecb6f9c7b97bac25067f2766d822ab7055e"
+    }
+  ]
+}

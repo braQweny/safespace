@@ -22,6 +22,7 @@ describe("isRateLimitedApiRequest", () => {
     expect(isRateLimitedApiRequest("POST", "/api/session/start")).toBe(true);
     expect(isRateLimitedApiRequest("POST", "/api/session/start-next")).toBe(true);
     expect(isRateLimitedApiRequest("POST", "/api/session/prepare-memory")).toBe(true);
+    expect(isRateLimitedApiRequest("POST", "/api/session/prepare-people")).toBe(true);
     expect(isRateLimitedApiRequest("POST", "/api/session/transcribe")).toBe(true);
   });
 

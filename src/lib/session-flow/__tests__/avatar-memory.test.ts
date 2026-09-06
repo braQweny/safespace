@@ -18,6 +18,7 @@ const work: AvatarMemoryWork = {
   revision: "revision-1",
   summaryText: "Ważny fakt z pierwszej rozmowy.",
   messages: [{ sessionId: "old-session", role: "user", content: "Fakt.", sequenceIndex: 0, characterOffset: 5 }],
+  forgottenPeople: [],
 };
 const response: SessionSummaryResponse = {
   summaryText: "Fakty ze wszystkich rozmów.",

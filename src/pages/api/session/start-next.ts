@@ -18,6 +18,7 @@ import {
 import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
 import { prepareOwnedAvatarMemory } from "@/lib/session-flow/avatar-memory";
+import { readSessionStartRequestBody, resolveAboutPersonForStart } from "@/lib/session-flow/session-start-request";
 
 export const prerender = false;
 
@@ -29,6 +30,7 @@ type StartNextFailureCode =
   | "summary_context_unavailable"
   | "session_quota_unavailable"
   | "no_context_not_confirmed"
+  | "validation_failed"
   | "session_start_failed";
 
 const SESSION_LIMIT_REDIRECT = "/dashboard?start=limit_reached";
@@ -115,6 +117,15 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, avatarChoice.error.code, status, "/dashboard/avatar");
   }
 
+  // Opcjonalne `{ aboutPersonId }` z karty osoby; brak body działa jak dotąd.
+  const startRequest = await readSessionStartRequestBody(context.request);
+
+  if (!startRequest.ok) {
+    logStartAttempt("failure", 400, startedAtMs, operationalContext);
+
+    return failureResponse(context, "validation_failed", 400, "/dashboard");
+  }
+
   // Pre-flight only: the insert trigger on therapy_sessions is the real gate.
   // Follow-ups count against the same allowance as the first session — a free
   // account gets FREE_PLAN_SESSION_LIMIT sessions in total, not per route.
@@ -152,6 +163,21 @@ export const POST: APIRoute = async (context) => {
     return jsonResponse({ ok: true, type: "avatar_memory_preparing" }, 202);
   }
 
+  // Karta musi należeć do właściciela i do tej perspektywy — trafia do briefu
+  // przypinanego przy insercie, więc sprawdzamy ją tuż przed nim.
+  const aboutPerson = await resolveAboutPersonForStart(
+    sessionContext.data,
+    startRequest.aboutPersonId,
+    avatarChoice.data.modality.avatarId,
+  );
+
+  if (!aboutPerson.ok) {
+    const status = aboutPerson.code === "validation_failed" ? 400 : 503;
+    logStartAttempt("failure", status, startedAtMs, operationalContext);
+
+    return failureResponse(context, aboutPerson.code, status, "/dashboard");
+  }
+
   // Pinned at start from the plan read above, so a grant or revoke mid-session
   // never stretches or cuts a conversation already under way.
   const durationSeconds = resolveSessionDurationSeconds(quota.data.plan);
@@ -168,6 +194,7 @@ export const POST: APIRoute = async (context) => {
     durationBucketSeconds: durationSeconds,
     usesApprovedContext: true,
     usesAvatarMemory: true,
+    aboutPersonId: aboutPerson.aboutPersonId,
   });
 
   if (!session.ok) {

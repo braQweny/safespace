@@ -22,10 +22,21 @@ export interface SessionSummaryModalityContext {
   summaryLensHint: string;
 }
 
+/**
+ * Osoba, o której użytkownik kazał zapomnieć (imię i relacja po normalizacji).
+ * Pamięć awatara i karty osób pomijają ją przy każdej kolejnej partii.
+ */
+export interface ForgottenPerson {
+  name: string;
+  relation: string | null;
+}
+
 export interface GenerateSessionSummaryInput {
   messages: readonly SessionSummaryConversationMessage[];
   /** Obecność (również pustego tekstu) włącza aktualizację pamięci całej historii awatara. */
   continuityMemory?: string;
+  /** Tylko w trybie pamięci: osoby do pominięcia i usunięcia z poprzedniej pamięci. */
+  forgottenPeople?: readonly ForgottenPerson[];
   modality?: SessionSummaryModalityContext;
   /** Język podsumowania — język interfejsu w chwili żądania. */
   locale: Locale;

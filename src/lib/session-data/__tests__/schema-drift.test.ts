@@ -5,6 +5,22 @@ import { FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
 import { FREE_PLAN_SESSION_LIMIT } from "../quota";
 import { LOCALES, type Locale } from "@/lib/i18n/locale";
 import { FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
+import {
+  PEOPLE_BATCH_MAX_CHARS,
+  PEOPLE_BATCH_MAX_MESSAGES,
+  PEOPLE_BATCH_MIN_CHARS,
+  PEOPLE_BRIEF_MAX_CHARS,
+  PEOPLE_BRIEF_MAX_FACTS,
+  PEOPLE_BRIEF_MAX_PERSONS,
+  PEOPLE_FACT_KINDS,
+  PEOPLE_FACT_MAX_CHARS,
+  PEOPLE_MAX_FACTS_PER_PERSON,
+  PEOPLE_MAX_PERSONS,
+  PEOPLE_NAME_MAX_CHARS,
+  PEOPLE_NOTE_MAX_CHARS,
+  PEOPLE_RELATION_MAX_CHARS,
+  type PeopleFactKind,
+} from "@/lib/session-summary/people-memory-budget";
 import type {
   SessionAvatarId,
   SessionDeletionReasonCode,
@@ -45,6 +61,11 @@ const USER_PREFERENCES_MIGRATION_PATH = resolve(
   "../../../../supabase/migrations/20260905090000_add_user_preferences.sql",
 );
 
+const PEOPLE_MEMORY_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260906120000_add_people_memory.sql",
+);
+
 // Every table the app touches through PostgREST with a user JWT, mapped to
 // the migration that carries its table-level revoke. Supabase's default
 // privileges grant `anon`/`authenticated` ALL on new tables, so a
@@ -60,6 +81,13 @@ const PRIVATE_TABLE_REVOKES = {
   "public.admin_user_profiles": PRIVILEGE_HARDENING_MIGRATION_PATH,
   "public.admin_audit_events": PRIVILEGE_HARDENING_MIGRATION_PATH,
   "public.user_preferences": USER_PREFERENCES_MIGRATION_PATH,
+  "public.people_memories": PEOPLE_MEMORY_MIGRATION_PATH,
+  "public.people_memory_sources": PEOPLE_MEMORY_MIGRATION_PATH,
+  "public.people_persons": PEOPLE_MEMORY_MIGRATION_PATH,
+  "public.people_facts": PEOPLE_MEMORY_MIGRATION_PATH,
+  "public.people_fact_sources": PEOPLE_MEMORY_MIGRATION_PATH,
+  "public.people_person_mentions": PEOPLE_MEMORY_MIGRATION_PATH,
+  "public.people_exclusions": PEOPLE_MEMORY_MIGRATION_PATH,
 } as const;
 
 function escapeRegExp(value: string) {
@@ -117,6 +145,7 @@ const bucketsCovered: AssertExhaustive<SessionDurationBucketSeconds, (typeof TS_
 const modalitiesCovered: AssertExhaustive<SessionModalityId, (typeof TS_MODALITY_IDS)[number]> = true;
 const avatarsCovered: AssertExhaustive<SessionAvatarId, (typeof TS_AVATAR_IDS)[number]> = true;
 const localesCovered: AssertExhaustive<Locale, (typeof LOCALES)[number]> = true;
+const factKindsCovered: AssertExhaustive<PeopleFactKind, (typeof PEOPLE_FACT_KINDS)[number]> = true;
 
 function readBoundaryMigration() {
   return readFileSync(BOUNDARY_MIGRATION_PATH, "utf8");
@@ -304,5 +333,61 @@ describe("user preferences migration", () => {
     expect(sql).toContain("references auth.users(id) on delete cascade");
     expect(sql).toContain("alter table public.user_preferences enable row level security");
     expect(sql).not.toContain("for delete");
+  });
+});
+
+describe("people memory migration", () => {
+  const sql = readFileSync(PEOPLE_MEMORY_MIGRATION_PATH, "utf8");
+
+  it("keeps the fact kinds equal to the ones the code knows", () => {
+    const body = extractConstraintBody(sql, "people_facts_kind_check");
+
+    expect(new Set(extractQuotedValues(body))).toEqual(new Set(PEOPLE_FACT_KINDS));
+    expect(factKindsCovered).toBe(true);
+    // The save function repeats the list inline; a new kind must reach both.
+    expect(sql.match(/in \('who', 'account', 'feeling', 'wish'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps the per-avatar, per-person and batch caps equal to the application constants", () => {
+    expect(sql).toContain(`v_max_persons constant integer := ${PEOPLE_MAX_PERSONS};`);
+    expect(sql).toContain(`v_max_facts constant integer := ${PEOPLE_MAX_FACTS_PER_PERSON};`);
+    expect(sql).toContain(`v_batch_min_chars constant integer := ${PEOPLE_BATCH_MIN_CHARS};`);
+    expect(sql).toContain(`v_batch_max_chars constant integer := ${PEOPLE_BATCH_MAX_CHARS};`);
+    expect(sql).toContain(`v_max_messages constant integer := ${PEOPLE_BATCH_MAX_MESSAGES};`);
+    expect(sql).toContain(`v_brief_max_chars constant integer := ${PEOPLE_BRIEF_MAX_CHARS};`);
+    expect(sql).toContain(`v_brief_max_persons constant integer := ${PEOPLE_BRIEF_MAX_PERSONS};`);
+    expect(sql).toContain(`v_brief_max_facts constant integer := ${PEOPLE_BRIEF_MAX_FACTS};`);
+    expect(sql).toContain(`length(people_brief_text) <= ${PEOPLE_BRIEF_MAX_CHARS}`);
+  });
+
+  it("keeps the column length checks equal to the application limits", () => {
+    expect(sql).toContain(`length(display_name) <= ${PEOPLE_NAME_MAX_CHARS}`);
+    expect(sql).toContain(`length(relation) <= ${PEOPLE_RELATION_MAX_CHARS}`);
+    expect(sql).toContain(`length(text) <= ${PEOPLE_FACT_MAX_CHARS}`);
+    expect(sql).toContain(`length(user_note) <= ${PEOPLE_NOTE_MAX_CHARS}`);
+  });
+
+  it("lets two people share a name and keeps the preference column additive with separate grants", () => {
+    // Identity is the UUID: "Marta from work" and "Marta, the cousin" are two rows.
+    expect(sql).not.toMatch(/unique[^;]*display_name/);
+    expect(sql).toContain("people_memory_enabled boolean not null default true");
+    expect(sql).toContain("alter table public.user_preferences alter column locale drop not null");
+    expect(sql).toContain("grant insert (people_memory_enabled) on table public.user_preferences to authenticated");
+    expect(sql).toContain("grant update (people_memory_enabled) on table public.user_preferences to authenticated");
+    expect(sql).toContain("grant insert (about_person_id) on public.therapy_sessions to authenticated");
+  });
+
+  it("keeps the replaced pin trigger's memory completeness check and adds the brief beside it", () => {
+    const trigger = sql.slice(sql.indexOf("create or replace function public.attach_avatar_session_context()"));
+
+    expect(trigger).toContain("raise exception 'avatar_memory_not_ready' using errcode = 'P0011'");
+    expect(trigger).toContain("private.render_people_brief(new.avatar_id, new.about_person_id)");
+    expect(trigger).toContain("raise exception 'invalid_about_person' using errcode = 'P0012'");
+  });
+
+  it("keeps the legacy memory batch signature and only adds the forgotten-people field", () => {
+    expect(sql).toContain("create or replace function public.get_avatar_memory_batch(p_avatar_id text)");
+    expect(sql).toContain("'forgottenPeople', private.list_forgotten_people(p_avatar_id)");
+    expect(sql).toContain("v_max_chars constant integer := 48000;");
   });
 });

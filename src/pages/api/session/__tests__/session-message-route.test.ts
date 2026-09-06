@@ -12,6 +12,8 @@ const getOwnedSessionMetadata = vi.fn();
 const listRecentOwnedSessionMessages = vi.fn();
 const listNewestApprovedSessionSummaryContexts = vi.fn();
 const getOwnedSessionAvatarMemory = vi.fn();
+const getOwnedSessionPinnedContext = vi.fn();
+const isPeopleMemoryEnabled = vi.fn(() => true);
 const transitionSessionLifecycle = vi.fn();
 const evaluateSessionSafety = vi.fn();
 const generateSessionResponse = vi.fn();
@@ -41,8 +43,14 @@ vi.mock("@/lib/session-data/repository", () => ({
   listRecentOwnedSessionMessages,
   listNewestApprovedSessionSummaryContexts,
   getOwnedSessionAvatarMemory,
+  getOwnedSessionPinnedContext,
   transitionSessionLifecycle,
   appendSessionMessages: vi.fn(),
+}));
+
+// `astro:env/server` nie istnieje w vitest; flaga kart osób przychodzi z atrapy.
+vi.mock("@/lib/session-flow/people-memory-mode", () => ({
+  isPeopleMemoryEnabled,
 }));
 
 vi.mock("@/lib/session-data/quota", () => ({
@@ -287,12 +295,17 @@ describe("POST /api/session/message", () => {
     expect(releaseSessionMessageTurn).not.toHaveBeenCalled();
   });
 
-  it("passes the session's pinned avatar memory after safety approval, without reading legacy summaries", async () => {
+  it("passes the session's pinned avatar memory and people brief after safety approval, without reading legacy summaries", async () => {
     getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesAvatarMemory: true }));
-    getOwnedSessionAvatarMemory.mockResolvedValue(ok("Fakty ze wszystkich poprzednich rozmów z Markiem."));
+    getOwnedSessionPinnedContext.mockResolvedValue(
+      ok({
+        avatarMemory: "Fakty ze wszystkich poprzednich rozmów z Markiem.",
+        peopleBrief: "- Marta (koleżanka z pracy)",
+      }),
+    );
     const response = await POST(createContext() as never);
     expect(response.status).toBe(200);
-    expect(getOwnedSessionAvatarMemory).toHaveBeenCalledWith(
+    expect(getOwnedSessionPinnedContext).toHaveBeenCalledWith(
       contextData,
       expect.objectContaining({ id: SESSION_ID, avatarId: "cbt-guide" }),
     );
@@ -300,6 +313,7 @@ describe("POST /api/session/message", () => {
     expect(generateSessionResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         avatarMemory: "Fakty ze wszystkich poprzednich rozmów z Markiem.",
+        peopleBrief: "- Marta (koleżanka z pracy)",
         approvedSummaries: [],
       }),
       undefined,
@@ -308,9 +322,21 @@ describe("POST /api/session/message", () => {
     expect(evaluateSessionSafety).toHaveBeenCalledBefore(generateSessionResponse);
   });
 
+  it("drops the pinned people brief while the people-cards flag is off", async () => {
+    isPeopleMemoryEnabled.mockReturnValueOnce(false);
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesAvatarMemory: true }));
+    getOwnedSessionPinnedContext.mockResolvedValue(
+      ok({ avatarMemory: "Pamięć bez kart.", peopleBrief: "- Marta (koleżanka z pracy)" }),
+    );
+    expect((await POST(createContext() as never)).status).toBe(200);
+    const [input] = generateSessionResponse.mock.calls[0] as [GenerateSessionResponseInput];
+    expect(input.avatarMemory).toBe("Pamięć bez kart.");
+    expect(input.peopleBrief).toBeUndefined();
+  });
+
   it("does not silently answer without history when reading the pinned avatar memory fails", async () => {
     getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesAvatarMemory: true }));
-    getOwnedSessionAvatarMemory.mockResolvedValue(sessionDataError("read_failed"));
+    getOwnedSessionPinnedContext.mockResolvedValue(sessionDataError("read_failed"));
     const response = await POST(createContext() as never);
     expect(response.status).toBe(503);
     expect(generateSessionResponse).not.toHaveBeenCalled();

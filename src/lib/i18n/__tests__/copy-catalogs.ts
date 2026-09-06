@@ -9,6 +9,7 @@ import { getAuthFormCopy } from "@/components/auth/auth-form-copy";
 import { getCrisisRegionListCopy } from "@/components/crisis-region-list-copy";
 import { getLocaleSwitchCopy } from "@/components/locale-switch-copy";
 import { getAvatarChoiceFormCopy } from "@/components/modality/avatar-choice-form-copy";
+import { getPeopleCardsCopy } from "@/components/people/people-cards-copy";
 import { getSessionHistoryCopy } from "@/components/modality/session-history-copy";
 import { getSessionSummaryPanelCopy } from "@/components/modality/session-summary-panel-copy";
 import { getCrisisHelpCopy } from "@/components/session/crisis-help-copy";
@@ -86,6 +87,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "admin-copy", read: getAdminCopy },
   { name: "avatar-choice-form-copy", read: getAvatarChoiceFormCopy },
   { name: "session-history-copy", read: getSessionHistoryCopy },
+  { name: "people-cards-copy", read: getPeopleCardsCopy },
   { name: "session-summary-panel-copy", read: getSessionSummaryPanelCopy },
   { name: "crisis-help-copy", read: getCrisisHelpCopy },
   { name: "crisis-region-list-copy", read: getCrisisRegionListCopy },

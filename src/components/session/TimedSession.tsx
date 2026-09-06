@@ -5,6 +5,7 @@ import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useTimedSession } from "@/components/hooks/useTimedSession";
 import { useVisualViewportBox } from "@/components/hooks/useVisualViewportBox";
 import { useAvatarMemoryPreparation } from "@/components/hooks/useAvatarMemoryPreparation";
+import { usePeopleMemoryPreparation } from "@/components/hooks/usePeopleMemoryPreparation";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
 import type { Locale } from "@/lib/i18n/locale";
@@ -30,7 +31,16 @@ interface TimedSessionProps {
    * zadaniem w historii — dlatego stan przychodzi już z serwera.
    */
   initialSummary?: LatestSessionSummaryState | null;
+  /**
+   * Zdanie z karty osoby („Porozmawiaj o tej osobie”), wstawione do pola przed
+   * pierwszą wiadomością. Użytkownik je edytuje i sam decyduje, co wyśle.
+   */
+  initialDraft?: string | null;
+  /** Po zakończonej rozmowie przygotuj w tle także karty osób (flaga funkcji). */
+  prepareCards?: boolean;
 }
+
+const noop = () => undefined;
 
 const subscribeNever = () => () => {
   // Dostępność schowka nie zmienia się po hydratacji.
@@ -107,22 +117,39 @@ function getSessionTotalSeconds(session: SessionView | null) {
   return Math.round((expiresAtMs - startedAtMs) / 1000);
 }
 
-export default function TimedSession({ locale, initialState, initialSummary = null }: TimedSessionProps) {
+export default function TimedSession({
+  locale,
+  initialState,
+  initialSummary = null,
+  initialDraft = null,
+  prepareCards = false,
+}: TimedSessionProps) {
   // Korzeń islandu: język przychodzi propsem z Astro i wchodzi do drzewa tutaj.
   return (
     <LocaleProvider locale={locale}>
-      <TimedSessionView initialState={initialState} initialSummary={initialSummary} />
+      <TimedSessionView
+        initialState={initialState}
+        initialSummary={initialSummary}
+        initialDraft={initialDraft}
+        prepareCards={prepareCards}
+      />
     </LocaleProvider>
   );
 }
 
-function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionProps, "locale">) {
+function TimedSessionView({
+  initialState,
+  initialSummary,
+  initialDraft = null,
+  prepareCards = false,
+}: Omit<TimedSessionProps, "locale">) {
   const locale = useLocale();
   const copy = getTimedSessionCopy(locale);
   const { boundaries } = getSessionCopy(locale);
   const stateCopy = copy.states;
   const { state, composerAvailable, handleExpired, setDraft, sendMessage, endSession } = useTimedSession(initialState, {
     locale,
+    initialDraft,
   });
   const {
     kind,
@@ -136,10 +163,11 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
     unsentText,
     notice,
   } = state;
-  useAvatarMemoryPreparation(
-    initialState.avatar.modality,
-    session !== null && (kind === "completed" || kind === "expired" || kind === "interrupted"),
-  );
+  const isFinished = session !== null && (kind === "completed" || kind === "expired" || kind === "interrupted");
+  useAvatarMemoryPreparation(initialState.avatar.modality, isFinished);
+  // Karty osób dojeżdżają osobną pętlą po pamięci; ten ekran nie ma czego
+  // odświeżać, więc bez wywołania zwrotnego.
+  usePeopleMemoryPreparation(initialState.avatar.modality, prepareCards && isFinished, noop);
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const [isCrisisHelpOpen, setIsCrisisHelpOpen] = useState(false);
   // Granice muszą być na widoku przez całą rozmowę, ale na telefonie trzy
@@ -193,8 +221,9 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
   }, []);
   const canEndSession = kind === "active" && session?.status === "active";
   // Zamknięcie karty z niewysłanym zdaniem w polu kasuje je bez śladu, więc
-  // przeglądarka pyta — dopóki rozmowa trwa i coś w polu stoi.
-  const shouldGuardDraft = canEndSession && draft.trim().length > 0;
+  // przeglądarka pyta — dopóki rozmowa trwa i coś w polu stoi. Nietknięty
+  // prefill z karty osoby to jeszcze nie słowa użytkownika.
+  const shouldGuardDraft = canEndSession && draft.trim().length > 0 && draft !== (initialDraft ?? "");
 
   useEffect(() => {
     if (!shouldGuardDraft) {
@@ -539,6 +568,7 @@ function TimedSessionView({ initialState, initialSummary }: Omit<TimedSessionPro
               value={draft}
               isDisabled={!composerAvailable}
               isPending={isMessagePending}
+              autoFocus={Boolean(initialDraft)}
               onChange={setDraft}
               onSubmit={() => {
                 void sendMessage();
