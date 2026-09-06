@@ -4,6 +4,7 @@ import {
   buildSessionAiProviderFailedEvent,
   buildSessionAiTurnCompletedEvent,
   buildSessionCompletedEvent,
+  buildSessionLensEvaluatedEvent,
   buildSessionPeopleMemoryUpdatedEvent,
   buildSessionSafetyEvaluatedEvent,
   buildSessionSafetyEvaluatedEventFromDecision,
@@ -38,6 +39,41 @@ describe("session operational event builders", () => {
       level: "warn",
       reasonCode: "people_memory_partial",
     });
+  });
+
+  it("reports a lens evaluation by result only — the label of the conversation's subject never becomes a field", () => {
+    const detected = buildSessionLensEvaluatedEvent({
+      requestId: "req-2",
+      result: "detected",
+      provider: "openrouter",
+      durationMs: 410.6,
+      inputUnits: 90,
+      outputUnits: 6,
+      lens: "work_burnout",
+      message: "private text",
+    } as Parameters<typeof buildSessionLensEvaluatedEvent>[0] & Record<string, unknown>);
+
+    expect(detected).toEqual({
+      event: "session.lens_evaluated",
+      level: "info",
+      requestId: "req-2",
+      outcome: "success",
+      durationMs: 411,
+      provider: "openrouter",
+      inputUnits: 90,
+      outputUnits: 6,
+    });
+    expect(JSON.stringify(detected)).not.toContain("work_burnout");
+    expect(buildSessionLensEvaluatedEvent({ result: "none" })).toMatchObject({ outcome: "skipped", level: "info" });
+    expect(buildSessionLensEvaluatedEvent({ result: "failed", reasonCode: "provider_timeout" })).toMatchObject({
+      outcome: "failure",
+      level: "warn",
+      reasonCode: "provider_timeout",
+    });
+    // A reason code only explains a failure; a success never carries one.
+    expect(buildSessionLensEvaluatedEvent({ result: "detected", reasonCode: "provider_timeout" })).not.toHaveProperty(
+      "reasonCode",
+    );
   });
 
   it("builds lifecycle events with only safe operational metadata", () => {

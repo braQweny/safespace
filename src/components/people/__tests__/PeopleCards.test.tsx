@@ -73,6 +73,23 @@ const marta: PersonCard = {
         { sessionId: SESSION_B, conversationAt: "2026-09-05T09:00:00.000Z" },
       ],
     },
+    // Rezultat wpisany przed próbą: oś czasu ma sortować po dacie rozmowy.
+    {
+      id: "fact-outcome",
+      kind: "outcome",
+      text: "Rozmowa się odbyła, było spokojnie.",
+      userEdited: false,
+      createdAt: "2026-09-05T10:00:00.000Z",
+      sources: [{ sessionId: SESSION_B, conversationAt: "2026-09-05T09:00:00.000Z" }],
+    },
+    {
+      id: "fact-attempt",
+      kind: "attempt",
+      text: "Porozmawiać z nią w cztery oczy.",
+      userEdited: false,
+      createdAt: "2026-09-05T10:00:01.000Z",
+      sources: [{ sessionId: SESSION_A, conversationAt: "2026-09-01T09:00:00.000Z" }],
+    },
   ],
 };
 
@@ -113,7 +130,22 @@ describe("PeopleCards", () => {
     expect(html).toContain("ostatnio 5 wrz 2026");
     expect(html).toContain("Otwórz kartę: Marta.");
     expect(html).not.toContain("Skomentowała pomysł");
+    expect(html).not.toContain("cztery oczy");
     expect(html).not.toContain("<dialog");
+  });
+
+  it("shows attempts and outcomes as one chronological timeline, each entry labelled with its kind", () => {
+    const html = render({ initialSelectedPersonId: "person-marta" });
+    expect(html).toContain("Próby i ich rezultaty");
+    expect(html).not.toContain(">Uzgodniona próba</h3>");
+    expect(html).toContain(">Uzgodniona próba</p>");
+    expect(html).toContain(">Późniejszy rezultat</p>");
+    expect(html.indexOf("Porozmawiać z nią w cztery oczy.")).toBeLessThan(
+      html.indexOf("Rozmowa się odbyła, było spokojnie."),
+    );
+    expect(html).toMatch(/<ol class="[^"]*"><li/);
+    // Zwykłe rodzaje zostają pogrupowane po rodzaju, przed osią czasu.
+    expect(html.indexOf("Z Twojego opisu")).toBeLessThan(html.indexOf("Próby i ich rezultaty"));
   });
 
   it("explains the empty, disabled and failed states with the avatar's first name", () => {

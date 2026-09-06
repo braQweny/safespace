@@ -101,6 +101,10 @@ export default defineConfig({
       // sekcję na panelu i brief w prompcie; zarządzanie istniejącymi zapisami
       // (zapomnienie, usunięcie) działa zawsze. Wartość spoza listy = off.
       PEOPLE_MEMORY_MODE: envField.string({ context: "server", access: "public", optional: true }),
+      // Soczewki tematyczne w rozmowie: off|on. Włączone uruchamia tani
+      // klasyfikator tematu równolegle z bezpieczeństwem (fail-open) i dokleja
+      // moduł „co słyszeć i o co pytać” do sekcji nurtu. Wartość spoza listy = off.
+      SESSION_LENS_MODE: envField.string({ context: "server", access: "public", optional: true }),
     },
   },
 });

@@ -26,6 +26,8 @@ interface PeopleCardsCopy {
   ownAccountNote: string;
   firstMentioned: (day: string) => string;
   kinds: Readonly<Record<PeopleFactKind, string>>;
+  /** Nagłówek osi czasu: próby i rezultaty razem, chronologicznie. */
+  timelineTitle: string;
   noFacts: string;
   provenance: (count: number) => string;
   provenanceUnknown: string;
@@ -85,7 +87,10 @@ const PEOPLE_CARDS_COPY = defineCopy<PeopleCardsCopy>(
       account: "From your account",
       feeling: "How you feel about it",
       wish: "What you'd like to change",
+      attempt: "Something you agreed to try",
+      outcome: "What came of it later",
     },
+    timelineTitle: "Attempts and what came of them",
     noFacts: "No entries yet.",
     provenance: (count) => plural("en", count, { one: "from the conversation on", many: "from the conversations on" }),
     provenanceUnknown: "from an earlier conversation",
@@ -157,7 +162,10 @@ const PEOPLE_CARDS_COPY = defineCopy<PeopleCardsCopy>(
       account: "Z Twojego opisu",
       feeling: "Jak to przeżywasz",
       wish: "Co chcesz zmienić",
+      attempt: "Uzgodniona próba",
+      outcome: "Późniejszy rezultat",
     },
+    timelineTitle: "Próby i ich rezultaty",
     noFacts: "Brak wpisów.",
     provenance: (count) => plural("pl", count, { one: "z rozmowy z dnia", many: "z rozmów z dni" }),
     provenanceUnknown: "z wcześniejszej rozmowy",

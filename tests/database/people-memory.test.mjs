@@ -637,6 +637,61 @@ describe("People cards against all migrations in real PostgreSQL", () => {
     assert.ok((await brief(owner, pinned)).startsWith("- Ola (siostra)"));
   });
 
+  it("records agreed attempts and later outcomes and ranks them right after who in the brief", async () => {
+    const owner = await premiumOwner();
+    const first = await endedSession(owner, ["Marta znowu.", "Spróbujesz z nią porozmawiać?", "Tak.", "Ok."]);
+    assert.equal(
+      await savePeople(owner, await peopleBatch(owner), {
+        newPersons: [
+          newPerson("Marta", "koleżanka z pracy", first, [
+            fact(first, "who", "Z zespołu."),
+            fact(first, "account", "Skomentowała pomysł."),
+            fact(first, "feeling", "Złość."),
+            fact(first, "wish", "Spokojnie reagować."),
+            fact(first, "attempt", "Porozmawiać z nią w cztery oczy."),
+            fact(first, "outcome", "Rozmowa się odbyła, było spokojnie."),
+            fact(first, "homework", "Nieznany rodzaj jest pomijany."),
+          ]),
+        ],
+        updates: [],
+      }),
+      true,
+    );
+    const [marta] = await cards(owner);
+    assert.deepEqual(
+      new Set(marta.facts.map((entry) => entry.kind)),
+      new Set(["who", "account", "feeling", "wish", "attempt", "outcome"]),
+    );
+    await assert.rejects(
+      owner.client.query(
+        `insert into public.people_facts(person_id, user_id, avatar_id, kind, text) values ($1, $2, $3, 'homework', 'x')`,
+        [marta.id, owner.userId, AVATAR],
+      ),
+      { code: "23514" },
+    );
+
+    const text = await brief(owner, await pinnedSession(owner));
+    const labels = [
+      "who they are to the user:",
+      "something the user agreed to try:",
+      "what the user later said came of it:",
+      "what the user would like to change:",
+      "what the user said happened:",
+    ];
+    const positions = labels.map((label) => text.indexOf(label));
+    assert.ok(
+      positions.every((position) => position >= 0),
+      text,
+    );
+    assert.deepEqual(
+      positions,
+      [...positions].sort((a, b) => a - b),
+    );
+    // Five of six kinds fit: the feeling is the one that yields to the timeline.
+    assert.ok(!text.includes("how the user feels about it:"), text);
+    assert.ok(text.includes("Porozmawiać z nią w cztery oczy.") && text.includes("Rozmowa się odbyła"));
+  });
+
   it("serializes a forget against a concurrent pin so no pinned brief carries a forgotten person", async () => {
     const owner = await premiumOwner();
     const first = await endedSession(owner, ["Marta i Ola.", "Ok."]);

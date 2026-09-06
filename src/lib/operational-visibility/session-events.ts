@@ -100,6 +100,18 @@ export interface SessionPeopleMemoryUpdatedEventMetadata extends SessionEventBas
   partial?: boolean;
 }
 
+/** Wynik wykrywania soczewki; etykieta tematu celowo nie jest polem zdarzenia. */
+export type SessionLensEvaluationResult = "detected" | "none" | "failed";
+
+export interface SessionLensEvaluatedEventMetadata extends SessionEventBaseMetadata {
+  result: SessionLensEvaluationResult;
+  provider?: SessionAiProvider;
+  /** Tylko przy `failed`: kategoria błędu providera, nigdy treść. */
+  reasonCode?: SessionProviderFailureReasonCode;
+  inputUnits?: number;
+  outputUnits?: number;
+}
+
 type SessionEventName = Extract<
   OperationalEvent["event"],
   | "session.start_attempted"
@@ -111,6 +123,7 @@ type SessionEventName = Extract<
   | "session.completed"
   | "session.opening_failed"
   | "session.people_memory_updated"
+  | "session.lens_evaluated"
 >;
 
 interface SafeSessionEventBase {
@@ -346,6 +359,36 @@ export function buildSessionPeopleMemoryUpdatedEvent(
     }),
     provider,
     ...(partial ? { reasonCode: "people_memory_partial" as const } : {}),
+    ...(inputUnits !== undefined ? { inputUnits } : {}),
+    ...(outputUnits !== undefined ? { outputUnits } : {}),
+  };
+}
+
+/**
+ * Jedno wykrywanie soczewki tematycznej: wynik, czas i liczniki jednostek.
+ * Sama etykieta mówi, o czym jest rozmowa, więc nigdy nie jest polem — nawet
+ * przekazana omyłkowo nie przechodzi przez ten builder.
+ */
+export function buildSessionLensEvaluatedEvent(metadata: SessionLensEvaluatedEventMetadata): OperationalEvent {
+  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
+  const outcome: SessionLifecycleOutcome =
+    metadata.result === "detected" ? "success" : metadata.result === "none" ? "skipped" : "failure";
+  const reasonCode =
+    outcome === "failure" && hasAllowedValue(SESSION_PROVIDER_FAILURE_REASON_CODES, metadata.reasonCode)
+      ? metadata.reasonCode
+      : undefined;
+  const inputUnits = sanitizeUnitCount(metadata.inputUnits);
+  const outputUnits = sanitizeUnitCount(metadata.outputUnits);
+
+  return {
+    ...buildSessionEvent("session.lens_evaluated", outcome === "failure" ? "warn" : "info", {
+      requestId: metadata.requestId,
+      outcome,
+      durationMs: metadata.durationMs,
+      userHash: metadata.userHash,
+    }),
+    provider,
+    ...(reasonCode ? { reasonCode } : {}),
     ...(inputUnits !== undefined ? { inputUnits } : {}),
     ...(outputUnits !== undefined ? { outputUnits } : {}),
   };

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
 import { FREE_PLAN_SESSION_LIMIT } from "../quota";
 import { LOCALES, type Locale } from "@/lib/i18n/locale";
+import { SESSION_LENS_IDS } from "@/lib/session-ai/session-lenses";
 import { FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 import {
   PEOPLE_BATCH_MAX_CHARS,
@@ -19,6 +20,7 @@ import {
   PEOPLE_NAME_MAX_CHARS,
   PEOPLE_NOTE_MAX_CHARS,
   PEOPLE_RELATION_MAX_CHARS,
+  PEOPLE_TIMELINE_KINDS,
   type PeopleFactKind,
 } from "@/lib/session-summary/people-memory-budget";
 import type {
@@ -64,6 +66,14 @@ const USER_PREFERENCES_MIGRATION_PATH = resolve(
 const PEOPLE_MEMORY_MIGRATION_PATH = resolve(
   __dirname,
   "../../../../supabase/migrations/20260906120000_add_people_memory.sql",
+);
+const PEOPLE_TIMELINE_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260906150000_add_people_fact_timeline_kinds.sql",
+);
+const SESSION_LENS_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260906160000_add_session_lens.sql",
 );
 
 // Every table the app touches through PostgREST with a user JWT, mapped to
@@ -339,13 +349,11 @@ describe("user preferences migration", () => {
 describe("people memory migration", () => {
   const sql = readFileSync(PEOPLE_MEMORY_MIGRATION_PATH, "utf8");
 
-  it("keeps the fact kinds equal to the ones the code knows", () => {
+  it("started with the four original fact kinds, which the timeline migration extends", () => {
     const body = extractConstraintBody(sql, "people_facts_kind_check");
 
-    expect(new Set(extractQuotedValues(body))).toEqual(new Set(PEOPLE_FACT_KINDS));
+    expect(new Set(extractQuotedValues(body))).toEqual(new Set(["who", "account", "feeling", "wish"]));
     expect(factKindsCovered).toBe(true);
-    // The save function repeats the list inline; a new kind must reach both.
-    expect(sql.match(/in \('who', 'account', 'feeling', 'wish'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
   it("keeps the per-avatar, per-person and batch caps equal to the application constants", () => {
@@ -356,7 +364,6 @@ describe("people memory migration", () => {
     expect(sql).toContain(`v_max_messages constant integer := ${PEOPLE_BATCH_MAX_MESSAGES};`);
     expect(sql).toContain(`v_brief_max_chars constant integer := ${PEOPLE_BRIEF_MAX_CHARS};`);
     expect(sql).toContain(`v_brief_max_persons constant integer := ${PEOPLE_BRIEF_MAX_PERSONS};`);
-    expect(sql).toContain(`v_brief_max_facts constant integer := ${PEOPLE_BRIEF_MAX_FACTS};`);
     expect(sql).toContain(`length(people_brief_text) <= ${PEOPLE_BRIEF_MAX_CHARS}`);
   });
 
@@ -389,5 +396,48 @@ describe("people memory migration", () => {
     expect(sql).toContain("create or replace function public.get_avatar_memory_batch(p_avatar_id text)");
     expect(sql).toContain("'forgottenPeople', private.list_forgotten_people(p_avatar_id)");
     expect(sql).toContain("v_max_chars constant integer := 48000;");
+  });
+});
+
+describe("people fact timeline migration", () => {
+  const sql = readFileSync(PEOPLE_TIMELINE_MIGRATION_PATH, "utf8");
+  const inlineKindList = "in ('who', 'account', 'feeling', 'wish', 'attempt', 'outcome')";
+
+  it("keeps the fact kinds equal to the ones the code knows, in the check and in every inline list of the save function", () => {
+    const check = /people_facts_kind_check\s+check \(kind in \(([^)]*)\)\)/.exec(sql);
+
+    expect(check).not.toBeNull();
+    expect(new Set(extractQuotedValues(check?.[1] ?? ""))).toEqual(new Set(PEOPLE_FACT_KINDS));
+    expect(new Set(PEOPLE_TIMELINE_KINDS)).toEqual(new Set(["attempt", "outcome"]));
+    // The check, replaceFacts, addFacts, the new-person guard and the new-person loop.
+    expect(sql.split(inlineKindList).length - 1).toBe(5);
+    expect(sql).not.toMatch(/in \('who', 'account', 'feeling', 'wish'\)/);
+  });
+
+  it("ranks attempts and outcomes right after who in the brief and keeps every cap equal to the constants", () => {
+    expect(sql).toContain(
+      "when 'who' then 0 when 'attempt' then 1 when 'outcome' then 2 when 'wish' then 3 when 'account' then 4 else 5 end",
+    );
+    expect(sql).toContain(`v_brief_max_chars constant integer := ${PEOPLE_BRIEF_MAX_CHARS};`);
+    expect(sql).toContain(`v_brief_max_persons constant integer := ${PEOPLE_BRIEF_MAX_PERSONS};`);
+    expect(sql).toContain(`v_brief_max_facts constant integer := ${PEOPLE_BRIEF_MAX_FACTS};`);
+    expect(sql).toContain(`v_max_persons constant integer := ${PEOPLE_MAX_PERSONS};`);
+    expect(sql).toContain(`v_max_facts constant integer := ${PEOPLE_MAX_FACTS_PER_PERSON};`);
+    for (const label of ["something the user agreed to try: ", "what the user later said came of it: "]) {
+      expect(sql).toContain(label);
+    }
+  });
+});
+
+describe("session lens migration", () => {
+  const sql = readFileSync(SESSION_LENS_MIGRATION_PATH, "utf8");
+
+  it("keeps the allowed lenses equal to the catalog and lets only the owner update the column", () => {
+    const body = extractConstraintBody(sql, "therapy_sessions_session_lens_check");
+
+    expect(new Set(extractQuotedValues(body))).toEqual(new Set(SESSION_LENS_IDS));
+    expect(sql).toContain("grant update (session_lens) on table public.therapy_sessions to authenticated");
+    // The label is prompt material about the conversation's subject: never an admin field.
+    expect(sql).not.toMatch(/admin/i);
   });
 });

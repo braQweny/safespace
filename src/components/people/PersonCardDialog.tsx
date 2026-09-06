@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Loader2, Pencil, Trash2, X } from "lucide-react";
 import type { PersonMutations } from "@/components/hooks/usePersonMutations";
 import { useLocale } from "@/components/hooks/useLocale";
 import { formatDay } from "@/lib/i18n/format";
 import type { PersonCard, PersonFact } from "@/lib/session-data/types";
 import { PEOPLE_LIMITS } from "@/lib/session-flow/people-contract";
-import { PEOPLE_FACT_KINDS, type PeopleFactKind } from "@/lib/session-summary/people-memory-budget";
+import {
+  PEOPLE_FACT_KINDS,
+  isPeopleTimelineKind,
+  type PeopleFactKind,
+} from "@/lib/session-summary/people-memory-budget";
 import { cn } from "@/lib/utils";
 import { getPeopleCardsCopy } from "./people-cards-copy";
 
@@ -37,10 +41,47 @@ export function buildTalkAboutHref(personId: string, resumeSessionId: string | n
     : `/dashboard?start=now&${about}`;
 }
 
-function groupFacts(facts: readonly PersonFact[]) {
+interface FactSection {
+  key: string;
+  title: string;
+  facts: PersonFact[];
+  /** Próby i rezultaty: jedna chronologiczna oś, z rodzajem przy każdym wpisie. */
+  timeline: boolean;
+}
+
+function earliestConversationTime(fact: PersonFact) {
+  const times = fact.sources.map((source) => Date.parse(source.conversationAt)).filter(Number.isFinite);
+  return times.length > 0 ? Math.min(...times) : Date.parse(fact.createdAt);
+}
+
+/** Zwykłe rodzaje grupowane po rodzaju; próby i rezultaty razem, po dacie rozmowy. */
+export function buildFactSections(
+  facts: readonly PersonFact[],
+  kinds: Readonly<Record<PeopleFactKind, string>>,
+  timelineTitle: string,
+): FactSection[] {
   const groups = new Map<PeopleFactKind, PersonFact[]>(PEOPLE_FACT_KINDS.map((kind) => [kind, []]));
-  for (const fact of facts) groups.get(fact.kind)?.push(fact);
-  return [...groups].filter(([, entries]) => entries.length > 0);
+  const timeline: PersonFact[] = [];
+  for (const fact of facts) {
+    if (isPeopleTimelineKind(fact.kind)) timeline.push(fact);
+    else groups.get(fact.kind)?.push(fact);
+  }
+  const sections: FactSection[] = [...groups]
+    .filter(([, entries]) => entries.length > 0)
+    .map(([kind, entries]) => ({ key: kind, title: kinds[kind], facts: entries, timeline: false }));
+  if (timeline.length > 0) {
+    sections.push({
+      key: "timeline",
+      title: timelineTitle,
+      facts: [...timeline].sort((a, b) => earliestConversationTime(a) - earliestConversationTime(b)),
+      timeline: true,
+    });
+  }
+  return sections;
+}
+
+function FactList({ ordered, children }: { ordered: boolean; children: ReactNode }) {
+  return ordered ? <ol className="mt-2 space-y-3">{children}</ol> : <ul className="mt-2 space-y-3">{children}</ul>;
 }
 
 export default function PersonCardDialog({
@@ -278,12 +319,16 @@ export default function PersonCardDialog({
         <p className="text-ink-muted mt-4 text-sm leading-6">{copy.noFacts}</p>
       ) : (
         <div className="mt-4 space-y-4">
-          {groupFacts(card.facts).map(([kind, facts]) => (
-            <section key={kind}>
-              <h3 className="text-brand-deep text-xs font-semibold tracking-[0.08em] uppercase">{copy.kinds[kind]}</h3>
-              <ul className="mt-2 space-y-3">
-                {facts.map((fact) => (
+          {buildFactSections(card.facts, copy.kinds, copy.timelineTitle).map((section) => (
+            <section key={section.key}>
+              <h3 className="text-brand-deep text-xs font-semibold tracking-[0.08em] uppercase">{section.title}</h3>
+              {/* Oś czasu jest uporządkowana, więc dostaje listę numerowaną. */}
+              <FactList ordered={section.timeline}>
+                {section.facts.map((fact) => (
                   <li key={fact.id} className="border-line rounded-xl border p-3">
+                    {section.timeline ? (
+                      <p className="text-ink-muted mb-1 text-xs font-semibold">{copy.kinds[fact.kind]}</p>
+                    ) : null}
                     {editingFactId === fact.id ? (
                       <form
                         onSubmit={(event) => {
@@ -407,7 +452,7 @@ export default function PersonCardDialog({
                     )}
                   </li>
                 ))}
-              </ul>
+              </FactList>
             </section>
           ))}
         </div>

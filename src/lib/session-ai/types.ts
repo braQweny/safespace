@@ -1,5 +1,6 @@
 import type { Locale } from "@/lib/i18n/locale";
 import type { SessionAiErrorCategory } from "./errors";
+import type { SessionLensId } from "./session-lenses";
 
 export type SessionAiProviderName = "openrouter";
 
@@ -55,6 +56,8 @@ export interface GenerateSessionResponseInput {
   avatarMemory?: string;
   /** Przypięty brief kart osób z tej samej prywatnej kopii co pamięć awatara. */
   peopleBrief?: string;
+  /** Soczewka tematyczna lepka na sesję; dokleja moduł „co słyszeć i o co pytać” do sekcji nurtu. */
+  sessionLens?: SessionLensId;
   /** Język odpowiedzi — język interfejsu w chwili żądania. */
   locale: Locale;
 }

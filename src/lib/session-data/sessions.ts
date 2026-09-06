@@ -3,6 +3,7 @@
  * tombstones. Import from `./repository` outside this directory.
  */
 import { isRecord } from "@/lib/type-guards";
+import type { SessionLensId } from "@/lib/session-ai/session-lenses";
 import {
   getStableSupabaseErrorCode,
   mapSupabaseReadError,
@@ -287,6 +288,34 @@ export async function transitionSessionLifecycle(
 
   const row = coerceSessionRow(data);
   return row ? ok(mapSession(row)) : sessionDataError("invalid_lifecycle_transition");
+}
+
+/**
+ * Przypina soczewkę tematyczną raz na sesję: tylko właściciel, tylko aktywna
+ * rozmowa i tylko pusta kolumna, więc późniejsza etykieta nigdy nie nadpisze
+ * pierwszej. `true` = zapisano, `false` = warunek nie zaszedł (sesja już ma
+ * soczewkę albo skończyła się w międzyczasie) — dla wywołującego to nie błąd.
+ */
+export async function setOwnedSessionLens(
+  context: SessionDataContext,
+  sessionId: SessionId,
+  lens: SessionLensId,
+): Promise<SessionDataResult<boolean>> {
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .update({ session_lens: lens })
+    .eq("id", sessionId)
+    .eq("user_id", context.user.id)
+    .eq("status", "active")
+    .is("session_lens", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  return ok(data !== null);
 }
 
 export async function readSafeSessionTombstone(

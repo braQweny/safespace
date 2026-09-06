@@ -40,6 +40,7 @@ export {
   listOwnedSessionMetadata,
   purgeAndTombstoneOwnedSession,
   readSafeSessionTombstone,
+  setOwnedSessionLens,
   transitionSessionLifecycle,
 } from "./sessions";
 export {

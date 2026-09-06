@@ -24,6 +24,21 @@ const input: GeneratePeopleMemoryInput = {
   ],
 };
 
+describe("buildPeopleMemorySystemPrompt", () => {
+  it("defines attempts and outcomes narrowly and keeps them apart on the timeline", () => {
+    const prompt = buildPeopleMemorySystemPrompt("pl", "Marek");
+    expect(prompt).toContain(
+      '"attempt" (a concrete step concerning this person that the user explicitly agreed or decided to try',
+    );
+    expect(prompt).toContain(
+      "a suggestion the assistant made, or one the user left open or declined, is never an attempt",
+    );
+    expect(prompt).toContain('"outcome" (what the user later reported actually came of such a step');
+    expect(prompt).toContain("only when the user told it, never what you would expect");
+    expect(prompt).toContain("An outcome never replaces an attempt: add it as a new fact");
+  });
+});
+
 describe("buildPeopleMemoryMessages", () => {
   it("sends the persons index with local refs only — never database ids or dates", () => {
     const messages = buildPeopleMemoryMessages(input);

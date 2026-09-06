@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LOCALES } from "@/lib/i18n/locale";
 import { MVP_MODALITIES } from "../../modalities";
 import { getModalityPromptNames } from "../../modality-copy";
+import { SESSION_LENS_IDS, getSessionLensGuidance } from "../session-lenses";
 import {
   buildSessionResponseMessages,
   buildSessionResponseSystemPrompt,
@@ -82,6 +83,9 @@ describe("buildSessionResponseMessages", () => {
       expect(content.indexOf("<<<end people>>>")).toBeLessThan(content.indexOf("## Locale"));
       expect(content).toContain(peopleBrief);
       expect(content).toContain("the user's perception and hypotheses, not facts about those people");
+      // An attempt without an outcome may be followed up, but never as the opener.
+      expect(content).toContain("you may ask lightly how it went once that person comes up");
+      expect(content).toContain("never as your opening question");
       expect(content).toContain("do not diagnose, label, or attribute motives to anyone who is not present");
       expect(content).toContain("ask which one they mean");
       expect(content).toContain("without assuming, whether anything has changed");
@@ -405,6 +409,32 @@ describe("MVP_MODALITIES session style hints", () => {
     expect(systemContent).toContain("- “two”");
     expect(systemContent).not.toContain("- “three”");
     expect(systemContent.indexOf("Register examples")).toBeGreaterThan(systemContent.indexOf("Avatar style guide:"));
+  });
+
+  it("appends the thematic lens inside the modality section, after the register examples, in both modes", () => {
+    for (const mode of ["reply", "opening"] as const) {
+      const content =
+        buildSessionResponseMessages({
+          ...input,
+          mode,
+          modality: { ...input.modality, registerExamples: ["hej"] },
+          sessionLens: "work_burnout",
+        })[0]?.content ?? "";
+
+      // Inside the modality section: after the register examples, before the next heading.
+      const modalityStart = content.indexOf("## Selected modality and avatar");
+      const modalitySection = content.slice(modalityStart, content.indexOf("\n## ", modalityStart + 1));
+      expect(modalitySection).toContain("Thematic lens for this conversation");
+      expect(modalitySection).toContain(getSessionLensGuidance("work_burnout"));
+      expect(modalitySection.indexOf("Thematic lens")).toBeGreaterThan(modalitySection.indexOf("Register examples"));
+      expect(modalitySection).toContain("never replaces the style guide or its Avoid section");
+    }
+  });
+
+  it("carries no lens lines without a session lens", () => {
+    const content = buildSessionResponseMessages(input)[0]?.content ?? "";
+    expect(content).not.toContain("Thematic lens");
+    for (const lens of SESSION_LENS_IDS) expect(content).not.toContain(getSessionLensGuidance(lens));
   });
 });
 

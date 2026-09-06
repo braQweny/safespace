@@ -6,6 +6,7 @@ import { buildOpenRouterSessionRequest } from "@/lib/session-ai/openrouter-sessi
 import { buildOpenRouterSummaryRequest } from "@/lib/session-summary/openrouter-summary";
 import { buildOpenRouterPeopleMemoryRequest } from "@/lib/session-summary/openrouter-people-memory";
 import { buildOpenRouterSafetyRequest } from "@/lib/session-safety/openrouter-classifier";
+import { buildOpenRouterSessionLensRequest } from "@/lib/session-lens/openrouter-lens-classifier";
 import type { GenerateSessionResponseInput } from "@/lib/session-ai/types";
 import type { GenerateSessionSummaryInput } from "@/lib/session-summary/types";
 import type { GeneratePeopleMemoryInput } from "@/lib/session-summary/people-memory-types";
@@ -119,10 +120,20 @@ describe("deployed OpenRouter models through every request builder", () => {
     }
   });
 
-  it("uses the same privacy-preserving Luna routing for safety, conversation and summary", () => {
+  it("gives the lens labeller, which shares the safety model, the same hidden-reasoning headroom", () => {
+    const request = buildOpenRouterSessionLensRequest({ currentUserMessage: "Czesc." }, safetyModel);
+
+    expect(request.responseFormat.type).toBe("json_schema");
+    if (request.reasoning) {
+      expect(request.maxCompletionTokens).toBeGreaterThanOrEqual(MIN_REASONING_SAFETY_TOKENS);
+    }
+  });
+
+  it("uses the same privacy-preserving Luna routing for safety, lens, conversation and summary", () => {
     const model = "openai/gpt-5.6-luna";
     const requests = [
       buildOpenRouterSafetyRequest({ currentUserMessage: "Czesc." }, model),
+      buildOpenRouterSessionLensRequest({ currentUserMessage: "Czesc." }, model),
       buildOpenRouterSessionRequest(sessionInput, model),
       buildOpenRouterSummaryRequest(summaryInput, model),
       buildOpenRouterPeopleMemoryRequest(peopleInput, model),

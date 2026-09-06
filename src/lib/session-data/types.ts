@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase";
 import type { PeopleFactKind } from "@/lib/session-summary/people-memory-budget";
+import type { SessionLensId } from "@/lib/session-ai/session-lenses";
 
 export type SessionDataSupabaseClient = NonNullable<ReturnType<typeof createClient>>;
 
@@ -101,6 +102,12 @@ export interface SessionMetadata {
   usesAvatarMemory?: boolean;
   /** Karta osoby wybrana na start („Porozmawiaj o tej osobie”); tylko id, nigdy imię. */
   aboutPersonId?: string | null;
+  /**
+   * Soczewka tematyczna lepka na sesję: nadana raz przez tani klasyfikator,
+   * czytana przez trasę wiadomości. Mówi, o czym jest rozmowa — nigdy do
+   * widoku klienta, logów ani agregatów operatora.
+   */
+  sessionLens?: SessionLensId | null;
   createdAt: string;
   updatedAt: string;
 }

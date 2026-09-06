@@ -28,6 +28,7 @@ export const OPERATIONAL_EVENT_NAMES = [
   "session.ai_turn_completed",
   "session.transcription_failed",
   "session.people_memory_updated",
+  "session.lens_evaluated",
 ] as const;
 
 export type OperationalEventName = (typeof OPERATIONAL_EVENT_NAMES)[number];

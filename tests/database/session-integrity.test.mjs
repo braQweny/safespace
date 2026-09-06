@@ -57,6 +57,34 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
     );
   });
 
+  it("lets only the owner pin one catalog lens on an active conversation, without touching the lifecycle", async () => {
+    const owner = await db.owner();
+    const other = await db.owner();
+    const sessionId = await activeSession(owner);
+    const pin = (client, lens) =>
+      client.query(
+        `update public.therapy_sessions set session_lens = $2
+         where id = $1 and status = 'active' and session_lens is null returning id`,
+        [sessionId, lens],
+      );
+
+    assert.equal((await pin(other.client, "work_burnout")).rowCount, 0);
+    await assert.rejects(pin(owner.client, "grief"), { code: "23514" });
+    assert.equal((await pin(owner.client, "work_burnout")).rowCount, 1);
+    // Sticky: a later label never overwrites the first.
+    assert.equal((await pin(owner.client, "anxiety_avoidance")).rowCount, 0);
+
+    await owner.client.query(
+      "update public.therapy_sessions set status = 'completed', ended_at = clock_timestamp() where id = $1",
+      [sessionId],
+    );
+    const { rows } = await db.admin.query("select session_lens, status from public.therapy_sessions where id = $1", [
+      sessionId,
+    ]);
+    assert.deepEqual(rows[0], { session_lens: "work_burnout", status: "completed" });
+    assert.equal((await pin(owner.client, "family_of_origin")).rowCount, 0);
+  });
+
   it("keeps the old Worker's direct active-message insert compatible", async () => {
     const owner = await db.owner();
     const sessionId = await activeSession(owner);

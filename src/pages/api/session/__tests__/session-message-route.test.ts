@@ -14,6 +14,9 @@ const listNewestApprovedSessionSummaryContexts = vi.fn();
 const getOwnedSessionAvatarMemory = vi.fn();
 const getOwnedSessionPinnedContext = vi.fn();
 const isPeopleMemoryEnabled = vi.fn(() => true);
+const isSessionLensEnabled = vi.fn(() => true);
+const detectSessionLens = vi.fn();
+const setOwnedSessionLens = vi.fn();
 const transitionSessionLifecycle = vi.fn();
 const evaluateSessionSafety = vi.fn();
 const generateSessionResponse = vi.fn();
@@ -45,7 +48,17 @@ vi.mock("@/lib/session-data/repository", () => ({
   getOwnedSessionAvatarMemory,
   getOwnedSessionPinnedContext,
   transitionSessionLifecycle,
+  setOwnedSessionLens,
   appendSessionMessages: vi.fn(),
+}));
+
+// Soczewka: flaga i wykrywanie z atrap — moduł wykrywania sięga do `astro:env/server`.
+vi.mock("@/lib/session-flow/session-lens-mode", () => ({
+  isSessionLensEnabled,
+}));
+
+vi.mock("@/lib/session-lens/detect-session-lens", () => ({
+  detectSessionLens,
 }));
 
 // `astro:env/server` nie istnieje w vitest; flaga kart osób przychodzi z atrapy.
@@ -266,6 +279,9 @@ describe("POST /api/session/message", () => {
       ]),
     );
     transitionSessionLifecycle.mockResolvedValue(ok({ ...activeSession, status: "interrupted" }));
+    isSessionLensEnabled.mockReturnValue(true);
+    detectSessionLens.mockResolvedValue({ outcome: "none", durationMs: 5 });
+    setOwnedSessionLens.mockResolvedValue(ok(true));
     evaluateSessionSafety.mockResolvedValue(allowDecision);
     generateSessionResponse.mockResolvedValue({
       assistantText: "Mozemy zaczac od nazwania najwazniejszych faktow.",
@@ -332,6 +348,74 @@ describe("POST /api/session/message", () => {
     const [input] = generateSessionResponse.mock.calls[0] as [GenerateSessionResponseInput];
     expect(input.avatarMemory).toBe("Pamięć bez kart.");
     expect(input.peopleBrief).toBeUndefined();
+  });
+
+  it("detects a thematic lens beside the classifier, pins it once and hands it to the reply, logging only the result", async () => {
+    detectSessionLens.mockResolvedValue({
+      outcome: "detected",
+      lens: "work_burnout",
+      durationMs: 320,
+      usage: { promptTokens: 90, completionTokens: 6 },
+    });
+    const response = await POST(createContext() as never);
+    expect(response.status).toBe(200);
+    expect(detectSessionLens).toHaveBeenCalledWith({
+      currentUserMessage: "Chce uporzadkowac mysli.",
+      recentUserMessages: [existingMessage.content],
+    });
+    expect(setOwnedSessionLens).toHaveBeenCalledWith(contextData, SESSION_ID, "work_burnout");
+    expect(generateSessionResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionLens: "work_burnout" }),
+      undefined,
+      expect.any(Object),
+    );
+    const lensEvent = logOperationalEvent.mock.calls
+      .map(([event]) => event as Record<string, unknown>)
+      .find((event) => event.event === "session.lens_evaluated");
+    expect(lensEvent).toMatchObject({ outcome: "success", provider: "openrouter", durationMs: 320, inputUnits: 90 });
+    expect(JSON.stringify(lensEvent)).not.toContain("work_burnout");
+  });
+
+  it("reuses a pinned lens without detecting again, and skips both while the lens flag is off", async () => {
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, sessionLens: "anxiety_avoidance" }));
+    expect((await POST(createContext() as never)).status).toBe(200);
+    expect(detectSessionLens).not.toHaveBeenCalled();
+    expect(setOwnedSessionLens).not.toHaveBeenCalled();
+    expect(generateSessionResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionLens: "anxiety_avoidance" }),
+      undefined,
+      expect.any(Object),
+    );
+
+    vi.clearAllMocks();
+    isSessionLensEnabled.mockReturnValue(false);
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, sessionLens: "anxiety_avoidance" }));
+    claimSessionMessageTurn.mockResolvedValue(ok({ kind: "claimed", attemptId: "attempt-2" }));
+    expect((await POST(createContext() as never)).status).toBe(200);
+    expect(detectSessionLens).not.toHaveBeenCalled();
+    const [input] = generateSessionResponse.mock.calls[0] as [GenerateSessionResponseInput];
+    expect(input.sessionLens).toBeUndefined();
+  });
+
+  it("fails open: a failed lens detection still yields an ordinary reply, and a hard stop pins nothing", async () => {
+    detectSessionLens.mockResolvedValue({ outcome: "failed", reasonCode: "provider_timeout", durationMs: 6000 });
+    expect((await POST(createContext() as never)).status).toBe(200);
+    expect(setOwnedSessionLens).not.toHaveBeenCalled();
+    const [failedInput] = generateSessionResponse.mock.calls[0] as [GenerateSessionResponseInput];
+    expect(failedInput.sessionLens).toBeUndefined();
+    expect(
+      logOperationalEvent.mock.calls
+        .map(([event]) => event as Record<string, unknown>)
+        .find((event) => event.event === "session.lens_evaluated"),
+    ).toMatchObject({ outcome: "failure", reasonCode: "provider_timeout" });
+
+    vi.clearAllMocks();
+    claimSessionMessageTurn.mockResolvedValue(ok({ kind: "claimed", attemptId: "attempt-3" }));
+    evaluateSessionSafety.mockResolvedValue(crisisDecision);
+    detectSessionLens.mockResolvedValue({ outcome: "detected", lens: "family_of_origin", durationMs: 200 });
+    expect((await POST(createContext() as never)).status).toBe(423);
+    expect(setOwnedSessionLens).not.toHaveBeenCalled();
+    expect(generateSessionResponse).not.toHaveBeenCalled();
   });
 
   it("does not silently answer without history when reading the pinned avatar memory fails", async () => {

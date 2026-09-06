@@ -13,6 +13,9 @@ import {
   type FailClosedSessionSafetyReasonCode,
 } from "@/lib/session-safety/reason-codes";
 import { MAX_SAFETY_RECENT_USER_MESSAGES } from "@/lib/session-safety/classifier-prompt";
+import { detectSessionLens } from "@/lib/session-lens/detect-session-lens";
+import type { SessionLensDetectionResult } from "@/lib/session-lens/types";
+import { isSessionLensEnabled } from "@/lib/session-flow/session-lens-mode";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import {
   getOwnedSessionMetadata,
@@ -20,6 +23,7 @@ import {
   transitionSessionLifecycle,
   claimSessionMessageTurn,
   releaseSessionMessageTurn,
+  setOwnedSessionLens,
 } from "@/lib/session-data/repository";
 import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
@@ -27,6 +31,7 @@ import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/
 import {
   buildSessionAiProviderFailedEvent,
   buildSessionAiTurnCompletedEvent,
+  buildSessionLensEvaluatedEvent,
   buildSessionSafetyEvaluatedEventFromDecision,
   buildSessionTimeLimitReachedEvent,
 } from "@/lib/operational-visibility/session-events";
@@ -87,6 +92,18 @@ function toRecentSafetyUserMessages(messages: readonly SessionMessageRecord[]) {
     .filter((message) => message.role === "user")
     .slice(-MAX_SAFETY_RECENT_USER_MESSAGES)
     .map((message) => message.content);
+}
+
+// Wynik wykrywania soczewki bez etykiety: zdarzenie mówi tylko, czy się udało.
+function toLensEvaluatedEvent(result: SessionLensDetectionResult) {
+  return buildSessionLensEvaluatedEvent({
+    result: result.outcome,
+    provider: "openrouter",
+    durationMs: result.durationMs,
+    ...(result.outcome === "failed" ? { reasonCode: result.reasonCode } : {}),
+    ...(result.outcome !== "failed" ? { inputUnits: result.usage?.promptTokens } : {}),
+    ...(result.outcome !== "failed" ? { outputUnits: result.usage?.completionTokens } : {}),
+  });
 }
 
 function unavailableResponse(): SendSessionMessageFailureResponse {
@@ -257,16 +274,24 @@ export const POST: APIRoute = async (context) => {
     // The safety decision gates everything below; the summary read is independent
     // of it and only costs a database round trip, so both run at once. Nothing is
     // generated or stored until the decision is in.
+    // The thematic lens is a cheap label detected alongside the classifier,
+    // only while the session has none yet. Fail-open by contract: a failure
+    // means a reply without a lens, never a refused turn. The same bounded
+    // user turns reach it as reach the safety classifier.
+    const recentUserMessages = toRecentSafetyUserMessages(recentMessages.data);
     const safetyStartedAtMs = performance.now();
-    const [decision, approvedSummaries] = await Promise.all([
+    const [decision, approvedSummaries, lensResult] = await Promise.all([
       evaluateSessionSafety({
         currentUserMessage: messageRequest.message,
-        recentUserMessages: toRecentSafetyUserMessages(recentMessages.data),
+        recentUserMessages,
         metadata: {
           locale,
         },
       }),
       loadOwnedSessionContinuity(sessionContext.data, session),
+      isSessionLensEnabled() && !session.sessionLens
+        ? detectSessionLens({ currentUserMessage: messageRequest.message, recentUserMessages })
+        : Promise.resolve(null),
     ]);
 
     logOperationalEvent(
@@ -279,6 +304,10 @@ export const POST: APIRoute = async (context) => {
       },
       operationalContext,
     );
+
+    if (lensResult) {
+      logOperationalEvent({ ...toLensEvaluatedEvent(lensResult), status: 200 }, operationalContext);
+    }
 
     if (decision.action === "hard_stop") {
       // The boundary could not decide (outage, malformed reply, missing config):
@@ -314,6 +343,14 @@ export const POST: APIRoute = async (context) => {
 
     if (!approvedSummaries.ok) {
       return jsonResponse(unavailableResponse(), 503);
+    }
+
+    // Sticky for the rest of the session. The write is best effort: if it fails
+    // the next turn simply detects again; this reply already uses the lens.
+    let sessionLens = isSessionLensEnabled() ? (session.sessionLens ?? undefined) : undefined;
+    if (lensResult?.outcome === "detected") {
+      sessionLens = lensResult.lens;
+      await setOwnedSessionLens(sessionContext.data, session.id, lensResult.lens);
     }
 
     // The ceiling follows the configured reasoning effort (a forced `xhigh`
@@ -374,6 +411,7 @@ export const POST: APIRoute = async (context) => {
           recentMessages: toRecentSessionAiMessages(recentMessages.data),
           avatarMemory: approvedSummaries.avatarMemory,
           peopleBrief: approvedSummaries.peopleBrief,
+          ...(sessionLens ? { sessionLens } : {}),
           approvedSummaries: approvedSummaries.data.map((summary) => ({
             summaryText: summary.summaryText,
             revision: summary.revision,
