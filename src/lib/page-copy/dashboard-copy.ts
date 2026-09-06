@@ -33,8 +33,6 @@ const DASHBOARD_COPY = defineCopy(
     remainingAbout: (minutes: number) => `About ${minutes} min left.`,
     openTimed: "You have an open conversation with a time limit.",
     helpTitle: "If something urgent is happening",
-    helpEmergency: "Emergency number (Poland and the EU), in an immediate danger",
-    helpCrisisLine: "Support line for adults in a mental health crisis (Poland)",
   },
   {
     pageTitle: "Panel - SafeSpace",
@@ -64,8 +62,6 @@ const DASHBOARD_COPY = defineCopy(
     remainingAbout: (minutes) => `Zostało jeszcze około ${minutes} min.`,
     openTimed: "Masz otwartą rozmowę z limitem czasu.",
     helpTitle: "Gdyby działo się coś pilnego",
-    helpEmergency: "Numer alarmowy, w nagłym zagrożeniu",
-    helpCrisisLine: "Wsparcie dla dorosłych w kryzysie psychicznym",
   },
 );
 

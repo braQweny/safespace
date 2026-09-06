@@ -1,6 +1,9 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { LOCALES } from "@/lib/i18n/locale";
-import { getCrisisResourceCatalog } from "../crisis-resources";
+import { getDialableNumber } from "../crisis-contact-links";
+import { getCrisisResourceCatalog, getCrisisResourceRegions } from "../crisis-resources";
 import { evaluateSessionSafety } from "../evaluate-session-safety";
 import type { ProviderSafetyDecision, SessionSafetyProvider } from "../provider";
 
@@ -20,6 +23,17 @@ const crisisProvider: SessionSafetyProvider = {
   ),
 };
 
+const SRC_ROOT = resolve(__dirname, "../../..");
+const CATALOG_PATH = resolve(__dirname, "../crisis-resources.ts");
+
+/** Każdy plik źródłowy poza testami, który może renderować albo opisywać UI. */
+function listSourceFiles() {
+  return readdirSync(SRC_ROOT, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.(astro|tsx|ts)$/.test(entry.name))
+    .map((entry) => resolve(entry.parentPath, entry.name))
+    .filter((path) => !path.includes("__tests__") && path !== CATALOG_PATH);
+}
+
 describe("crisis resources", () => {
   it("keeps Poland, United States, and local fallback entries with identical numbers in every language", () => {
     for (const locale of LOCALES) {
@@ -30,6 +44,39 @@ describe("crisis resources", () => {
       expect(catalog.us.contacts.map((contact) => contact.value)).toEqual(["988", "911"]);
       expect(catalog.local_fallback.contacts).toHaveLength(1);
     }
+  });
+
+  it("links every real number and never the local guidance placeholder", () => {
+    for (const locale of LOCALES) {
+      for (const region of getCrisisResourceRegions(locale)) {
+        for (const contact of region.contacts) {
+          const dialable = getDialableNumber(contact);
+
+          if (contact.kind === "local_guidance") {
+            expect(dialable).toBeNull();
+          } else {
+            expect(dialable).toBe(contact.value.replace(/\s/g, ""));
+          }
+        }
+      }
+    }
+  });
+
+  // Panel i landing miały kiedyś 112 i 800 70 2222 wpisane w szablon, więc
+  // angielski interfejs pokazywał wyłącznie polskie numery. Każdy ekran ma
+  // brać numery z katalogu — wtedy język etykiet i zestaw regionów idą razem.
+  it("keeps every crisis number out of templates and copy modules outside the catalog", () => {
+    const numbers = getCrisisResourceRegions("en")
+      .flatMap((region) => region.contacts)
+      .map(getDialableNumber)
+      .filter((value): value is string => value !== null);
+    const forms = numbers.flatMap((digits) => [digits, digits.replace(/(\d{3})(\d{2})(\d{4})/, "$1 $2 $3")]);
+    const pattern = new RegExp(`(^|[^\\d])(${forms.join("|")})(?![\\d])`);
+    const offenders = listSourceFiles()
+      .filter((path) => pattern.test(readFileSync(path, "utf8")))
+      .map((path) => relative(SRC_ROOT, path));
+
+    expect(offenders).toEqual([]);
   });
 
   it("returns Polish hard-stop resources without claiming SafeSpace contacted emergency services", async () => {

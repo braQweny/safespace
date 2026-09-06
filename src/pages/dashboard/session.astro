@@ -3,6 +3,7 @@ import Layout from "@/layouts/Layout.astro";
 import TimedSession from "@/components/session/TimedSession";
 import { getLatestOwnedSessionSummaryState } from "@/lib/session-data/repository";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
+import { getSessionCopy } from "@/lib/session-copy";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { readSessionStartPageState } from "@/lib/session-flow/session-state";
@@ -45,7 +46,7 @@ if (activeSession && pageState.kind !== "active") {
 }
 ---
 
-<Layout title="Rozmowa - SafeSpace">
+<Layout title={getSessionCopy(Astro.locals.locale).pageTitle}>
   {
     /*
     Jedyna strona bez `AppHeader`: rozmowa ma własny pasek, a dwa nagłówki jeden

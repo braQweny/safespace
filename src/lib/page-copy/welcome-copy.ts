@@ -32,9 +32,7 @@ interface WelcomeCopy {
   boundariesTitle: string;
   boundariesBody: string;
   boundaries: readonly string[];
-  crisisBefore: string;
-  crisisMiddle: string;
-  crisisAfter: string;
+  crisisLead: string;
   finalTitleSignedIn: string;
   finalTitleSignedOut: string;
   finalBodySignedIn: string;
@@ -91,9 +89,8 @@ const WELCOME_COPY = defineCopy<WelcomeCopy>(
       "The conversation is a simulation and educational support, not medical advice.",
       "In immediate danger you need contact with real help, not with an app.",
     ],
-    crisisBefore: "If you are in immediate danger, call",
-    crisisMiddle: "or contact local crisis help (",
-    crisisAfter: "), a helpline or a professional. Don't wait for the app to reply.",
+    crisisLead:
+      "If you are in immediate danger, call your local emergency number or contact a crisis line, a helpline or a professional. Don't wait for the app to reply.",
     finalTitleSignedIn: "Return to your conversations",
     finalTitleSignedOut: "Time for a first step?",
     finalBodySignedIn: "Choose a perspective, start a conversation or return to a transcript.",
@@ -148,9 +145,8 @@ const WELCOME_COPY = defineCopy<WelcomeCopy>(
       "Treść rozmowy ma charakter symulacji i wsparcia edukacyjnego, a nie porady medycznej.",
       "W sytuacji bezpośredniego zagrożenia potrzebny jest kontakt z realną pomocą, nie z aplikacją.",
     ],
-    crisisBefore: "Jeśli jesteś w bezpośrednim niebezpieczeństwie, zadzwoń pod",
-    crisisMiddle: "albo skontaktuj się z lokalną pomocą kryzysową (",
-    crisisAfter: "), telefonem zaufania lub specjalistą. Nie czekaj na odpowiedź aplikacji.",
+    crisisLead:
+      "Jeśli jesteś w bezpośrednim niebezpieczeństwie, zadzwoń pod lokalny numer alarmowy albo skontaktuj się z linią kryzysową, telefonem zaufania lub specjalistą. Nie czekaj na odpowiedź aplikacji.",
     finalTitleSignedIn: "Wróć do swoich rozmów",
     finalTitleSignedOut: "Czas na pierwszy krok?",
     finalBodySignedIn: "Wybierz perspektywę, rozpocznij rozmowę lub wróć do jej zapisu.",

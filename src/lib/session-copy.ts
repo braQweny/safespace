@@ -10,6 +10,7 @@ import type { Locale } from "@/lib/i18n/locale";
  */
 const SESSION_COPY = defineCopy(
   {
+    pageTitle: "Conversation - SafeSpace",
     boundaries:
       "SafeSpace is an educational conversation simulation. It does not diagnose and does not replace a professional. In immediate danger, use real help, such as your local emergency number.",
     perspective:
@@ -51,6 +52,7 @@ const SESSION_COPY = defineCopy(
     },
   },
   {
+    pageTitle: "Rozmowa - SafeSpace",
     boundaries:
       "SafeSpace jest edukacyjną symulacją rozmowy. Nie diagnozuje i nie zastępuje specjalisty. W bezpośrednim zagrożeniu skorzystaj z realnej pomocy, np. lokalnego numeru alarmowego.",
     perspective:

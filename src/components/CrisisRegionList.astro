@@ -1,0 +1,94 @@
+---
+import { getCrisisRegionListCopy } from "@/components/crisis-region-list-copy";
+import { getCrisisContactTelHref } from "@/lib/session-safety/crisis-contact-links";
+import { getCrisisResourceRegions } from "@/lib/session-safety/crisis-resources";
+
+/**
+ * Zwarty blok numerów pomocowych dla stron poza rozmową (panel, landing).
+ * Aplikacja nie wykrywa regionu, więc każdy ekran z numerami pokazuje ten sam
+ * katalog: Polska, Stany Zjednoczone i wskazówka dla pozostałych — dokładnie
+ * jak panel „Pomoc teraz” w rozmowie. Wcześniej panel i landing miały na sztywno
+ * tylko polskie numery, także w angielskiej wersji interfejsu.
+ */
+interface Props {
+  /** `inverse` dla ciemnej sekcji landingu (tokeny `canvas`), `surface` na kartach. */
+  tone?: "surface" | "inverse";
+  class?: string;
+}
+
+const { tone = "surface", class: className } = Astro.props;
+const locale = Astro.locals.locale;
+const copy = getCrisisRegionListCopy(locale);
+const regions = getCrisisResourceRegions(locale);
+
+const toneClasses = {
+  surface: {
+    region: "text-ink-muted",
+    number: "text-brand-deep",
+    label: "text-ink-soft",
+    ring: "focus-visible:ring-brand-ring",
+  },
+  inverse: {
+    region: "text-canvas/70",
+    number: "text-canvas",
+    label: "text-canvas/80",
+    ring: "focus-visible:ring-canvas/60",
+  },
+}[tone];
+---
+
+{
+  /*
+  Układ zależy od szerokości kontenera, nie ekranu: w wąskiej kolumnie panelu
+  (ok. 560 px na monitorze) trzy kolumny regionów łamały numery w dwa wiersze,
+  a na pełnej szerokości landingu trzy kolumny czytają się najlepiej. Poniżej
+  progu regiony stoją jeden pod drugim, a dwa numery regionu obok siebie, żeby
+  blok nie rósł w pięć rzędów.
+*/
+}
+<div class:list={["@container", className]}>
+  <div class="grid gap-5 @2xl:grid-cols-3 @2xl:gap-6">
+    {
+      regions.map((region) => (
+        <div>
+          <p class:list={["text-xs font-semibold tracking-[0.08em] uppercase", toneClasses.region]}>{region.label}</p>
+          <ul class="mt-2 grid grid-cols-2 gap-3 @2xl:grid-cols-1">
+            {region.contacts.map((contact) => {
+              const href = getCrisisContactTelHref(contact);
+              const label = contact.kind === "local_guidance" ? contact.label : copy.kindLabel[contact.kind];
+
+              return (
+                <li class:list={[contact.kind === "local_guidance" && "col-span-2 @2xl:col-span-1"]}>
+                  {href ? (
+                    <a
+                      href={href}
+                      class:list={[
+                        "group flex min-h-11 flex-col rounded focus:outline-none focus-visible:ring-2",
+                        toneClasses.ring,
+                      ]}
+                    >
+                      <span
+                        class:list={[
+                          "font-serif text-[26px] leading-tight tabular-nums underline-offset-4 group-hover:underline",
+                          toneClasses.number,
+                        ]}
+                      >
+                        {contact.value}
+                      </span>
+                      <span class:list={["text-sm leading-5", toneClasses.label]}>{label}</span>
+                    </a>
+                  ) : (
+                    <span class="flex min-h-11 flex-col">
+                      <span class:list={["font-serif text-xl leading-tight", toneClasses.number]}>{contact.value}</span>
+                      <span class:list={["text-sm leading-5", toneClasses.label]}>{label}</span>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+</div>

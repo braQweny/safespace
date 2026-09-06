@@ -1,4 +1,5 @@
 ---
+import { getCrisisContactTelHref } from "@/lib/session-safety/crisis-contact-links";
 import { getCrisisResourceRegions } from "@/lib/session-safety/crisis-resources";
 
 // Ta sama siatka regionów w obu wersjach językowych strony prywatności.
@@ -14,11 +15,11 @@ const regions = getCrisisResourceRegions(Astro.locals.locale);
           {region.contacts.map((contact) => (
             <li>
               <span class="text-ink-soft">{contact.label}</span>
-              {contact.kind !== "local_guidance" ? (
+              {getCrisisContactTelHref(contact) ? (
                 <>
                   <span aria-hidden="true"> — </span>
                   <a
-                    href={`tel:${contact.value.replace(/\s+/g, "")}`}
+                    href={getCrisisContactTelHref(contact)}
                     class="text-brand font-semibold underline-offset-4 hover:underline"
                   >
                     {contact.value}

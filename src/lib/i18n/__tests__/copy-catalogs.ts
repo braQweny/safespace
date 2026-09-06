@@ -6,6 +6,7 @@
 import { getAdminCopy } from "@/components/admin/admin-copy";
 import { getAppHeaderCopy } from "@/components/app-header-copy";
 import { getAuthFormCopy } from "@/components/auth/auth-form-copy";
+import { getCrisisRegionListCopy } from "@/components/crisis-region-list-copy";
 import { getLocaleSwitchCopy } from "@/components/locale-switch-copy";
 import { getAvatarChoiceFormCopy } from "@/components/modality/avatar-choice-form-copy";
 import { getSessionHistoryCopy } from "@/components/modality/session-history-copy";
@@ -36,6 +37,11 @@ import { SESSION_AI_ERROR_CATEGORIES } from "@/lib/session-ai/errors";
 import { getSafetyBoundaryUnavailableCopy, getSessionAiFailureCopy } from "@/lib/session-ai/session-response-copy";
 import { getSessionCopy } from "@/lib/session-copy";
 import { getPlanCopy } from "@/lib/session-flow/plan-copy";
+import {
+  FREE_TRIAL_DURATION_SECONDS,
+  PREMIUM_SESSION_DURATION_SECONDS,
+  formatSessionBudgetCopy,
+} from "@/lib/session-flow/session-budget";
 import { getCrisisResourceCatalog } from "@/lib/session-safety/crisis-resources";
 import { getCrisisSafetyCopy, getSafetyUnavailableCopy } from "@/lib/session-safety/safety-copy";
 
@@ -63,6 +69,14 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
     ],
   },
   { name: "plan-copy", read: getPlanCopy },
+  {
+    name: "session-budget-copy",
+    read: (locale) => [
+      formatSessionBudgetCopy(locale, 60),
+      formatSessionBudgetCopy(locale, FREE_TRIAL_DURATION_SECONDS),
+      formatSessionBudgetCopy(locale, PREMIUM_SESSION_DURATION_SECONDS),
+    ],
+  },
   { name: "billing-copy", read: getBillingCopy },
   { name: "modality-copy", read: (locale) => MVP_MODALITIES.map((m) => getModalityCopy(locale, m.modalityId)) },
   { name: "locale-switch-copy", read: getLocaleSwitchCopy },
@@ -74,6 +88,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "session-history-copy", read: getSessionHistoryCopy },
   { name: "session-summary-panel-copy", read: getSessionSummaryPanelCopy },
   { name: "crisis-help-copy", read: getCrisisHelpCopy },
+  { name: "crisis-region-list-copy", read: getCrisisRegionListCopy },
   { name: "session-composer-copy", read: getSessionComposerCopy },
   { name: "session-messages-copy", read: getSessionMessagesCopy },
   { name: "session-start-card-copy", read: getSessionStartCardCopy },

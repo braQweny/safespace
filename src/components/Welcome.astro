@@ -1,12 +1,12 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
+import CrisisRegionList from "@/components/CrisisRegionList.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
 import { MVP_MODALITIES } from "@/lib/modalities";
 import { getModalityCopy } from "@/lib/modality-copy";
 import { getWelcomeCopy } from "@/lib/page-copy/welcome-copy";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
-import { getCrisisResourceCatalog } from "@/lib/session-safety/crisis-resources";
 import { FREE_TRIAL_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
 
@@ -42,10 +42,6 @@ const previewRemainingMinutes = budgetMinutes - previewElapsedMinutes;
 const RING_RADIUS = 14;
 const ringCircumference = 2 * Math.PI * RING_RADIUS;
 const ringElapsed = (previewElapsedMinutes / budgetMinutes) * ringCircumference;
-
-const crisisCatalog = getCrisisResourceCatalog(locale);
-const emergencyContact = crisisCatalog.pl.contacts.find((contact) => contact.kind === "emergency_number");
-const crisisLineContact = crisisCatalog.pl.contacts.find((contact) => contact.kind === "crisis_line");
 
 const steps = copy.steps(budgetMinutes);
 const boundaries = copy.boundaries;
@@ -270,13 +266,14 @@ const boundaries = copy.boundaries;
             }
           </div>
         </div>
-        <p class="text-clay-soft border-canvas/20 border-t pt-6 text-[15px] leading-6">
-          {copy.crisisBefore}{" "}
-          <strong class="text-canvas font-semibold">{emergencyContact?.value ?? "112"}</strong>{" "}
-          {copy.crisisMiddle}<strong class="text-canvas font-semibold"
-            >{crisisLineContact?.value ?? "800 70 2222"}</strong
-          >{copy.crisisAfter}
-        </p>
+        <div class="border-canvas/20 border-t pt-6">
+          <p class="text-clay-soft text-[15px] leading-6">{copy.crisisLead}</p>
+          {
+            /* Numery z katalogu zasobów kryzysowych, wszystkie regiony — jak w panelu
+              i w rozmowie. Wcześniej ten akapit podawał polskie numery także po angielsku. */
+          }
+          <CrisisRegionList tone="inverse" class="mt-5" />
+        </div>
       </div>
     </section>
 

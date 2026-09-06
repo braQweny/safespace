@@ -1,20 +1,6 @@
+import { getDialableNumber } from "@/lib/session-safety/crisis-contact-links";
 import type { CrisisResourceContact, CrisisResourceRegion } from "@/lib/session-safety/types";
 import { cn } from "@/lib/utils";
-
-/**
- * Only real dialable numbers become `tel:` links. `local_guidance` entries carry
- * a textual placeholder ("lokalny numer alarmowy") instead of a number, so linking
- * them would hand the user a dead dialer entry in the one moment that must not fail.
- */
-export function getDialableNumber(contact: CrisisResourceContact) {
-  if (contact.kind === "local_guidance") {
-    return null;
-  }
-
-  const digits = contact.value.replace(/[\s-]/g, "");
-
-  return /^\+?\d{3,15}$/.test(digits) ? digits : null;
-}
 
 export function CrisisContactValue({ contact }: { contact: CrisisResourceContact }) {
   const dialableNumber = getDialableNumber(contact);

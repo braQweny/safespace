@@ -1,5 +1,6 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
+import CrisisRegionList from "@/components/CrisisRegionList.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
 import SessionStartCard, { AllowanceMeter } from "@/components/session/SessionStartCard";
 import { countOwnedSessionsByAvatar, getOwnedAvatarMemoryPreview } from "@/lib/session-data/repository";
@@ -441,30 +442,11 @@ const historyProps = currentSelection
               ) : null
             }
             <h2 class="text-brand-deep text-[15px] font-semibold">{copy.helpTitle}</h2>
-            <div class="mt-3 grid gap-4 sm:grid-cols-2">
-              <a
-                href="tel:112"
-                class="focus-visible:ring-brand-ring group flex min-h-11 flex-col rounded focus:outline-none focus-visible:ring-2"
-              >
-                <span
-                  class="text-brand-deep font-serif text-[26px] leading-tight tabular-nums underline-offset-4 group-hover:underline"
-                >
-                  112
-                </span>
-                <span class="text-ink-soft text-sm leading-5">{copy.helpEmergency}</span>
-              </a>
-              <a
-                href="tel:800702222"
-                class="focus-visible:ring-brand-ring group flex min-h-11 flex-col rounded focus:outline-none focus-visible:ring-2"
-              >
-                <span
-                  class="text-brand-deep font-serif text-[26px] leading-tight tabular-nums underline-offset-4 group-hover:underline"
-                >
-                  800 70 2222
-                </span>
-                <span class="text-ink-soft text-sm leading-5">{copy.helpCrisisLine}</span>
-              </a>
-            </div>
+            {
+              /* Te same trzy regiony co w panelu „Pomoc teraz”: aplikacja nie zna
+                kraju osoby, więc po angielsku nie może pokazywać wyłącznie polskich numerów. */
+            }
+            <CrisisRegionList class="mt-3" />
           </aside>
         </div>
       </section>
