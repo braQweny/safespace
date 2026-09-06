@@ -1,6 +1,6 @@
 # Karty osób („Osoby z Twoich rozmów”)
 
-Prywatne notatki o ludziach, o których użytkownik wspomina w rozmowach, budowane wsadowo z zakończonych rozmów i podawane awatarowi jako krótki brief. Zakres per użytkownik + awatar, jak automatyczna pamięć awatara (`avatar-memory.md`). Funkcja jest za flagą `PEOPLE_MEMORY_MODE` (`off|on`, publiczna zmienna serwerowa; `wrangler.jsonc` startuje z `off`). Flaga gasi tworzenie i używanie kart: ekstrakcję, sekcję na panelu, brief w prompcie i prefill startu. Zarządzanie zapisanymi kartami (zapomnienie, usunięcie wpisu, „wyłącz i usuń wszystko”) działa zawsze.
+Prywatne notatki o ludziach, o których użytkownik wspomina w rozmowach, budowane wsadowo z zakończonych rozmów i podawane awatarowi jako krótki brief. Zakres per użytkownik + awatar, jak automatyczna pamięć awatara (`avatar-memory.md`). Funkcja jest za flagą `PEOPLE_MEMORY_MODE` (`off|on`, publiczna zmienna serwerowa; w `wrangler.jsonc` włączona od 6 września 2026, wyłączenie to zmiana wartości na `off`). Flaga gasi tworzenie i używanie kart: ekstrakcję, sekcję na panelu, brief w prompcie i prefill startu. Zarządzanie zapisanymi kartami (zapomnienie, usunięcie wpisu, „wyłącz i usuń wszystko”) działa zawsze.
 
 ## Model danych i tożsamość
 
