@@ -1,5 +1,10 @@
 import type { createClient } from "@/lib/supabase";
 import type { PeopleFactKind } from "@/lib/session-summary/people-memory-budget";
+import type {
+  DifficultyEffect,
+  DifficultyEntryKind,
+  DifficultyPersonState,
+} from "@/lib/session-summary/topic-map-budget";
 import type { SessionLensId } from "@/lib/session-ai/session-lenses";
 
 export type SessionDataSupabaseClient = NonNullable<ReturnType<typeof createClient>>;
@@ -102,6 +107,8 @@ export interface SessionMetadata {
   usesAvatarMemory?: boolean;
   /** Karta osoby wybrana na start („Porozmawiaj o tej osobie”); tylko id, nigdy imię. */
   aboutPersonId?: string | null;
+  /** Trudność wybrana na start („Porozmawiaj o tym”); tylko id, nigdy etykieta. */
+  aboutDifficultyId?: string | null;
   /**
    * Soczewka tematyczna lepka na sesję: nadana raz przez tani klasyfikator,
    * czytana przez trasę wiadomości. Mówi, o czym jest rozmowa — nigdy do
@@ -145,6 +152,71 @@ export interface PersonCard {
   lastMentionedAt: string | null;
   mentionCount: number;
   facts: PersonFact[];
+}
+
+/**
+ * Mapa tematów: trudność użytkownika z powiązanymi osobami (krawędzie grafu)
+ * i wpisami, każdy ze zbiorem rozmów źródłowych. Trudność należy do
+ * użytkownika, nie do osoby; wpis z `personId` to jej kontekst w tej relacji.
+ */
+export interface DifficultyEntrySource {
+  sessionId: SessionId;
+  conversationAt: string;
+}
+
+export interface DifficultyEntry {
+  id: string;
+  kind: DifficultyEntryKind;
+  text: string;
+  /** Ocena użytkownika, tylko na „jak jest teraz” i „jak poszło”. */
+  effect: DifficultyEffect | null;
+  personId: string | null;
+  /** Propozycja lub postanowienie, na które ten wpis odpowiada. */
+  parentEntryId: string | null;
+  userEdited: boolean;
+  createdAt: string;
+  sources: DifficultyEntrySource[];
+}
+
+export interface DifficultyAlias {
+  id: string;
+  alias: string;
+}
+
+export interface DifficultyPersonLink {
+  personId: string;
+  name: string;
+  relation: string | null;
+  state: DifficultyPersonState;
+  /** Potwierdzone lub odrzucone przez użytkownika: model tego nie zmienia. */
+  userDecided: boolean;
+}
+
+/** „Stan na dziś”: najnowszy wpis „jak jest teraz” po dacie rozmowy źródłowej. */
+export interface DifficultyCurrentState {
+  id: string;
+  text: string;
+  effect: DifficultyEffect | null;
+  conversationAt: string | null;
+}
+
+export interface DifficultyCard {
+  id: string;
+  avatarId: SessionAvatarId;
+  label: string;
+  labelLocked: boolean;
+  userNote: string;
+  /** „Mniej aktualne”: ustawia tylko użytkownik. */
+  archivedAt: string | null;
+  createdAt: string;
+  aliases: DifficultyAlias[];
+  persons: DifficultyPersonLink[];
+  firstMentionedAt: string | null;
+  lastMentionedAt: string | null;
+  mentionCount: number;
+  currentState: DifficultyCurrentState | null;
+  hasNewEntriesSinceArchived: boolean;
+  entries: DifficultyEntry[];
 }
 
 export interface DeletedSessionTombstone {
@@ -247,6 +319,8 @@ export interface CreatePendingSessionInput {
   usesAvatarMemory?: boolean;
   /** Zwalidowana wcześniej karta właściciela z tej samej perspektywy. */
   aboutPersonId?: string | null;
+  /** Zwalidowana wcześniej trudność właściciela z tej samej perspektywy. */
+  aboutDifficultyId?: string | null;
 }
 
 export interface ClaimFreeTrialSessionInput {

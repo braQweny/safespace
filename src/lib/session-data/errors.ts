@@ -10,6 +10,7 @@ export const SESSION_DATA_ERROR_CODES = {
   session_expired: "session_expired",
   message_in_progress: "message_in_progress",
   message_request_conflict: "message_request_conflict",
+  duplicate_difficulty_label: "duplicate_difficulty_label",
   delete_failed: "delete_failed",
   write_failed: "write_failed",
   read_failed: "read_failed",
@@ -21,6 +22,13 @@ export const SESSION_DATA_ERROR_CODES = {
  * the migration by `schema-drift.test.ts`.
  */
 export const FREE_PLAN_SESSION_LIMIT_SQLSTATE = "P0005";
+
+/**
+ * SQLSTATE raised by `update_difficulty_card` when the new label already names
+ * another difficulty of the same perspective (label or alias). Pinned to the
+ * topic map migration by `schema-drift.test.ts`.
+ */
+export const DIFFICULTY_LABEL_TAKEN_SQLSTATE = "P0014";
 
 export type SessionDataErrorCode = keyof typeof SESSION_DATA_ERROR_CODES;
 
@@ -83,6 +91,10 @@ export function mapSupabaseWriteError(error: unknown, options: WriteErrorMapping
   // which helper performed the insert.
   if (code === FREE_PLAN_SESSION_LIMIT_SQLSTATE) {
     return "session_limit_reached";
+  }
+
+  if (code === DIFFICULTY_LABEL_TAKEN_SQLSTATE) {
+    return "duplicate_difficulty_label";
   }
 
   return "write_failed";

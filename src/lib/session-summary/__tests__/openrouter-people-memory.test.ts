@@ -60,6 +60,8 @@ const validChanges = {
       mentionedInConversations: [1],
     },
   ],
+  newDifficulties: [],
+  difficultyUpdates: [],
   incomplete: false,
 };
 
@@ -68,7 +70,7 @@ describe("buildOpenRouterPeopleMemoryRequest", () => {
     const request = buildOpenRouterPeopleMemoryRequest(input, "openai/gpt-4o-mini");
     expect(request.responseFormat.type).toBe("json_schema");
     expect(request.responseFormat.jsonSchema).toMatchObject({ name: "safespace_people_memory_changes", strict: true });
-    expect(request.maxTokens).toBe(6000);
+    expect(request.maxTokens).toBe(8000);
     expect(request).not.toHaveProperty("maxCompletionTokens");
     expect(request.temperature).toBe(0.2);
     expect(request.stream).toBe(false);
@@ -80,7 +82,7 @@ describe("buildOpenRouterPeopleMemoryRequest", () => {
   it("gives the Luna family low reasoning, the EU route and max_completion_tokens without temperature", () => {
     const request = buildOpenRouterPeopleMemoryRequest(input, "openai/gpt-5.6-luna");
     expect(request.reasoning).toEqual({ effort: "low" });
-    expect(request.maxCompletionTokens).toBe(6000);
+    expect(request.maxCompletionTokens).toBe(8000);
     expect(request).not.toHaveProperty("maxTokens");
     expect(request).not.toHaveProperty("temperature");
     expect(request.provider).toEqual({

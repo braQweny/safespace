@@ -93,3 +93,104 @@ describe("buildPeopleMemoryMessages", () => {
     ).toThrow();
   });
 });
+
+describe("buildPeopleMemorySystemPrompt — topic map", () => {
+  it("adds the difficulty rules only when the map is on: merge-first, kinds, feedback, no invented strategies, crisis", () => {
+    const withMap = buildPeopleMemorySystemPrompt("pl", "Marek", { topicsEnabled: true });
+    for (const rule of [
+      "a difficulty is a recurring pattern in the user's life",
+      "never a person's name, never a diagnosis",
+      "compare its meaning with every label and alias in the difficulties index",
+      "When unsure whether two patterns are the same, update the existing one",
+      "Never create two difficulties for one pattern in one response",
+      "An archived difficulty is still the same difficulty",
+      '"coping" is something the user already does on their own about it, whether or not it helps',
+      '"agreed" is a concrete step the user explicitly said yes to trying in the future, a plan, not a habit',
+      'silence or "maybe" is suggested, not agreed',
+      "never infer an effect from tone, and when the user gave no comparison use how, not update",
+      "set parentRef on an agreed or outcome entry to the suggested or agreed entry it answers",
+      "At most two suggested entries per difficulty per conversation",
+      "Never invent, paraphrase into advice, or complete a strategy",
+      "Never record thoughts of suicide or self-harm, or anything from a crisis exchange",
+      "newPersonPosition (its 0-based index in newPersons)",
+      "Set uncertain to true when the link is unclear",
+      'the one exception is a difficulty entry of kind "suggested"',
+      "at most 10 new difficulties, 40 difficulty entries and 12 aliases in total",
+    ]) {
+      expect(withMap, rule).toContain(rule);
+    }
+    // Ludzie dalej create-first, trudności merge-first — obie reguły w jednym prompcie.
+    expect(withMap).toContain("create a new person rather than merging");
+    const withoutMap = buildPeopleMemorySystemPrompt("pl", "Marek");
+    expect(withoutMap).not.toContain("Topic map");
+    expect(withoutMap).not.toContain("difficulties index");
+    expect(withoutMap).toContain("never turn a suggestion into a fact.");
+  });
+
+  it("tells the model that people cards are off and forbids person links in that batch", () => {
+    const prompt = buildPeopleMemorySystemPrompt("en", "Lena", { peopleEnabled: false, topicsEnabled: true });
+    expect(prompt).toContain("People cards are switched off for this batch");
+    expect(prompt).toContain("never set personRef or newPersonPosition on anything");
+    expect(buildPeopleMemorySystemPrompt("en", "Lena")).not.toContain("People cards are switched off");
+  });
+
+  it("sends the difficulties index with refs, aliases, the archived flag and truncated entries only when the map is on", () => {
+    const withMap = buildPeopleMemoryMessages({
+      ...input,
+      topicsEnabled: true,
+      difficulties: [
+        {
+          ref: 1,
+          label: "Trudno mi odmawiać",
+          labelLocked: true,
+          archived: true,
+          aliases: ["zawsze się zgadzam"],
+          persons: [{ personRef: 1, state: "suggested" }],
+          entries: [
+            {
+              ref: 1,
+              kind: "suggested",
+              text: "Ustalić priorytety.",
+              effect: null,
+              personRef: 1,
+              parentRef: null,
+              userEdited: false,
+            },
+            {
+              ref: 2,
+              kind: "outcome",
+              text: "Pomogło.",
+              effect: "better",
+              personRef: null,
+              parentRef: 1,
+              userEdited: true,
+            },
+          ],
+        },
+      ],
+    });
+    const content = JSON.parse(withMap[1].content) as Record<string, unknown>;
+    expect(content).toMatchObject({
+      peopleCardsEnabled: true,
+      topicMapEnabled: true,
+      difficulties: [
+        {
+          ref: 1,
+          label: "Trudno mi odmawiać",
+          labelLocked: true,
+          archived: true,
+          aliases: ["zawsze się zgadzam"],
+          persons: [{ personRef: 1, state: "suggested" }],
+          entries: [
+            { ref: 1, kind: "suggested", personRef: 1 },
+            { ref: 2, effect: "better", parentRef: 1, userEdited: true },
+          ],
+        },
+      ],
+    });
+    expect(withMap[1].content).not.toContain('id"');
+    const withoutMap = JSON.parse(buildPeopleMemoryMessages(input)[1].content) as Record<string, unknown>;
+    expect(withoutMap).not.toHaveProperty("difficulties");
+    expect(withoutMap).toMatchObject({ topicMapEnabled: false });
+  });
+});

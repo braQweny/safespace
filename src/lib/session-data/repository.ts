@@ -27,6 +27,20 @@ export {
   updateOwnedPersonCard,
   updateOwnedPersonFact,
 } from "./people-memory";
+export {
+  decideOwnedDifficultyPerson,
+  deleteOwnedDifficulty,
+  deleteOwnedDifficultyEntry,
+  disableAndDeleteOwnedTopicMap,
+  getOwnedDifficultyCard,
+  hasOwnedDifficultyRows,
+  listOwnedDifficultyCards,
+  mergeOwnedDifficulties,
+  readOwnedTopicMapEnabled,
+  setOwnedTopicMapEnabled,
+  updateOwnedDifficultyCard,
+  updateOwnedDifficultyEntry,
+} from "./topic-map";
 export { claimSessionMessageTurn, completeSessionMessageTurn, releaseSessionMessageTurn } from "./message-turns";
 export { getOwnedAccountPlan, toOwnedAccountPlan } from "./account-plan";
 export {

@@ -518,6 +518,9 @@ describe("People cards against all migrations in real PostgreSQL", () => {
     const inflight = await peopleBatch(owner);
     assert.equal(inflight.messages.length, 2);
 
+    // Kursory są wspólne z mapą tematów: partia w toku jest odrzucana dopiero,
+    // gdy obie części są wyłączone (samą mapę sprawdza topic-map.test.mjs).
+    assert.equal((await owner.client.query("select public.set_topic_map_enabled(false) as ok")).rows[0].ok, true);
     assert.equal((await owner.client.query("select public.set_people_memory_enabled(false) as ok")).rows[0].ok, true);
     assert.equal(await brief(owner, pinned), null);
     assert.equal(await savePeople(owner, inflight, noChanges), false);

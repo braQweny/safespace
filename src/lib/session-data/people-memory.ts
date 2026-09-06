@@ -5,6 +5,14 @@ import {
   isWithinPeopleMemoryBudget,
   type PeopleFactKind,
 } from "@/lib/session-summary/people-memory-budget";
+import {
+  isDifficultyEffect,
+  isDifficultyEntryKind,
+  isDifficultyPersonState,
+  type DifficultyEffect,
+  type DifficultyEntryKind,
+  type DifficultyPersonState,
+} from "@/lib/session-summary/topic-map-budget";
 import type { ForgottenPerson } from "@/lib/session-summary/types";
 import { ok, sessionDataError, type SessionDataResult } from "./errors";
 import type { AvatarMemoryCursor, AvatarMemoryWork } from "./avatar-memory";
@@ -18,9 +26,9 @@ import {
 } from "./types";
 
 /**
- * Karty osób: własna partia, własne kursory i własna rewizja per użytkownik +
- * awatar. Nic stąd nie trafia do logów ani do admina; do providera idą tylko
- * lokalne refy, które mapuje `session-flow/people-memory.ts`.
+ * Karty osób i mapa tematów: jedna partia, wspólne kursory i wspólna rewizja
+ * per użytkownik + awatar. Nic stąd nie trafia do logów ani do admina; do
+ * providera idą tylko lokalne refy, które mapuje `session-flow/people-memory.ts`.
  */
 export interface PeopleMemoryFactRecord {
   id: string;
@@ -39,12 +47,43 @@ export interface PeopleMemoryPersonRecord {
   facts: PeopleMemoryFactRecord[];
 }
 
+export interface DifficultyMemoryEntryRecord {
+  id: string;
+  kind: DifficultyEntryKind;
+  text: string;
+  effect: DifficultyEffect | null;
+  personId: string | null;
+  parentEntryId: string | null;
+  userEdited: boolean;
+  /** Data najwcześniejszej rozmowy źródłowej; `null` bez źródeł (nie powinno się zdarzyć). */
+  conversationAt: string | null;
+}
+
+export interface DifficultyMemoryPersonRecord {
+  personId: string;
+  state: DifficultyPersonState;
+  userDecided: boolean;
+}
+
+export interface DifficultyMemoryRecord {
+  id: string;
+  label: string;
+  labelLocked: boolean;
+  archived: boolean;
+  aliases: string[];
+  persons: DifficultyMemoryPersonRecord[];
+  entries: DifficultyMemoryEntryRecord[];
+}
+
 export interface PeopleMemoryWork {
   revision: string;
-  /** Preferencja właściciela w chwili odczytu; `false` = pusta partia bez pracy. */
+  /** Preferencja kart osób w chwili odczytu; `false` = brak indeksu osób i zmian osób. */
   enabled: boolean;
+  /** Preferencja mapy tematów; `false` = brak indeksu trudności i zmian trudności. */
+  topicsEnabled: boolean;
   persons: PeopleMemoryPersonRecord[];
   forgottenPeople: ForgottenPerson[];
+  difficulties: DifficultyMemoryRecord[];
   messages: AvatarMemoryWork["messages"];
 }
 
@@ -71,9 +110,60 @@ export interface PeopleMemoryPersonUpdateWrite {
   mentionedSessionIds: string[];
 }
 
+export interface DifficultyAliasWrite {
+  text: string;
+  sourceSessionId: string | null;
+}
+
+/** Osoba istniejąca po id albo tworzona w tej partii po pozycji w `newPersons`. */
+export interface DifficultyPersonLinkWrite {
+  personId: string | null;
+  newPersonPosition: number | null;
+  uncertain: boolean;
+}
+
+export interface DifficultyEntryWrite {
+  kind: DifficultyEntryKind;
+  text: string;
+  effect: DifficultyEffect | null;
+  personId: string | null;
+  newPersonPosition: number | null;
+  parentEntryId: string | null;
+  /** Pozycja wcześniejszego wpisu na tej samej liście `addEntries`. */
+  parentPosition: number | null;
+  sourceSessionId: string;
+}
+
+export interface DifficultyEntryReplaceWrite {
+  entryId: string;
+  kind: DifficultyEntryKind;
+  text: string;
+  effect: DifficultyEffect | null;
+  sourceSessionId: string;
+}
+
+export interface DifficultyChangeWrite {
+  addAliases: DifficultyAliasWrite[];
+  addPersons: DifficultyPersonLinkWrite[];
+  addEntries: DifficultyEntryWrite[];
+  replaceEntries: DifficultyEntryReplaceWrite[];
+  removeEntryIds: string[];
+  mentionedSessionIds: string[];
+}
+
+export interface PeopleMemoryNewDifficultyWrite extends DifficultyChangeWrite {
+  label: string;
+}
+
+export interface PeopleMemoryDifficultyUpdateWrite extends DifficultyChangeWrite {
+  difficultyId: string;
+}
+
 export interface PeopleMemoryChangeSet {
   newPersons: PeopleMemoryNewPersonWrite[];
   updates: PeopleMemoryPersonUpdateWrite[];
+  newDifficulties: PeopleMemoryNewDifficultyWrite[];
+  difficultyUpdates: PeopleMemoryDifficultyUpdateWrite[];
 }
 
 function isMemoryMessage(value: unknown): value is AvatarMemoryWork["messages"][number] {
@@ -123,6 +213,49 @@ function isPersonRecord(value: unknown): value is PeopleMemoryPersonRecord {
   return isRecord(value) && hasPersonRecordShape(value, isFactRecord);
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isDifficultyEntryRecord(value: unknown): value is DifficultyMemoryEntryRecord {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    isDifficultyEntryKind(value.kind) &&
+    typeof value.text === "string" &&
+    (value.effect === null || isDifficultyEffect(value.effect)) &&
+    isNullableString(value.personId) &&
+    isNullableString(value.parentEntryId) &&
+    typeof value.userEdited === "boolean" &&
+    isNullableString(value.conversationAt)
+  );
+}
+
+function isDifficultyPersonRecord(value: unknown): value is DifficultyMemoryPersonRecord {
+  return (
+    isRecord(value) &&
+    typeof value.personId === "string" &&
+    isDifficultyPersonState(value.state) &&
+    typeof value.userDecided === "boolean"
+  );
+}
+
+function isDifficultyRecord(value: unknown): value is DifficultyMemoryRecord {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.label === "string" &&
+    typeof value.labelLocked === "boolean" &&
+    typeof value.archived === "boolean" &&
+    Array.isArray(value.aliases) &&
+    value.aliases.every((alias) => typeof alias === "string") &&
+    Array.isArray(value.persons) &&
+    value.persons.every(isDifficultyPersonRecord) &&
+    Array.isArray(value.entries) &&
+    value.entries.every(isDifficultyEntryRecord)
+  );
+}
+
 export async function getOwnedPeopleMemoryWork(
   context: SessionDataContext,
   avatarId: SessionAvatarId,
@@ -138,10 +271,13 @@ export async function getOwnedPeopleMemoryWork(
     !isRecord(value) ||
     typeof value.revision !== "string" ||
     typeof value.enabled !== "boolean" ||
+    typeof value.topicsEnabled !== "boolean" ||
     !Array.isArray(value.persons) ||
     !value.persons.every(isPersonRecord) ||
     !Array.isArray(value.forgottenPeople) ||
     !value.forgottenPeople.every(isForgottenPerson) ||
+    !Array.isArray(value.difficulties) ||
+    !value.difficulties.every(isDifficultyRecord) ||
     !Array.isArray(value.messages) ||
     !value.messages.every(isMemoryMessage) ||
     !isWithinPeopleMemoryBudget(value.messages)
@@ -151,8 +287,10 @@ export async function getOwnedPeopleMemoryWork(
   return ok({
     revision: value.revision,
     enabled: value.enabled,
+    topicsEnabled: value.topicsEnabled,
     persons: value.persons,
     forgottenPeople: value.forgottenPeople,
+    difficulties: value.difficulties,
     messages: value.messages,
   });
 }

@@ -790,6 +790,30 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
               },
             ],
             updates: [],
+            // Mapa tematów: sześć tabel trudności też musi zniknąć razem z kontem.
+            newDifficulties: [
+              {
+                label: "Trudno mi odmawiać",
+                addAliases: [{ text: "zawsze się zgadzam", sourceSessionId: historyId }],
+                addPersons: [{ personId: null, newPersonPosition: 0, uncertain: false }],
+                addEntries: [
+                  {
+                    kind: "how",
+                    text: "Przy Marcie.",
+                    effect: null,
+                    personId: null,
+                    newPersonPosition: 0,
+                    parentEntryId: null,
+                    parentPosition: null,
+                    sourceSessionId: historyId,
+                  },
+                ],
+                replaceEntries: [],
+                removeEntryIds: [],
+                mentionedSessionIds: [historyId],
+              },
+            ],
+            difficultyUpdates: [],
           }),
         ])
       ).rows[0].saved,
@@ -848,6 +872,12 @@ describe("Session integrity against all migrations in real PostgreSQL", () => {
       "people_fact_sources",
       "people_person_mentions",
       "people_exclusions",
+      "difficulties",
+      "difficulty_aliases",
+      "difficulty_persons",
+      "difficulty_entries",
+      "difficulty_entry_sources",
+      "difficulty_mentions",
       "user_avatar_choices",
       "user_preferences",
       "admin_user_profiles",

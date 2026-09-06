@@ -105,6 +105,10 @@ export default defineConfig({
       // klasyfikator tematu równolegle z bezpieczeństwem (fail-open) i dokleja
       // moduł „co słyszeć i o co pytać” do sekcji nurtu. Wartość spoza listy = off.
       SESSION_LENS_MODE: envField.string({ context: "server", access: "public", optional: true }),
+      // Mapa tematów (trudności, powiązane osoby, sposoby radzenia sobie): off|on.
+      // Wyłączone gasi ekstrakcję trudności w potoku kart osób, sekcję na panelu
+      // i brief w prompcie; zarządzanie zapisami działa zawsze. Wartość spoza listy = off.
+      TOPIC_MAP_MODE: envField.string({ context: "server", access: "public", optional: true }),
     },
   },
 });

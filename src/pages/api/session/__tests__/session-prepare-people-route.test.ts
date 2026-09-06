@@ -2,17 +2,23 @@ import type { APIRoute } from "astro";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ok } from "@/lib/session-data/errors";
 
-const { requireSessionRouteAccess, prepareOwnedPeopleMemory, isPeopleMemoryEnabled, logOperationalEvent } = vi.hoisted(
-  () => ({
-    requireSessionRouteAccess: vi.fn(),
-    prepareOwnedPeopleMemory: vi.fn(),
-    isPeopleMemoryEnabled: vi.fn(() => true),
-    logOperationalEvent: vi.fn(),
-  }),
-);
+const {
+  requireSessionRouteAccess,
+  prepareOwnedPeopleMemory,
+  isPeopleMemoryEnabled,
+  isTopicMapEnabled,
+  logOperationalEvent,
+} = vi.hoisted(() => ({
+  requireSessionRouteAccess: vi.fn(),
+  prepareOwnedPeopleMemory: vi.fn(),
+  isPeopleMemoryEnabled: vi.fn(() => true),
+  isTopicMapEnabled: vi.fn(() => false),
+  logOperationalEvent: vi.fn(),
+}));
 vi.mock("@/lib/session-flow/route-access", () => ({ requireSessionRouteAccess }));
 vi.mock("@/lib/session-flow/people-memory", () => ({ prepareOwnedPeopleMemory }));
 vi.mock("@/lib/session-flow/people-memory-mode", () => ({ isPeopleMemoryEnabled }));
+vi.mock("@/lib/session-flow/topic-map-mode", () => ({ isTopicMapEnabled }));
 vi.mock("@/lib/operational-visibility/logger", () => ({ logOperationalEvent }));
 vi.mock("@/lib/operational-visibility/request-context", () => ({
   buildOperationalRequestContext: vi.fn().mockResolvedValue({ requestId: "req" }),

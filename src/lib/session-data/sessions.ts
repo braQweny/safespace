@@ -68,6 +68,7 @@ export async function createPendingSession(
       uses_approved_context: input.usesApprovedContext ?? true,
       uses_avatar_memory: input.usesAvatarMemory ?? false,
       about_person_id: input.aboutPersonId ?? null,
+      about_difficulty_id: input.aboutDifficultyId ?? null,
     })
     .select(SESSION_SELECT)
     .single();

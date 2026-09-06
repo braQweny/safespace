@@ -24,9 +24,10 @@ import type { SessionSummaryPromptMessage } from "./types";
 // Jak podsumowanie z rozumowaniem: nic w budżecie sesji nie ogranicza tej
 // generacji, a partia z wieloma osobami potrzebuje miejsca na cały JSON.
 const OPENROUTER_PEOPLE_MEMORY_TIMEOUT_MS = 25_000;
-// Odpowiedź może liczyć kilkadziesiąt faktów; poniżej tego progu model z
-// ukrytym rozumowaniem wracał z `finish_reason: "length"` i deterministyczną pętlą ponowień.
-const OPENROUTER_PEOPLE_MEMORY_MIN_COMPLETION_TOKENS = 6_000;
+// Odpowiedź może liczyć kilkadziesiąt faktów i wpisów mapy tematów; poniżej
+// tego progu model z ukrytym rozumowaniem wracał z `finish_reason: "length"`
+// i deterministyczną pętlą ponowień.
+const OPENROUTER_PEOPLE_MEMORY_MIN_COMPLETION_TOKENS = 8_000;
 const OPENROUTER_PEOPLE_MEMORY_TEMPERATURE = 0.2;
 
 interface OpenRouterPeopleMemoryOptions {
@@ -110,10 +111,18 @@ export function buildOpenRouterPeopleMemoryRequest(
 
 /** Refy, które parser uznaje za znane, wynikają wprost z wejścia promptu. */
 export function buildPeopleMemoryRefIndex(input: GeneratePeopleMemoryInput): PeopleMemoryRefIndex {
+  const difficulties = input.topicsEnabled === true ? (input.difficulties ?? []) : [];
   return {
     personRefs: new Set(input.persons.map((person) => person.ref)),
     factRefsByPerson: new Map(
       input.persons.map((person) => [person.ref, new Set(person.facts.map((fact) => fact.ref))]),
+    ),
+    difficultyRefs: new Set(difficulties.map((difficulty) => difficulty.ref)),
+    entryKindByRef: new Map(
+      difficulties.map((difficulty) => [
+        difficulty.ref,
+        new Map(difficulty.entries.map((entry) => [entry.ref, entry.kind])),
+      ]),
     ),
     conversationCount: input.messages.reduce((count, message) => Math.max(count, message.conversationIndex ?? 0), 0),
   };

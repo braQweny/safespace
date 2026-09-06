@@ -9,6 +9,7 @@ import {
 } from "@/lib/operational-visibility/session-events";
 import { prepareOwnedPeopleMemory } from "@/lib/session-flow/people-memory";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
+import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import { isRecord } from "@/lib/type-guards";
 
@@ -19,8 +20,8 @@ function json(body: Record<string, unknown>, status: number) {
 }
 
 /**
- * Przygotowuje karty osób właściciela w tle — osobno od pamięci, na którą czeka
- * start rozmowy. Bez sprawdzania limitu rozmów: aktualizacja własnej historii
+ * Przygotowuje karty osób i mapę tematów właściciela w tle (jedna partia,
+ * wspólne kursory) — osobno od pamięci, na którą czeka start rozmowy. Bez sprawdzania limitu rozmów: aktualizacja własnej historii
  * to nie prawo do nowej rozmowy, a wyczerpany limit to właśnie moment, w którym
  * karty z ostatniej rozmowy mają się pojawić. Limiter obejmuje trasę w middleware.
  */
@@ -28,7 +29,9 @@ export const POST: APIRoute = async (context) => {
   const startedAtMs = performance.now();
   const access = await requireSessionRouteAccess(context);
   if (!access.ok) return json({ ok: false, code: access.error.code }, access.error.status);
-  if (!isPeopleMemoryEnabled()) return json({ ok: false, code: "people_memory_unavailable" }, 404);
+  if (!isPeopleMemoryEnabled() && !isTopicMapEnabled()) {
+    return json({ ok: false, code: "people_memory_unavailable" }, 404);
+  }
 
   let body: unknown;
   try {

@@ -33,8 +33,9 @@ const WRANGLER_CONFIG_PATH = resolve(__dirname, "../../../../wrangler.jsonc");
 const MIN_REASONING_SESSION_TOKENS = 1_600;
 const MIN_REASONING_SUMMARY_TOKENS = 1_600;
 const MIN_REASONING_SAFETY_TOKENS = 256;
-// A JSON change set for a batch with many people is far longer than a summary.
-const MIN_REASONING_PEOPLE_TOKENS = 6_000;
+// A JSON change set for a batch with many people and topic-map entries is far
+// longer than a summary.
+const MIN_REASONING_PEOPLE_TOKENS = 8_000;
 
 function readWranglerVars(): Partial<Record<string, string>> {
   const raw = readFileSync(WRANGLER_CONFIG_PATH, "utf8");
@@ -72,6 +73,8 @@ const peopleInput: GeneratePeopleMemoryInput = {
   avatarFirstName: "Marek",
   persons: [],
   forgottenPeople: [],
+  topicsEnabled: true,
+  difficulties: [],
   messages: [{ role: "user", content: "Marta z pracy znowu skomentowała mój pomysł.", conversationIndex: 1 }],
 };
 

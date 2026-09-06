@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
+import { DIFFICULTY_LABEL_TAKEN_SQLSTATE, FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
 import { FREE_PLAN_SESSION_LIMIT } from "../quota";
 import { LOCALES, type Locale } from "@/lib/i18n/locale";
 import { SESSION_LENS_IDS } from "@/lib/session-ai/session-lenses";
@@ -23,6 +23,25 @@ import {
   PEOPLE_TIMELINE_KINDS,
   type PeopleFactKind,
 } from "@/lib/session-summary/people-memory-budget";
+import {
+  DIFFICULTY_ALIAS_MAX_CHARS,
+  DIFFICULTY_EFFECTS,
+  DIFFICULTY_EFFECT_KINDS,
+  DIFFICULTY_ENTRY_KINDS,
+  DIFFICULTY_ENTRY_MAX_CHARS,
+  DIFFICULTY_LABEL_MAX_CHARS,
+  DIFFICULTY_MAX_ALIASES,
+  DIFFICULTY_MAX_ENTRIES,
+  DIFFICULTY_MAX_PERSONS,
+  DIFFICULTY_MAX_PER_AVATAR,
+  DIFFICULTY_NOTE_MAX_CHARS,
+  DIFFICULTY_PARENT_KINDS,
+  DIFFICULTY_PERSON_STATES,
+  DIFFICULTY_UPDATE_WINDOW,
+  type DifficultyEffect,
+  type DifficultyEntryKind,
+  type DifficultyPersonState,
+} from "@/lib/session-summary/topic-map-budget";
 import type {
   SessionAvatarId,
   SessionDeletionReasonCode,
@@ -75,6 +94,7 @@ const SESSION_LENS_MIGRATION_PATH = resolve(
   __dirname,
   "../../../../supabase/migrations/20260906160000_add_session_lens.sql",
 );
+const TOPIC_MAP_MIGRATION_PATH = resolve(__dirname, "../../../../supabase/migrations/20260906190000_add_topic_map.sql");
 
 // Every table the app touches through PostgREST with a user JWT, mapped to
 // the migration that carries its table-level revoke. Supabase's default
@@ -98,6 +118,12 @@ const PRIVATE_TABLE_REVOKES = {
   "public.people_fact_sources": PEOPLE_MEMORY_MIGRATION_PATH,
   "public.people_person_mentions": PEOPLE_MEMORY_MIGRATION_PATH,
   "public.people_exclusions": PEOPLE_MEMORY_MIGRATION_PATH,
+  "public.difficulties": TOPIC_MAP_MIGRATION_PATH,
+  "public.difficulty_aliases": TOPIC_MAP_MIGRATION_PATH,
+  "public.difficulty_persons": TOPIC_MAP_MIGRATION_PATH,
+  "public.difficulty_entries": TOPIC_MAP_MIGRATION_PATH,
+  "public.difficulty_entry_sources": TOPIC_MAP_MIGRATION_PATH,
+  "public.difficulty_mentions": TOPIC_MAP_MIGRATION_PATH,
 } as const;
 
 function escapeRegExp(value: string) {
@@ -156,6 +182,9 @@ const modalitiesCovered: AssertExhaustive<SessionModalityId, (typeof TS_MODALITY
 const avatarsCovered: AssertExhaustive<SessionAvatarId, (typeof TS_AVATAR_IDS)[number]> = true;
 const localesCovered: AssertExhaustive<Locale, (typeof LOCALES)[number]> = true;
 const factKindsCovered: AssertExhaustive<PeopleFactKind, (typeof PEOPLE_FACT_KINDS)[number]> = true;
+const entryKindsCovered: AssertExhaustive<DifficultyEntryKind, (typeof DIFFICULTY_ENTRY_KINDS)[number]> = true;
+const effectsCovered: AssertExhaustive<DifficultyEffect, (typeof DIFFICULTY_EFFECTS)[number]> = true;
+const personStatesCovered: AssertExhaustive<DifficultyPersonState, (typeof DIFFICULTY_PERSON_STATES)[number]> = true;
 
 function readBoundaryMigration() {
   return readFileSync(BOUNDARY_MIGRATION_PATH, "utf8");
@@ -439,5 +468,92 @@ describe("session lens migration", () => {
     expect(sql).toContain("grant update (session_lens) on table public.therapy_sessions to authenticated");
     // The label is prompt material about the conversation's subject: never an admin field.
     expect(sql).not.toMatch(/admin/i);
+  });
+});
+
+describe("topic map migration", () => {
+  const sql = readFileSync(TOPIC_MAP_MIGRATION_PATH, "utf8");
+  const inlineKindList = "in ('how', 'coping', 'update', 'suggested', 'agreed', 'outcome')";
+
+  it("keeps entry kinds, effects and edge states equal to the ones the code knows", () => {
+    expect(new Set(extractQuotedValues(extractConstraintBody(sql, "difficulty_entries_kind_check")))).toEqual(
+      new Set(DIFFICULTY_ENTRY_KINDS),
+    );
+    // The effect check names the two kinds that may carry an effect plus every
+    // effect value; it is the last constraint of its table, so read its line.
+    const effectLine = sql
+      .split("\n")
+      .find((line) => line.includes("constraint difficulty_entries_effect_check check"));
+    expect(effectLine).toBeDefined();
+    expect(new Set(extractQuotedValues(effectLine ?? ""))).toEqual(
+      new Set([...DIFFICULTY_EFFECT_KINDS, ...DIFFICULTY_EFFECTS]),
+    );
+    expect(new Set(extractQuotedValues(extractConstraintBody(sql, "difficulty_persons_state_check")))).toEqual(
+      new Set(DIFFICULTY_PERSON_STATES),
+    );
+    // The check, apply_difficulty_changes and the new-difficulty guard in the save function.
+    expect(sql.split(inlineKindList).length - 1).toBe(3);
+    expect(entryKindsCovered).toBe(true);
+    expect(effectsCovered).toBe(true);
+    expect(personStatesCovered).toBe(true);
+  });
+
+  it("allows exactly the parent pairs the code allows and nulls a child's parent on delete", () => {
+    const trigger = sql.slice(sql.indexOf("create function public.difficulty_entries_check_parent()"));
+    expect(trigger).toContain("(new.kind = 'agreed' and v_parent.kind = 'suggested')");
+    expect(trigger).toContain("(new.kind = 'outcome' and v_parent.kind in ('suggested', 'agreed'))");
+    expect(DIFFICULTY_PARENT_KINDS).toEqual({ agreed: ["suggested"], outcome: ["suggested", "agreed"] });
+    expect(sql).toContain("before insert or update of parent_entry_id, kind on public.difficulty_entries");
+    expect(sql).toContain("parent_entry_id uuid references public.difficulty_entries(id) on delete set null");
+  });
+
+  it("keeps the caps, the update window and the length checks equal to the application constants", () => {
+    expect(sql).toContain(`v_max_difficulties constant integer := ${DIFFICULTY_MAX_PER_AVATAR};`);
+    expect(sql).toContain(`v_max_entries constant integer := ${DIFFICULTY_MAX_ENTRIES};`);
+    expect(sql).toContain(`v_max_difficulty_persons constant integer := ${DIFFICULTY_MAX_PERSONS};`);
+    expect(sql).toContain(`v_max_aliases constant integer := ${DIFFICULTY_MAX_ALIASES};`);
+    expect(sql).toContain(`v_update_window constant integer := ${DIFFICULTY_UPDATE_WINDOW};`);
+    expect(sql).toContain(`length(label) <= ${DIFFICULTY_LABEL_MAX_CHARS}`);
+    expect(sql).toContain(`length(alias) <= ${DIFFICULTY_ALIAS_MAX_CHARS}`);
+    expect(sql).toContain(`length(text) <= ${DIFFICULTY_ENTRY_MAX_CHARS}`);
+    expect(sql).toContain(`length(user_note) <= ${DIFFICULTY_NOTE_MAX_CHARS}`);
+  });
+
+  it("deduplicates by normalized label and alias per perspective and reports a taken label with its SQLSTATE", () => {
+    expect(sql).toContain(
+      "create unique index difficulties_label_unique_idx on public.difficulties(user_id, avatar_id, label_normalized)",
+    );
+    expect(sql).toContain(
+      "create unique index difficulty_aliases_unique_idx on public.difficulty_aliases(user_id, avatar_id, alias_normalized)",
+    );
+    expect(sql).toContain(
+      `raise exception 'difficulty_label_taken' using errcode = '${DIFFICULTY_LABEL_TAKEN_SQLSTATE}'`,
+    );
+    // Normalizacja w triggerze, nie w kolumnie generowanej.
+    expect(sql).toContain("new.label_normalized := private.normalize_person_name(new.label)");
+    expect(sql).not.toMatch(/generated always as/i);
+  });
+
+  it("keeps the shared batch signatures, the preference additive, and the merge outside the caps", () => {
+    expect(sql).toContain(
+      "create or replace function public.get_people_memory_batch(p_avatar_id text, p_max_chars integer default 16000)",
+    );
+    expect(sql).toContain(
+      "create or replace function public.save_people_memory_batch(\n  p_avatar_id text, p_revision uuid, p_cursors jsonb, p_changes jsonb\n)",
+    );
+    expect(sql).toContain("topic_map_enabled boolean not null default true");
+    expect(sql).toContain("grant insert (topic_map_enabled) on table public.user_preferences to authenticated");
+    expect(sql).toContain("grant update (topic_map_enabled) on table public.user_preferences to authenticated");
+    expect(sql).toContain("grant insert (about_difficulty_id) on public.therapy_sessions to authenticated");
+    expect(sql).toContain("raise exception 'invalid_about_difficulty' using errcode = 'P0013'");
+    const merge = sql.slice(
+      sql.indexOf("create function public.merge_difficulties("),
+      sql.indexOf("-- 8. Przełącznik mapy"),
+    );
+    for (const cap of ["v_max_entries", "v_max_difficulty_persons", "v_max_aliases"]) expect(merge).not.toContain(cap);
+    expect(sql).toContain("public.merge_difficulties(uuid, uuid)");
+    // The label is the user's own words about their own life: never an admin field
+    // (the auth admin role only appears in the account-cascade guard).
+    expect(sql.replace(/supabase_auth_admin/g, "")).not.toMatch(/admin/i);
   });
 });

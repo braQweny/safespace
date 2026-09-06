@@ -28,11 +28,33 @@ const person = {
   userNote: "",
   facts: [{ id: "fact-1", kind: "account", text: "Skomentowała pomysł.", userEdited: false }],
 };
+const difficulty = {
+  id: "difficulty-1",
+  label: "Trudno mi odmawiać",
+  labelLocked: false,
+  archived: false,
+  aliases: ["zawsze się zgadzam"],
+  persons: [{ personId: "person-1", state: "confirmed", userDecided: false }],
+  entries: [
+    {
+      id: "entry-1",
+      kind: "suggested",
+      text: "Ustalić priorytety przed przyjęciem zadania.",
+      effect: null,
+      personId: "person-1",
+      parentEntryId: null,
+      userEdited: false,
+      conversationAt: "2026-09-01T10:00:00.000Z",
+    },
+  ],
+};
 const work = {
   revision: "rev",
   enabled: true,
+  topicsEnabled: true,
   persons: [person],
   forgottenPeople: [{ name: "sylwia", relation: null }],
+  difficulties: [difficulty],
   messages: [message],
 };
 const card = {
@@ -78,6 +100,10 @@ describe("people memory repository", () => {
     { ...work, enabled: "yes" },
     { ...work, persons: [{ ...person, facts: [{ id: "f", kind: "diagnosis", text: "x", userEdited: false }] }] },
     { ...work, forgottenPeople: [{ name: 1 }] },
+    { ...work, topicsEnabled: "on" },
+    { ...work, difficulties: [{ ...difficulty, entries: [{ ...difficulty.entries[0], kind: "diagnosis" }] }] },
+    { ...work, difficulties: [{ ...difficulty, entries: [{ ...difficulty.entries[0], effect: "great" }] }] },
+    { ...work, difficulties: [{ ...difficulty, persons: [{ personId: "p", state: "maybe", userDecided: false }] }] },
     { ...work, messages: [{ ...message, characterOffset: 1 }] },
     { ...work, messages: [{ ...message, content: "x".repeat(24001), characterOffset: 24001 }] },
     { ...work, messages: Array.from({ length: 129 }, () => message) },
@@ -91,7 +117,7 @@ describe("people memory repository", () => {
   it("saves cursors and the mapped change set in one RPC and surfaces a lost race as false", async () => {
     const { data, rpc } = context(false);
     const cursors = [{ sessionId: "session", sequenceIndex: 0, characterOffset: 20 }];
-    const changes = { newPersons: [], updates: [] };
+    const changes = { newPersons: [], updates: [], newDifficulties: [], difficultyUpdates: [] };
     expect(await saveOwnedPeopleMemoryWork(data, "cbt-guide", { revision: "rev", cursors, changes })).toEqual({
       ok: true,
       data: false,
