@@ -38,7 +38,11 @@ describe("buildTopicGraphLayout", () => {
     const first = buildTopicGraphLayout(cards);
     const second = buildTopicGraphLayout([...cards].reverse());
     expect(second).toEqual(first);
-    expect(first.center).toEqual({ x: first.width / 2, y: first.height / 2 });
+    // Obraz jest przycięty do narysowanych węzłów: „Ty” leży wewnątrz, nie musi być w geometrycznym środku.
+    expect(first.center.x).toBeGreaterThan(0);
+    expect(first.center.x).toBeLessThan(first.width);
+    expect(first.center.y).toBeGreaterThan(0);
+    expect(first.center.y).toBeLessThan(first.height);
     for (const node of first.difficulties) {
       expect(Math.hypot(node.x - first.center.x, node.y - first.center.y)).toBeCloseTo(first.innerRadius, 0);
     }
@@ -115,6 +119,19 @@ describe("buildTopicGraphLayout", () => {
       expect(node.y).toBeGreaterThan(0);
       expect(node.y).toBeLessThan(layout.height);
     }
+  });
+
+  it("crops the picture to what is drawn, so three difficulties at the bottom leave no empty band above", () => {
+    const three = buildTopicGraphLayout([card("a"), card("b"), card("c")]);
+    const topmost = Math.min(...three.difficulties.map((node) => node.y - TOPIC_GRAPH.difficultyHeight / 2));
+    expect(topmost).toBeCloseTo(TOPIC_GRAPH.padding, 0);
+    expect(three.height).toBeLessThan(2 * (three.outerRadius + TOPIC_GRAPH.padding));
+    // Osoba nad górną trudnością rozszerza obraz w górę — nic nie zostaje przycięte.
+    const withPerson = buildTopicGraphLayout([card("a", { persons: [person("m")] }), card("b"), card("c")]);
+    const marta = withPerson.persons[0];
+    expect(marta.y - TOPIC_GRAPH.personRadius).toBeCloseTo(TOPIC_GRAPH.padding, 0);
+    const full = buildTopicGraphLayout(Array.from({ length: 12 }, (_, index) => card(`d${index}`)));
+    expect(full.height).toBeGreaterThan(2 * full.innerRadius);
   });
 
   it("shortens long labels and names for the node and keeps the full text beside them", () => {

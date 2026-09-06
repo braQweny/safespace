@@ -102,8 +102,9 @@ export default function TopicGraph({ cards, isInteractive, onOpen, peopleCardCou
   const { difficultyWidth: w, difficultyHeight: h, personRadius: r, youRadius } = TOPIC_GRAPH;
 
   return (
-    <div data-topic-graph>
-      <div className="overflow-x-auto overscroll-x-contain">
+    <div data-topic-graph className="min-w-0">
+      {/* `contain: inline-size`: szerokość mapy nie rozpycha siatki panelu na telefonie — przewija się tylko ten kontener. */}
+      <div className="overflow-x-auto overscroll-x-contain contain-inline-size">
         <svg
           role="group"
           aria-label={copy.graphAria}

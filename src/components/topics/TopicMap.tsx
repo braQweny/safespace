@@ -176,7 +176,10 @@ function TopicMapView({
 
   return (
     <section
-      className={cn("border-line-strong bg-surface shadow-card mt-8 rounded-[20px] border p-5 sm:p-6", className)}
+      className={cn(
+        "border-line-strong bg-surface shadow-card mt-8 min-w-0 rounded-[20px] border p-5 sm:p-6",
+        className,
+      )}
       data-topic-map
     >
       <h2 id="topic-map-title" tabIndex={-1} className="text-ink font-serif text-2xl leading-tight font-medium">

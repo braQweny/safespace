@@ -198,42 +198,80 @@ export function buildTopicGraphLayout(cards: readonly DifficultyCard[]): TopicGr
     minSeparation,
   );
 
-  const halfWidth = outerRadius + TOPIC_GRAPH.personSlotWidth / 2 + TOPIC_GRAPH.padding;
-  const halfHeight = outerRadius + TOPIC_GRAPH.personRadius + TOPIC_GRAPH.personLabelHeight + TOPIC_GRAPH.padding;
-  const width = Math.round(halfWidth * 2);
-  const height = Math.round(halfHeight * 2);
-  const center = { x: width / 2, y: height / 2 };
+  // Współrzędne najpierw wokół (0, 0); potem obraz jest przycinany do tego, co
+  // faktycznie narysowano — trzy trudności na dole pierścienia nie zostawiają
+  // pustego pasa nad mapą, a przy komplecie węzłów obraz i tak jest pełnym kołem.
   const round = (value: number) => Math.round(value * 100) / 100;
-
-  const difficulties: TopicGraphDifficultyNode[] = difficultyDrafts.map(({ card, angle, personCount: linked }) => ({
-    kind: "difficulty",
-    id: card.id,
-    label: card.label,
-    shortLabel: truncate(card.label, TOPIC_GRAPH.labelMaxChars),
-    archived: card.archivedAt !== null,
-    effect: card.currentState?.effect ?? null,
-    entryCount: card.entries.length,
-    personCount: linked,
-    angle,
-    x: round(center.x + innerRadius * Math.cos(angle)),
-    y: round(center.y + innerRadius * Math.sin(angle)),
+  const difficultyPoints = difficultyDrafts.map(({ angle }) => ({
+    x: innerRadius * Math.cos(angle),
+    y: innerRadius * Math.sin(angle),
   }));
-
-  const persons: TopicGraphPersonNode[] = personsByAngle.map((person, index) => {
+  const personPoints = personsByAngle.map((_, index) => {
     const angle = normalizeAngle(spreadPersonAngles[index]);
-    return {
-      kind: "person",
-      id: person.id,
-      name: person.name,
-      shortName: truncate(person.name, TOPIC_GRAPH.nameMaxChars),
-      relation: person.relation,
-      initial: Array.from(person.name.trim())[0]?.toLocaleUpperCase() ?? "?",
-      angle,
-      x: round(center.x + outerRadius * Math.cos(angle)),
-      y: round(center.y + outerRadius * Math.sin(angle)),
-      difficultyIds: person.difficultyIds,
-    };
+    return { angle, x: outerRadius * Math.cos(angle), y: outerRadius * Math.sin(angle) };
   });
+  const bounds: { minX: number; maxX: number; minY: number; maxY: number } = {
+    minX: -TOPIC_GRAPH.youRadius,
+    maxX: TOPIC_GRAPH.youRadius,
+    minY: -TOPIC_GRAPH.youRadius,
+    maxY: TOPIC_GRAPH.youRadius,
+  };
+  const extend = (x: number, y: number, left: number, right: number, top: number, bottom: number) => {
+    bounds.minX = Math.min(bounds.minX, x - left);
+    bounds.maxX = Math.max(bounds.maxX, x + right);
+    bounds.minY = Math.min(bounds.minY, y - top);
+    bounds.maxY = Math.max(bounds.maxY, y + bottom);
+  };
+  const halfDifficultyWidth = TOPIC_GRAPH.difficultyWidth / 2;
+  const halfDifficultyHeight = TOPIC_GRAPH.difficultyHeight / 2;
+  for (const point of difficultyPoints) {
+    extend(point.x, point.y, halfDifficultyWidth, halfDifficultyWidth, halfDifficultyHeight, halfDifficultyHeight);
+  }
+  const halfSlot = TOPIC_GRAPH.personSlotWidth / 2;
+  for (const point of personPoints) {
+    extend(
+      point.x,
+      point.y,
+      halfSlot,
+      halfSlot,
+      TOPIC_GRAPH.personRadius,
+      TOPIC_GRAPH.personRadius + TOPIC_GRAPH.personLabelHeight,
+    );
+  }
+  const offsetX = TOPIC_GRAPH.padding - bounds.minX;
+  const offsetY = TOPIC_GRAPH.padding - bounds.minY;
+  const width = Math.round(bounds.maxX - bounds.minX + TOPIC_GRAPH.padding * 2);
+  const height = Math.round(bounds.maxY - bounds.minY + TOPIC_GRAPH.padding * 2);
+  const center = { x: round(offsetX), y: round(offsetY) };
+
+  const difficulties: TopicGraphDifficultyNode[] = difficultyDrafts.map(
+    ({ card, angle, personCount: linked }, index) => ({
+      kind: "difficulty",
+      id: card.id,
+      label: card.label,
+      shortLabel: truncate(card.label, TOPIC_GRAPH.labelMaxChars),
+      archived: card.archivedAt !== null,
+      effect: card.currentState?.effect ?? null,
+      entryCount: card.entries.length,
+      personCount: linked,
+      angle,
+      x: round(difficultyPoints[index].x + offsetX),
+      y: round(difficultyPoints[index].y + offsetY),
+    }),
+  );
+
+  const persons: TopicGraphPersonNode[] = personsByAngle.map((person, index) => ({
+    kind: "person",
+    id: person.id,
+    name: person.name,
+    shortName: truncate(person.name, TOPIC_GRAPH.nameMaxChars),
+    relation: person.relation,
+    initial: Array.from(person.name.trim())[0]?.toLocaleUpperCase() ?? "?",
+    angle: personPoints[index].angle,
+    x: round(personPoints[index].x + offsetX),
+    y: round(personPoints[index].y + offsetY),
+    difficultyIds: person.difficultyIds,
+  }));
 
   const difficultyById = new Map(difficulties.map((node) => [node.id, node]));
   const personById = new Map(persons.map((node) => [node.id, node]));
