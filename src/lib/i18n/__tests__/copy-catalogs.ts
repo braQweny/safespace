@@ -20,6 +20,7 @@ import { getSessionStarterPromptsCopy } from "@/components/session/session-start
 import { getSessionTimerCopy } from "@/components/session/session-timer-copy";
 import { getTimedSessionCopy } from "@/components/session/timed-session-copy";
 import { getSiteFooterCopy } from "@/components/site-footer-copy";
+import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
 import { AUTH_ERROR_CODES, getAuthErrorMessage } from "@/lib/auth-errors";
 import { AVATAR_CHOICE_ERROR_CODES, getAvatarChoiceErrorMessage } from "@/lib/avatar-choice-errors";
 import { getBillingCopy } from "@/lib/billing/copy";
@@ -88,6 +89,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "avatar-choice-form-copy", read: getAvatarChoiceFormCopy },
   { name: "session-history-copy", read: getSessionHistoryCopy },
   { name: "people-cards-copy", read: getPeopleCardsCopy },
+  { name: "topic-map-copy", read: getTopicMapCopy },
   { name: "session-summary-panel-copy", read: getSessionSummaryPanelCopy },
   { name: "crisis-help-copy", read: getCrisisHelpCopy },
   { name: "crisis-region-list-copy", read: getCrisisRegionListCopy },

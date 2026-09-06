@@ -2,6 +2,7 @@
 import PrivacyCrisisRegions from "@/components/privacy/PrivacyCrisisRegions.astro";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
+import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
 import { getSupportContact } from "@/lib/support-contact";
 
 /**
@@ -13,6 +14,8 @@ const support = getSupportContact();
 // People cards are described only while the feature ships; the same flag hides
 // the dashboard section and the extraction, so the page never promises more.
 const peopleMemory = isPeopleMemoryEnabled();
+// The topic map follows the same rule under its own flag.
+const topicMap = isTopicMapEnabled();
 ---
 
 <section id="what-is" class="scroll-mt-20">
@@ -105,6 +108,21 @@ const peopleMemory = isPeopleMemoryEnabled();
       </p>
     ) : null
   }
+  {
+    topicMap ? (
+      <p class="text-ink-soft mt-3" data-topic-map>
+        If you keep the “Topic map” switched on, the avatar also notes the difficulties you say you struggle with: how
+        they show up, how you cope, how it is now, which people they come up with, and the proposals from conversations,
+        your decisions and how they went. Every entry comes only from your own words — a proposal is noted as a
+        proposal, never as advice or a plan — and shows the conversations it came from. A difficulty's name carries no
+        names of people and no diagnoses; an uncertain link to a person waits for your confirmation. You can rename a
+        difficulty, fix or remove an entry, unlink a person, merge two difficulties into one, mark a difficulty as less
+        current or remove it entirely. You can switch the map off, or switch it off and delete it entirely, in the
+        account settings. The map is kept separately for each avatar and is produced by the same AI provider under the
+        same zero-retention rules.
+      </p>
+    ) : null
+  }
 </section>
 
 <section id="deletion" class="scroll-mt-20">
@@ -126,6 +144,15 @@ const peopleMemory = isPeopleMemoryEnabled();
           Forgetting a person from their card removes the card, rebuilds the avatar memory without that person and stops
           the avatar from recording that person again. Deleting a conversation also removes every card entry that came
           from it. In the account settings you can delete all people cards at once and switch the feature off.
+        </li>
+      ) : null
+    }
+    {
+      topicMap ? (
+        <li data-topic-map>
+          Removing a difficulty from the topic map removes it together with its entries and links to people; deleting a
+          conversation removes every map entry that came from it, and forgetting a person removes the entries noted with
+          that person. In the account settings you can delete the whole map at once and switch the feature off.
         </li>
       ) : null
     }

@@ -36,7 +36,7 @@ interface TimedSessionProps {
    * pierwszą wiadomością. Użytkownik je edytuje i sam decyduje, co wyśle.
    */
   initialDraft?: string | null;
-  /** Po zakończonej rozmowie przygotuj w tle także karty osób (flaga funkcji). */
+  /** Po zakończonej rozmowie przygotuj w tle także karty osób i mapę tematów (którakolwiek flaga). */
   prepareCards?: boolean;
 }
 

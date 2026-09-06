@@ -30,6 +30,12 @@ describe("automatic memory preparation during start", () => {
     expect(fetch.mock.calls[1][1]).toMatchObject({
       body: JSON.stringify({ aboutPersonId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a" }),
     });
+    await requestSessionStart(true, vi.fn(), { aboutDifficultyId: "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f" });
+    expect(fetch.mock.calls[2][1]).toMatchObject({
+      body: JSON.stringify({ aboutDifficultyId: "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f" }),
+    });
+    await requestSessionStart(true, vi.fn(), { aboutPersonId: null, aboutDifficultyId: null });
+    expect(fetch.mock.calls[3][1]).not.toHaveProperty("body");
   });
 
   it("stops on failure or throttling, allowing a later click to resume saved progress", async () => {

@@ -1,0 +1,40 @@
+---
+import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
+
+/**
+ * Przełącznik „Zapisuj mapę tematów z rozmów” jako natywny formularz (wzór
+ * `PeopleMemoryToggle`): bez JS, bez skryptu inline, z `aria-pressed` na
+ * wybranej opcji. Endpoint zapisuje preferencję przez RPC i wraca na konto.
+ */
+interface Props {
+  enabled: boolean;
+}
+
+const { enabled } = Astro.props;
+const copy = getAccountPagesCopy(Astro.locals.locale).security.topicMap;
+const options = [
+  { value: "1", label: copy.on, pressed: enabled },
+  { value: "0", label: copy.off, pressed: !enabled },
+];
+---
+
+<form method="POST" action="/api/profile/topic-map" data-topic-map-toggle>
+  <fieldset class="m-0 min-w-0 border-0 p-0">
+    <legend class="text-ink-muted text-xs">{copy.toggleLegend}</legend>
+    <div class="border-line-strong mt-1.5 flex gap-0.5 rounded-xl border p-0.5">
+      {
+        options.map((option) => (
+          <button
+            type="submit"
+            name="enabled"
+            value={option.value}
+            aria-pressed={option.pressed}
+            class="text-ink hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep flex h-11 flex-1 items-center justify-center rounded-[10px] px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            {option.label}
+          </button>
+        ))
+      }
+    </div>
+  </fieldset>
+</form>

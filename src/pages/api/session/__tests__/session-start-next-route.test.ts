@@ -204,6 +204,7 @@ describe("POST /api/session/start-next", () => {
       usesApprovedContext: true,
       usesAvatarMemory: true,
       aboutPersonId: null,
+      aboutDifficultyId: null,
     });
     expect(transitionSessionLifecycle).toHaveBeenCalledWith(contextData, {
       sessionId: "next-session-1",

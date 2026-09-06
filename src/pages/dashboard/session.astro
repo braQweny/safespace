@@ -2,7 +2,12 @@
 import Layout from "@/layouts/Layout.astro";
 import TimedSession from "@/components/session/TimedSession";
 import { getPeopleCardsCopy } from "@/components/people/people-cards-copy";
-import { getLatestOwnedSessionSummaryState, getOwnedPersonCard } from "@/lib/session-data/repository";
+import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
+import {
+  getLatestOwnedSessionSummaryState,
+  getOwnedDifficultyCard,
+  getOwnedPersonCard,
+} from "@/lib/session-data/repository";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import { getSessionCopy } from "@/lib/session-copy";
 import { getSessionDataContext } from "@/lib/session-data/auth";
@@ -10,12 +15,16 @@ import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
 import { parseSessionIdParam } from "@/lib/session-flow/session-id";
 import { readSessionStartPageState } from "@/lib/session-flow/session-state";
+import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
 
 const sessionContext = getSessionDataContext(Astro);
 const resumeSessionId = Astro.url.searchParams.get("sessionId");
 // Karta osoby z „Porozmawiaj o tej osobie” — w adresie tylko id, nigdy imię.
 const aboutPersonId = parseSessionIdParam(Astro.url.searchParams.get("about") ?? undefined);
+// Trudność z „Porozmawiaj o tym” na mapie tematów — tak samo tylko id, nigdy etykieta.
+const aboutDifficultyId = parseSessionIdParam(Astro.url.searchParams.get("topic") ?? undefined);
 const peopleMemoryMode = isPeopleMemoryEnabled();
+const topicMapMode = isTopicMapEnabled();
 
 // Rozmowę rozpoczyna się w panelu, więc ta strona istnieje wyłącznie dla sesji,
 // która już trwa albo właśnie się zakończyła. Każdy inny stan wraca do panelu —
@@ -55,16 +64,22 @@ if (activeSession && pageState.kind !== "active") {
 // Prefill z karty: tylko dla trwającej rozmowy tej samej perspektywy i tylko
 // dopóki użytkownik sam nic nie napisał — odświeżenie po wysłaniu nie wraca z
 // tym zdaniem. Cudza albo nieistniejąca karta po prostu nic nie wstawia.
-if (
-  aboutPersonId &&
-  peopleMemoryMode &&
-  pageState.kind === "active" &&
-  !pageState.messages.some((message) => message.role === "user")
-) {
+// Osoba ma pierwszeństwo przed trudnością, gdy adres niesie obie.
+const acceptsPrefill = pageState.kind === "active" && !pageState.messages.some((message) => message.role === "user");
+
+if (aboutPersonId && peopleMemoryMode && acceptsPrefill) {
   const card = await getOwnedPersonCard(sessionContext.data, aboutPersonId);
 
   if (card.ok && card.data?.avatarId === avatarChoice.data.selected.avatarId) {
     initialDraft = getPeopleCardsCopy(Astro.locals.locale).talkAboutDraft(card.data.name, card.data.relation);
+  }
+}
+
+if (initialDraft === null && aboutDifficultyId && topicMapMode && acceptsPrefill) {
+  const difficulty = await getOwnedDifficultyCard(sessionContext.data, aboutDifficultyId);
+
+  if (difficulty.ok && difficulty.data?.avatarId === avatarChoice.data.selected.avatarId) {
+    initialDraft = getTopicMapCopy(Astro.locals.locale).talkAboutDraft(difficulty.data.label);
   }
 }
 ---
@@ -95,7 +110,7 @@ if (
         initialState={pageState}
         initialSummary={initialSummary}
         initialDraft={initialDraft}
-        prepareCards={peopleMemoryMode}
+        prepareCards={peopleMemoryMode || topicMapMode}
       />
     </main>
   </div>

@@ -54,6 +54,32 @@ const ACCOUNT_PAGES_COPY = defineCopy(
           unavailable: "Remembering people is currently unavailable, so it can't be switched on.",
         },
       },
+      topicMap: {
+        title: "Topic map",
+        intro:
+          "The avatar notes the difficulties you say you struggle with, the people they come up with, and the ways of coping that came up in conversations. Everything comes from your own words and stays private to your account.",
+        modeOffIntro:
+          "This feature is currently switched off. Difficulties saved earlier are still stored — you can delete them here.",
+        readFailed: "We couldn't read this setting. Refresh the page in a moment.",
+        toggleLegend: "Keep a topic map from conversations",
+        on: "On",
+        off: "Off",
+        effects:
+          "Switching off stops the recording; saved difficulties stay on the dashboard until you delete them. After switching back on, the avatar notes difficulties only from new conversations.",
+        deleteAllSummary: "Switch off and delete the map",
+        deleteAllBody:
+          "All difficulties for every perspective are deleted, with their entries and links to people, and the map is switched off. People cards, conversation transcripts and the avatar memory stay unchanged. This cannot be undone.",
+        deleteAllConfirmLabel: "I understand that the whole topic map will be deleted permanently.",
+        deleteAllSubmit: "Delete the map",
+        status: {
+          saved: "The setting has been saved.",
+          save_failed: "The setting couldn't be saved. Please try again in a moment.",
+          deleted: "The topic map has been deleted and switched off.",
+          delete_failed: "The map couldn't be deleted. Please try again in a moment.",
+          delete_confirmation_required: "Tick the confirmation before deleting the map.",
+          unavailable: "The topic map is currently unavailable, so it can't be switched on.",
+        },
+      },
     },
     delete: {
       pageTitle: "Delete account - SafeSpace",
@@ -134,6 +160,32 @@ const ACCOUNT_PAGES_COPY = defineCopy(
           delete_failed: "Nie udało się usunąć kart. Spróbuj ponownie za chwilę.",
           delete_confirmation_required: "Zaznacz potwierdzenie, zanim usuniesz karty.",
           unavailable: "Zapamiętywanie osób jest obecnie niedostępne, więc nie da się go włączyć.",
+        },
+      },
+      topicMap: {
+        title: "Mapa tematów",
+        intro:
+          "Awatar zapisuje trudności, o których mówisz, że się z nimi mierzysz, osoby, przy których się pojawiają, i sposoby radzenia sobie, które padły w rozmowach. Wszystko pochodzi z Twoich słów i zostaje prywatne dla Twojego konta.",
+        modeOffIntro:
+          "Ta funkcja jest obecnie wyłączona. Zapisane wcześniej trudności wciąż są przechowywane — możesz je tu usunąć.",
+        readFailed: "Nie udało się odczytać tego ustawienia. Odśwież stronę za chwilę.",
+        toggleLegend: "Zapisuj mapę tematów z rozmów",
+        on: "Włączone",
+        off: "Wyłączone",
+        effects:
+          "Wyłączenie zatrzymuje zapisywanie; zapisane trudności zostają w panelu, dopóki ich nie usuniesz. Po ponownym włączeniu awatar zapisuje trudności tylko z nowych rozmów.",
+        deleteAllSummary: "Wyłącz i usuń mapę",
+        deleteAllBody:
+          "Usuniemy wszystkie trudności dla każdej perspektywy razem z wpisami i powiązaniami z osobami i wyłączymy mapę. Karty osób, zapisy rozmów i pamięć awatara zostają bez zmian. Tej operacji nie można cofnąć.",
+        deleteAllConfirmLabel: "Rozumiem, że cała mapa tematów zostanie trwale usunięta.",
+        deleteAllSubmit: "Usuń mapę",
+        status: {
+          saved: "Ustawienie zostało zapisane.",
+          save_failed: "Nie udało się zapisać ustawienia. Spróbuj ponownie za chwilę.",
+          deleted: "Mapa tematów została usunięta i wyłączona.",
+          delete_failed: "Nie udało się usunąć mapy. Spróbuj ponownie za chwilę.",
+          delete_confirmation_required: "Zaznacz potwierdzenie, zanim usuniesz mapę.",
+          unavailable: "Mapa tematów jest obecnie niedostępna, więc nie da się jej włączyć.",
         },
       },
     },

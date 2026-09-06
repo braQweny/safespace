@@ -16,7 +16,11 @@ import {
 } from "@/lib/operational-visibility/session-events";
 import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
-import { readSessionStartRequestBody, resolveAboutPersonForStart } from "@/lib/session-flow/session-start-request";
+import {
+  readSessionStartRequestBody,
+  resolveAboutDifficultyForStart,
+  resolveAboutPersonForStart,
+} from "@/lib/session-flow/session-start-request";
 
 export const prerender = false;
 
@@ -109,8 +113,9 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, avatarChoice.error.code, status, "/dashboard/avatar");
   }
 
-  // Pierwsza rozmowa nie ma jeszcze kart, więc `aboutPersonId` może tu tylko
-  // przejść walidację (cudza albo nieistniejąca karta → 400) — nigdzie nie trafia.
+  // Pierwsza rozmowa nie ma jeszcze kart ani mapy, więc `aboutPersonId` i
+  // `aboutDifficultyId` mogą tu tylko przejść walidację (cudza albo
+  // nieistniejąca karta → 400) — nigdzie nie trafiają.
   const startRequest = await readSessionStartRequestBody(context.request);
   const aboutPerson = startRequest.ok
     ? await resolveAboutPersonForStart(
@@ -125,6 +130,21 @@ export const POST: APIRoute = async (context) => {
     logStartAttempt("failure", status, startedAtMs, operationalContext);
 
     return failureResponse(context, aboutPerson.code, status, "/dashboard");
+  }
+
+  const aboutDifficulty = startRequest.ok
+    ? await resolveAboutDifficultyForStart(
+        sessionContext.data,
+        startRequest.aboutDifficultyId,
+        avatarChoice.data.modality.avatarId,
+      )
+    : { ok: false as const, code: "validation_failed" as const };
+
+  if (!aboutDifficulty.ok) {
+    const status = aboutDifficulty.code === "validation_failed" ? 400 : 503;
+    logStartAttempt("failure", status, startedAtMs, operationalContext);
+
+    return failureResponse(context, aboutDifficulty.code, status, "/dashboard");
   }
 
   // Pre-flight only: the insert trigger on therapy_sessions is the real gate,

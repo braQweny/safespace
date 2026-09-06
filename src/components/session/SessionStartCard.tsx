@@ -23,16 +23,24 @@ interface SessionStartCardProps {
   billingEnabled?: boolean;
 }
 
-/** Karta osoby jedzie dalej samym id (`about`), nigdy imieniem. */
-export function buildSessionHref(sessionId: string, options: { aboutPersonId?: string | null } = {}) {
-  const href = `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
-  return options.aboutPersonId ? `${href}&about=${encodeURIComponent(options.aboutPersonId)}` : href;
+export interface SessionAboutOptions {
+  aboutPersonId?: string | null;
+  aboutDifficultyId?: string | null;
+}
+
+/** Karta osoby (`about`) i trudność (`topic`) jadą dalej samym id, nigdy imieniem ani etykietą. */
+export function buildSessionHref(sessionId: string, options: SessionAboutOptions = {}) {
+  let href = `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
+  if (options.aboutPersonId) href += `&about=${encodeURIComponent(options.aboutPersonId)}`;
+  if (options.aboutDifficultyId) href += `&topic=${encodeURIComponent(options.aboutDifficultyId)}`;
+  return href;
 }
 
 /**
- * Decyzja o starcie po „Zapisz i zacznij rozmowę” z ekranu wyboru perspektywy
- * i po „Porozmawiaj o tej osobie” z karty: oba wracają na panel z `?start=now`,
- * bo kliknięcie padło już gdzie indziej. Karta dokłada `about=<id>`.
+ * Decyzja o starcie po „Zapisz i zacznij rozmowę” z ekranu wyboru perspektywy,
+ * po „Porozmawiaj o tej osobie” z karty osoby i po „Porozmawiaj o tym” z mapy
+ * tematów: wszystkie wracają na panel z `?start=now`, bo kliknięcie padło już
+ * gdzie indziej. Karta dokłada `about=<id>`, mapa `topic=<id>`.
  *
  * `nextSearch` to adres bez tych parametrów i musi zostać zapisany ZANIM poleci
  * żądanie startu — inaczej odświeżenie panelu zużyłoby kolejną rozmowę z puli.
@@ -43,12 +51,20 @@ export function resolveAutoStartRequest(search: string, canStart: boolean) {
   const params = new URLSearchParams(search);
 
   if (params.get("start") !== "now") {
-    return { isRequested: false, shouldStart: false, nextSearch: search, aboutPersonId: null };
+    return {
+      isRequested: false,
+      shouldStart: false,
+      nextSearch: search,
+      aboutPersonId: null,
+      aboutDifficultyId: null,
+    };
   }
 
   params.delete("start");
   const aboutPersonId = parseSessionIdParam(params.get("about") ?? undefined);
   params.delete("about");
+  const aboutDifficultyId = parseSessionIdParam(params.get("topic") ?? undefined);
+  params.delete("topic");
 
   const remaining = params.toString();
 
@@ -57,6 +73,7 @@ export function resolveAutoStartRequest(search: string, canStart: boolean) {
     shouldStart: canStart,
     nextSearch: remaining.length > 0 ? `?${remaining}` : "",
     aboutPersonId,
+    aboutDifficultyId,
   };
 }
 
@@ -118,14 +135,15 @@ function SessionStartCardView({
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
   const isHydrated = useIsHydrated();
-  // Karta osoby z „Porozmawiaj o tej osobie” — przekazana do startu i do adresu
-  // rozmowy, żeby prefill wjechał razem z pierwszym ekranem.
-  const aboutPersonRef = useRef<string | null>(null);
+  // Karta osoby z „Porozmawiaj o tej osobie” albo trudność z „Porozmawiaj o tym”
+  // — przekazane do startu i do adresu rozmowy, żeby prefill wjechał razem z
+  // pierwszym ekranem.
+  const aboutRef = useRef<SessionAboutOptions>({});
   const { kind, isStarting, isPreparingMemory, notice, startSession } = useSessionStart({
     initialState,
     locale,
     onStarted: (session) => {
-      window.location.assign(buildSessionHref(session.id, { aboutPersonId: aboutPersonRef.current }));
+      window.location.assign(buildSessionHref(session.id, aboutRef.current));
     },
   });
 
@@ -154,8 +172,8 @@ function SessionStartCardView({
       return;
     }
 
-    aboutPersonRef.current = autoStart.aboutPersonId;
-    void startSession({ aboutPersonId: autoStart.aboutPersonId });
+    aboutRef.current = { aboutPersonId: autoStart.aboutPersonId, aboutDifficultyId: autoStart.aboutDifficultyId };
+    void startSession(aboutRef.current);
   }, [canStart, isHydrated, isStarting, startSession]);
   // Rozmowa premium trwa dłużej, więc obietnica czasu musi iść za planem —
   // to samo źródło, z którego trasa startu liczy `expires_at`.

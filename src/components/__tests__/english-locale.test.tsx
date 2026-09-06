@@ -7,6 +7,7 @@ import DashboardSessionHistory from "@/components/modality/DashboardSessionHisto
 import PeopleCards from "@/components/people/PeopleCards";
 import SessionStartCard from "@/components/session/SessionStartCard";
 import TimedSession from "@/components/session/TimedSession";
+import TopicMap from "@/components/topics/TopicMap";
 import type { AdminOverviewMetrics } from "@/lib/admin/types";
 import { MODALITY_CHOICES, MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
@@ -128,6 +129,45 @@ describe("islands rendered in English", () => {
     expect(html).toContain("Marek remembers who the people you mention are to you.");
     expect(html).toContain("2 conversations");
     expect(html).toContain("last on");
+    expect(html).not.toMatch(/[ąćęłńóśźż]/);
+  });
+
+  it("renders the topic map in English", () => {
+    const html = renderToStaticMarkup(
+      <TopicMap
+        locale="en"
+        avatar={avatar.selected}
+        initialCards={[
+          {
+            id: "difficulty-1",
+            avatarId: "cbt-guide",
+            label: "Saying no",
+            labelLocked: false,
+            userNote: "",
+            archivedAt: null,
+            createdAt: "2026-09-01T10:00:00.000Z",
+            aliases: [],
+            persons: [
+              { personId: "person-1", name: "Marta", relation: "colleague", state: "suggested", userDecided: false },
+            ],
+            firstMentionedAt: "2026-09-01T10:00:00.000Z",
+            lastMentionedAt: "2026-09-05T10:00:00.000Z",
+            mentionCount: 2,
+            currentState: { id: "entry-1", text: "A bit easier.", effect: "better", conversationAt: null },
+            hasNewEntriesSinceArchived: false,
+            entries: [],
+          },
+        ]}
+        topicMapEnabled
+      />,
+    );
+
+    expect(html).toContain("Topic map");
+    expect(html).toContain("Marek notes the difficulties you say you struggle with");
+    expect(html).toContain("To confirm");
+    expect(html).toContain("Does “Saying no” come up with Marta?");
+    expect(html).toContain(">better<");
+    expect(html).toContain("2 conversations");
     expect(html).not.toMatch(/[ąćęłńóśźż]/);
   });
 

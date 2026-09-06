@@ -60,6 +60,16 @@ export interface UseSessionStartOptions {
 export interface SessionStartRequestOptions {
   /** Karta osoby, o której ma być rozmowa — trafia do briefu przypinanego przy starcie. */
   aboutPersonId?: string | null;
+  /** Trudność z mapy tematów, o której ma być rozmowa — zapisana przy sesji, tylko id. */
+  aboutDifficultyId?: string | null;
+}
+
+function buildStartBody(options: SessionStartRequestOptions) {
+  const body = {
+    ...(options.aboutPersonId ? { aboutPersonId: options.aboutPersonId } : {}),
+    ...(options.aboutDifficultyId ? { aboutDifficultyId: options.aboutDifficultyId } : {}),
+  };
+  return Object.keys(body).length > 0 ? { body: JSON.stringify(body) } : {};
 }
 
 /** 202 oznacza trwały postęp, nie rozpoczętą sesję. Każde żądanie ma własny limit czasu. */
@@ -72,8 +82,8 @@ export async function requestSessionStart(
     const result = await requestApiJson(isFollowupStart ? "/api/session/start-next" : "/api/session/start", {
       method: "POST",
       timeoutMs: 80_000,
-      // Bez karty nie ma body ani Content-Type — dokładnie jak dotąd.
-      ...(options.aboutPersonId ? { body: JSON.stringify({ aboutPersonId: options.aboutPersonId }) } : {}),
+      // Bez karty ani trudności nie ma body ani Content-Type — dokładnie jak dotąd.
+      ...buildStartBody(options),
     });
     const preparing = isAvatarMemoryPreparing(result);
     onPreparing(preparing);

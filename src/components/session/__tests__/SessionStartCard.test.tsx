@@ -320,6 +320,7 @@ describe("resolveAutoStartRequest", () => {
       shouldStart: false,
       nextSearch: "?avatar=updated",
       aboutPersonId: null,
+      aboutDifficultyId: null,
     });
   });
 
@@ -329,6 +330,7 @@ describe("resolveAutoStartRequest", () => {
       shouldStart: true,
       nextSearch: "",
       aboutPersonId: null,
+      aboutDifficultyId: null,
     });
   });
 
@@ -338,6 +340,7 @@ describe("resolveAutoStartRequest", () => {
       shouldStart: true,
       nextSearch: "?historyAvatar=cbt-guide",
       aboutPersonId: null,
+      aboutDifficultyId: null,
     });
   });
 
@@ -347,6 +350,7 @@ describe("resolveAutoStartRequest", () => {
       shouldStart: false,
       nextSearch: "",
       aboutPersonId: null,
+      aboutDifficultyId: null,
     });
   });
 
@@ -361,9 +365,25 @@ describe("resolveAutoStartRequest", () => {
       shouldStart: true,
       nextSearch: "",
       aboutPersonId: personId,
+      aboutDifficultyId: null,
     });
     expect(resolveAutoStartRequest("?start=now&about=marta", true).aboutPersonId).toBeNull();
     expect(buildSessionHref("s", { aboutPersonId: personId })).toBe(`/dashboard/session?sessionId=s&about=${personId}`);
     expect(buildSessionHref("s")).toBe("/dashboard/session?sessionId=s");
+  });
+
+  it("carries a difficulty from the topic map the same way, under its own parameter", () => {
+    const difficultyId = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
+    expect(resolveAutoStartRequest(`?start=now&topic=${difficultyId}`, true)).toEqual({
+      isRequested: true,
+      shouldStart: true,
+      nextSearch: "",
+      aboutPersonId: null,
+      aboutDifficultyId: difficultyId,
+    });
+    expect(resolveAutoStartRequest("?start=now&topic=odmawianie", true).aboutDifficultyId).toBeNull();
+    expect(buildSessionHref("s", { aboutDifficultyId: difficultyId })).toBe(
+      `/dashboard/session?sessionId=s&topic=${difficultyId}`,
+    );
   });
 });

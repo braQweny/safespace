@@ -2,10 +2,18 @@
 import AppHeader from "@/components/AppHeader.astro";
 import LocaleSwitch from "@/components/LocaleSwitch.astro";
 import PeopleMemoryToggle from "@/components/account/PeopleMemoryToggle.astro";
+import TopicMapToggle from "@/components/account/TopicMapToggle.astro";
 import { getLocaleSwitchCopy } from "@/components/locale-switch-copy";
-import { hasOwnedPeopleRows, readOwnedPeopleMemoryEnabled } from "@/lib/session-data/repository";
+import {
+  hasOwnedDifficultyRows,
+  hasOwnedPeopleRows,
+  readOwnedPeopleMemoryEnabled,
+  readOwnedTopicMapEnabled,
+} from "@/lib/session-data/repository";
 import { isPeopleSettingsStatusCode } from "@/lib/session-flow/people-contract";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
+import { isTopicSettingsStatusCode } from "@/lib/session-flow/topic-map-contract";
+import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
@@ -51,18 +59,26 @@ let activeSession: ActiveSessionBadge | null = null;
 const peopleMemoryMode = isPeopleMemoryEnabled();
 let peopleMemoryEnabled: boolean | null = null;
 let hasPeopleRows = false;
+// Mapa tematów: ta sama zasada, osobna flaga, osobna preferencja i osobna karta.
+const topicMapMode = isTopicMapEnabled();
+let topicMapEnabled: boolean | null = null;
+let hasDifficultyRows = false;
 
 if (sessionContext.ok) {
-  const [quotaResult, badge, preference, rows] = await Promise.all([
+  const [quotaResult, badge, preference, rows, topicPreference, difficultyRows] = await Promise.all([
     readSessionQuota(sessionContext.data),
     readActiveSessionBadge(sessionContext.data),
     peopleMemoryMode ? readOwnedPeopleMemoryEnabled(sessionContext.data) : null,
     hasOwnedPeopleRows(sessionContext.data),
+    topicMapMode ? readOwnedTopicMapEnabled(sessionContext.data) : null,
+    hasOwnedDifficultyRows(sessionContext.data),
   ]);
   quota = quotaResult.ok ? quotaResult.data : null;
   activeSession = badge;
   peopleMemoryEnabled = preference?.ok ? preference.data : null;
   hasPeopleRows = rows.ok ? rows.data : false;
+  topicMapEnabled = topicPreference?.ok ? topicPreference.data : null;
+  hasDifficultyRows = difficultyRows.ok ? difficultyRows.data : false;
 }
 
 const support = getSupportContact();
@@ -73,6 +89,11 @@ const showsPeopleCard = peopleMemoryMode || hasPeopleRows;
 const peopleStatus = Astro.url.searchParams.get("people");
 const peopleStatusMessage = isPeopleSettingsStatusCode(peopleStatus) ? peopleCopy.status[peopleStatus] : null;
 const peopleStatusIsError = peopleStatus !== "saved" && peopleStatus !== "deleted";
+const topicCopy = copy.topicMap;
+const showsTopicCard = topicMapMode || hasDifficultyRows;
+const topicStatus = Astro.url.searchParams.get("topics");
+const topicStatusMessage = isTopicSettingsStatusCode(topicStatus) ? topicCopy.status[topicStatus] : null;
+const topicStatusIsError = topicStatus !== "saved" && topicStatus !== "deleted";
 ---
 
 <Layout title={copy.pageTitle}>
@@ -211,6 +232,65 @@ const peopleStatusIsError = peopleStatus !== "saved" && peopleStatus !== "delete
                     class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong mt-4 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                   >
                     {peopleCopy.deleteAllSubmit}
+                  </button>
+                </form>
+              </details>
+            </div>
+          ) : null
+        }
+
+        {
+          showsTopicCard ? (
+            <div
+              class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8"
+              id="topic-map"
+              data-account-topics
+            >
+              <h2 class="text-ink text-lg font-semibold">{topicCopy.title}</h2>
+              <p class="text-ink-muted mt-2 text-sm leading-6">
+                {topicMapMode ? topicCopy.intro : topicCopy.modeOffIntro}
+              </p>
+              {topicStatusMessage ? (
+                <p
+                  role={topicStatusIsError ? "alert" : "status"}
+                  class:list={[
+                    "mt-3 rounded-xl p-3.5 text-sm leading-6",
+                    topicStatusIsError
+                      ? "border-danger-line bg-danger-soft text-danger border"
+                      : "bg-brand-tint text-brand-deep",
+                  ]}
+                >
+                  {topicStatusMessage}
+                </p>
+              ) : null}
+              {topicMapMode ? (
+                topicMapEnabled === null ? (
+                  <p class="text-ink-muted mt-3 text-sm leading-6">{topicCopy.readFailed}</p>
+                ) : (
+                  <>
+                    <div class="mt-4 max-w-xs">
+                      <TopicMapToggle enabled={topicMapEnabled} />
+                    </div>
+                    <p class="text-ink-muted mt-3 text-sm leading-6">{topicCopy.effects}</p>
+                  </>
+                )
+              ) : null}
+              {/* Potwierdzenie bez JS: wymagane pole wyboru w natywnym formularzu. */}
+              <details class="mt-5">
+                <summary class="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-11 cursor-pointer items-center rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
+                  {topicCopy.deleteAllSummary}
+                </summary>
+                <form method="POST" action="/api/session/topics/delete-all" class="mt-3" data-topics-delete-all>
+                  <p class="text-ink-muted text-sm leading-6">{topicCopy.deleteAllBody}</p>
+                  <label class="text-ink mt-3 flex items-start gap-2 text-sm leading-6">
+                    <input type="checkbox" name="confirm" value="1" required class="mt-1 h-4 w-4 shrink-0" />
+                    <span>{topicCopy.deleteAllConfirmLabel}</span>
+                  </label>
+                  <button
+                    type="submit"
+                    class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong mt-4 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+                  >
+                    {topicCopy.deleteAllSubmit}
                   </button>
                 </form>
               </details>

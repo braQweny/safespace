@@ -2,6 +2,7 @@
 import PrivacyCrisisRegions from "@/components/privacy/PrivacyCrisisRegions.astro";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
+import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
 import { getSupportContact } from "@/lib/support-contact";
 
 /**
@@ -13,6 +14,8 @@ const support = getSupportContact();
 // Karty osób opisujemy tylko wtedy, gdy funkcja jest włączona; ta sama flaga
 // chowa sekcję na panelu i ekstrakcję, więc strona nigdy nie obiecuje więcej.
 const peopleMemory = isPeopleMemoryEnabled();
+// Mapa tematów: ta sama zasada, własna flaga.
+const topicMap = isTopicMapEnabled();
 ---
 
 <section id="what-is" class="scroll-mt-20">
@@ -104,6 +107,21 @@ const peopleMemory = isPeopleMemoryEnabled();
       </p>
     ) : null
   }
+  {
+    topicMap ? (
+      <p class="text-ink-soft mt-3" data-topic-map>
+        Jeśli zostawisz włączoną „Mapę tematów”, awatar zapisuje też trudności, o których mówisz, że się z nimi
+        mierzysz: jak się objawiają, jak sobie z nimi radzisz, jak jest teraz, przy jakich osobach się pojawiają oraz
+        propozycje z rozmów, Twoje postanowienia i to, jak poszło. Każdy wpis powstaje wyłącznie z Twoich słów —
+        propozycja jest zapisana jako propozycja, nigdy jako zalecenie ani plan — i pokazuje rozmowy, z których
+        pochodzi. Nazwa trudności nie zawiera imion ani diagnoz; niepewne powiązanie z osobą czeka na Twoje
+        potwierdzenie. Możesz zmienić nazwę, poprawić lub usunąć wpis, odłączyć osobę, scalić dwie trudności w jedną,
+        oznaczyć trudność jako mniej aktualną albo usunąć ją w całości. Mapę wyłączysz — albo wyłączysz i usuniesz w
+        całości — w ustawieniach konta. Mapa jest osobna dla każdego awatara i powstaje u tego samego dostawcy AI na
+        tych samych zasadach zerowej retencji.
+      </p>
+    ) : null
+  }
 </section>
 
 <section id="deletion" class="scroll-mt-20">
@@ -124,6 +142,15 @@ const peopleMemory = isPeopleMemoryEnabled();
           Zapomnienie osoby z jej karty usuwa kartę, odbudowuje pamięć awatara bez tej osoby i sprawia, że awatar nie
           zapisze jej ponownie. Usunięcie rozmowy usuwa też każdy wpis karty, który z niej pochodził. W ustawieniach
           konta usuniesz wszystkie karty naraz i wyłączysz tę funkcję.
+        </li>
+      ) : null
+    }
+    {
+      topicMap ? (
+        <li data-topic-map>
+          Usunięcie trudności z mapy tematów usuwa ją razem z wpisami i powiązaniami z osobami; usunięcie rozmowy usuwa
+          każdy wpis mapy, który z niej pochodził, a zapomnienie osoby usuwa wpisy zapisane przy tej osobie. W
+          ustawieniach konta usuniesz całą mapę naraz i wyłączysz tę funkcję.
         </li>
       ) : null
     }

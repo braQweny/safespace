@@ -51,6 +51,6 @@ describe("session page prefill from a person card", () => {
     expect(page).toContain("card.data?.avatarId === avatarChoice.data.selected.avatarId");
     expect(page).toContain("talkAboutDraft(card.data.name, card.data.relation)");
     expect(page).toContain("initialDraft={initialDraft}");
-    expect(page).toContain("prepareCards={peopleMemoryMode}");
+    expect(page).toContain("prepareCards={peopleMemoryMode || topicMapMode}");
   });
 });

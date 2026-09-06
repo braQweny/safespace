@@ -31,6 +31,20 @@ describe("privacy page partials", () => {
     },
   );
 
+  it.each(["PrivacyContentPl.astro", "PrivacyContentEn.astro"])(
+    "%s describes the topic map behind its own flag: one paragraph beside the people cards and one deletion bullet",
+    (fileName) => {
+      const source = readFileSync(resolve(__dirname, "..", fileName), "utf8");
+
+      expect(source).toContain('import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode"');
+      expect(source.match(/data-topic-map/g)).toHaveLength(2);
+      expect(source).toMatch(/<p class="text-ink-soft mt-3" data-topic-map>/);
+      expect(source).toMatch(/<li data-topic-map>/);
+      // Mapa stoi tuż za kartami osób w obu miejscach.
+      expect(source.indexOf("data-people-memory>")).toBeLessThan(source.indexOf("data-topic-map>"));
+    },
+  );
+
   it("keeps the English partial free of Polish letters outside comments", () => {
     const source = readFileSync(resolve(__dirname, "..", "PrivacyContentEn.astro"), "utf8");
     const markup = source.slice(source.lastIndexOf("---") + 3);

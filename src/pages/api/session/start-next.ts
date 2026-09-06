@@ -18,7 +18,11 @@ import {
 import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
 import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
 import { prepareOwnedAvatarMemory } from "@/lib/session-flow/avatar-memory";
-import { readSessionStartRequestBody, resolveAboutPersonForStart } from "@/lib/session-flow/session-start-request";
+import {
+  readSessionStartRequestBody,
+  resolveAboutDifficultyForStart,
+  resolveAboutPersonForStart,
+} from "@/lib/session-flow/session-start-request";
 
 export const prerender = false;
 
@@ -178,6 +182,21 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, aboutPerson.code, status, "/dashboard");
   }
 
+  // Trudność z mapy tematów: ta sama reguła właściciela i perspektywy; zapisana
+  // przy sesji tylko jako id (brief z niej to kolejny etap planu).
+  const aboutDifficulty = await resolveAboutDifficultyForStart(
+    sessionContext.data,
+    startRequest.aboutDifficultyId,
+    avatarChoice.data.modality.avatarId,
+  );
+
+  if (!aboutDifficulty.ok) {
+    const status = aboutDifficulty.code === "validation_failed" ? 400 : 503;
+    logStartAttempt("failure", status, startedAtMs, operationalContext);
+
+    return failureResponse(context, aboutDifficulty.code, status, "/dashboard");
+  }
+
   // Pinned at start from the plan read above, so a grant or revoke mid-session
   // never stretches or cuts a conversation already under way.
   const durationSeconds = resolveSessionDurationSeconds(quota.data.plan);
@@ -195,6 +214,7 @@ export const POST: APIRoute = async (context) => {
     usesApprovedContext: true,
     usesAvatarMemory: true,
     aboutPersonId: aboutPerson.aboutPersonId,
+    aboutDifficultyId: aboutDifficulty.aboutDifficultyId,
   });
 
   if (!session.ok) {
