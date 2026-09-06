@@ -38,6 +38,10 @@ import {
   DIFFICULTY_PARENT_KINDS,
   DIFFICULTY_PERSON_STATES,
   DIFFICULTY_UPDATE_WINDOW,
+  TOPIC_BRIEF_MAX_CHARS,
+  TOPIC_BRIEF_MAX_DIFFICULTIES,
+  TOPIC_BRIEF_MAX_ORPHAN_OUTCOMES,
+  TOPIC_BRIEF_MAX_STRATEGIES,
   type DifficultyEffect,
   type DifficultyEntryKind,
   type DifficultyPersonState,
@@ -95,6 +99,10 @@ const SESSION_LENS_MIGRATION_PATH = resolve(
   "../../../../supabase/migrations/20260906160000_add_session_lens.sql",
 );
 const TOPIC_MAP_MIGRATION_PATH = resolve(__dirname, "../../../../supabase/migrations/20260906190000_add_topic_map.sql");
+const TOPIC_BRIEF_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260907100000_add_topic_brief.sql",
+);
 
 // Every table the app touches through PostgREST with a user JWT, mapped to
 // the migration that carries its table-level revoke. Supabase's default
@@ -555,5 +563,76 @@ describe("topic map migration", () => {
     // The label is the user's own words about their own life: never an admin field
     // (the auth admin role only appears in the account-cascade guard).
     expect(sql.replace(/supabase_auth_admin/g, "")).not.toMatch(/admin/i);
+  });
+});
+
+describe("topic brief migration", () => {
+  const sql = readFileSync(TOPIC_BRIEF_MIGRATION_PATH, "utf8");
+
+  it("keeps the brief caps equal to the application constants and bounds the pinned column", () => {
+    expect(sql).toContain(`v_brief_max_chars constant integer := ${TOPIC_BRIEF_MAX_CHARS};`);
+    expect(sql).toContain(`v_brief_max_difficulties constant integer := ${TOPIC_BRIEF_MAX_DIFFICULTIES};`);
+    expect(sql).toContain(`v_brief_max_strategies constant integer := ${TOPIC_BRIEF_MAX_STRATEGIES};`);
+    expect(sql).toContain(`v_brief_max_orphan_outcomes constant integer := ${TOPIC_BRIEF_MAX_ORPHAN_OUTCOMES};`);
+    expect(sql).toContain(`length(topic_brief_text) <= ${TOPIC_BRIEF_MAX_CHARS}`);
+  });
+
+  it("renders only current difficulties with confirmed links, the chosen one first, behind the preference", () => {
+    const renderer = sql.slice(
+      sql.indexOf("create function private.render_topic_brief("),
+      sql.indexOf("create function private.describe_difficulty_outcome("),
+    );
+    expect(renderer).toContain("if not private.topic_map_enabled() then return null; end if;");
+    expect(renderer).toContain("d.archived_at is null");
+    expect(renderer).toContain("dp.state = 'confirmed'");
+    expect(renderer).toContain("order by (d.id = p_about_difficulty_id) desc, last_mentioned desc nulls last");
+    expect(renderer).toContain("' (the user said this no longer troubles them)'");
+    for (const label of [
+      "'  comes up with: '",
+      "'how it shows up: '",
+      "'what the user already does about it: '",
+      "'proposal from a conversation: '",
+      "'something the user decided to try: '",
+      "' -> no word yet on how it went'",
+      "'  how something the user tried went'",
+    ]) {
+      expect(renderer).toContain(label);
+    }
+    for (const effect of DIFFICULTY_EFFECTS) expect(sql).toContain(`when '${effect}' then '`);
+    expect(sql).toContain("' (it made things worse)'");
+  });
+
+  it("pins the brief at session start and refreshes or blanks it on every path that changes the map", () => {
+    const trigger = sql.slice(sql.indexOf("create or replace function public.attach_avatar_session_context()"));
+    expect(trigger).toContain("private.render_people_brief(new.avatar_id, new.about_person_id)");
+    expect(trigger).toContain("private.render_topic_brief(new.avatar_id, new.about_difficulty_id)");
+    expect(trigger).toContain("raise exception 'invalid_about_difficulty' using errcode = 'P0013'");
+    expect(trigger).toContain("raise exception 'avatar_memory_not_ready' using errcode = 'P0011'");
+    for (const fn of [
+      "public.update_difficulty_card(",
+      "public.delete_difficulty(",
+      "public.decide_difficulty_person(",
+      "public.update_difficulty_entry(",
+      "public.delete_difficulty_entry(",
+      "public.merge_difficulties(",
+      "public.forget_person(",
+      "public.purge_tombstoned_people_memory(",
+      "public.disable_and_delete_people_memory(",
+    ]) {
+      const start = sql.indexOf(`create or replace function ${fn}`);
+      expect(start, fn).toBeGreaterThan(0);
+      const body = sql.slice(start, sql.indexOf("end $$;", start));
+      expect(body, fn).toContain("private.refresh_topic_briefs(");
+    }
+    expect(
+      sql.split("update public.avatar_session_contexts set topic_brief_text = null where user_id = auth.uid();")
+        .length - 1,
+    ).toBe(2);
+    expect(sql).toContain(
+      "perform private.refresh_people_briefs(old.user_id, old.avatar_id);\n    perform private.refresh_topic_briefs(old.user_id, old.avatar_id);",
+    );
+    expect(sql).toContain(
+      "revoke all on function\n  private.render_topic_brief(text, uuid), private.describe_difficulty_outcome(text),\n  private.refresh_topic_briefs(uuid, text)\n  from public, anon;",
+    );
   });
 });

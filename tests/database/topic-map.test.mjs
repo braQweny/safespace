@@ -132,6 +132,33 @@ describe("Topic map against all migrations in real PostgreSQL", () => {
   const count = async (table, userId) =>
     (await db.admin.query(`select count(*)::int as n from public.${table} where user_id = $1`, [userId])).rows[0].n;
   const byKind = (difficulty, kind) => difficulty.entries.filter((item) => item.kind === kind);
+  const memoryBatch = async (owner, avatar = AVATAR) =>
+    (await owner.client.query("select public.get_avatar_memory_batch($1) as work", [avatar])).rows[0].work;
+  const saveMemory = async (owner, work, avatar = AVATAR) =>
+    (
+      await owner.client.query("select public.save_avatar_memory_batch($1, $2, $3, $4) as saved", [
+        avatar,
+        work.revision,
+        JSON.stringify(cursorsOf(work)),
+        "Pamięć",
+      ])
+    ).rows[0].saved;
+  async function pinnedSession(owner, { avatar = AVATAR, aboutDifficultyId = null } = {}) {
+    const work = await memoryBatch(owner, avatar);
+    if (work.messages.length > 0) assert.equal(await saveMemory(owner, work, avatar), true);
+    const { rows } = await owner.client.query(
+      `insert into public.therapy_sessions(user_id, modality_id, avatar_id, uses_avatar_memory, about_difficulty_id)
+       values ($1, 'cbt', $2, true, $3) returning id`,
+      [owner.userId, avatar, aboutDifficultyId],
+    );
+    return rows[0].id;
+  }
+  const topicBrief = async (owner, sessionId) =>
+    (
+      await owner.client.query("select topic_brief_text from public.avatar_session_contexts where session_id = $1", [
+        sessionId,
+      ])
+    ).rows[0].topic_brief_text;
 
   it("starts enabled with an empty index beside the people index and shares the cursors", async () => {
     const owner = await premiumOwner();
@@ -865,6 +892,178 @@ describe("Topic map against all migrations in real PostgreSQL", () => {
     for (const table of TOPIC_TABLES) assert.equal(await count(table, owner.userId), 0, table);
     assert.equal((await personCards(owner)).length, 1);
     assert.equal((await batch(owner)).topicsEnabled, false);
+  });
+
+  it("pins a topic brief at session start: chosen difficulty first, confirmed people only, current state, strategies with outcomes, no archived ones", async () => {
+    const owner = await premiumOwner();
+    const first = await endedSession(owner, [
+      "Nie umiem odmawiać Marcie.",
+      "Poproś o dzień do namysłu.",
+      "Spróbuję.",
+      "Ok.",
+    ]);
+    const second = await endedSession(owner, ["Było gorzej. Za to śpię lepiej.", "Rozumiem."]);
+    const work = await batch(owner);
+    assert.equal(
+      await save(owner, work, {
+        newPersons: [newPerson("Marta", "koleżanka z pracy", first), newPerson("Ola", null, first)],
+        newDifficulties: [
+          newDifficulty("Odmawianie w pracy", first, {
+            addAliases: ["nie umiem powiedzieć nie"],
+            addPersons: [
+              { personId: null, newPersonPosition: 0, uncertain: false },
+              { personId: null, newPersonPosition: 1, uncertain: true },
+            ],
+            addEntries: [
+              entry(first, "how", "Zgadzam się na wszystko.", { newPersonPosition: 0 }),
+              entry(first, "coping", "Odkładam odpowiedź."),
+              entry(first, "suggested", "Poprosić o dzień do namysłu."),
+              entry(second, "outcome", "Było gorzej.", { effect: "worse", parentPosition: 2 }),
+              entry(first, "agreed", "Powiedzieć nie raz w tygodniu."),
+              entry(second, "update", "Wciąż trudno.", { effect: "same" }),
+            ],
+            mentionedSessionIds: [first, second],
+          }),
+          newDifficulty("Zasypianie", second, {
+            addEntries: [entry(second, "update", "Już nie problem.", { effect: "resolved" })],
+            mentionedSessionIds: [second],
+          }),
+          newDifficulty("Poranki", first, { mentionedSessionIds: [first] }),
+        ],
+      }),
+      true,
+    );
+    const list = await cards(owner);
+    const odmawianie = list.find((item) => item.label === "Odmawianie w pracy");
+    const zasypianie = list.find((item) => item.label === "Zasypianie");
+    const poranki = list.find((item) => item.label === "Poranki");
+    await owner.client.query("select public.update_difficulty_card($1, $2, $3, $4)", [poranki.id, "Poranki", "", true]);
+
+    const pinned = await pinnedSession(owner, { aboutDifficultyId: zasypianie.id });
+    const text = await topicBrief(owner, pinned);
+    assert.ok(text.startsWith("- Zasypianie — the user chose to talk about this today"), text);
+    assert.ok(text.includes("how it is now (the user said this no longer troubles them): Już nie problem."), text);
+    assert.ok(text.indexOf("Zasypianie") < text.indexOf("Odmawianie w pracy"), text);
+    assert.ok(!text.includes("Poranki"), text);
+    assert.ok(text.includes("- Odmawianie w pracy; came up in 2 earlier conversation(s)"), text);
+    // Tylko potwierdzone powiązania: Ola czeka na decyzję i nie wchodzi do briefu.
+    assert.ok(text.includes("comes up with: Marta (koleżanka z pracy)") && !text.includes("Ola"), text);
+    assert.ok(text.includes("how it is now (about the same as before): Wciąż trudno."), text);
+    assert.ok(text.includes("how it shows up: Zgadzam się na wszystko. [with Marta]"), text);
+    assert.ok(text.includes("what the user already does about it: Odkładam odpowiedź."), text);
+    assert.ok(
+      text.includes(
+        "proposal from a conversation: Poprosić o dzień do namysłu. -> how it went (it made things worse): Było gorzej.",
+      ),
+      text,
+    );
+    assert.ok(
+      text.includes("something the user decided to try: Powiedzieć nie raz w tygodniu. -> no word yet on how it went"),
+      text,
+    );
+    assert.ok(text.length <= 3000);
+    assert.equal(
+      (await owner.client.query("select about_difficulty_id from public.therapy_sessions where id = $1", [pinned]))
+        .rows[0].about_difficulty_id,
+      zasypianie.id,
+    );
+    assert.ok(odmawianie);
+
+    const other = await premiumOwner();
+    await assert.rejects(
+      other.client.query(
+        `insert into public.therapy_sessions(user_id, modality_id, avatar_id, about_difficulty_id) values ($1, 'cbt', 'cbt-guide', $2)`,
+        [other.userId, zasypianie.id],
+      ),
+      { code: "P0013" },
+    );
+  });
+
+  it("refreshes pinned topic briefs after corrections, decisions, merges, forgetting and deleted conversations, and blanks them when the map is switched off or deleted", async () => {
+    const owner = await premiumOwner();
+    const first = await endedSession(owner, ["Marta i odmawianie.", "Ok."]);
+    const second = await endedSession(owner, ["Zasypianie.", "Ok."]);
+    assert.equal(
+      await save(owner, await batch(owner), {
+        newPersons: [newPerson("Marta", "koleżanka z pracy", first)],
+        newDifficulties: [
+          newDifficulty("Odmawianie", first, {
+            addPersons: [{ personId: null, newPersonPosition: 0, uncertain: false }],
+            addEntries: [entry(first, "how", "Zgadzam się na wszystko.", { newPersonPosition: 0 })],
+            mentionedSessionIds: [first],
+          }),
+          newDifficulty("Zasypianie", second, {
+            addEntries: [entry(second, "coping", "Czytam przed snem.")],
+            mentionedSessionIds: [second],
+          }),
+        ],
+      }),
+      true,
+    );
+    const list = await cards(owner);
+    const odmawianie = list.find((item) => item.label === "Odmawianie");
+    const zasypianie = list.find((item) => item.label === "Zasypianie");
+    const pinned = await pinnedSession(owner);
+    const initial = await topicBrief(owner, pinned);
+    assert.ok(
+      initial.includes("- Odmawianie") && initial.includes("- Zasypianie") && initial.includes("[with Marta]"),
+      initial,
+    );
+
+    const howEntry = byKind(odmawianie, "how")[0];
+    await owner.client.query("select public.update_difficulty_entry($1, $2)", [
+      howEntry.id,
+      "Poprawione przez użytkownika.",
+    ]);
+    assert.ok(
+      (await topicBrief(owner, pinned)).includes("how it shows up: Poprawione przez użytkownika. [with Marta]"),
+    );
+
+    await owner.client.query("select public.update_difficulty_card($1, $2, $3, $4)", [
+      odmawianie.id,
+      "Asertywność",
+      "Moja uwaga",
+      false,
+    ]);
+    let text = await topicBrief(owner, pinned);
+    assert.ok(
+      text.includes("- Asertywność") && text.includes("user's own note: Moja uwaga") && !text.includes("- Odmawianie"),
+      text,
+    );
+
+    const [marta] = await personCards(owner);
+    await owner.client.query("select public.decide_difficulty_person($1, $2, $3)", [
+      odmawianie.id,
+      marta.id,
+      "rejected",
+    ]);
+    text = await topicBrief(owner, pinned);
+    assert.ok(!text.includes("Marta") && text.includes("- Asertywność"), text);
+
+    await owner.client.query("select public.merge_difficulties($1, $2)", [zasypianie.id, odmawianie.id]);
+    text = await topicBrief(owner, pinned);
+    assert.ok(
+      text.includes("- Asertywność") && !text.includes("- Zasypianie") && text.includes("Czytam przed snem."),
+      text,
+    );
+
+    await tombstone(owner, second);
+    text = await topicBrief(owner, pinned);
+    assert.ok(!text.includes("Czytam przed snem."), text);
+
+    await owner.client.query("select public.forget_person($1)", [marta.id]);
+    assert.ok((await topicBrief(owner, pinned)).includes("- Asertywność"));
+
+    await owner.client.query("select public.set_topic_map_enabled(false)");
+    assert.equal(await topicBrief(owner, pinned), null);
+    await owner.client.query("select public.set_topic_map_enabled(true)");
+    assert.equal(await topicBrief(owner, pinned), null);
+    const fresh = await pinnedSession(owner);
+    assert.ok((await topicBrief(owner, fresh)).includes("- Asertywność"));
+
+    await owner.client.query("select public.disable_and_delete_topic_map()");
+    assert.equal(await topicBrief(owner, fresh), null);
+    assert.equal(await count("difficulties", owner.userId), 0);
   });
 
   it("keeps the user's corrections ahead of a later batch and fences an in-flight one", async () => {

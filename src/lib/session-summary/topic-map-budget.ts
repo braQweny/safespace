@@ -72,5 +72,13 @@ export const DIFFICULTY_INDEX_MAX_PER_DESCRIPTIVE_KIND = 2;
 export const DIFFICULTY_INDEX_MAX_ORPHAN_OUTCOMES = 2;
 export const DIFFICULTY_INDEX_TEXT_MAX_CHARS = 120;
 
+// Brief `<<<topics>>>` przypinany do rozmowy (`private.render_topic_brief`):
+// do 8 trudności, na każdą najnowsze 4 propozycje/postanowienia z rezultatem
+// i 2 rezultaty bez rodzica; łącznie do 3000 znaków, przypięte testem dryfu.
+export const TOPIC_BRIEF_MAX_CHARS = 3000;
+export const TOPIC_BRIEF_MAX_DIFFICULTIES = 8;
+export const TOPIC_BRIEF_MAX_STRATEGIES = 4;
+export const TOPIC_BRIEF_MAX_ORPHAN_OUTCOMES = 2;
+
 /** Ta sama reguła co `private.normalize_difficulty_label` w bazie. */
 export const normalizeDifficultyLabel = normalizePersonName;

@@ -2,18 +2,23 @@ import { describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 import type { SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
 
-const { getOwnedSessionPinnedContext, listNewestApprovedSessionSummaryContexts, isPeopleMemoryEnabled } = vi.hoisted(
-  () => ({
-    getOwnedSessionPinnedContext: vi.fn(),
-    listNewestApprovedSessionSummaryContexts: vi.fn(),
-    isPeopleMemoryEnabled: vi.fn(() => true),
-  }),
-);
+const {
+  getOwnedSessionPinnedContext,
+  listNewestApprovedSessionSummaryContexts,
+  isPeopleMemoryEnabled,
+  isTopicMapEnabled,
+} = vi.hoisted(() => ({
+  getOwnedSessionPinnedContext: vi.fn(),
+  listNewestApprovedSessionSummaryContexts: vi.fn(),
+  isPeopleMemoryEnabled: vi.fn(() => true),
+  isTopicMapEnabled: vi.fn(() => true),
+}));
 vi.mock("@/lib/session-data/repository", () => ({
   getOwnedSessionPinnedContext,
   listNewestApprovedSessionSummaryContexts,
 }));
 vi.mock("@/lib/session-flow/people-memory-mode", () => ({ isPeopleMemoryEnabled }));
+vi.mock("@/lib/session-flow/topic-map-mode", () => ({ isTopicMapEnabled }));
 import { loadOwnedSessionContinuity } from "../session-continuity";
 
 const context = { user: { id: "owner" } } as SessionDataContext;
@@ -25,15 +30,31 @@ const session = {
 } as SessionMetadata;
 
 describe("loadOwnedSessionContinuity", () => {
-  it("returns the pinned memory together with the people brief when the flag is on", async () => {
-    getOwnedSessionPinnedContext.mockResolvedValue(ok({ avatarMemory: "Pamięć", peopleBrief: "- Marta" }));
+  it("returns the pinned memory together with both briefs when their flags are on", async () => {
+    getOwnedSessionPinnedContext.mockResolvedValue(
+      ok({ avatarMemory: "Pamięć", peopleBrief: "- Marta", topicBrief: "- Odmawianie" }),
+    );
+    expect(await loadOwnedSessionContinuity(context, session)).toEqual({
+      ok: true,
+      data: [],
+      avatarMemory: "Pamięć",
+      peopleBrief: "- Marta",
+      topicBrief: "- Odmawianie",
+    });
+    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
+  });
+
+  it("drops the pinned topic brief while the topic map flag is off, independently of the people flag", async () => {
+    isTopicMapEnabled.mockReturnValueOnce(false);
+    getOwnedSessionPinnedContext.mockResolvedValue(
+      ok({ avatarMemory: "Pamięć", peopleBrief: "- Marta", topicBrief: "- Odmawianie" }),
+    );
     expect(await loadOwnedSessionContinuity(context, session)).toEqual({
       ok: true,
       data: [],
       avatarMemory: "Pamięć",
       peopleBrief: "- Marta",
     });
-    expect(listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
   });
 
   it("drops a pinned brief while the flag is off and never invents one when none was pinned", async () => {

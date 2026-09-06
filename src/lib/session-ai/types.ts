@@ -56,6 +56,8 @@ export interface GenerateSessionResponseInput {
   avatarMemory?: string;
   /** Przypięty brief kart osób z tej samej prywatnej kopii co pamięć awatara. */
   peopleBrief?: string;
+  /** Przypięty brief mapy tematów: trudności, osoby przy nich i sposoby z rozmów. */
+  topicBrief?: string;
   /** Soczewka tematyczna lepka na sesję; dokleja moduł „co słyszeć i o co pytać” do sekcji nurtu. */
   sessionLens?: SessionLensId;
   /** Język odpowiedzi — język interfejsu w chwili żądania. */

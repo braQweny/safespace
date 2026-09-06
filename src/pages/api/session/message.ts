@@ -411,6 +411,7 @@ export const POST: APIRoute = async (context) => {
           recentMessages: toRecentSessionAiMessages(recentMessages.data),
           avatarMemory: approvedSummaries.avatarMemory,
           peopleBrief: approvedSummaries.peopleBrief,
+          topicBrief: approvedSummaries.topicBrief,
           ...(sessionLens ? { sessionLens } : {}),
           approvedSummaries: approvedSummaries.data.map((summary) => ({
             summaryText: summary.summaryText,

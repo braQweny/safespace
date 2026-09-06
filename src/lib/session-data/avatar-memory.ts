@@ -118,6 +118,8 @@ export interface SessionPinnedContext {
   avatarMemory: string;
   /** Brak = brief nie został przypięty (wyłączone, brak osób, sesja sprzed migracji). */
   peopleBrief?: string;
+  /** Brief mapy tematów z tej samej kopii; brak = wyłączone, brak trudności albo sesja sprzed migracji. */
+  topicBrief?: string;
 }
 
 /**
@@ -130,7 +132,7 @@ export async function getOwnedSessionPinnedContext(
 ): Promise<SessionDataResult<SessionPinnedContext>> {
   const { data, error } = await context.supabase
     .from("avatar_session_contexts")
-    .select("summary_text,people_brief_text")
+    .select("summary_text,people_brief_text,topic_brief_text")
     .eq("session_id", session.id)
     .eq("user_id", context.user.id)
     .eq("avatar_id", session.avatarId)
@@ -138,8 +140,10 @@ export async function getOwnedSessionPinnedContext(
   const value: unknown = data;
   if (error || !isRecord(value) || typeof value.summary_text !== "string") return sessionDataError("read_failed");
   const brief = value.people_brief_text;
+  const topicBrief = value.topic_brief_text;
   return ok({
     avatarMemory: value.summary_text,
     ...(typeof brief === "string" && brief.trim().length > 0 ? { peopleBrief: brief } : {}),
+    ...(typeof topicBrief === "string" && topicBrief.trim().length > 0 ? { topicBrief } : {}),
   });
 }

@@ -187,12 +187,22 @@ describe("people memory repository", () => {
 
   it("reads the pinned memory and brief together and omits an absent brief", async () => {
     const session = { id: "s", avatarId: "cbt-guide" } as const;
-    const withBrief = tableContext({ summary_text: "Pamięć", people_brief_text: "- Marta" });
+    const withBrief = tableContext({
+      summary_text: "Pamięć",
+      people_brief_text: "- Marta",
+      topic_brief_text: "- Odmawianie",
+    });
     expect(await getOwnedSessionPinnedContext(withBrief.data, session)).toEqual({
       ok: true,
-      data: { avatarMemory: "Pamięć", peopleBrief: "- Marta" },
+      data: { avatarMemory: "Pamięć", peopleBrief: "- Marta", topicBrief: "- Odmawianie" },
     });
-    expect(withBrief.builder.select).toHaveBeenCalledWith("summary_text,people_brief_text");
+    expect(withBrief.builder.select).toHaveBeenCalledWith("summary_text,people_brief_text,topic_brief_text");
+    expect(
+      await getOwnedSessionPinnedContext(
+        tableContext({ summary_text: "Pamięć", people_brief_text: null, topic_brief_text: "  " }).data,
+        session,
+      ),
+    ).toEqual({ ok: true, data: { avatarMemory: "Pamięć" } });
     expect(
       await getOwnedSessionPinnedContext(tableContext({ summary_text: "", people_brief_text: null }).data, session),
     ).toEqual({

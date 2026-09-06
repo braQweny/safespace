@@ -14,6 +14,7 @@ const listNewestApprovedSessionSummaryContexts = vi.fn();
 const getOwnedSessionAvatarMemory = vi.fn();
 const getOwnedSessionPinnedContext = vi.fn();
 const isPeopleMemoryEnabled = vi.fn(() => true);
+const isTopicMapEnabled = vi.fn(() => true);
 const isSessionLensEnabled = vi.fn(() => true);
 const detectSessionLens = vi.fn();
 const setOwnedSessionLens = vi.fn();
@@ -62,6 +63,9 @@ vi.mock("@/lib/session-lens/detect-session-lens", () => ({
 }));
 
 // `astro:env/server` nie istnieje w vitest; flaga kart osób przychodzi z atrapy.
+vi.mock("@/lib/session-flow/topic-map-mode", () => ({
+  isTopicMapEnabled,
+}));
 vi.mock("@/lib/session-flow/people-memory-mode", () => ({
   isPeopleMemoryEnabled,
 }));
@@ -311,12 +315,13 @@ describe("POST /api/session/message", () => {
     expect(releaseSessionMessageTurn).not.toHaveBeenCalled();
   });
 
-  it("passes the session's pinned avatar memory and people brief after safety approval, without reading legacy summaries", async () => {
+  it("passes the session's pinned avatar memory and both briefs after safety approval, without reading legacy summaries", async () => {
     getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesAvatarMemory: true }));
     getOwnedSessionPinnedContext.mockResolvedValue(
       ok({
         avatarMemory: "Fakty ze wszystkich poprzednich rozmów z Markiem.",
         peopleBrief: "- Marta (koleżanka z pracy)",
+        topicBrief: "- Odmawianie w pracy",
       }),
     );
     const response = await POST(createContext() as never);
@@ -330,6 +335,7 @@ describe("POST /api/session/message", () => {
       expect.objectContaining({
         avatarMemory: "Fakty ze wszystkich poprzednich rozmów z Markiem.",
         peopleBrief: "- Marta (koleżanka z pracy)",
+        topicBrief: "- Odmawianie w pracy",
         approvedSummaries: [],
       }),
       undefined,
@@ -348,6 +354,18 @@ describe("POST /api/session/message", () => {
     const [input] = generateSessionResponse.mock.calls[0] as [GenerateSessionResponseInput];
     expect(input.avatarMemory).toBe("Pamięć bez kart.");
     expect(input.peopleBrief).toBeUndefined();
+  });
+
+  it("drops the pinned topic brief while the topic-map flag is off", async () => {
+    isTopicMapEnabled.mockReturnValueOnce(false);
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, usesAvatarMemory: true }));
+    getOwnedSessionPinnedContext.mockResolvedValue(
+      ok({ avatarMemory: "Pamięć bez mapy.", peopleBrief: "- Marta", topicBrief: "- Odmawianie w pracy" }),
+    );
+    expect((await POST(createContext() as never)).status).toBe(200);
+    const [input] = generateSessionResponse.mock.calls[0] as [GenerateSessionResponseInput];
+    expect(input.peopleBrief).toBe("- Marta");
+    expect(input.topicBrief).toBeUndefined();
   });
 
   it("detects a thematic lens beside the classifier, pins it once and hands it to the reply, logging only the result", async () => {

@@ -45,7 +45,13 @@ export async function createSessionOpeningMessage(
 
   const summaries =
     options.approvedSummaries && !session.usesAvatarMemory && session.usesApprovedContext
-      ? { ok: true as const, data: options.approvedSummaries, avatarMemory: undefined, peopleBrief: undefined }
+      ? {
+          ok: true as const,
+          data: options.approvedSummaries,
+          avatarMemory: undefined,
+          peopleBrief: undefined,
+          topicBrief: undefined,
+        }
       : await loadOwnedSessionContinuity(context, session);
 
   if (!summaries.ok) {
@@ -65,6 +71,7 @@ export async function createSessionOpeningMessage(
       sessionPhase: "opening",
       avatarMemory: summaries.avatarMemory,
       peopleBrief: summaries.peopleBrief,
+      topicBrief: summaries.topicBrief,
       approvedSummaries: summaries.data.map((summary) => ({
         summaryText: summary.summaryText,
         revision: summary.revision,
