@@ -62,7 +62,7 @@ set is_active = true, deactivated_at = null;
 
 - `wrangler.jsonc`:
   - `name` ustawione na `safespace`.
-  - Worker target zostaje przez `main: "@astrojs/cloudflare/entrypoints/server"`.
+  - Worker target to własne entry `main: "src/worker.ts"` (handler Astro + klasa Durable Object `VoiceSessionObserver`); binding `VOICE_SESSION_OBSERVER` z migracją `v1` (`new_sqlite_classes`) i limiter `VOICE_RATE_LIMITER` (namespace 1004) są w tej konfiguracji. Pierwszy deploy tworzy klasę DO; `npx wrangler deploy --dry-run` musi ją wypisać.
   - Wymagane `SUPABASE_URL`, `SUPABASE_KEY` i klucz wybranego dostawcy sprawdza `scripts/write-production-secrets.mjs` przed migracjami. Nie ustawiamy `secrets.required`, aby lokalnie nie odfiltrować klucza alternatywnego dostawcy.
 - `.github/workflows/ci.yml`:
   - Trigger ustawiony na `main` dla push i pull request.
@@ -73,6 +73,7 @@ set is_active = true, deactivated_at = null;
   - Deploy używa `cloudflare/wrangler-action@v3`, `wranglerVersion: "4.126.0"` i `deploy --secrets-file .env.production`.
   - Migracja `20260904204248` dodaje integralność cyklu sesji i prywatne potwierdzenia tur bez nowych sekretów. Zachowuje zapis wiadomości ze starego Workera; nowe triggery sprawdzają status, termin i usunięcie. Migracja musi wejść przed kodem używającym nowych RPC.
   - Migracja `20260905075745` dodaje `get_avatar_memory_batch` i `save_avatar_memory_batch`: jedna generacja pamięci może objąć wiele rozmów do wspólnego budżetu tekstu. Stare RPC pamięci pozostają dostępne i dzielą postęp z nowymi, więc starszy Worker działa podczas wdrożenia. Migracja musi wejść przed nowym Workerem; nie ma nowych zmiennych ani sekretów.
+  - Migracja `20260912200000` dodaje tryb rozmowy (`mode`), aktywację połączenia głosowego, bucket 600 s, osobną próbę głosową konta free (`P0016`), `utterance_id` i RPC `append_voice_session_utterances`. Jest addytywna i kompatybilna z dotychczasowym Workerem (domyślne `mode = 'text'`, limit tekstowy bez zmian); musi wejść przed Workerem czytającym nowe kolumny. Nie dodaje sekretów; `VOICE_SESSION_MODE` pozostaje `off` do końca wdrożenia rozmów głosowych.
   - Migracja `20260905175333` dodaje rozliczenia, widoki właścicielskie, niezależne opłacone premium i bramkę anulowania abonamentu przed usunięciem konta. Jest kompatybilna z dotychczasowym kodem, przy pustych danych billingowych nie zmienia ręcznego premium ani limitów. Nie tworzy loginu z hasłem i nie aktywuje płatności. Jeśli ten kod będzie wdrażany, migracja musi poprzedzać Worker czytający nowe widoki; blokada migracje + publikacja pozostaje wspólna. Obecny etap weryfikacji lokalnej nie wykonuje wdrożenia ani zmian sekretów produkcyjnych.
   - `.env.production` jest tworzony tymczasowo z GitHub secrets (`SUPABASE_URL`, `SUPABASE_KEY`, dostępne `OPENAI_API_KEY` i `OPENROUTER_API_KEY` oraz opcjonalnie `OPERATIONAL_LOG_HASH_SECRET`) i usuwany po deployu.
 - Commit i push dopiero po potwierdzeniu, ze wymagane GitHub secrets sa ustawione.

@@ -20,10 +20,16 @@ try {
     no_bundle: built.no_bundle,
     rules: built.rules,
     assets: { ...built.assets, directory: resolve(server, built.assets.directory) },
+    // The voice observer Durable Object ships with the Worker (custom `main`);
+    // local SQLite classes work under --persist-to, so the preview keeps them.
+    durable_objects: built.durable_objects,
+    migrations: built.migrations,
     kv_namespaces: [{ binding: "SESSION", id: "local-e2e-only" }],
     images: { binding: "IMAGES" },
     vars: {
       BILLING_MODE: "off",
+      VOICE_SESSION_MODE: "off",
+      VOICE_MONTHLY_MINUTES: "120",
       SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_KEY: "test-public-key",
       OPENROUTER_API_KEY: "",

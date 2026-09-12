@@ -29,6 +29,8 @@ export const OPERATIONAL_EVENT_NAMES = [
   "session.transcription_failed",
   "session.people_memory_updated",
   "session.lens_evaluated",
+  "session.voice_observer",
+  "session.voice_closed",
 ] as const;
 
 export type OperationalEventName = (typeof OPERATIONAL_EVENT_NAMES)[number];
@@ -68,7 +70,27 @@ export type OperationalSessionReasonCode =
   | "opening_provider_failed"
   | "opening_persistence_failed"
   | "opening_unavailable"
-  | "people_memory_partial";
+  | "people_memory_partial"
+  | VoiceObserverReasonCode;
+
+/**
+ * Obserwator rozmowy głosowej: powody zamknięcia sesji live (nasze, nigdy
+ * `session.closed.reason` dostawcy) i zdarzenia samego obserwatora. Bez
+ * identyfikatorów, treści ani czasów wypowiedzi.
+ */
+export type VoiceObserverReasonCode =
+  | "heartbeat_lost"
+  | "safety_unavailable"
+  | "reconnected"
+  | "deleted"
+  | "voice_disabled"
+  | "provider_closed"
+  | "observer_attached"
+  | "observer_rotated"
+  | "observer_reattached"
+  | "observer_attach_failed"
+  | "observer_steer_failed"
+  | "observer_hangup_failed";
 
 export type OperationalReasonCode =
   | AdminErrorCode

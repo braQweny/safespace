@@ -1,7 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "safespace",
-  "main": "@astrojs/cloudflare/entrypoints/server",
+  // Własne entry: handler Astro + Durable Object obserwatora rozmowy głosowej
+  // (src/worker.ts). Adapter honoruje `main` z tej konfiguracji.
+  "main": "src/worker.ts",
   "compatibility_date": "2026-05-08",
   "compatibility_flags": ["nodejs_compat"],
   // Brak secrets.required: Wrangler filtruje przez tę listę lokalne sekrety,
@@ -28,6 +30,12 @@
     "OPENROUTER_SUMMARY_MODEL": "openai/gpt-5.6-luna",
     "OPENROUTER_TRANSCRIPTION_MODEL": "openai/gpt-4o-mini-transcribe",
   },
+  // Obserwator rozmowy głosowej: jeden obiekt na sesję (getByName(sessionId)),
+  // sideband do OpenAI, bufor transkryptu w SQLite, alarm terminu i pulsu.
+  "durable_objects": {
+    "bindings": [{ "name": "VOICE_SESSION_OBSERVER", "class_name": "VoiceSessionObserver" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VoiceSessionObserver"] }],
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist",
@@ -68,6 +76,14 @@
           "limit": 10,
           "period": 60,
         },
+      },
+      // Per-user cap on the voice heartbeat/drain endpoints (a few calls a
+      // minute per conversation; connect stays under SESSION_RATE_LIMITER).
+      {
+        "name": "VOICE_RATE_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "1004",
+        "simple": { "limit": 60, "period": 60 },
       },
     ],
   },

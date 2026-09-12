@@ -170,6 +170,8 @@ Stan czysty (`nextAlarmAt`, `decideAlarm`, `applySafetyOutcome`, `acceptsEpoch`)
 
 Czyste moduły transportu i promptów, testowane atrapami sieci.
 
+> Uwaga z wdrożenia etapu 2: transport (`src/lib/openai/live.ts`, punkt 3.1) i teksty sterowania głosem (punkt 3.3, jako `src/lib/voice/steering-copy.ts` zamiast `safety-copy.ts`) weszły razem z obserwatorem, bo Durable Object ich wymaga. Wspólne moduły klienta i DO (`voice-live-events.ts`, `voice-transcript.ts`, punkt 5.1) także są już na miejscu.
+
 ### Changes Required:
 
 #### 1. Transport
@@ -328,10 +330,10 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 
 #### Automated
 
-- [ ] 2.1 wrangler.jsonc, src/worker.ts, env.d.ts, podgląd E2E
-- [ ] 2.2 observer-state i VoiceSessionObserver
-- [ ] 2.3 openai-safety-provider i coordinator
-- [ ] 2.4 Testy DO i konfiguracji, build, dry-run
+- [x] 2.1 wrangler.jsonc, src/worker.ts, env.d.ts, podgląd E2E
+- [x] 2.2 observer-state i VoiceSessionObserver
+- [x] 2.3 openai-safety-provider i coordinator
+- [x] 2.4 Testy DO i konfiguracji, build, dry-run
 
 #### Manual
 
@@ -341,9 +343,9 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 
 #### Automated
 
-- [ ] 3.1 src/lib/openai/live.ts
+- [x] 3.1 src/lib/openai/live.ts
 - [ ] 3.2 voice-instructions, eksport system content, modalities
-- [ ] 3.3 Copy bezpieczeństwa dla głosu
+- [x] 3.3 Copy bezpieczeństwa dla głosu
 - [ ] 3.4 Testy transportu, instrukcji, budżetów
 
 ### Phase 4: Routes, Contracts, Limiter, Logs
