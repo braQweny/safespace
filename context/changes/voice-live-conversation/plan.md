@@ -171,6 +171,8 @@ Stan czysty (`nextAlarmAt`, `decideAlarm`, `applySafetyOutcome`, `acceptsEpoch`)
 Czyste moduły transportu i promptów, testowane atrapami sieci.
 
 > Uwaga z wdrożenia etapu 2: transport (`src/lib/openai/live.ts`, punkt 3.1) i teksty sterowania głosem (punkt 3.3, jako `src/lib/voice/steering-copy.ts` zamiast `safety-copy.ts`) weszły razem z obserwatorem, bo Durable Object ich wymaga. Wspólne moduły klienta i DO (`voice-live-events.ts`, `voice-transcript.ts`, punkt 5.1) także są już na miejscu.
+>
+> Uwaga z wdrożenia etapu 3: linie fazy (`VOICE_PHASE_LINES`) żyją w `steering-copy.ts` (`getVoicePhaseLine`), nie w `voice-instructions.ts`. Lista głosów `OPENAI_LIVE_VOICES` (`openai/live.ts`) pochodzi z sondy z 2026-09-12; katalog przypisuje `marin` (Lena, Nadia, Iga) i `cedar` (Marek, Olek), inne głosy czekają na odsłuch. Zapis przy wznowieniu (`recap`) jest ogrodzony `<<<recap>>>` i etykietowany imieniem awatara (`avatarFirstName`).
 
 ### Changes Required:
 
@@ -344,9 +346,9 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 #### Automated
 
 - [x] 3.1 src/lib/openai/live.ts
-- [ ] 3.2 voice-instructions, eksport system content, modalities
+- [x] 3.2 voice-instructions, eksport system content, modalities
 - [x] 3.3 Copy bezpieczeństwa dla głosu
-- [ ] 3.4 Testy transportu, instrukcji, budżetów
+- [x] 3.4 Testy transportu, instrukcji, budżetów
 
 ### Phase 4: Routes, Contracts, Limiter, Logs
 

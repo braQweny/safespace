@@ -34,12 +34,37 @@ export class OpenAiLiveError extends Error {
   }
 }
 
+/**
+ * Głosy przyjęte przez `POST /v1/live/sessions` dla `gpt-live-1` (sonda z
+ * 2026-09-12: każda z tych nazw dała 201, nieznana nazwa daje 403 „Voice
+ * session access denied”). Odsłuchane w spike'u: `marin`; `cedar` to drugi
+ * głos rekomendowany przez OpenAI dla modeli mówionych.
+ */
+export const OPENAI_LIVE_VOICES = [
+  "marin",
+  "cedar",
+  "alloy",
+  "ash",
+  "ballad",
+  "coral",
+  "echo",
+  "sage",
+  "shimmer",
+  "verse",
+] as const;
+
+export type OpenAiLiveVoice = (typeof OPENAI_LIVE_VOICES)[number];
+
+export function isOpenAiLiveVoice(value: unknown): value is OpenAiLiveVoice {
+  return typeof value === "string" && (OPENAI_LIVE_VOICES as readonly string[]).includes(value);
+}
+
 /** Konfiguracja przyjęta przez `POST /v1/live/sessions` (spike S1/S5). */
 export interface LiveSessionConfig {
   model: typeof OPENAI_LIVE_MODEL;
   store: false;
   instructions: string;
-  audio: { output: { voice: string } };
+  audio: { output: { voice: OpenAiLiveVoice } };
   delegation: {
     type: "responses";
     responses: {

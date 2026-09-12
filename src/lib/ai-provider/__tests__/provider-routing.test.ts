@@ -19,6 +19,12 @@ import { generatePeopleMemory } from "@/lib/session-summary/people-memory-provid
 import { evaluateSessionSafety } from "@/lib/session-safety/evaluate-session-safety";
 import { detectSessionLens } from "@/lib/session-lens/detect-session-lens";
 import { transcribeSessionAudio } from "@/lib/session-transcription/provider";
+import { createLiveSession } from "@/lib/openai/live";
+import {
+  buildLiveSessionConfig,
+  buildVoiceBackendInstructions,
+  buildVoiceLiveInstructions,
+} from "@/lib/session-ai/voice-instructions";
 
 const responseInput = {
   locale: "en" as const,
@@ -59,6 +65,12 @@ beforeEach(() => {
       const request = new Request(input, init);
       requests.push(request.clone());
       if (request.url.endsWith("/audio/transcriptions")) return Response.json({ text: "Synthetic transcription." });
+      if (request.url.endsWith("/live/sessions")) {
+        return Response.json(
+          { session: { id: "live_synthetic" }, transport: { type: "webrtc", sdp: "v=0\r\na=answer" } },
+          { status: 201 },
+        );
+      }
       const body = (await request.json()) as { model: string; response_format?: { json_schema: { name: string } } };
       const name = body.response_format?.json_schema.name;
       const content =
@@ -119,6 +131,39 @@ describe("configured AI provider", () => {
       expect(body).not.toHaveProperty("provider");
       expect(body).not.toHaveProperty("temperature");
     }
+  });
+
+  it("creates the live voice session directly at OpenAI with the configured key and the session model delegated", async () => {
+    const providerEnv = getAiProviderEnv();
+    const { currentUserMessage: _message, ...backendInput } = responseInput;
+    const session = buildLiveSessionConfig({
+      liveInstructions: buildVoiceLiveInstructions({ locale: "en", voiceLiveHint: "You are Anna.", opening: true }),
+      backendInstructions: buildVoiceBackendInstructions({ ...backendInput, opening: true }),
+      backendModel: providerEnv.sessionModel,
+      voice: "marin",
+    });
+
+    await expect(
+      createLiveSession({ apiKey: providerEnv.apiKey ?? "", sdp: "v=0\r\na=offer", session }),
+    ).resolves.toEqual({ liveSessionId: "live_synthetic", answerSdp: "v=0\r\na=answer" });
+    expect(requests).toHaveLength(1);
+    const request = requests[0];
+    expect(request.url).toBe("https://api.openai.com/v1/live/sessions");
+    expect(request.redirect).toBe("manual");
+    expect(request.headers.get("authorization")).toBe("Bearer test-openai-key");
+    expect(await request.json()).toMatchObject({
+      session: {
+        model: "gpt-live-1",
+        store: false,
+        delegation: { type: "responses", responses: { model: "gpt-5.6-luna", reasoning: { effort: "low" } } },
+      },
+      transport: { type: "webrtc", sdp: "v=0\r\na=offer" },
+    });
+    // The router key never reaches the Live endpoint, whichever provider is configured.
+    await expect(createLiveSession({ apiKey: "sk-or-router", sdp: "v=0", session })).rejects.toMatchObject({
+      category: "missing_configuration",
+    });
+    expect(requests).toHaveLength(1);
   });
 
   it("routes the people/topic pipeline to OpenAI with strict validated changes", async () => {

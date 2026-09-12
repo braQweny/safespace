@@ -7,6 +7,13 @@ import { buildOpenRouterSummaryRequest } from "@/lib/session-summary/openrouter-
 import { buildOpenRouterPeopleMemoryRequest } from "@/lib/session-summary/openrouter-people-memory";
 import { buildOpenRouterSafetyRequest } from "@/lib/session-safety/openrouter-classifier";
 import { buildOpenRouterSessionLensRequest } from "@/lib/session-lens/openrouter-lens-classifier";
+import {
+  buildLiveSessionConfig,
+  buildVoiceBackendInstructions,
+  buildVoiceLiveInstructions,
+} from "@/lib/session-ai/voice-instructions";
+import { MVP_MODALITIES } from "@/lib/modalities";
+import { getModalityPromptNames } from "@/lib/modality-copy";
 import type { GenerateSessionResponseInput } from "@/lib/session-ai/types";
 import type { GenerateSessionSummaryInput } from "@/lib/session-summary/types";
 import type { GeneratePeopleMemoryInput } from "@/lib/session-summary/people-memory-types";
@@ -115,6 +122,39 @@ describe("deployed OpenRouter models through every request builder", () => {
     expect(request.reasoning, `${summaryModel} has no people-memory reasoning branch`).toBeDefined();
     expect(tokenCap(request)).toBeGreaterThanOrEqual(MIN_REASONING_PEOPLE_TOKENS);
     expect(request.responseFormat.type).toBe("json_schema");
+  });
+
+  it("budgets the voice backend delegation for the session model's hidden reasoning", () => {
+    // The Live session delegates every substantive reply to the deployed
+    // session model through the Responses API, whose `max_output_tokens` also
+    // counts hidden reasoning: the same floor as the written conversation.
+    for (const modality of MVP_MODALITIES) {
+      const config = buildLiveSessionConfig({
+        liveInstructions: buildVoiceLiveInstructions({
+          locale: "pl",
+          voiceLiveHint: modality.voiceLiveHint.pl,
+          opening: true,
+        }),
+        backendInstructions: buildVoiceBackendInstructions({
+          ...sessionInput,
+          opening: true,
+          modality: {
+            ...getModalityPromptNames(modality.modalityId),
+            sessionStyleHint: modality.sessionStyleHint,
+            registerExamples: modality.registerExamples.pl,
+          },
+        }),
+        backendModel: sessionModel,
+        voice: modality.liveVoice,
+      });
+
+      expect(config.delegation.responses.reasoning).toEqual({ effort: "low" });
+      expect(config.delegation.responses.max_output_tokens).toBeGreaterThanOrEqual(MIN_REASONING_SESSION_TOKENS);
+      expect(config.delegation.responses.model).not.toMatch(/[/:]/);
+      // Without continuity notes the backend prompt is the written prompt plus
+      // the spoken sections; keep it comfortably inside a single request.
+      expect(config.delegation.responses.instructions.length).toBeLessThanOrEqual(16_000);
+    }
   });
 
   it("gives the safety classifier room for a reasoning model's hidden tokens", () => {

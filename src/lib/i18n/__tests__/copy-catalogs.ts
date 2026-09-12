@@ -46,6 +46,7 @@ import {
 } from "@/lib/session-flow/session-budget";
 import { getCrisisResourceCatalog } from "@/lib/session-safety/crisis-resources";
 import { getCrisisSafetyCopy, getSafetyUnavailableCopy } from "@/lib/session-safety/safety-copy";
+import { getVoiceLiveTemplate } from "@/lib/session-ai/voice-instructions";
 import { getVoiceSteeringCopy } from "@/lib/voice/steering-copy";
 
 export interface CopyCatalog {
@@ -62,6 +63,8 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "session-copy", read: getSessionCopy },
   { name: "safety-copy", read: (locale) => [getCrisisSafetyCopy(locale), getSafetyUnavailableCopy(locale)] },
   { name: "voice-steering-copy", read: getVoiceSteeringCopy },
+  { name: "voice-live-template", read: getVoiceLiveTemplate },
+  { name: "voice-live-hints", read: (locale) => MVP_MODALITIES.map((m) => m.voiceLiveHint[locale]) },
   { name: "crisis-resources", read: getCrisisResourceCatalog },
   {
     name: "session-response-copy",
