@@ -17,7 +17,8 @@ function createContext(tableResult: { data?: unknown; count?: number | null; err
     }),
     eq: vi.fn((...args: unknown[]) => {
       calls.push(["eq", ...args]);
-      return Object.assign(terminal, { maybeSingle: () => terminal, neq: query.neq });
+      // A second `eq` (the text-mode filter) chains on the same terminal.
+      return Object.assign(terminal, { maybeSingle: () => terminal, neq: query.neq, eq: query.eq });
     }),
     neq: vi.fn((...args: unknown[]) => {
       calls.push(["neq", ...args]);
@@ -95,14 +96,17 @@ describe("owned account plan", () => {
 });
 
 describe("owned session count", () => {
-  it("counts every owned session row with a head-only query", async () => {
+  it("counts every owned text session row with a head-only query", async () => {
     const { calls, context } = createContext({ count: 3, error: null });
 
     await expect(countOwnedSessions(context)).resolves.toEqual({ ok: true, data: 3 });
+    // Voice conversations have their own allowance (one free trial, a premium
+    // pool), so they never consume a text slot — the trigger filters the same way.
     expect(calls).toEqual([
       ["from", "therapy_sessions"],
       ["select", "id", { count: "exact", head: true }],
       ["eq", "user_id", "user-1"],
+      ["eq", "mode", "text"],
     ]);
   });
 

@@ -30,11 +30,13 @@ import {
   type OwnedSessionCountsByAvatar,
   type OwnedSessionHistoryPage,
   type SessionDataContext,
+  type SessionDurationBucketSeconds,
   type SessionId,
   type SessionLifecycleStatus,
   type SessionMetadata,
   type TransitionSessionLifecycleInput,
   type UpdateSessionTombstoneInput,
+  type VoiceSessionTiming,
 } from "./types";
 
 const ALLOWED_TRANSITIONS: Readonly<Record<SessionLifecycleStatus, readonly SessionLifecycleStatus[]>> = {
@@ -69,6 +71,7 @@ export async function createPendingSession(
       uses_avatar_memory: input.usesAvatarMemory ?? false,
       about_person_id: input.aboutPersonId ?? null,
       about_difficulty_id: input.aboutDifficultyId ?? null,
+      mode: input.mode ?? "text",
     })
     .select(SESSION_SELECT)
     .single();
@@ -82,20 +85,113 @@ export async function createPendingSession(
 }
 
 /**
- * Counts every session row the owner has — any lifecycle status, deleted
+ * Counts every text session row the owner has — any lifecycle status, deleted
  * tombstones included — which is exactly what the free-plan cap trigger counts.
+ * Voice conversations live in their own allowance (`countOwnedVoiceSessions`).
  */
 export async function countOwnedSessions(context: SessionDataContext): Promise<SessionDataResult<number>> {
   const { count, error } = await context.supabase
     .from("therapy_sessions")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", context.user.id);
+    .eq("user_id", context.user.id)
+    .eq("mode", "text");
 
   if (error) {
     return sessionDataError(mapSupabaseReadError(error));
   }
 
   return ok(typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : 0);
+}
+
+/**
+ * Ile rozmów głosowych właściciel ma w ogóle — każdy status, tombstone też —
+ * dokładnie to, co liczy bramka próby głosowej konta free (`P0016`).
+ */
+export async function countOwnedVoiceSessions(context: SessionDataContext): Promise<SessionDataResult<number>> {
+  const { count, error } = await context.supabase
+    .from("therapy_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", context.user.id)
+    .eq("mode", "voice");
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  return ok(typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : 0);
+}
+
+const VOICE_TIMING_SELECT = "voice_connected_at,ended_at,expires_at,duration_bucket_seconds,status";
+const VOICE_TIMING_LIMIT = 200;
+
+function toVoiceSessionTiming(value: unknown): VoiceSessionTiming | null {
+  if (!isRecord(value) || typeof value.voice_connected_at !== "string" || typeof value.status !== "string") {
+    return null;
+  }
+
+  return {
+    voiceConnectedAt: value.voice_connected_at,
+    endedAt: typeof value.ended_at === "string" ? value.ended_at : null,
+    expiresAt: typeof value.expires_at === "string" ? value.expires_at : null,
+    durationBucketSeconds:
+      typeof value.duration_bucket_seconds === "number"
+        ? (value.duration_bucket_seconds as SessionDurationBucketSeconds)
+        : null,
+    status: value.status as SessionLifecycleStatus,
+  };
+}
+
+/**
+ * Czasy rozmów głosowych właściciela połączonych od `sinceIso` (miesięczna
+ * pula premium). Bez treści i bez identyfikatorów: tylko to, co potrzebne do
+ * policzenia zużytych sekund. Tombstone liczy się jak każda inna rozmowa —
+ * usunięcie nie zwraca minut.
+ */
+export async function listOwnedVoiceSessionTimings(
+  context: SessionDataContext,
+  sinceIso: string,
+): Promise<SessionDataResult<VoiceSessionTiming[]>> {
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .select(VOICE_TIMING_SELECT)
+    .eq("user_id", context.user.id)
+    .eq("mode", "voice")
+    .gte("voice_connected_at", sinceIso)
+    .order("voice_connected_at", { ascending: true })
+    .limit(VOICE_TIMING_LIMIT);
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  return ok(Array.isArray(data) ? data.map(toVoiceSessionTiming).filter((row) => row !== null) : []);
+}
+
+/**
+ * Zapisuje pierwsze udane połączenie audio: tylko właściciel, tylko rozmowa
+ * głosowa i tylko pusta kolumna, więc reconnect nigdy nie przesuwa startu
+ * puli. `true` = zapisano teraz, `false` = już było albo warunek nie zaszedł.
+ */
+export async function markVoiceSessionConnected(
+  context: SessionDataContext,
+  sessionId: SessionId,
+  connectedAtIso: string,
+): Promise<SessionDataResult<boolean>> {
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .update({ voice_connected_at: connectedAtIso })
+    .eq("id", sessionId)
+    .eq("user_id", context.user.id)
+    .eq("mode", "voice")
+    .is("voice_connected_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return sessionDataError(mapSupabaseWriteError(error));
+  }
+
+  return ok(data !== null);
 }
 
 /**

@@ -315,10 +315,10 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 
 #### Automated
 
-- [ ] 1.1 Migracja add_voice_sessions
-- [ ] 1.2 Warstwa danych i pula głosowa
-- [ ] 1.3 Flaga i zmienne
-- [ ] 1.4 Testy schema-drift, vitest i tests/database
+- [x] 1.1 Migracja add_voice_sessions
+- [x] 1.2 Warstwa danych i pula głosowa
+- [x] 1.3 Flaga i zmienne
+- [x] 1.4 Testy schema-drift, vitest i tests/database
 
 #### Manual
 

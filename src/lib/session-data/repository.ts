@@ -47,16 +47,20 @@ export {
   canTransitionSessionLifecycle,
   countOwnedSessions,
   countOwnedSessionsByAvatar,
+  countOwnedVoiceSessions,
   createPendingSession,
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata,
   listOwnedSessionHistoryPage,
   listOwnedSessionMetadata,
+  listOwnedVoiceSessionTimings,
+  markVoiceSessionConnected,
   purgeAndTombstoneOwnedSession,
   readSafeSessionTombstone,
   setOwnedSessionLens,
   transitionSessionLifecycle,
 } from "./sessions";
+export { appendVoiceSessionUtterances } from "./voice-utterances";
 export {
   appendSessionMessage,
   appendSessionMessages,

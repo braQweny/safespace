@@ -21,6 +21,9 @@ export const FREE_TRIAL_DURATION_SECONDS = 900;
 /** Plan premium: 60 minut na rozmowę. */
 export const PREMIUM_SESSION_DURATION_SECONDS = 3600;
 
+/** Jednorazowa próba głosowa konta free: 10 minut (bucket 600 w bazie). */
+export const VOICE_TRIAL_DURATION_SECONDS = 600;
+
 /**
  * Budżet rozmowy dla danego planu. Nieznany plan (np. odczyt planu padł)
  * dostaje wariant bezpłatny — krótsza rozmowa jest bezpiecznym domyślnym
@@ -30,6 +33,17 @@ export function resolveSessionDurationSeconds(
   plan: AccountPlan | null | undefined,
 ): Extract<SessionDurationBucketSeconds, 900 | 3600> {
   return plan === "premium" ? PREMIUM_SESSION_DURATION_SECONDS : FREE_TRIAL_DURATION_SECONDS;
+}
+
+/**
+ * Budżet (bucket) rozmowy głosowej. Premium dostaje pełne 3600 s, ale
+ * `expires_at` może być krótsze, gdy w miesięcznej puli zostało mniej minut;
+ * konto free ma jedną próbę 600 s.
+ */
+export function resolveVoiceSessionDurationSeconds(
+  plan: AccountPlan | null | undefined,
+): Extract<SessionDurationBucketSeconds, 600 | 3600> {
+  return plan === "premium" ? PREMIUM_SESSION_DURATION_SECONDS : VOICE_TRIAL_DURATION_SECONDS;
 }
 
 const SESSION_BUDGET_COPY = defineCopy(

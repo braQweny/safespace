@@ -115,18 +115,18 @@ export async function startDatabase() {
   }
 }
 
-export async function activeSession(owner) {
+export async function activeSession(owner, { mode = "text", bucket = 900 } = {}) {
   const { rows } = await owner.client.query(
     `insert into public.therapy_sessions
-    (user_id, modality_id, avatar_id, duration_bucket_seconds)
-    values ($1, 'cbt', 'cbt-guide', 900) returning id`,
-    [owner.userId],
+    (user_id, modality_id, avatar_id, duration_bucket_seconds, mode)
+    values ($1, 'cbt', 'cbt-guide', $2, $3) returning id`,
+    [owner.userId, bucket, mode],
   );
   const id = rows[0].id;
   await owner.client.query(
     `update public.therapy_sessions set status = 'active',
-    started_at = clock_timestamp(), expires_at = clock_timestamp() + interval '15 minutes' where id = $1`,
-    [id],
+    started_at = clock_timestamp(), expires_at = clock_timestamp() + make_interval(secs => $2) where id = $1`,
+    [id, bucket],
   );
   return id;
 }

@@ -20,6 +20,8 @@
     "PEOPLE_MEMORY_MODE": "on",
     "SESSION_LENS_MODE": "on",
     "TOPIC_MAP_MODE": "on",
+    "VOICE_SESSION_MODE": "off",
+    "VOICE_MONTHLY_MINUTES": "120",
     "OPENROUTER_SAFETY_MODEL": "openai/gpt-5.6-luna",
     "OPENROUTER_SESSION_MODEL": "openai/gpt-5.6-luna",
     "OPENROUTER_SESSION_REASONING_EFFORT": "xhigh",
