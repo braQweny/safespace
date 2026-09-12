@@ -49,6 +49,8 @@ S-04 nie moze tworzyc alternatywnych nazw zdarzen sesyjnych ani recznie skladac 
 - `session.voice_closed` (nasz powód zamknięcia sesji live i czas jej trwania)
 - `session.voice_connected` (jedno połączenie audio rozmowy głosowej: wynik, czas do odpowiedzi SDP, kod porażki)
 
+Zdarzenia głosowe niosą wyłącznie `outcome`, `reasonCode` (nasz `VoiceCloseReason` albo kod porażki startu/połączenia) i `durationMs`; heartbeat `POST /api/session/voice/heartbeat` nie loguje nic per wywołanie. Identyfikator sesji live, SDP, treść i czasy wypowiedzi nigdy nie są polami zdarzeń — sanitizer odrzuca każde pole zawierające `session`, `token` lub `content`.
+
 Przyklad:
 
 ```ts

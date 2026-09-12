@@ -382,10 +382,10 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 
 #### Automated
 
-- [ ] 6.1 Sekcja #voice i testy prywatności
-- [ ] 6.2 CLAUDE.md, README, deploy-plan, .env.example
-- [ ] 6.3 E2E voice-off
+- [x] 6.1 Sekcja #voice i testy prywatności
+- [x] 6.2 CLAUDE.md, README, deploy-plan, .env.example (`.env.example` i `operational-visibility/README.md` miały już wpisy z etapów 1–4; dopisano `src/lib/voice/README.md`, sekcję Live w `ai-provider/README.md`, `verification.md`)
+- [x] 6.3 E2E voice-off (podgląd E2E kopiuje odtąd `unsafe.bindings` limiterów z buildu — bez nich build produkcyjny odpowiada 503 `rate_limiter_unavailable` przed bramką 401 trasy; spec czyta flagę z `wrangler.jsonc`, bo publiczne zmienne `astro:env` są wkompilowane w build i `vars` podglądu ich nie zmieniają — commit 6.4 nie wywróci CI)
 
 #### Manual
 
-- [ ] 6.4 Przełączenie flagi w wrangler.jsonc
+- [ ] 6.4 Przełączenie flagi w wrangler.jsonc (osobny commit po bramkach manualnych 0.5–0.7, 2.5, 5.6; lista w `verification.md`)

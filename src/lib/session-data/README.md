@@ -93,9 +93,9 @@ Konto `free` może posiadać łącznie najwyżej `FREE_PLAN_SESSION_LIMIT` (3) s
 - `readSessionQuota()` w `quota.ts` (wlasny wiersz planu + `countOwnedSessions()`) to odczyt pre-flight: zasila stan startu (`session_limit_reached`, licznik pozostalych rozmow) i wczesne 403 w `/api/session/start` oraz `/api/session/start-next`. Nie implementuj limitu ponownie w UI ani per trasa — follow-upy licza sie do tej samej puli co pierwsza sesja.
 - `schema-drift.test.ts` przypina `FREE_PLAN_SESSION_LIMIT` i SQLSTATE do migracji limitu; zmieniaj obie strony razem.
 
-## Rozmowa głosowa (GPT-Live-1), etap 1
+## Rozmowa głosowa (GPT-Live-1)
 
-Migracja `20260912200000_add_voice_sessions.sql` dodaje tryb rozmowy i osobne pule głosowe:
+Migracja `20260912200000_add_voice_sessions.sql` dodaje tryb rozmowy i osobne pule głosowe; obserwator, transport i klient są opisane w `src/lib/voice/README.md`, a użytkownikowi w `/privacy#voice`:
 
 - `therapy_sessions.mode` (`text` | `voice`, `SessionMode`) jest ustalany przy insercie i zamrożony (bez grantu update, trigger metadanych przepisuje starą wartość). **Tryby są rozłączne**: RPC głosowy odrzuca sesję tekstową SQLSTATE `P0015` (`session_mode_mismatch`), a `POST /api/session/message` odrzuca sesję głosową 409 `session_mode_mismatch` przed leasingiem tury. Start głosowy idzie wyłącznie przez `createPendingSession({ mode: "voice" })` w `start-next`; `claim_free_trial_session` zostaje tekstowy.
 - `therapy_sessions.voice_connected_at` to pierwsze udane połączenie audio (`markVoiceSessionConnected`, tylko `null → wartość`); od niego liczy się pula minut, więc odmowa mikrofonu kosztuje 0 minut.
@@ -103,6 +103,7 @@ Migracja `20260912200000_add_voice_sessions.sql` dodaje tryb rozmowy i osobne pu
 - Zapis idzie pod RLS właściciela z tras: heartbeat (`POST /api/session/voice/heartbeat`), reconcile-on-read w `readSessionStartPageState` (hak `reconcileVoiceSession` repozytorium stanu) i zakończenie/usunięcie rozmowy (`closeVoiceSession`) zrzucają bufor obserwatora dwufazowo (`drain` → RPC → `ack`, `session-flow/voice-reconcile.ts`), więc awaria zapisu niczego nie gubi. `DeletedSessionTombstone.mode` mówi trasie usuwania, że trzeba rozłączyć i wyczyścić obserwatora.
 - Transkrypt rozmowy głosowej zapisuje wyłącznie `appendVoiceSessionUtterances` (RPC `append_voice_session_utterances`, security invoker, blokada wiersza sesji, indeksy max+1, znane `utterance_id` pomijane, ≤ 50 wypowiedzi na wywołanie). Wypowiedzi pochodzą z obserwatora po stronie serwera; przeglądarka nigdy nie dostarcza treści do zapisu. Po zamknięciu rozmowy głosowej jest 60-sekundowe okno zrzutu (`guard_session_content_insert` i RPC), bo model bywa w połowie zdania, gdy mija termin.
 - `schema-drift.test.ts` przypina wartości trybu, bucket 600, oba SQLSTATE i granty; `tests/database/voice-sessions.test.mjs` sprawdza bramki, okno zrzutu, idempotencję, serializację i purge na prawdziwym PostgreSQL.
+- `VoiceQuota` (`trial` z `available` albo `pool` z `remainingSeconds`/`canStartVoice`) jest czytana równolegle z innymi odczytami na `/dashboard` i `/account/security` tylko przy `isVoiceStartAvailable()`; panel pokazuje z niej drugi przycisk startu i miernik minut, konto — jedno zdanie o puli. Wypowiedzi głosowe są zwykłymi wierszami `session_messages`, więc pamięć awatara, karty osób, mapa tematów, podsumowania i historia (odznaka „Głos” z `SessionHistoryListItem.mode`) działają bez osobnej ścieżki.
 
 ## Usuwanie sesji
 
