@@ -1,9 +1,14 @@
 ---
 import PrivacyCrisisRegions from "@/components/privacy/PrivacyCrisisRegions.astro";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
+import { plural } from "@/lib/i18n/plural";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
+import { VOICE_TRIAL_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
+import { getVoiceMonthlyMinutes } from "@/lib/session-flow/voice-session-mode";
+import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
 import { getSupportContact } from "@/lib/support-contact";
+import { VOICE_BUFFER_RETENTION_MS } from "@/lib/voice/constants";
 
 /**
  * English content of the “Privacy and terms” page. Legal prose with links in
@@ -16,6 +21,14 @@ const support = getSupportContact();
 const peopleMemory = isPeopleMemoryEnabled();
 // The topic map follows the same rule under its own flag.
 const topicMap = isTopicMapEnabled();
+// Voice conversations: the same gate as the dashboard button (flag and direct
+// OpenAI); every number comes from the code that enforces it, never from prose.
+const voiceSession = isVoiceStartAvailable();
+const voiceTrialMinutes = Math.round(VOICE_TRIAL_DURATION_SECONDS / 60);
+const voiceMonthlyMinutes = getVoiceMonthlyMinutes();
+const voiceBufferDays = Math.round(VOICE_BUFFER_RETENTION_MS / 86_400_000);
+const MINUTES = { one: "minute", many: "minutes" };
+const DAYS = { one: "day", many: "days" };
 ---
 
 <section id="what-is" class="scroll-mt-20">
@@ -126,6 +139,46 @@ const topicMap = isTopicMapEnabled();
     ) : null
   }
 </section>
+
+{
+  voiceSession ? (
+    <section id="voice" class="scroll-mt-20" data-voice-session>
+      <h2 class="text-ink text-xl font-semibold">Voice conversations</h2>
+      <p class="text-ink-soft mt-3">
+        A voice conversation starts on the dashboard like a written one, but the avatar listens and speaks instead of
+        writing. After you tap “Enable microphone”, the browser asks for permission to use it and opens a direct audio
+        connection (WebRTC) between your device and OpenAI, the provider of the voice model. SafeSpace does not receive,
+        record or store the audio — the sound travels only between your device and the provider. The avatar listens and
+        speaks at the same time, so everything the microphone picks up reaches the provider, including other people in
+        the room: choose a quiet place and use the mute button whenever you need it.
+      </p>
+      <p class="text-ink-soft mt-3">
+        The transcript is produced on SafeSpace's side from the text the provider sends back during the conversation and
+        is stored like a written conversation: only you can read it, it feeds this avatar's memory like any other
+        conversation, and it is deleted together with the conversation. Until it is saved to the database, fragments
+        wait in a private working memory at Cloudflare, tied to this conversation only, for at most {voiceBufferDays}{" "}
+        {plural("en", voiceBufferDays, DAYS)}; it is emptied at every save and when the conversation is deleted. Speech
+        recognition can make mistakes — especially with names, numbers and overlapping voices — so a saved transcript
+        may differ from what was said.
+      </p>
+      <p class="text-ink-soft mt-3">
+        Every statement of yours goes through the same automatic safety assessment as a written message, but only after
+        it has been spoken — the avatar may already be answering when the assessment arrives. If it indicates an urgent
+        danger, the avatar says one sentence to hand over, the connection is closed and we show help numbers. If the
+        assessment itself is unavailable, the avatar pauses instead of continuing without it. The provider processes the
+        audio and the transcript on its API terms; we open voice sessions with storage of the conversation switched off
+        on the provider's side, while zero data retention and the processing region are settings of the provider
+        account, as with written conversations.
+      </p>
+      <p class="text-ink-soft mt-3">
+        A free account has one voice trial of up to {voiceTrialMinutes} {plural("en", voiceTrialMinutes, MINUTES)}; a
+        premium account has a monthly allowance of {voiceMonthlyMinutes} {plural("en", voiceMonthlyMinutes, MINUTES)},
+        counted from the moment the audio connects. The allowance is shown on the dashboard and in the account settings.
+        Deleting a voice conversation restores neither the trial nor the minutes.
+      </p>
+    </section>
+  ) : null
+}
 
 <section id="deletion" class="scroll-mt-20">
   <h2 class="text-ink text-xl font-semibold">Deletion and control</h2>

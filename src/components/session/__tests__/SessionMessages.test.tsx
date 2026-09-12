@@ -135,3 +135,39 @@ describe("SessionMessages finished variant", () => {
     expect(html).not.toContain("min-h-[280px]");
   });
 });
+
+describe("SessionMessages with live voice fragments", () => {
+  it("renders the preview after the transcript, outside the live region, and counts it as content", () => {
+    const html = renderToStaticMarkup(
+      <SessionMessages
+        variant="live"
+        assistantAvatar={assistantAvatar}
+        messages={[assistantMessage]}
+        liveFragments={[
+          { id: "live-1-user-0", role: "user", text: "Nie wiem, od czego" },
+          { id: "live-1-assistant-900", role: "assistant", text: "Możemy zacząć" },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-live-fragment="user"');
+    expect(html).toContain('data-live-fragment="assistant"');
+    expect(html).toContain('aria-live="off"');
+    expect(html).toContain("Nie wiem, od czego");
+    expect(html).toContain("Możemy zacząć");
+    expect(html.indexOf("Od czego chcesz zacząć?")).toBeLessThan(html.indexOf("Nie wiem, od czego"));
+    expect(html).not.toContain(SESSION_TURN_COPY.slowResponse);
+
+    const onlyPreview = renderToStaticMarkup(
+      <SessionMessages
+        variant="live"
+        assistantAvatar={assistantAvatar}
+        messages={[]}
+        liveFragments={[{ id: "live-1-assistant-0", role: "assistant", text: "Cześć" }]}
+        emptyCopy="Pusto"
+      />,
+    );
+    expect(onlyPreview).toContain("Cześć");
+    expect(onlyPreview).not.toContain("Pusto");
+  });
+});

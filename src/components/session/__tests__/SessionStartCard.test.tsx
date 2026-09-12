@@ -387,3 +387,88 @@ describe("resolveAutoStartRequest", () => {
     );
   });
 });
+
+describe("SessionStartCard voice start", () => {
+  const readyState: SessionStartPageState = {
+    kind: "ready",
+    trialAvailable: true,
+    avatar,
+    session: null,
+    messages: [],
+    messageFetchFailed: false,
+    approvedSummaries: [],
+    canStartWithoutContext: false,
+    sessionQuota: freeQuota,
+  };
+
+  function renderVoice(voiceQuota: Parameters<typeof SessionStartCard>[0]["voiceQuota"], state = readyState) {
+    return renderToStaticMarkup(<SessionStartCard locale="pl" initialState={state} voiceQuota={voiceQuota} />);
+  }
+
+  it("shows nothing about voice without a pool", () => {
+    const html = renderVoice(null);
+    expect(html).not.toContain("głosow");
+    expect(html).not.toContain("data-voice-start");
+  });
+
+  it("offers the free trial as a second block button with its own intro and link", () => {
+    const html = renderVoice({ kind: "trial", plan: "free", available: true, durationSeconds: 600 });
+    expect(html).toContain('data-voice-start="trial"');
+    expect(html).toContain("Wypróbuj rozmowę głosową (10 min)");
+    expect(html).toContain("Jedna próba, do dziesięciu minut.");
+    expect(html).toContain('href="/privacy#voice"');
+    expect(html).toContain("Jak działa rozmowa głosowa");
+    // Start tekstowy zostaje nad nim, ten sam kształt przycisku blokowego.
+    expect(html.indexOf("Rozpocznij rozmowę")).toBeLessThan(html.indexOf("Wypróbuj rozmowę głosową"));
+  });
+
+  it("explains a used trial and links to the account plan", () => {
+    const html = renderVoice({ kind: "trial", plan: "free", available: false, durationSeconds: 600 });
+    expect(html).toContain('data-voice-start="trial_used"');
+    expect(html).toContain("Bezpłatna rozmowa głosowa została wykorzystana");
+    expect(html).toContain('href="/account/security"');
+    expect(html).not.toContain("Wypróbuj rozmowę głosową");
+  });
+
+  it("shows the premium pool with a meter and the remaining minutes", () => {
+    const html = renderVoice({
+      kind: "pool",
+      plan: "premium",
+      limitSeconds: 7200,
+      usedSeconds: 2700,
+      remainingSeconds: 4500,
+      canStartVoice: true,
+      monthStartIso: "2026-09-01T00:00:00.000Z",
+    });
+    expect(html).toContain('data-voice-start="pool"');
+    expect(html).toContain("Rozpocznij rozmowę głosową");
+    expect(html).toContain("Zostało 75 minut z 120 minut głosowych w tym miesiącu.");
+    expect(html).toContain('style="width:63%"');
+    expect(html).toContain("Mówisz na głos, a awatar odpowiada głosem.");
+  });
+
+  it("says the pool is used up and keeps the voice section when the text allowance is exhausted", () => {
+    const exhausted = {
+      kind: "pool" as const,
+      plan: "premium" as const,
+      limitSeconds: 7200,
+      usedSeconds: 7100,
+      remainingSeconds: 100,
+      canStartVoice: false,
+      monthStartIso: "2026-09-01T00:00:00.000Z",
+    };
+    expect(renderVoice(exhausted)).toContain('data-voice-start="exhausted"');
+    expect(renderVoice(exhausted)).toContain("Miesięczna pula minut głosowych została wykorzystana");
+
+    const limitReached = renderVoice(
+      { kind: "trial", plan: "free", available: true, durationSeconds: 600 },
+      {
+        ...readyState,
+        kind: "session_limit_reached",
+        sessionQuota: { ...freeQuota, usedSessions: 3, remainingSessions: 0, canStartSession: false },
+      },
+    );
+    expect(limitReached).toContain("data-session-limit-reached");
+    expect(limitReached).toContain("Wypróbuj rozmowę głosową (10 min)");
+  });
+});

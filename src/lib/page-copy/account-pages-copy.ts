@@ -11,6 +11,7 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       signedInAs: "Signed in as",
       planTitle: "Plan and conversation allowance",
       eachLasts: (minutes: string) => `Each conversation lasts up to ${minutes}.`,
+      voiceHeading: "Voice conversations:",
       deletingNote: "Deleting a conversation from the history does not return it to the allowance.",
       writeAboutPremium: "Write to us about premium",
       planReadFailed:
@@ -120,6 +121,7 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       signedInAs: "Zalogowano jako",
       planTitle: "Plan i pula rozmów",
       eachLasts: (minutes) => `Każda rozmowa trwa do ${minutes}.`,
+      voiceHeading: "Rozmowy głosowe:",
       deletingNote: "Usunięcie rozmowy z historii nie przywraca jej do puli.",
       writeAboutPremium: "Napisz w sprawie premium",
       planReadFailed:

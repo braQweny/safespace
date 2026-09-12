@@ -31,3 +31,9 @@ test-results/
 
 # jetbrains setting folder
 .idea/
+
+# voice spike (Etap 0): próbki audio i wyjścia, nigdy w repo
+scripts/spike/samples/
+scripts/spike/out/
+scripts/spike/observer-worker/.wrangler/
+scripts/spike/observer-worker/node_modules/

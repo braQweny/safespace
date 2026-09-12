@@ -17,6 +17,7 @@ import {
 } from "@/lib/session-flow/session-completion-contract";
 import { toSessionView } from "@/lib/session-flow/session-state";
 import { expireOwnedSession, isSessionExpired } from "@/lib/session-flow/time-limit";
+import { closeVoiceSession } from "@/lib/session-flow/voice-reconcile";
 
 export const prerender = false;
 
@@ -89,11 +90,16 @@ export const POST: APIRoute = async (context) => {
   const session = sessionResult.data;
   const now = new Date();
 
+  // Rozmowa głosowa: sesja live jest rozłączana z naszym powodem, a reszta
+  // bufora obserwatora wraca do bazy w oknie zrzutu po `ended_at`. Idempotentne
+  // i nigdy nie blokuje zakończenia — stan w bazie ma pierwszeństwo.
   if (session.status === "completed") {
+    await closeVoiceSession(sessionContext.data, session, "completed");
     return jsonResponse(completeSessionSuccess(toSessionView(session, now)));
   }
 
   if (session.status === "expired") {
+    await closeVoiceSession(sessionContext.data, session, "time_limit_reached");
     return jsonResponse(completeSessionExpired(toSessionView(session, now)));
   }
 
@@ -103,6 +109,7 @@ export const POST: APIRoute = async (context) => {
 
   if (isSessionExpired(session, now)) {
     const expired = await expireOwnedSession(sessionContext.data, session, now);
+    await closeVoiceSession(sessionContext.data, session, "time_limit_reached");
 
     logOperationalEvent(
       {
@@ -131,6 +138,8 @@ export const POST: APIRoute = async (context) => {
   if (!completed.ok) {
     return jsonResponse(completeSessionFailure(mapCompletionWriteFailure(completed.error.code)));
   }
+
+  await closeVoiceSession(sessionContext.data, session, "completed");
 
   logOperationalEvent(
     {

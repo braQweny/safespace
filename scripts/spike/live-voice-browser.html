@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<title>GPT-Live spike (WebRTC)</title>
+<style>
+  body { font: 14px/1.4 ui-monospace, Menlo, monospace; margin: 16px; color: #222; }
+  button { font: inherit; padding: 8px 14px; }
+  #log { white-space: pre-wrap; background: #f5f5f5; padding: 8px; max-height: 70vh; overflow: auto; }
+  .ok { color: #0a6; } .warn { color: #b60; } .err { color: #c00; }
+</style>
+</head>
+<body>
+<h1>GPT-Live-1 spike — WebRTC z próbkami TTS</h1>
+<p>Parametry w URL: <code>samples=01,02</code> · <code>gap=4000</code> · <code>delegation=responses|client|none</code> · <code>lang=pl|en</code> · <code>voice=marin</code> · <code>interrupt=2</code> · <code>mute=1</code> · <code>close=datachannel|sideband|hangup</code> · <code>dcappend=1</code> (S14) · <code>mic=1&amp;seconds=120</code> (prawdziwy mikrofon zamiast próbek: mów, przerywaj, rób pauzy; po upływie sekund sesja się zamyka) · <code>auto=1</code></p>
+<button id="start">Start (gest użytkownika: AudioContext + WebRTC)</button>
+<span id="status">idle</span>
+<audio id="remote" autoplay playsinline></audio>
+<pre id="log"></pre>
+<script>
+const params = new URLSearchParams(location.search);
+const cfg = {
+  samples: (params.get("samples") || "").split(",").filter(Boolean),
+  gapMs: Number(params.get("gap") || 4000),
+  delegation: params.get("delegation") || "responses",
+  lang: params.get("lang") || "pl",
+  voice: params.get("voice") || "marin",
+  interruptAt: params.get("interrupt") ? Number(params.get("interrupt")) : null,
+  muteTest: params.get("mute") === "1",
+  closeVia: params.get("close") || "datachannel",
+  dcAppend: params.get("dcappend") === "1",
+  greetingWaitMs: Number(params.get("greeting") || 5000),
+  mic: params.get("mic") === "1",
+  micSeconds: Number(params.get("seconds") || 120),
+};
+const run = new Date().toISOString().replace(/[:.]/g, "-");
+const t0 = performance.now();
+const events = [];
+const state = { run, cfg, status: "idle", liveSessionId: null, transcript: [], latenciesMs: [], replies: [], notes: [], closed: null, dcEvents: 0, audioOnsets: [], usage: [] };
+window.__spike = state;
+const logEl = document.getElementById("log");
+const statusEl = document.getElementById("status");
+function log(kind, text, cls) {
+  const t = Math.round(performance.now() - t0);
+  events.push({ t, kind, text });
+  const line = document.createElement("div");
+  line.className = cls || "";
+  line.textContent = `${String(t).padStart(7)} ${kind.padEnd(10)} ${text}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function setStatus(s) { state.status = s; statusEl.textContent = s; document.title = `spike: ${s}`; }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const postJson = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+
+let ctx, dest, pc, dc, analyser, remoteStream, recorder, recordedChunks = [];
+let speechEndAt = null, firstAudioAfterSpeech = null, lastAudioAt = null, audioActive = false, replyCount = 0, inGapUntil = null, currentSampleId = null;
+let userSoFar = "";
+const conversation = [];
+
+function waitIce(pc, ms) {
+  return new Promise((resolve) => {
+    if (pc.iceGatheringState === "complete") return resolve();
+    const done = () => { pc.removeEventListener("icegatheringstatechange", check); resolve(); };
+    const check = () => { if (pc.iceGatheringState === "complete") done(); };
+    pc.addEventListener("icegatheringstatechange", check);
+    setTimeout(done, ms);
+  });
+}
+
+function pollAudioLevel() {
+  const data = new Float32Array(analyser.fftSize);
+  const tick = () => {
+    if (!analyser) return;
+    analyser.getFloatTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 1) sum += data[i] * data[i];
+    const rms = Math.sqrt(sum / data.length);
+    const now = performance.now();
+    const active = rms > 0.008;
+    if (active) {
+      if (!audioActive) {
+        const quietFor = lastAudioAt === null ? Infinity : now - lastAudioAt;
+        if (quietFor > 1200) {
+          state.audioLevelOnsets = state.audioLevelOnsets || [];
+          state.audioLevelOnsets.push(Math.round(now - t0));
+          log("audio", `poziom audio: początek (rms ${rms.toFixed(3)})`);
+        }
+        audioActive = true;
+      }
+      lastAudioAt = now;
+    } else if (audioActive && lastAudioAt !== null && now - lastAudioAt > 500) {
+      audioActive = false;
+      log("audio", "poziom audio: koniec");
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+async function playSample(id) {
+  const pcm = new Int16Array(await (await fetch(`/samples/${id}.pcm`)).arrayBuffer());
+  const buffer = ctx.createBuffer(1, pcm.length, 24000);
+  const channel = buffer.getChannelData(0);
+  for (let i = 0; i < pcm.length; i += 1) channel[i] = pcm[i] / 32768;
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(dest);
+  const startAt = ctx.currentTime + 0.05;
+  source.start(startAt);
+  const durationMs = buffer.duration * 1000;
+  return new Promise((resolve) => setTimeout(resolve, durationMs + 50));
+}
+
+let lastOutAt = null, outActive = false, outWatch = null;
+function onOutputTranscript() {
+  const now = performance.now();
+  if (!outActive && (lastOutAt === null || now - lastOutAt > 1200)) {
+    replyCount += 1;
+    state.audioOnsets.push(Math.round(now - t0));
+    log("reply", `reply #${replyCount} onset (z transkryptu)`, "ok");
+    if (speechEndAt !== null && firstAudioAfterSpeech === null) {
+      firstAudioAfterSpeech = now;
+      const latency = Math.round(now - speechEndAt);
+      state.latenciesMs.push(latency);
+      log("latency", `pierwszy fragment odpowiedzi ${latency} ms po końcu mowy (${currentSampleId})`, "ok");
+    }
+    if (inGapUntil !== null && now < inGapUntil) {
+      state.notes.push(`odpowiedź w pauzie zdania ${currentSampleId} po ${Math.round(now - speechEndAt)} ms`);
+      log("pause", `WCIĘCIE w pauzie po ${Math.round(now - speechEndAt)} ms`, "warn");
+    }
+    if (cfg.interruptAt === replyCount && state.liveSessionId) {
+      const sentAt = performance.now();
+      state.interrupt = { sentAt: Math.round(sentAt - t0) };
+      postJson("/steer", { id: state.liveSessionId, waitMs: 3000, commands: [{ type: "session.instructions.append", delegation_id: null, content: cfg.lang === "pl" ? "Natychmiast przestań mówić i milcz, dopóki użytkownik nie odezwie się ponownie." : "Stop speaking immediately and stay silent until the user speaks again." }] })
+        .then((res) => { state.interrupt.steer = { ms: res.ms, events: res.events.map((e) => e.type + (e.client_event_id ? ":" + e.client_event_id : "") + (e.error ? ":" + e.error.code : "")) }; log("steer", `interrupt: ${JSON.stringify(state.interrupt.steer.events)} (${res.ms} ms)`, "warn"); });
+    }
+  }
+  outActive = true;
+  lastOutAt = now;
+  clearTimeout(outWatch);
+  outWatch = setTimeout(() => {
+    outActive = false;
+    log("reply", `reply #${replyCount} koniec transkryptu (ostatni fragment ${Math.round(lastOutAt - t0)})`);
+    if (state.interrupt && !state.interrupt.silentAt) { state.interrupt.silentAt = Math.round(lastOutAt - t0); state.interrupt.stopMs = Math.round(lastOutAt - t0 - state.interrupt.sentAt); log("steer", `ostatni fragment odpowiedzi ${state.interrupt.stopMs} ms po wysłaniu przerwania`, "warn"); }
+  }, 900);
+}
+function onDataChannelMessage(raw) {
+  let event;
+  try { event = JSON.parse(raw); } catch { return; }
+  state.dcEvents += 1;
+  const type = event.type || "?";
+  if (/output_audio\.delta$/.test(type)) return;
+  const isIn = /input_transcript\.delta$/.test(type), isOut = /output_transcript\.delta$/.test(type);
+  if (isIn || isOut) {
+    state.transcript.push({ t: Math.round(performance.now() - t0), speaker: isIn ? "user" : "assistant", delta: event.delta, start_ms: event.start_ms, end_ms: event.end_ms });
+    if (isIn) userSoFar += event.delta;
+    if (isOut) onOutputTranscript();
+    log(isIn ? "in" : "out", `[${event.start_ms}–${event.end_ms}] ${JSON.stringify(event.delta)}`);
+    return;
+  }
+  if (/session\.started$/.test(type)) { state.liveSessionId = event.session?.id || state.liveSessionId; state.sessionResource = event.session; log("dc", `session.started ${JSON.stringify(event.session).slice(0, 300)}`, "ok"); return; }
+  if (/session\.closed$/.test(type)) { state.closed = { reason: event.reason, usage: event.usage }; log("dc", `session.closed reason=${event.reason} usage=${JSON.stringify(event.usage)}`, "warn"); return; }
+  if (/usage/.test(type)) { state.usage.push(event.usage); }
+  if (/delegation\.created$/.test(type) && cfg.delegation === "client") {
+    const delegationId = event.delegation?.id;
+    const startedAt = performance.now();
+    conversation.push({ role: "user", content: userSoFar || "(nic)" });
+    userSoFar = "";
+    postJson("/delegate", { messages: conversation, lang: cfg.lang }).then((res) => {
+      conversation.push({ role: "assistant", content: res.text });
+      state.clientDelegations = state.clientDelegations || [];
+      state.clientDelegations.push({ chatMs: res.ms, chars: res.text.length, status: res.status });
+      dc.send(JSON.stringify({ type: "session.commentary.append", event_id: `c_${Date.now()}`, delegation_id: delegationId, content: res.text.slice(0, 1500) }));
+      log("client", `chat ${res.ms} ms → commentary.append (${Math.round(performance.now() - startedAt)} ms od delegation.created)`, "ok");
+    });
+  }
+  log("dc", `${type} ${JSON.stringify(event).slice(0, 260)}`);
+}
+
+async function start() {
+  // Pierwsze kliknięcie po nawigacji bywa tylko fokusem okna; drugi klik nie może otworzyć drugiej sesji.
+  if (state.status !== "idle") return;
+  try {
+    setStatus("starting");
+    ctx = new AudioContext();
+    await ctx.resume();
+    dest = ctx.createMediaStreamDestination();
+    pc = new RTCPeerConnection();
+    if (cfg.mic) {
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      pc.addTrack(micStream.getAudioTracks()[0], micStream);
+      log("mic", "prawdziwy mikrofon podłączony", "ok");
+    } else {
+      pc.addTrack(dest.stream.getAudioTracks()[0], dest.stream);
+    }
+    dc = pc.createDataChannel("oai-events");
+    dc.onopen = () => log("dc", "open", "ok");
+    dc.onclose = () => log("dc", "close", "warn");
+    dc.onmessage = (m) => onDataChannelMessage(m.data);
+    pc.oniceconnectionstatechange = () => log("ice", pc.iceConnectionState);
+    pc.onconnectionstatechange = () => log("pc", pc.connectionState);
+    pc.ontrack = (e) => {
+      remoteStream = e.streams[0] || new MediaStream([e.track]);
+      const remoteEl = document.getElementById("remote");
+      remoteEl.srcObject = remoteStream;
+      remoteEl.play().then(() => log("track", "play() ok", "ok")).catch((err) => { state.audioBlocked = err.name; log("track", `play() odrzucone: ${err.name}`, "warn"); });
+      const src = ctx.createMediaStreamSource(remoteStream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      src.connect(analyser);
+      pollAudioLevel();
+      try {
+        recorder = new MediaRecorder(remoteStream, { mimeType: "audio/webm;codecs=opus" });
+        recorder.ondataavailable = (ev) => { if (ev.data.size) recordedChunks.push(ev.data); };
+        recorder.start(1000);
+      } catch (err) { log("rec", `MediaRecorder: ${err.message}`, "warn"); }
+      log("track", "remote audio track", "ok");
+    };
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await waitIce(pc, 2000);
+    const sdp = pc.localDescription.sdp;
+    state.offerSdpBytes = new TextEncoder().encode(sdp).length;
+    log("sdp", `oferta ${state.offerSdpBytes} bajtów`);
+    const created = await postJson("/session", { sdp, lang: cfg.lang, delegation: cfg.delegation, voice: cfg.voice });
+    if (!created?.transport?.sdp) { log("err", `create: ${JSON.stringify(created).slice(0, 400)}`, "err"); setStatus("error"); return; }
+    state.liveSessionId = created.session?.id || null;
+    log("sdp", `sesja ${state.liveSessionId}, odpowiedź ${created.transport.sdp.length} znaków`, "ok");
+    await pc.setRemoteDescription({ type: "answer", sdp: created.transport.sdp });
+    setStatus("connecting");
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("dc open timeout")), 15000);
+      if (dc.readyState === "open") { clearTimeout(timer); resolve(); }
+      dc.addEventListener("open", () => { clearTimeout(timer); resolve(); });
+    });
+    setStatus("live");
+    await sleep(cfg.greetingWaitMs);
+    const manifest = cfg.mic ? [] : await (await fetch("/samples/manifest.json")).json();
+    if (cfg.mic) {
+      log("mic", `rozmawiaj przez ${cfg.micSeconds} s (przerwij Lenę, zrób pauzę w zdaniu, zamilknij na 3 s)`, "ok");
+      await sleep(cfg.micSeconds * 1000);
+    }
+    const chosen = manifest.filter((m) => cfg.samples.length === 0 || cfg.samples.includes(m.id.slice(0, 2)) || cfg.samples.includes(m.id));
+    for (let i = 0; i < chosen.length; i += 1) {
+      const sample = chosen[i];
+      if (cfg.muteTest && i === 1 && state.liveSessionId) {
+        const res = await postJson("/steer", { id: state.liveSessionId, waitMs: 1500, commands: [{ type: "session.input_audio.mute" }] });
+        log("steer", `mute: ${JSON.stringify(res.events.map((e) => e.type))}`, "warn");
+        state.muteStartTranscriptCount = state.transcript.filter((t) => t.speaker === "user").length;
+      }
+      currentSampleId = sample.id;
+      speechEndAt = null; firstAudioAfterSpeech = null;
+      log("sample", `${sample.id}: ${sample.text}`, "ok");
+      await playSample(sample.id);
+      speechEndAt = performance.now();
+      const isPauseHalf = sample.id.endsWith("-a");
+      inGapUntil = isPauseHalf ? speechEndAt + cfg.gapMs : null;
+      log("sample", isPauseHalf ? `pauza w zdaniu ${cfg.gapMs} ms` : `cisza ${cfg.gapMs} ms`);
+      await sleep(cfg.gapMs);
+      inGapUntil = null;
+      if (cfg.muteTest && i === 1 && state.liveSessionId) {
+        const userCount = state.transcript.filter((t) => t.speaker === "user").length;
+        state.muteLeak = userCount - (state.muteStartTranscriptCount || 0);
+        log("steer", `w czasie wyciszenia przyszło ${state.muteLeak} fragmentów transkryptu użytkownika`, state.muteLeak ? "err" : "ok");
+        const res = await postJson("/steer", { id: state.liveSessionId, waitMs: 1500, commands: [{ type: "session.input_audio.unmute" }] });
+        log("steer", `unmute: ${JSON.stringify(res.events.map((e) => e.type))}`, "warn");
+      }
+    }
+    await sleep(6000);
+    if (cfg.dcAppend) {
+      dc.send(JSON.stringify({ type: "session.instructions.append", event_id: "dc_append_1", delegation_id: null, content: cfg.lang === "pl" ? "Powiedz teraz słowo „kalafior” i nic więcej." : "Say the word 'cauliflower' now and nothing else." }));
+      log("s14", "wysłano instructions.append po data channel z przeglądarki", "warn");
+      await sleep(6000);
+    }
+    setStatus("closing");
+    if (cfg.closeVia === "hangup") {
+      const res = await postJson(`/hangup/${state.liveSessionId}`, {});
+      log("hangup", JSON.stringify(res), "warn");
+    } else if (cfg.closeVia === "sideband") {
+      const res = await postJson("/steer", { id: state.liveSessionId, waitMs: 3000, commands: [{ type: "session.close" }] });
+      log("steer", `close: ${JSON.stringify(res.events.map((e) => e.type))}`, "warn");
+    } else {
+      dc.send(JSON.stringify({ type: "session.close", event_id: "close_1" }));
+    }
+    const waitUntil = performance.now() + 12000;
+    while (!state.closed && performance.now() < waitUntil) await sleep(200);
+    if (recorder && recorder.state !== "inactive") { await new Promise((r) => { recorder.onstop = r; recorder.stop(); }); }
+    pc.close();
+    if (recordedChunks.length) await fetch(`/recording/${run}`, { method: "POST", body: new Blob(recordedChunks, { type: "audio/webm" }) });
+    const report = { ...state, events };
+    const saved = await postJson("/report", report);
+    log("report", JSON.stringify(saved), "ok");
+    setStatus("done");
+  } catch (error) {
+    log("err", error.message, "err");
+    setStatus("error");
+  }
+}
+document.getElementById("start").addEventListener("click", start);
+if (params.get("auto") === "1") { setTimeout(() => document.getElementById("start").click(), 300); }
+</script>
+</body>
+</html>

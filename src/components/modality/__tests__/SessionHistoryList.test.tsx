@@ -228,3 +228,24 @@ describe("SessionHistoryList", () => {
     expect(html).toContain("/dashboard/session?sessionId=session-1");
   });
 });
+
+describe("voice conversations in the history list", () => {
+  it("marks a voice conversation with a labelled badge that carries its description, and nothing for text", () => {
+    const voice = renderToStaticMarkup(
+      <SessionHistoryList
+        items={[createItem({ mode: "voice" })]}
+        selectedSessionId={null}
+        onOpenDetail={() => undefined}
+      />,
+    );
+    expect(voice).toContain("data-voice-badge");
+    expect(voice).toContain(">Głos<");
+    expect(voice).toContain('title="Rozmowa głosowa; zapis powstał z mowy."');
+
+    const text = renderToStaticMarkup(
+      <SessionHistoryList items={[createItem()]} selectedSessionId={null} onOpenDetail={() => undefined} />,
+    );
+    expect(text).not.toContain("data-voice-badge");
+    expect(text).not.toContain("Głos");
+  });
+});

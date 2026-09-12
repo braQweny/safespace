@@ -4,6 +4,7 @@ import { useLocale } from "@/components/hooks/useLocale";
 import { requestApiJson } from "@/lib/api-client";
 import type { Locale } from "@/lib/i18n/locale";
 import { getSessionCopy } from "@/lib/session-copy";
+import { getMicrophoneErrorCopy } from "@/lib/session-flow/microphone-error-copy";
 import { SESSION_MESSAGE_MAX_CHARS } from "@/lib/session-flow/message-contract";
 import {
   isSessionTranscriptionFailure,
@@ -11,7 +12,6 @@ import {
   SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES,
   SESSION_TRANSCRIPTION_MAX_RECORDING_MS,
 } from "@/lib/session-flow/session-transcription-contract";
-import { isRecord } from "@/lib/type-guards";
 import { cn } from "@/lib/utils";
 import { getSessionComposerCopy } from "./session-composer-copy";
 
@@ -116,18 +116,7 @@ export function getDictationSupport(input: {
  * się przepisać” było fałszywe, bo nic jeszcze nie zostało nagrane.
  */
 export function getDictationErrorCopy(locale: Locale, error: unknown) {
-  const name = getErrorName(error);
-  const { dictation } = getSessionCopy(locale);
-
-  if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
-    return dictation.microphoneDenied;
-  }
-
-  if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError") {
-    return dictation.microphoneMissing;
-  }
-
-  return dictation.microphoneUnavailable;
+  return getMicrophoneErrorCopy(locale, error);
 }
 
 export function formatRecordingProgress(
@@ -579,14 +568,6 @@ export default function SessionComposer({
 
 function isAudioTooLargeFailure(body: unknown) {
   return isSessionTranscriptionFailure(body) && body.code === "audio_too_large";
-}
-
-function getErrorName(error: unknown) {
-  if (error instanceof Error) {
-    return error.name;
-  }
-
-  return isRecord(error) && typeof error.name === "string" ? error.name : "";
 }
 
 /**

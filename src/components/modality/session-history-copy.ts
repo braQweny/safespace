@@ -22,6 +22,8 @@ interface SessionHistoryCopy {
     unknown: string;
   };
   summaryMarks: Readonly<Record<Exclude<SessionHistoryListItem["summaryState"], "none">, string>>;
+  /** Odznaka rozmowy głosowej na liście; opis siedzi w `title` jak przy statusach. */
+  voiceBadge: SessionStatusLegendEntry;
   openTranscriptSr: (dateTime: string) => string;
   remainingAria: string;
   remaining: (time: string) => string;
@@ -82,6 +84,7 @@ const SESSION_HISTORY_COPY = defineCopy<SessionHistoryCopy>(
       unknown: "Length unknown",
     },
     summaryMarks: { approved: "Summary", preview: "Summary awaiting a decision", stale: "Summary out of date" },
+    voiceBadge: { label: "Voice", description: "A voice conversation; the transcript was written from speech." },
     openTranscriptSr: (dateTime) => `Open the conversation transcript: ${dateTime}.`,
     remainingAria: "Conversation time left",
     remaining: (time) => `${time} left`,
@@ -153,6 +156,7 @@ const SESSION_HISTORY_COPY = defineCopy<SessionHistoryCopy>(
       preview: "Podsumowanie czeka na decyzję",
       stale: "Podsumowanie nieaktualne",
     },
+    voiceBadge: { label: "Głos", description: "Rozmowa głosowa; zapis powstał z mowy." },
     openTranscriptSr: (dateTime) => `Otwórz zapis rozmowy: ${dateTime}.`,
     remainingAria: "Pozostały czas rozmowy",
     remaining: (time) => `Pozostało ${time}`,

@@ -5,6 +5,11 @@ import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/li
 import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
 import { toSessionView } from "@/lib/session-flow/session-state";
 import { resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
+import {
+  resolveVoiceStart,
+  type VoiceStartFailureCode,
+  type VoiceStartResolution,
+} from "@/lib/session-flow/voice-start";
 import { readSessionQuota } from "@/lib/session-data/quota";
 import { createPendingSession, transitionSessionLifecycle } from "@/lib/session-data/repository";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
@@ -36,9 +41,17 @@ type StartNextFailureCode =
   | "session_quota_unavailable"
   | "no_context_not_confirmed"
   | "validation_failed"
-  | "session_start_failed";
+  | "session_start_failed"
+  | VoiceStartFailureCode;
 
 const SESSION_LIMIT_REDIRECT = "/dashboard?start=limit_reached";
+// Rozmowa głosowa: osobne pule i osobne komunikaty na panelu (`?start=voice_*`).
+const VOICE_START_REDIRECTS: Readonly<Record<VoiceStartFailureCode, string>> = {
+  voice_unavailable: "/dashboard?start=voice_unavailable",
+  voice_trial_used: "/dashboard?start=voice_trial_used",
+  voice_minutes_exhausted: "/dashboard?start=voice_minutes_exhausted",
+  session_quota_unavailable: "/dashboard/session?start=unavailable",
+};
 
 function wantsJson(request: Request) {
   return request.headers.get("Accept")?.toLowerCase().includes("application/json") ?? false;
@@ -142,7 +155,28 @@ export const POST: APIRoute = async (context) => {
     return failureResponse(context, "session_quota_unavailable", 503, "/dashboard/session?start=unavailable");
   }
 
-  if (!quota.data.canStartSession) {
+  // Rozmowa głosowa ma własne pule (jedna próba free, minuty premium), więc
+  // limit trzech rozmów tekstowych jej nie dotyczy; bramką próby jest trigger
+  // `P0016` przy insercie, tu tylko pre-flight jak dla limitu tekstowego.
+  let voiceStart: VoiceStartResolution | null = null;
+
+  if (startRequest.mode === "voice") {
+    const resolution = await resolveVoiceStart(sessionContext.data, { plan: quota.data.plan });
+
+    if (!resolution.ok) {
+      logStartAttempt(
+        resolution.status === 503 ? "failure" : "blocked",
+        resolution.status,
+        startedAtMs,
+        operationalContext,
+        resolution.code === "session_quota_unavailable" ? undefined : resolution.code,
+      );
+
+      return failureResponse(context, resolution.code, resolution.status, VOICE_START_REDIRECTS[resolution.code]);
+    }
+
+    voiceStart = resolution;
+  } else if (!quota.data.canStartSession) {
     logStartAttempt("blocked", 403, startedAtMs, operationalContext, "session_limit_reached");
 
     return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
@@ -199,8 +233,13 @@ export const POST: APIRoute = async (context) => {
   }
 
   // Pinned at start from the plan read above, so a grant or revoke mid-session
-  // never stretches or cuts a conversation already under way.
-  const durationSeconds = resolveSessionDurationSeconds(quota.data.plan);
+  // never stretches or cuts a conversation already under way. A voice session
+  // keeps the full bucket in the database and may get a shorter deadline (the
+  // rest of the premium pool); the conversation arc follows the deadline.
+  const durationBucketSeconds = voiceStart
+    ? voiceStart.durationBucketSeconds
+    : resolveSessionDurationSeconds(quota.data.plan);
+  const durationSeconds = voiceStart ? voiceStart.durationSeconds : durationBucketSeconds;
   const startedAt = new Date();
   const expiresAt = addSeconds(startedAt, durationSeconds);
   const startedAtIso = startedAt.toISOString();
@@ -211,11 +250,12 @@ export const POST: APIRoute = async (context) => {
     modalityId: avatarChoice.data.modality.modalityId,
     avatarId: avatarChoice.data.modality.avatarId,
     isTrial: false,
-    durationBucketSeconds: durationSeconds,
+    durationBucketSeconds,
     usesApprovedContext: true,
     usesAvatarMemory: true,
     aboutPersonId: aboutPerson.aboutPersonId,
     aboutDifficultyId: aboutDifficulty.aboutDifficultyId,
+    ...(voiceStart ? { mode: "voice" as const } : {}),
   });
 
   if (!session.ok) {
@@ -225,6 +265,13 @@ export const POST: APIRoute = async (context) => {
       logStartAttempt("blocked", 403, startedAtMs, operationalContext, "session_limit_reached");
 
       return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
+    }
+
+    // The voice trial trigger (`P0016`) is the real gate for a free account.
+    if (session.error.code === "voice_trial_already_used") {
+      logStartAttempt("blocked", 403, startedAtMs, operationalContext, "voice_trial_used");
+
+      return failureResponse(context, "voice_trial_used", 403, VOICE_START_REDIRECTS.voice_trial_used);
     }
 
     logStartAttempt("failure", 500, startedAtMs, operationalContext);
@@ -237,7 +284,7 @@ export const POST: APIRoute = async (context) => {
     nextStatus: "active",
     startedAt: startedAtIso,
     expiresAt: expiresAtIso,
-    durationBucketSeconds: durationSeconds,
+    durationBucketSeconds,
   });
 
   if (!activeSession.ok) {
@@ -248,10 +295,14 @@ export const POST: APIRoute = async (context) => {
 
   logStartAttempt("success", 201, startedAtMs, operationalContext);
 
-  // Otwarcie czyta tę samą prywatną kopię pamięci co wszystkie późniejsze odpowiedzi.
-  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data, {
-    locale: getRequestLocale(context.locals),
-  });
+  // Otwarcie czyta tę samą prywatną kopię pamięci co wszystkie późniejsze
+  // odpowiedzi. Rozmowa głosowa otwiera się sama (warstwa live wita użytkownika
+  // po połączeniu), więc nie dostaje wiadomości otwierającej.
+  const opening = voiceStart
+    ? { ok: true as const, message: null }
+    : await createSessionOpeningMessage(sessionContext.data, activeSession.data, {
+        locale: getRequestLocale(context.locals),
+      });
 
   if (!opening.ok) {
     logOperationalEvent(

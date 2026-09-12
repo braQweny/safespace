@@ -64,6 +64,14 @@ vi.mock("@/lib/session-flow/session-opening", () => ({
   createSessionOpeningMessage,
 }));
 
+// Bramka głosowa sięga do `astro:env/server` (flaga); trasa dostaje jej wynik z atrapy.
+const resolveVoiceStart = vi.fn();
+
+vi.mock("@/lib/session-flow/voice-start", () => ({
+  resolveVoiceStart,
+  isVoiceStartAvailable: () => false,
+}));
+
 const { POST } = await import("@/pages/api/session/start-next");
 
 const contextData = {
@@ -435,5 +443,162 @@ describe("POST /api/session/start-next", () => {
       code: "summary_context_unavailable",
     });
     expect(createPendingSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/session/start-next with mode voice", () => {
+  const voiceCreated: SessionMetadata = {
+    ...createdSession,
+    id: "voice-session-1",
+    mode: "voice",
+    expiresAt: "2026-06-07T10:10:00.000Z",
+    durationBucketSeconds: 600,
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T10:00:00.000Z"));
+    vi.clearAllMocks();
+    buildOperationalRequestContext.mockResolvedValue({
+      requestId: "req-1",
+      route: "/api/session/start-next",
+      method: "POST",
+      userHash: "hash-1",
+    });
+    getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+        plan: "free",
+        premiumGrantedAt: null,
+      },
+    });
+    readCurrentAvatarChoice.mockResolvedValue(ok(avatar));
+    // Limit tekstowy wyczerpany: rozmowa głosowa ma własną pulę i musi przejść.
+    readSessionQuota.mockResolvedValue(
+      ok({ plan: "free", sessionLimit: 3, usedSessions: 3, remainingSessions: 0, canStartSession: false }),
+    );
+    prepareOwnedAvatarMemory.mockResolvedValue({ ok: true, ready: true });
+    createPendingSession.mockResolvedValue(ok(voiceCreated));
+    transitionSessionLifecycle.mockResolvedValue(ok({ ...voiceCreated, status: "active" }));
+    createSessionOpeningMessage.mockResolvedValue({ ok: true, message: null });
+    resolveVoiceStart.mockResolvedValue({
+      ok: true,
+      durationBucketSeconds: 600,
+      durationSeconds: 600,
+      expiresAt: new Date("2026-06-07T10:10:00.000Z"),
+      quota: { kind: "trial", plan: "free", available: true, durationSeconds: 600 },
+    });
+  });
+
+  it("starts a voice session past the text allowance, without an opening message", async () => {
+    const response = await POST(createContext({ mode: "voice" }) as never);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(201);
+    expect(body).toMatchObject({
+      ok: true,
+      session: { id: "voice-session-1", status: "active", mode: "voice", remainingSeconds: 600, isTrial: false },
+    });
+    expect(body).not.toHaveProperty("openingMessage");
+    expect(resolveVoiceStart).toHaveBeenCalledWith(contextData, { plan: "free" });
+    expect(createPendingSession).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({
+        mode: "voice",
+        isTrial: false,
+        durationBucketSeconds: 600,
+        startedAt: "2026-06-07T10:00:00.000Z",
+        expiresAt: "2026-06-07T10:10:00.000Z",
+      }),
+    );
+    expect(transitionSessionLifecycle).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ nextStatus: "active", durationBucketSeconds: 600 }),
+    );
+    expect(createSessionOpeningMessage).not.toHaveBeenCalled();
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "session.start_attempted", outcome: "success", status: 201 }),
+      expect.anything(),
+    );
+  });
+
+  it("keeps the premium bucket at an hour while the deadline follows the rest of the pool", async () => {
+    resolveVoiceStart.mockResolvedValue({
+      ok: true,
+      durationBucketSeconds: 3600,
+      durationSeconds: 2700,
+      expiresAt: new Date("2026-06-07T10:45:00.000Z"),
+      quota: {
+        kind: "pool",
+        plan: "premium",
+        limitSeconds: 7200,
+        usedSeconds: 4500,
+        remainingSeconds: 2700,
+        canStartVoice: true,
+        monthStartIso: "2026-06-01T00:00:00.000Z",
+      },
+    });
+    createPendingSession.mockResolvedValue(
+      ok({ ...voiceCreated, durationBucketSeconds: 3600, expiresAt: "2026-06-07T10:45:00.000Z" }),
+    );
+
+    await POST(createContext({ mode: "voice" }) as never);
+
+    expect(createPendingSession).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ durationBucketSeconds: 3600, expiresAt: "2026-06-07T10:45:00.000Z" }),
+    );
+  });
+
+  it("maps every gate refusal to its status, code and dashboard redirect", async () => {
+    for (const [code, status, redirectTo] of [
+      ["voice_unavailable", 403, "/dashboard?start=voice_unavailable"],
+      ["voice_trial_used", 403, "/dashboard?start=voice_trial_used"],
+      ["voice_minutes_exhausted", 403, "/dashboard?start=voice_minutes_exhausted"],
+      ["session_quota_unavailable", 503, "/dashboard/session?start=unavailable"],
+    ] as const) {
+      resolveVoiceStart.mockResolvedValueOnce({ ok: false, code, status });
+
+      const response = await POST(createContext({ mode: "voice" }) as never);
+
+      expect(response.status).toBe(status);
+      await expect(readJson(response)).resolves.toEqual({ ok: false, code, redirectTo });
+    }
+    expect(createPendingSession).not.toHaveBeenCalled();
+
+    resolveVoiceStart.mockResolvedValueOnce({ ok: false, code: "voice_trial_used", status: 403 });
+    const redirected = await POST(createContext({ mode: "voice" }, "text/html") as never);
+    expect(redirected.status).toBe(303);
+    expect(redirected.headers.get("Location")).toBe("/dashboard?start=voice_trial_used");
+  });
+
+  it("treats the database trial gate as the final word", async () => {
+    createPendingSession.mockResolvedValue(sessionDataError("voice_trial_already_used"));
+
+    const response = await POST(createContext({ mode: "voice" }) as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toEqual({
+      ok: false,
+      code: "voice_trial_used",
+      redirectTo: "/dashboard?start=voice_trial_used",
+    });
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "session.start_attempted", outcome: "blocked", reasonCode: "voice_trial_used" }),
+      expect.anything(),
+    );
+  });
+
+  it("leaves text starts on the text allowance and never consults the voice gate", async () => {
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toMatchObject({ code: "session_limit_reached" });
+    expect(resolveVoiceStart).not.toHaveBeenCalled();
   });
 });

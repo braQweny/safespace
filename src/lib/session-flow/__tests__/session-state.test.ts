@@ -4,6 +4,7 @@ import {
   computeRemainingSeconds,
   getEffectiveSessionStatus,
   readSessionStartPageState,
+  toSessionView,
   type SessionStateRepository,
 } from "../session-state";
 import type {
@@ -490,5 +491,74 @@ describe("readSessionStartPageState", () => {
         canStartWithoutContext: false,
       },
     });
+  });
+});
+
+describe("voice sessions in the start page state", () => {
+  const voiceActive: SessionMetadata = {
+    ...activeSession,
+    id: "voice-session-1",
+    modalityId: avatar.selected.modalityId,
+    avatarId: avatar.selected.avatarId,
+    status: "active",
+    startedAt: "2026-06-07T09:58:00.000Z",
+    expiresAt: "2026-06-07T10:08:00.000Z",
+    endedAt: null,
+    isTrial: false,
+    trialClaimId: null,
+    durationBucketSeconds: 600,
+    mode: "voice",
+  };
+
+  it("marks the view with the voice mode only for voice sessions", () => {
+    expect(toSessionView(activeSession, now)).not.toHaveProperty("mode");
+    expect(toSessionView(voiceActive, now)).toMatchObject({ mode: "voice", status: "active" });
+  });
+
+  it("reconciles an active voice session with its observer before showing it, on both read paths", async () => {
+    const interrupted = { ...voiceActive, status: "interrupted" as const, endedAt: now.toISOString() };
+    const reconcileVoiceSession = vi.fn(() => Promise.resolve({ session: interrupted }));
+    const repository = createRepository({
+      getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(voiceActive))),
+      listOwnedActiveSessionMetadata: vi.fn(() => Promise.resolve(ok([voiceActive]))),
+      reconcileVoiceSession,
+    });
+
+    const explicit = await readSessionStartPageState(
+      context,
+      { avatar, resumeSessionId: voiceActive.id, now },
+      repository,
+    );
+
+    expect(reconcileVoiceSession).toHaveBeenCalledWith(context, voiceActive, { now });
+    expect(explicit).toMatchObject({
+      ok: true,
+      data: { kind: "interrupted", session: { id: voiceActive.id, status: "interrupted", mode: "voice" } },
+    });
+
+    reconcileVoiceSession.mockClear();
+    const latest = await readSessionStartPageState(context, { avatar, now }, repository);
+
+    expect(reconcileVoiceSession).toHaveBeenCalledTimes(1);
+    expect(latest).toMatchObject({ ok: true, data: { kind: "interrupted" } });
+  });
+
+  it("never calls the observer for text sessions, ended voice sessions or without the hook", async () => {
+    const reconcileVoiceSession = vi.fn(() => Promise.resolve({ session: voiceActive }));
+    const ended = { ...voiceActive, status: "completed" as const, endedAt: now.toISOString() };
+
+    for (const session of [activeSession, ended]) {
+      const repository = createRepository({
+        getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(session))),
+        reconcileVoiceSession,
+      });
+      await readSessionStartPageState(context, { avatar, resumeSessionId: session.id, now }, repository);
+    }
+    expect(reconcileVoiceSession).not.toHaveBeenCalled();
+
+    const withoutHook = createRepository({ getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(voiceActive))) });
+    await expect(
+      readSessionStartPageState(context, { avatar, resumeSessionId: voiceActive.id, now }, withoutHook),
+    ).resolves.toMatchObject({ ok: true, data: { kind: "active", session: { mode: "voice" } } });
   });
 });

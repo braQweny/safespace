@@ -17,13 +17,21 @@ export type UserId = string;
 
 export type SessionLifecycleStatus = "created" | "active" | "completed" | "expired" | "interrupted" | "deleted";
 
+/**
+ * Tryb rozmowy: `text` (composer, `/api/session/message`) albo `voice`
+ * (GPT-Live przez WebRTC, transkrypt zrzucany RPC). Ustalany przy insercie i
+ * zamrożony; tryby są rozłączne — patrz README „Rozmowa głosowa”.
+ */
+export type SessionMode = "text" | "voice";
+
 export type SessionMessageRole = "user" | "assistant" | "system_boundary";
 
 export type SessionSummaryStatus = "draft" | "ready" | "stale" | "deleted";
 
 export type SessionDeletionReasonCode = "user_request" | "retention_expired" | "safety_cleanup" | "system_cleanup";
 
-export type SessionDurationBucketSeconds = 0 | 300 | 900 | 1800 | 3600;
+/** 600 to jednorazowa próba głosowa konta free; reszta jak dotąd. */
+export type SessionDurationBucketSeconds = 0 | 300 | 600 | 900 | 1800 | 3600;
 
 export const SESSION_HISTORY_PAGE_SIZE = 20 as const;
 export const APPROVED_SESSION_SUMMARY_CONTEXT_LIMIT = 3 as const;
@@ -51,6 +59,46 @@ export interface SessionQuota {
   usedSessions: number;
   remainingSessions: number | null;
   canStartSession: boolean;
+}
+
+/**
+ * Co właściciel może zacząć głosem. Konto free ma jedną próbę (bucket 600 s;
+ * każdy własny wiersz `mode = 'voice'` ją zużywa, także tombstone). Konto
+ * premium ma miesięczną pulę sekund liczoną od `voice_connected_at` każdej
+ * rozmowy głosowej w bieżącym miesiącu UTC.
+ */
+export type VoiceQuota =
+  | { kind: "trial"; plan: "free"; available: boolean; durationSeconds: 600 }
+  | {
+      kind: "pool";
+      plan: "premium";
+      limitSeconds: number;
+      usedSeconds: number;
+      remainingSeconds: number;
+      canStartVoice: boolean;
+      monthStartIso: string;
+    };
+
+/** Czas jednej rozmowy głosowej potrzebny do policzenia puli — bez treści. */
+export interface VoiceSessionTiming {
+  voiceConnectedAt: string;
+  endedAt: string | null;
+  expiresAt: string | null;
+  durationBucketSeconds: SessionDurationBucketSeconds | null;
+  status: SessionLifecycleStatus;
+}
+
+/** Wypowiedź transkryptu do zapisu; `utteranceId` nadaje serwer, nigdy przeglądarka. */
+export interface VoiceUtteranceInput {
+  utteranceId: string;
+  role: Extract<SessionMessageRole, "user" | "assistant">;
+  content: string;
+}
+
+export interface AppendVoiceUtterancesResult {
+  inserted: number;
+  skipped: number;
+  messages: SessionMessageRecord[];
 }
 
 export type SessionModalityId = "psychodynamic" | "cbt" | "humanistic_experiential" | "systemic" | "integrative";
@@ -115,6 +163,10 @@ export interface SessionMetadata {
    * widoku klienta, logów ani agregatów operatora.
    */
   sessionLens?: SessionLensId | null;
+  /** Tryb rozmowy; brak w starszym odczycie oznacza `text`. */
+  mode?: SessionMode;
+  /** Pierwsze udane połączenie audio rozmowy głosowej; od niego liczy się pula minut. */
+  voiceConnectedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -231,6 +283,8 @@ export interface DeletedSessionTombstone {
   isTrial: boolean;
   trialClaimId: TrialClaimId | null;
   durationBucketSeconds: SessionDurationBucketSeconds | null;
+  /** Tryb usuniętej rozmowy (trasa usuwania rozłącza obserwatora głosowego); brak = tekst. */
+  mode?: SessionMode;
   createdAt: string;
   updatedAt: string;
 }
@@ -321,6 +375,8 @@ export interface CreatePendingSessionInput {
   aboutPersonId?: string | null;
   /** Zwalidowana wcześniej trudność właściciela z tej samej perspektywy. */
   aboutDifficultyId?: string | null;
+  /** Tryb rozmowy; domyślnie `text`. Głos zawsze przez `start-next`, nigdy przez claim próby tekstowej. */
+  mode?: SessionMode;
 }
 
 export interface ClaimFreeTrialSessionInput {
@@ -445,6 +501,8 @@ export interface SessionHistoryListItem {
   expiresAt: string | null;
   durationBucketSeconds: SessionDurationBucketSeconds | null;
   isTrial: boolean;
+  /** Tryb rozmowy (odznaka „Głos”); brak oznacza `text`. */
+  mode?: SessionMode;
   /**
    * Czy z tej rozmowy coś przechodzi do kolejnej. Stan, nie treść — lista
    * historii nadal nie pokazuje ani słowa z rozmowy ani z podsumowania.

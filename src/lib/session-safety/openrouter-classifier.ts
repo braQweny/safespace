@@ -116,19 +116,44 @@ export async function classifySessionSafetyWithAiProvider(
 ): Promise<ProviderSafetyDecision> {
   const config = getAiProviderEnv(options.provider);
   const apiKey = options.apiKey ?? config.apiKey;
-  const chatRequest = buildOpenRouterSafetyRequest(input, options.model ?? config.safetyModel);
-  const timeoutMs = resolveTimeoutMs(options.timeoutMs);
-  let lastError: unknown;
 
-  for (let attempt = 1; attempt <= OPENROUTER_SAFETY_MAX_ATTEMPTS; attempt += 1) {
-    try {
-      const response = await sendAiChat({
+  return classifySessionSafetyWithSender(
+    input,
+    options.model ?? config.safetyModel,
+    (chatRequest, timeoutMs) =>
+      sendAiChat({
         provider: config.provider,
         apiKey,
         chatRequest,
         fetcher: options.fetcher,
         timeoutMs,
-      });
+      }),
+    options.timeoutMs,
+  );
+}
+
+/** Jedno wywołanie transportu; `classifySessionSafetyWithSender` dokłada ponowienie i mapowanie błędów. */
+export type SafetyChatSender = (chatRequest: OpenRouterSafetyRequestBody, timeoutMs: number) => Promise<unknown>;
+
+/**
+ * Wspólna pętla klasyfikatora dla dowolnego transportu: buduje żądanie z
+ * jawnie podanym modelem, ponawia raz po szybkiej awarii dostawcy i zamyka
+ * błędy do kategorii. Obserwator rozmowy głosowej używa jej z kluczem z
+ * bindingów Workera, bez `astro:env/server` (poza żądaniem Astro nie ma env).
+ */
+export async function classifySessionSafetyWithSender(
+  input: SessionSafetyInput,
+  model: string,
+  send: SafetyChatSender,
+  timeoutOverrideMs?: number,
+): Promise<ProviderSafetyDecision> {
+  const chatRequest = buildOpenRouterSafetyRequest(input, model);
+  const timeoutMs = resolveTimeoutMs(timeoutOverrideMs);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= OPENROUTER_SAFETY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await send(chatRequest, timeoutMs);
 
       return parseProviderSafetyDecision(response);
     } catch (error) {

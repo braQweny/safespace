@@ -250,3 +250,46 @@ describe("POST /api/session/end", () => {
     expect(getOwnedSessionMetadata).not.toHaveBeenCalled();
   });
 });
+
+const { closeVoiceSession } = vi.hoisted(() => ({ closeVoiceSession: vi.fn() }));
+vi.mock("@/lib/session-flow/voice-reconcile", () => ({ closeVoiceSession }));
+
+describe("POST /api/session/end for a voice session", () => {
+  const voiceActive: SessionMetadata = { ...activeSession, mode: "voice", isTrial: false, trialClaimId: null };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-12T10:05:00.000Z"));
+    vi.clearAllMocks();
+    buildOperationalRequestContext.mockResolvedValue({
+      requestId: "req-1",
+      route: "/api/session/end",
+      method: "POST",
+      userHash: "hash-1",
+    });
+    requireSessionRouteAccess.mockResolvedValue({ ok: true, data: contextData });
+    closeVoiceSession.mockResolvedValue(null);
+  });
+
+  it("closes the observer with our reason after the row is completed, expired or already ended", async () => {
+    getOwnedSessionMetadata.mockResolvedValue(ok(voiceActive));
+    transitionSessionLifecycle.mockResolvedValue(ok({ ...voiceActive, status: "completed" }));
+    expect((await POST(createContext() as never)).status).toBe(200);
+    expect(closeVoiceSession).toHaveBeenCalledWith(contextData, voiceActive, "completed");
+    expect(transitionSessionLifecycle.mock.invocationCallOrder[0]).toBeLessThan(
+      closeVoiceSession.mock.invocationCallOrder[0],
+    );
+
+    closeVoiceSession.mockClear();
+    vi.setSystemTime(new Date("2026-06-12T10:20:00.000Z"));
+    transitionSessionLifecycle.mockResolvedValue(ok({ ...voiceActive, status: "expired" }));
+    expect((await POST(createContext() as never)).status).toBe(409);
+    expect(closeVoiceSession).toHaveBeenCalledWith(contextData, voiceActive, "time_limit_reached");
+
+    closeVoiceSession.mockClear();
+    const ended = { ...voiceActive, status: "completed" as const, endedAt: "2026-06-12T10:05:00.000Z" };
+    getOwnedSessionMetadata.mockResolvedValue(ok(ended));
+    expect((await POST(createContext() as never)).status).toBe(200);
+    expect(closeVoiceSession).toHaveBeenCalledWith(contextData, ended, "completed");
+  });
+});

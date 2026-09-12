@@ -116,6 +116,13 @@ export default defineConfig({
       // Wyłączone gasi ekstrakcję trudności w potoku kart osób, sekcję na panelu
       // i brief w prompcie; zarządzanie zapisami działa zawsze. Wartość spoza listy = off.
       TOPIC_MAP_MODE: envField.string({ context: "server", access: "public", optional: true }),
+      // Rozmowa głosowa (GPT-Live-1): off|on. Wyłączone gasi start głosowy,
+      // trasy voice/*, przycisk na panelu i sekcję prywatności; trwająca
+      // rozmowa jest rozłączana przy najbliższym heartbeacie. Wartość spoza listy = off.
+      VOICE_SESSION_MODE: envField.string({ context: "server", access: "public", optional: true }),
+      // Miesięczna pula minut rozmów głosowych konta premium (UTC); dodatnia
+      // liczba całkowita, inaczej 120. Konto free ma jedną próbę 10 min.
+      VOICE_MONTHLY_MINUTES: envField.string({ context: "server", access: "public", optional: true }),
     },
   },
 });

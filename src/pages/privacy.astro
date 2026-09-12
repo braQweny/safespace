@@ -4,7 +4,8 @@ import PrivacyContentEn from "@/components/privacy/PrivacyContentEn.astro";
 import PrivacyContentPl from "@/components/privacy/PrivacyContentPl.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
-import { getPrivacyCopy, PRIVACY_SECTION_IDS } from "@/lib/page-copy/privacy-copy";
+import { getPrivacyCopy, getVisiblePrivacySectionIds } from "@/lib/page-copy/privacy-copy";
+import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
 
 // Ta strona opisuje, jak produkt faktycznie działa (co zapisuje, kto to widzi,
 // jak usunąć). Jest to jedyne miejsce, do którego prowadzą linki „Prywatność
@@ -15,6 +16,9 @@ const copy = getPrivacyCopy(locale);
 const { user } = Astro.locals;
 const backHref = user ? "/dashboard" : "/";
 const backLabel = user ? copy.backToDashboard : copy.backHome;
+// Ten sam warunek co w partialach: sekcja o rozmowach głosowych istnieje tylko
+// wtedy, gdy panel je oferuje, więc spis treści nie może do niej odsyłać wcześniej.
+const sectionIds = getVisiblePrivacySectionIds({ voice: isVoiceStartAvailable() });
 ---
 
 <Layout title={copy.pageTitle} description={copy.description}>
@@ -31,7 +35,7 @@ const backLabel = user ? copy.backToDashboard : copy.backHome;
           <p class="text-ink text-sm font-semibold">{copy.tocTitle}</p>
           <ul class="mt-2 grid gap-1 text-sm sm:grid-cols-2">
             {
-              PRIVACY_SECTION_IDS.map((sectionId) => (
+              sectionIds.map((sectionId) => (
                 <li>
                   <a
                     href={`#${sectionId}`}

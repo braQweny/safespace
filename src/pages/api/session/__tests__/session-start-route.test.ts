@@ -449,3 +449,42 @@ describe("POST /api/session/start", () => {
     expect(response.headers.get("Location")).toBe("/dashboard/session?started=1");
   });
 });
+
+describe("POST /api/session/start with mode voice", () => {
+  it("rejects the voice mode with 400 before any quota or trial read", async () => {
+    vi.clearAllMocks();
+    buildOperationalRequestContext.mockResolvedValue({
+      requestId: "req-1",
+      route: "/api/session/start",
+      method: "POST",
+      userHash: "hash-1",
+    });
+    getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: {
+        userId: "user-1",
+        status: "active",
+        blockedAt: null,
+        blockReasonCode: null,
+        plan: "free",
+        premiumGrantedAt: null,
+      },
+    });
+    readCurrentAvatarChoice.mockResolvedValue(ok(avatar));
+
+    const response = await POST({
+      ...createContext(),
+      request: new Request("https://safespace.local/api/session/start", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "voice" }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ ok: false, code: "validation_failed" });
+    expect(readSessionQuota).not.toHaveBeenCalled();
+    expect(claimFreeTrialSession).not.toHaveBeenCalled();
+  });
+});

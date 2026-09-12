@@ -4,6 +4,7 @@ import { deleteOwnedSession } from "@/lib/session-data/deletion";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
 import { readSessionHistoryDetail, toSessionHistoryDeleteSuccessResponse } from "@/lib/session-flow/session-history";
 import { parseSessionIdParam } from "@/lib/session-flow/session-id";
+import { closeVoiceSession } from "@/lib/session-flow/voice-reconcile";
 import {
   sessionHistoryFailure,
   type SessionHistoryDeleteResponse,
@@ -95,6 +96,10 @@ export const DELETE: APIRoute = async (context) => {
   if (!result.ok) {
     return jsonResponse(sessionHistoryFailure(mapDeleteErrorCode(result.error.code)));
   }
+
+  // Usunięta rozmowa głosowa: rozłącz trwającą sesję live i wyczyść bufor
+  // obserwatora — w bazie nie ma już do czego zrzucać.
+  await closeVoiceSession(sessionContext.data, { id: result.data.id, mode: result.data.mode }, "deleted");
 
   return jsonResponse(toSessionHistoryDeleteSuccessResponse(result.data));
 };

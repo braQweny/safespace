@@ -1,6 +1,7 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import TimedSession from "@/components/session/TimedSession";
+import VoiceSession from "@/components/session/VoiceSession";
 import { getPeopleCardsCopy } from "@/components/people/people-cards-copy";
 import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
 import {
@@ -16,6 +17,7 @@ import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
 import { parseSessionIdParam } from "@/lib/session-flow/session-id";
 import { readSessionStartPageState } from "@/lib/session-flow/session-state";
 import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
+import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
 
 const sessionContext = getSessionDataContext(Astro);
 const resumeSessionId = Astro.url.searchParams.get("sessionId");
@@ -51,6 +53,9 @@ if (!startPageState.ok || !startPageState.data.session) {
 
 const pageState = startPageState.data;
 const activeSession = pageState.session;
+// Rozmowa głosowa ma własną wyspę: bez pola pisania, z mikrofonem i pulsem.
+// Stan startu jest już uzgodniony z obserwatorem (reconcile-on-read).
+const isVoiceSession = activeSession?.mode === "voice";
 let initialSummary: LatestSessionSummaryState | null = null;
 let initialDraft: string | null = null;
 
@@ -65,7 +70,8 @@ if (activeSession && pageState.kind !== "active") {
 // dopóki użytkownik sam nic nie napisał — odświeżenie po wysłaniu nie wraca z
 // tym zdaniem. Cudza albo nieistniejąca karta po prostu nic nie wstawia.
 // Osoba ma pierwszeństwo przed trudnością, gdy adres niesie obie.
-const acceptsPrefill = pageState.kind === "active" && !pageState.messages.some((message) => message.role === "user");
+const acceptsPrefill =
+  !isVoiceSession && pageState.kind === "active" && !pageState.messages.some((message) => message.role === "user");
 
 if (aboutPersonId && peopleMemoryMode && acceptsPrefill) {
   const card = await getOwnedPersonCard(sessionContext.data, aboutPersonId);
@@ -104,14 +110,27 @@ if (initialDraft === null && aboutDifficultyId && topicMapMode && acceptsPrefill
     */
     }
     <main class="relative min-h-0 flex-1 overflow-hidden [&>astro-island]:contents">
-      <TimedSession
-        client:load
-        locale={Astro.locals.locale}
-        initialState={pageState}
-        initialSummary={initialSummary}
-        initialDraft={initialDraft}
-        prepareCards={peopleMemoryMode || topicMapMode}
-      />
+      {
+        isVoiceSession ? (
+          <VoiceSession
+            client:load
+            locale={Astro.locals.locale}
+            initialState={pageState}
+            initialSummary={initialSummary}
+            prepareCards={peopleMemoryMode || topicMapMode}
+            voiceAvailable={isVoiceStartAvailable()}
+          />
+        ) : (
+          <TimedSession
+            client:load
+            locale={Astro.locals.locale}
+            initialState={pageState}
+            initialSummary={initialSummary}
+            initialDraft={initialDraft}
+            prepareCards={peopleMemoryMode || topicMapMode}
+          />
+        )
+      }
     </main>
   </div>
 </Layout>

@@ -16,7 +16,7 @@ import {
 const PERSON_ID = "123e4567-e89b-42d3-a456-426614174000";
 const DIFFICULTY_ID = "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a";
 const context = { user: { id: "owner" } } as SessionDataContext;
-const plain = { ok: true, aboutPersonId: null, aboutDifficultyId: null };
+const plain = { ok: true, mode: "text", aboutPersonId: null, aboutDifficultyId: null };
 
 function request(body?: string, contentType = "application/json") {
   return new Request("https://safespace.local/api/session/start-next", {
@@ -51,6 +51,22 @@ describe("readSessionStartRequestBody", () => {
       '{"aboutPersonId":5}',
       '{"aboutDifficultyId":"odmawianie"}',
     ]) {
+      expect(await readSessionStartRequestBody(request(body))).toEqual({ ok: false });
+    }
+  });
+
+  it("accepts only the two conversation modes and defaults to text", async () => {
+    expect(await readSessionStartRequestBody(request('{"mode":"voice"}'))).toEqual({ ...plain, mode: "voice" });
+    expect(await readSessionStartRequestBody(request('{"mode":"text"}'))).toEqual(plain);
+    expect(await readSessionStartRequestBody(request('{"mode":null}'))).toEqual(plain);
+    expect(
+      await readSessionStartRequestBody(request(JSON.stringify({ mode: "voice", aboutPersonId: PERSON_ID }))),
+    ).toEqual({
+      ...plain,
+      mode: "voice",
+      aboutPersonId: PERSON_ID,
+    });
+    for (const body of ['{"mode":"audio"}', '{"mode":1}', '{"mode":"VOICE"}']) {
       expect(await readSessionStartRequestBody(request(body))).toEqual({ ok: false });
     }
   });

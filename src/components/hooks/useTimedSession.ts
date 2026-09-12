@@ -1,7 +1,5 @@
 import { useCallback, useReducer, useRef } from "react";
 import { isRateLimitedApiResult, isTimedOutApiResult, requestApiJson } from "@/lib/api-client";
-import type { SessionAiFailureCopy } from "@/lib/session-ai/types";
-import type { CrisisResourceRegion, SessionSafetyCopy } from "@/lib/session-safety/types";
 import type { Locale } from "@/lib/i18n/locale";
 import { getSessionCopy } from "@/lib/session-copy";
 import {
@@ -15,6 +13,7 @@ import {
   type UiSessionMessage,
 } from "@/lib/session-flow/message-state";
 import { isCompleteSessionResponse } from "@/lib/session-flow/session-completion-contract";
+import { buildInfoNotice, type SessionNoticeState } from "@/lib/session-flow/session-notice";
 import {
   toSessionStartPageStateKind,
   type SessionStartPageState,
@@ -36,11 +35,8 @@ export const SESSION_MESSAGE_TIMEOUT_MS = 80_000;
  */
 export const SLOW_RESPONSE_THRESHOLD_MS = 12_000;
 
-export interface SafetyNoticeState {
-  variant: "hard_stop" | "retry" | "info";
-  copy: SessionSafetyCopy | SessionAiFailureCopy;
-  crisisResources?: readonly CrisisResourceRegion[];
-}
+/** Ten sam kształt co w rozmowie głosowej (`session-flow/session-notice.ts`). */
+export type SafetyNoticeState = SessionNoticeState;
 
 export interface TimedSessionUiState {
   kind: SessionStartPageStateKind;
@@ -81,16 +77,18 @@ export type TimedSessionAction =
 
 export type TimedSessionDispatch = (action: TimedSessionAction) => void;
 
-function buildGenericNotice(title: string, body: string): SafetyNoticeState {
-  return {
-    variant: "info",
-    copy: {
-      title,
-      body,
-      nextSteps: [],
-    },
-  };
-}
+/**
+ * Akcje, które emituje `endTimedSession`: podzbiór wspólny dla rozmowy pisanej
+ * i głosowej, więc jeden przebieg zakończenia obsługuje oba reduktory.
+ */
+export type EndSessionAction = Extract<
+  TimedSessionAction,
+  { type: "end_requested" | "end_succeeded" | "end_failed" | "end_settled" | "session_expired" }
+>;
+
+export type EndSessionDispatch = (action: EndSessionAction) => void;
+
+const buildGenericNotice = buildInfoNotice;
 
 function buildExpiredNotice(locale: Locale) {
   const { turn } = getSessionCopy(locale);
@@ -399,7 +397,7 @@ export async function sendTimedSessionMessage(
 
 export async function endTimedSession(
   input: { sessionId: string; locale: Locale },
-  dispatch: TimedSessionDispatch,
+  dispatch: EndSessionDispatch,
   transport: TimedSessionTransport = defaultTransport,
 ) {
   const { turn } = getSessionCopy(input.locale);

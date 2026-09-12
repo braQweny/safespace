@@ -20,10 +20,27 @@ try {
     no_bundle: built.no_bundle,
     rules: built.rules,
     assets: { ...built.assets, directory: resolve(server, built.assets.directory) },
+    // The voice observer Durable Object ships with the Worker (custom `main`);
+    // local SQLite classes work under --persist-to, so the preview keeps them.
+    durable_objects: built.durable_objects,
+    migrations: built.migrations,
+    // The per-user limiters (`unsafe.bindings` of type `ratelimit`) run locally
+    // too. Without them the production build fails closed (503) on every
+    // limited session route, so an anonymous request could never reach the
+    // route's own 401 — the preview would test a different middleware.
+    unsafe: built.unsafe,
     kv_namespaces: [{ binding: "SESSION", id: "local-e2e-only" }],
     images: { binding: "IMAGES" },
+    // Only `access: "secret"` variables of `astro:env` are read here at
+    // runtime (BILLING_MODE, AI_PROVIDER, the Supabase pair). Public server
+    // variables such as the feature flags are inlined at build time from
+    // `wrangler.jsonc`, so the preview ships the repository's flags; the voice
+    // entries below document the expectation and would matter only if the
+    // schema ever moved them to runtime reads.
     vars: {
       BILLING_MODE: "off",
+      VOICE_SESSION_MODE: "off",
+      VOICE_MONTHLY_MINUTES: "120",
       SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_KEY: "test-public-key",
       OPENROUTER_API_KEY: "",

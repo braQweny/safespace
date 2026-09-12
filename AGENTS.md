@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-SafeSpace is an Astro 7 SSR app with React 19 islands, Tailwind 4, Supabase auth, shadcn/ui, OpenRouter-backed AI sessions, and Cloudflare Workers deployment. Communicate with the user in Polish unless they ask otherwise. `CLAUDE.md` holds the architecture and privacy-boundary guidance; this file covers conventions and the 10xDevs toolkit.
+SafeSpace is an Astro 7 SSR app with React 19 islands, Tailwind 4, Supabase auth, shadcn/ui, OpenAI- or OpenRouter-backed AI sessions (plus GPT-Live voice conversations behind a flag), and Cloudflare Workers deployment. Communicate with the user in Polish unless they ask otherwise. `CLAUDE.md` holds the architecture and privacy-boundary guidance; this file covers conventions and the 10xDevs toolkit.
 
 ## Critical Rules
 
@@ -29,7 +29,7 @@ SafeSpace is an Astro 7 SSR app with React 19 islands, Tailwind 4, Supabase auth
 
 - `src/pages/` contains Astro pages and `src/pages/api/` route handlers with uppercase method exports.
 - `src/middleware.ts` resolves Supabase auth and protects `PROTECTED_ROUTES`.
-- `src/lib/` contains the server-side subsystems (`session-data/`, `session-safety/`, `session-ai/`, `session-summary/`, `session-transcription/`, `session-flow/`, `operational-visibility/`, `admin/`, `openrouter/`, `security/`) plus helpers such as `createClient()` and `cn()`; several subsystems carry a `README.md` that is the contract for that boundary. Tests live in `__tests__/` folders next to the code.
+- `src/lib/` contains the server-side subsystems (`session-data/`, `session-safety/`, `session-ai/`, `session-summary/`, `session-transcription/`, `session-flow/`, `operational-visibility/`, `admin/`, `ai-provider/`, `openai/`, `openrouter/`, `voice/`, `security/`) plus helpers such as `createClient()` and `cn()`; several subsystems carry a `README.md` that is the contract for that boundary. Tests live in `__tests__/` folders next to the code.
 - `src/components/ui/` holds shadcn/ui components configured by `@components.json`; interactive auth components live in `src/components/auth/`.
 - Foundation docs are in `context/foundation/`; deployment notes are in `context/deployment/deploy-plan.md`.
 

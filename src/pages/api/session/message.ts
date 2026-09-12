@@ -178,6 +178,13 @@ export const POST: APIRoute = async (context) => {
 
   const session = sessionResult.data;
   const now = new Date();
+
+  // Tryby są rozłączne: rozmowa głosowa nie ma pola pisania i nie przyjmuje
+  // wiadomości pisanych — przed leasingiem, żeby nie zostawić po sobie tury.
+  if (session.mode === "voice") {
+    return jsonResponse({ ok: false, type: "session_not_active", code: "session_mode_mismatch" }, 409);
+  }
+
   const clientMessageId = messageRequest.clientMessageId ?? crypto.randomUUID();
   const claim = await claimSessionMessageTurn(sessionContext.data, {
     sessionId: session.id,

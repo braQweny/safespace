@@ -7,6 +7,7 @@ export const PRIVACY_SECTION_IDS = [
   "data",
   "who-sees",
   "ai",
+  "voice",
   "deletion",
   "plans",
   "crisis",
@@ -14,6 +15,20 @@ export const PRIVACY_SECTION_IDS = [
 ] as const;
 
 export type PrivacySectionId = (typeof PRIVACY_SECTION_IDS)[number];
+
+export interface PrivacySectionVisibility {
+  /** Rozmowy głosowe są opisywane tylko wtedy, gdy panel je oferuje (`isVoiceStartAvailable()`). */
+  voice: boolean;
+}
+
+/**
+ * Spis treści zawiera tylko sekcje, które partial faktycznie renderuje. Sekcja
+ * `#voice` stoi za flagą jak karty osób, ale ma własny nagłówek, więc bez tego
+ * filtra spis odsyłałby do kotwicy, której na stronie nie ma.
+ */
+export function getVisiblePrivacySectionIds(visibility: PrivacySectionVisibility): readonly PrivacySectionId[] {
+  return PRIVACY_SECTION_IDS.filter((sectionId) => sectionId !== "voice" || visibility.voice);
+}
 
 interface PrivacyCopy {
   pageTitle: string;
@@ -43,6 +58,7 @@ const PRIVACY_COPY = defineCopy<PrivacyCopy>(
       data: "What data we process",
       "who-sees": "Who sees your conversations",
       ai: "How AI works in a conversation",
+      voice: "Voice conversations",
       deletion: "Deletion and control",
       plans: "Free and premium plans",
       crisis: "Help in a crisis",
@@ -64,6 +80,7 @@ const PRIVACY_COPY = defineCopy<PrivacyCopy>(
       data: "Jakie dane przetwarzamy",
       "who-sees": "Kto widzi Twoje rozmowy",
       ai: "Jak działa AI w rozmowie",
+      voice: "Rozmowy głosowe",
       deletion: "Usuwanie i kontrola",
       plans: "Plan bezpłatny i premium",
       crisis: "Pomoc w kryzysie",

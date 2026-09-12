@@ -20,6 +20,10 @@ const SESSION_START_REASON_CODES = [
   // Free-plan allowance exhausted: a conversion signal, not an incident.
   "session_limit_reached",
   "interrupted",
+  // Voice start gate: flag/provider off, free trial used, premium pool empty.
+  "voice_unavailable",
+  "voice_trial_used",
+  "voice_minutes_exhausted",
 ] as const satisfies readonly OperationalSessionReasonCode[];
 
 const SESSION_OPENING_REASON_CODES = [
@@ -40,6 +44,35 @@ const SESSION_TIME_LIMIT_REASON_CODES = [
   "time_limit_reached",
 ] as const satisfies readonly OperationalSessionReasonCode[];
 const SESSION_COMPLETED_REASON_CODES = ["completed"] as const satisfies readonly OperationalSessionReasonCode[];
+const SESSION_VOICE_CLOSE_REASON_CODES = [
+  "completed",
+  "interrupted",
+  "time_limit_reached",
+  "heartbeat_lost",
+  "safety_unavailable",
+  "reconnected",
+  "deleted",
+  "voice_disabled",
+  "provider_closed",
+] as const satisfies readonly OperationalSessionReasonCode[];
+const SESSION_VOICE_CONNECT_REASON_CODES = [
+  "voice_unavailable",
+  "voice_observer_unavailable",
+  "reconnected",
+  "provider_timeout",
+  "provider_rate_limited",
+  "provider_unavailable",
+  "invalid_provider_response",
+  "missing_configuration",
+] as const satisfies readonly OperationalSessionReasonCode[];
+const SESSION_VOICE_OBSERVER_REASON_CODES = [
+  "observer_attached",
+  "observer_rotated",
+  "observer_reattached",
+  "observer_attach_failed",
+  "observer_steer_failed",
+  "observer_hangup_failed",
+] as const satisfies readonly OperationalSessionReasonCode[];
 const FAIL_CLOSED_REASON_CODES = [
   "provider_unavailable",
   "invalid_provider_response",
@@ -55,6 +88,12 @@ export type SessionStartReasonCode = (typeof SESSION_START_REASON_CODES)[number]
 export type SessionProviderFailureReasonCode = (typeof SESSION_PROVIDER_FAILURE_REASON_CODES)[number];
 
 export type SessionOpeningFailureReasonCode = (typeof SESSION_OPENING_REASON_CODES)[number];
+
+export type SessionVoiceCloseReasonCode = (typeof SESSION_VOICE_CLOSE_REASON_CODES)[number];
+
+export type SessionVoiceObserverReasonCode = (typeof SESSION_VOICE_OBSERVER_REASON_CODES)[number];
+
+export type SessionVoiceConnectReasonCode = (typeof SESSION_VOICE_CONNECT_REASON_CODES)[number];
 
 interface SessionEventBaseMetadata {
   requestId?: string;
@@ -112,8 +151,29 @@ export interface SessionLensEvaluatedEventMetadata extends SessionEventBaseMetad
   outputUnits?: number;
 }
 
+export interface SessionVoiceClosedEventMetadata extends SessionEventBaseMetadata {
+  reasonCode: SessionVoiceCloseReasonCode;
+  provider?: SessionAiProvider;
+}
+
+export interface SessionVoiceObserverEventMetadata extends SessionEventBaseMetadata {
+  outcome: SessionLifecycleOutcome;
+  reasonCode: SessionVoiceObserverReasonCode;
+  provider?: SessionAiProvider;
+}
+
+export interface SessionVoiceConnectedEventMetadata extends SessionEventBaseMetadata {
+  outcome: SessionLifecycleOutcome;
+  /** Tylko przy porażce lub wznowieniu; sukces pierwszego połączenia nie ma kodu. */
+  reasonCode?: SessionVoiceConnectReasonCode;
+  provider?: SessionAiProvider;
+}
+
 type SessionEventName = Extract<
   OperationalEvent["event"],
+  | "session.voice_observer"
+  | "session.voice_closed"
+  | "session.voice_connected"
   | "session.start_attempted"
   | "session.safety_evaluated"
   | "session.ai_provider_failed"
@@ -456,4 +516,64 @@ export function buildSessionCompletedEvent(metadata: SessionCompletedEventMetada
     }),
     reasonCode: SESSION_COMPLETED_REASON_CODES[0],
   };
+}
+
+/**
+ * Zamknięcie sesji live rozmowy głosowej z naszym powodem. `durationMs` to
+ * czas od uzbrojenia obserwatora — koszt warstwy głosowej, nie treść.
+ */
+export function buildSessionVoiceClosedEvent(metadata: SessionVoiceClosedEventMetadata): OperationalEvent {
+  const reasonCode = hasAllowedValue(SESSION_VOICE_CLOSE_REASON_CODES, metadata.reasonCode)
+    ? metadata.reasonCode
+    : "provider_closed";
+  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : undefined;
+  const outcome =
+    metadata.outcome ??
+    (reasonCode === "completed" || reasonCode === "time_limit_reached" || reasonCode === "reconnected"
+      ? "success"
+      : "blocked");
+  const event = buildSessionEvent("session.voice_closed", outcome === "success" ? "info" : "warn", {
+    requestId: metadata.requestId,
+    outcome,
+    durationMs: metadata.durationMs,
+    userHash: metadata.userHash,
+  });
+
+  return { ...event, reasonCode, ...(provider ? { provider } : {}) };
+}
+
+/**
+ * Jedno połączenie audio rozmowy głosowej (`POST /api/session/voice/connect`):
+ * wynik, czas do odpowiedzi SDP, powód porażki. Bez identyfikatora sesji live,
+ * bez oferty SDP — builder nie ma dla nich pól.
+ */
+export function buildSessionVoiceConnectedEvent(metadata: SessionVoiceConnectedEventMetadata): OperationalEvent {
+  const reasonCode = hasAllowedValue(SESSION_VOICE_CONNECT_REASON_CODES, metadata.reasonCode)
+    ? metadata.reasonCode
+    : undefined;
+  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : undefined;
+  const event = buildSessionEvent("session.voice_connected", getOutcomeLevel(metadata.outcome), {
+    requestId: metadata.requestId,
+    outcome: metadata.outcome,
+    durationMs: metadata.durationMs,
+    userHash: metadata.userHash,
+  });
+
+  return { ...event, ...(reasonCode ? { reasonCode } : {}), ...(provider ? { provider } : {}) };
+}
+
+/** Sideband obserwatora: podłączenie, rotacja, ponowne podłączenie i ich awarie. */
+export function buildSessionVoiceObserverEvent(metadata: SessionVoiceObserverEventMetadata): OperationalEvent {
+  const reasonCode = hasAllowedValue(SESSION_VOICE_OBSERVER_REASON_CODES, metadata.reasonCode)
+    ? metadata.reasonCode
+    : "observer_attach_failed";
+  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : undefined;
+  const event = buildSessionEvent("session.voice_observer", getOutcomeLevel(metadata.outcome), {
+    requestId: metadata.requestId,
+    outcome: metadata.outcome,
+    durationMs: metadata.durationMs,
+    userHash: metadata.userHash,
+  });
+
+  return { ...event, reasonCode, ...(provider ? { provider } : {}) };
 }

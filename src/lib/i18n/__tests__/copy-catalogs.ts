@@ -19,6 +19,7 @@ import { getSessionStartCardCopy } from "@/components/session/session-start-card
 import { getSessionStarterPromptsCopy } from "@/components/session/session-starter-prompts-copy";
 import { getSessionTimerCopy } from "@/components/session/session-timer-copy";
 import { getTimedSessionCopy } from "@/components/session/timed-session-copy";
+import { getVoiceSessionCopy } from "@/components/session/voice-session-copy";
 import { getSiteFooterCopy } from "@/components/site-footer-copy";
 import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
 import { AUTH_ERROR_CODES, getAuthErrorMessage } from "@/lib/auth-errors";
@@ -46,6 +47,8 @@ import {
 } from "@/lib/session-flow/session-budget";
 import { getCrisisResourceCatalog } from "@/lib/session-safety/crisis-resources";
 import { getCrisisSafetyCopy, getSafetyUnavailableCopy } from "@/lib/session-safety/safety-copy";
+import { getVoiceLiveTemplate } from "@/lib/session-ai/voice-instructions";
+import { getVoiceSteeringCopy } from "@/lib/voice/steering-copy";
 
 export interface CopyCatalog {
   name: string;
@@ -60,6 +63,9 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   },
   { name: "session-copy", read: getSessionCopy },
   { name: "safety-copy", read: (locale) => [getCrisisSafetyCopy(locale), getSafetyUnavailableCopy(locale)] },
+  { name: "voice-steering-copy", read: getVoiceSteeringCopy },
+  { name: "voice-live-template", read: getVoiceLiveTemplate },
+  { name: "voice-live-hints", read: (locale) => MVP_MODALITIES.map((m) => m.voiceLiveHint[locale]) },
   { name: "crisis-resources", read: getCrisisResourceCatalog },
   {
     name: "session-response-copy",
@@ -99,6 +105,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "session-starter-prompts-copy", read: getSessionStarterPromptsCopy },
   { name: "session-timer-copy", read: getSessionTimerCopy },
   { name: "timed-session-copy", read: getTimedSessionCopy },
+  { name: "voice-session-copy", read: getVoiceSessionCopy },
   { name: "layout-copy", read: getLayoutCopy },
   { name: "dashboard-copy", read: getDashboardCopy },
   { name: "avatar-page-copy", read: getAvatarPageCopy },

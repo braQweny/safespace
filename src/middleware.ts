@@ -15,6 +15,7 @@ import {
   getRateLimitKey,
   isAuthRateLimitedRequest,
   isRateLimitedApiRequest,
+  isVoiceRateLimitedApiRequest,
 } from "@/lib/rate-limit";
 import { resolveRequestLocale } from "@/lib/i18n/locale-cookie";
 import { ACCOUNT_ACCESS_UNAVAILABLE_PATH, BLOCKED_ACCOUNT_PATH, evaluateApiBodyGuard } from "@/lib/request-guards";
@@ -155,6 +156,23 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (verdict === "limited") {
       logRequestRejected(429, "rate_limited");
       return rejectJson(429, "rate_limited", { "Retry-After": "60" });
+    }
+
+    if (verdict === "unavailable") {
+      logRequestRejected(503, "rate_limiter_unavailable", "error");
+      return rejectJson(503, "rate_limiter_unavailable");
+    }
+  }
+
+  // Voice heartbeat/drain: its own per-user budget, same fail-closed rule in
+  // production — the observer drain must never become an unbounded loop.
+  if (isVoiceRateLimitedApiRequest(method, pathname)) {
+    const key = getRateLimitKey(context.locals.user?.id ?? null, context.request);
+    const verdict = await checkSessionRateLimit(env.VOICE_RATE_LIMITER, key, { failClosed: import.meta.env.PROD });
+
+    if (verdict === "limited") {
+      logRequestRejected(429, "rate_limited");
+      return rejectJson(429, "rate_limited", { "Retry-After": "20" });
     }
 
     if (verdict === "unavailable") {

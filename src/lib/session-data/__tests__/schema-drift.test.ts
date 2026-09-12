@@ -1,11 +1,21 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DIFFICULTY_LABEL_TAKEN_SQLSTATE, FREE_PLAN_SESSION_LIMIT_SQLSTATE } from "../errors";
+import {
+  DIFFICULTY_LABEL_TAKEN_SQLSTATE,
+  FREE_PLAN_SESSION_LIMIT_SQLSTATE,
+  SESSION_MODE_MISMATCH_SQLSTATE,
+  VOICE_TRIAL_USED_SQLSTATE,
+} from "../errors";
 import { FREE_PLAN_SESSION_LIMIT } from "../quota";
+import { VOICE_UTTERANCE_BATCH_LIMIT } from "../voice-utterances";
 import { LOCALES, type Locale } from "@/lib/i18n/locale";
 import { SESSION_LENS_IDS } from "@/lib/session-ai/session-lenses";
-import { FREE_TRIAL_DURATION_SECONDS, PREMIUM_SESSION_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
+import {
+  FREE_TRIAL_DURATION_SECONDS,
+  PREMIUM_SESSION_DURATION_SECONDS,
+  VOICE_TRIAL_DURATION_SECONDS,
+} from "@/lib/session-flow/session-budget";
 import {
   PEOPLE_BATCH_MAX_CHARS,
   PEOPLE_BATCH_MAX_MESSAGES,
@@ -53,6 +63,7 @@ import type {
   SessionLifecycleStatus,
   SessionMessageRole,
   SessionModalityId,
+  SessionMode,
   SessionSummaryStatus,
 } from "../types";
 
@@ -102,6 +113,10 @@ const TOPIC_MAP_MIGRATION_PATH = resolve(__dirname, "../../../../supabase/migrat
 const TOPIC_BRIEF_MIGRATION_PATH = resolve(
   __dirname,
   "../../../../supabase/migrations/20260907100000_add_topic_brief.sql",
+);
+const VOICE_SESSIONS_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260912200000_add_voice_sessions.sql",
 );
 
 // Every table the app touches through PostgREST with a user JWT, mapped to
@@ -158,7 +173,10 @@ const TS_DELETION_REASON_CODES = [
   "system_cleanup",
 ] as const satisfies readonly SessionDeletionReasonCode[];
 
-const TS_DURATION_BUCKETS = [0, 300, 900, 1800, 3600] as const satisfies readonly SessionDurationBucketSeconds[];
+// 600 arrived with the voice trial; the constraint is re-created in the voice migration.
+const TS_DURATION_BUCKETS = [0, 300, 600, 900, 1800, 3600] as const satisfies readonly SessionDurationBucketSeconds[];
+
+const TS_SESSION_MODES = ["text", "voice"] as const satisfies readonly SessionMode[];
 
 const TS_MODALITY_IDS = [
   "psychodynamic",
@@ -186,6 +204,7 @@ const rolesCovered: AssertExhaustive<SessionMessageRole, (typeof TS_MESSAGE_ROLE
 const summaryCovered: AssertExhaustive<SessionSummaryStatus, (typeof TS_SUMMARY_STATUSES)[number]> = true;
 const deletionCovered: AssertExhaustive<SessionDeletionReasonCode, (typeof TS_DELETION_REASON_CODES)[number]> = true;
 const bucketsCovered: AssertExhaustive<SessionDurationBucketSeconds, (typeof TS_DURATION_BUCKETS)[number]> = true;
+const modesCovered: AssertExhaustive<SessionMode, (typeof TS_SESSION_MODES)[number]> = true;
 const modalitiesCovered: AssertExhaustive<SessionModalityId, (typeof TS_MODALITY_IDS)[number]> = true;
 const avatarsCovered: AssertExhaustive<SessionAvatarId, (typeof TS_AVATAR_IDS)[number]> = true;
 const localesCovered: AssertExhaustive<Locale, (typeof LOCALES)[number]> = true;
@@ -248,8 +267,15 @@ describe("session-data domain types vs boundary migration constraints", () => {
   });
 
   it("keeps duration buckets in sync", () => {
-    const body = extractConstraintBody(sql, "therapy_sessions_duration_bucket_seconds_check");
+    // The voice migration re-creates this constraint (adds 600), so it is the
+    // definition that counts; the boundary one must stay a strict subset.
+    const voiceSql = readFileSync(VOICE_SESSIONS_MIGRATION_PATH, "utf8");
+    const body = extractConstraintBody(voiceSql, "therapy_sessions_duration_bucket_seconds_check");
     expect(new Set(extractNumericListValues(body))).toEqual(new Set(TS_DURATION_BUCKETS));
+    const boundaryBody = extractConstraintBody(sql, "therapy_sessions_duration_bucket_seconds_check");
+    for (const bucket of extractNumericListValues(boundaryBody)) {
+      expect(TS_DURATION_BUCKETS).toContain(bucket);
+    }
     expect(bucketsCovered).toBe(true);
   });
 
@@ -475,6 +501,67 @@ describe("session lens migration", () => {
     expect(new Set(extractQuotedValues(body))).toEqual(new Set(SESSION_LENS_IDS));
     expect(sql).toContain("grant update (session_lens) on table public.therapy_sessions to authenticated");
     // The label is prompt material about the conversation's subject: never an admin field.
+    expect(sql).not.toMatch(/admin/i);
+  });
+});
+
+describe("voice sessions migration", () => {
+  const sql = readFileSync(VOICE_SESSIONS_MIGRATION_PATH, "utf8");
+
+  it("keeps the session modes equal to the TypeScript union and lets nobody update the mode", () => {
+    const body = extractConstraintBody(sql, "therapy_sessions_mode_check");
+
+    expect(new Set(extractQuotedValues(body))).toEqual(new Set(TS_SESSION_MODES));
+    expect(modesCovered).toBe(true);
+    expect(sql).toContain("grant insert (mode) on table public.therapy_sessions to authenticated");
+    for (const grant of sql.matchAll(/grant update \(([^)]*)\)/g)) {
+      const columns = grant[1].split(",").map((column) => column.trim());
+      expect(columns).not.toContain("mode");
+    }
+    expect(sql).toContain("new.mode = old.mode;");
+  });
+
+  it("lets the owner set the audio connection time once and freezes it afterwards", () => {
+    expect(sql).toContain("grant update (voice_connected_at) on table public.therapy_sessions to authenticated");
+    expect(sql).toMatch(
+      /if old\.voice_connected_at is not null then\s+new\.voice_connected_at = old\.voice_connected_at;/,
+    );
+  });
+
+  it("gives a free account one voice trial with the budget the code starts, outside the text allowance", () => {
+    expect(sql).toContain(`v_voice_trial_bucket constant integer := ${VOICE_TRIAL_DURATION_SECONDS};`);
+    expect(sql).toMatch(/errcode = '([A-Z0-9]{5})',\s*message = 'voice_trial_already_used'/);
+    expect(/errcode = '([A-Z0-9]{5})',\s*message = 'voice_trial_already_used'/.exec(sql)?.[1]).toBe(
+      VOICE_TRIAL_USED_SQLSTATE,
+    );
+    // The text cap still raises the code the error mapper knows, but counts text rows only.
+    expect(/errcode = '([A-Z0-9]{5})',\s*message = 'free_plan_session_limit_reached'/.exec(sql)?.[1]).toBe(
+      FREE_PLAN_SESSION_LIMIT_SQLSTATE,
+    );
+    expect(sql).toMatch(/and sessions\.mode = 'text';/);
+    expect(sql).toMatch(/and sessions\.mode = 'voice';/);
+    expect(sql).toContain(`v_limit constant integer := ${FREE_PLAN_SESSION_LIMIT};`);
+  });
+
+  it("writes voice transcripts only through the owner-bound RPC with idempotent utterance ids", () => {
+    expect(sql).toContain("create unique index session_messages_utterance_idx");
+    expect(sql).toMatch(/on public\.session_messages \(session_id, utterance_id\)\s+where utterance_id is not null/);
+    expect(sql).toContain("grant insert (utterance_id) on table public.session_messages to authenticated");
+    expect(sql).toContain(
+      "create function public.append_voice_session_utterances(p_session_id uuid, p_utterances jsonb)",
+    );
+    expect(sql).toContain("security invoker");
+    expect(sql).toContain(`jsonb_array_length(p_utterances) > ${VOICE_UTTERANCE_BATCH_LIMIT}`);
+    expect(/raise exception 'session_mode_mismatch' using errcode = '([A-Z0-9]{5})'/.exec(sql)?.[1]).toBe(
+      SESSION_MODE_MISMATCH_SQLSTATE,
+    );
+    expect(sql).toContain(
+      "revoke execute on function public.append_voice_session_utterances(uuid, jsonb) from public, anon",
+    );
+    expect(sql).toContain(
+      "grant execute on function public.append_voice_session_utterances(uuid, jsonb) to authenticated",
+    );
+    // Transcript text is conversation content: never an admin surface.
     expect(sql).not.toMatch(/admin/i);
   });
 });

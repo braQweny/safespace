@@ -7,10 +7,11 @@ import DashboardSessionHistory from "@/components/modality/DashboardSessionHisto
 import PeopleCards from "@/components/people/PeopleCards";
 import SessionStartCard from "@/components/session/SessionStartCard";
 import TimedSession from "@/components/session/TimedSession";
+import VoiceSession from "@/components/session/VoiceSession";
 import TopicMap from "@/components/topics/TopicMap";
 import type { AdminOverviewMetrics } from "@/lib/admin/types";
 import { MODALITY_CHOICES, MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
-import type { SessionStartPageState } from "@/lib/session-flow/session-state";
+import type { SessionStartPageState, SessionView } from "@/lib/session-flow/session-state";
 
 /**
  * Islandy dostają język propsem z Astro i same wpuszczają go do drzewa.
@@ -180,5 +181,44 @@ describe("islands rendered in English", () => {
     expect(form).toContain('aria-label="Show password"');
     expect(overview).toContain("Premium accounts");
     expect(overview).toContain("Session statuses");
+  });
+});
+
+describe("voice island rendered in English", () => {
+  it("renders the microphone card, the chrome and the finished states in English", () => {
+    const voiceSession: SessionView = {
+      id: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a",
+      status: "active",
+      startedAt: "2026-06-12T10:00:00.000Z",
+      endedAt: null,
+      expiresAt: "2026-06-12T10:10:00.000Z",
+      remainingSeconds: 540,
+      isTrial: false,
+      durationBucketSeconds: 600,
+      mode: "voice",
+    };
+    const voiceState: SessionStartPageState = { ...activeState, session: voiceSession };
+    const html = renderToStaticMarkup(<VoiceSession locale="en" initialState={voiceState} voiceAvailable />);
+
+    expect(html).toContain("Turn on the microphone");
+    expect(html).toContain("Marek is listening once the microphone is on");
+    expect(html).toContain("Conversation in progress");
+    expect(html).toContain("End the conversation");
+    expect(html).toContain("Conversation boundaries:");
+    expect(html).not.toContain("Włącz mikrofon");
+
+    const finished = renderToStaticMarkup(
+      <VoiceSession
+        locale="en"
+        initialState={{
+          ...voiceState,
+          kind: "completed",
+          session: { ...voiceSession, status: "completed", endedAt: "2026-06-12T10:05:00.000Z" },
+        }}
+        voiceAvailable
+      />,
+    );
+    expect(finished).toContain("Conversation ended");
+    expect(finished).toContain("Back to the dashboard");
   });
 });

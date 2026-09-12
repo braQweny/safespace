@@ -11,6 +11,8 @@ export const SESSION_DATA_ERROR_CODES = {
   message_in_progress: "message_in_progress",
   message_request_conflict: "message_request_conflict",
   duplicate_difficulty_label: "duplicate_difficulty_label",
+  session_mode_mismatch: "session_mode_mismatch",
+  voice_trial_already_used: "voice_trial_already_used",
   delete_failed: "delete_failed",
   write_failed: "write_failed",
   read_failed: "read_failed",
@@ -29,6 +31,21 @@ export const FREE_PLAN_SESSION_LIMIT_SQLSTATE = "P0005";
  * topic map migration by `schema-drift.test.ts`.
  */
 export const DIFFICULTY_LABEL_TAKEN_SQLSTATE = "P0014";
+
+/**
+ * SQLSTATE raised by `append_voice_session_utterances` when the session is a
+ * text conversation (and, in the app, by the text message route for a voice
+ * session): the two modes never share a transcript. Pinned to the voice
+ * migration by `schema-drift.test.ts`.
+ */
+export const SESSION_MODE_MISMATCH_SQLSTATE = "P0015";
+
+/**
+ * SQLSTATE raised by the free-plan limit trigger when a free account already
+ * owns a voice conversation (any status, tombstones included): the voice trial
+ * is one per account and deleting never restores it.
+ */
+export const VOICE_TRIAL_USED_SQLSTATE = "P0016";
 
 export type SessionDataErrorCode = keyof typeof SESSION_DATA_ERROR_CODES;
 
@@ -95,6 +112,14 @@ export function mapSupabaseWriteError(error: unknown, options: WriteErrorMapping
 
   if (code === DIFFICULTY_LABEL_TAKEN_SQLSTATE) {
     return "duplicate_difficulty_label";
+  }
+
+  if (code === SESSION_MODE_MISMATCH_SQLSTATE) {
+    return "session_mode_mismatch";
+  }
+
+  if (code === VOICE_TRIAL_USED_SQLSTATE) {
+    return "voice_trial_already_used";
   }
 
   return "write_failed";

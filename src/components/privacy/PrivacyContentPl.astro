@@ -1,9 +1,14 @@
 ---
 import PrivacyCrisisRegions from "@/components/privacy/PrivacyCrisisRegions.astro";
 import { FREE_PLAN_SESSION_LIMIT } from "@/lib/session-data/quota";
+import { plural } from "@/lib/i18n/plural";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
+import { VOICE_TRIAL_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
 import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
+import { getVoiceMonthlyMinutes } from "@/lib/session-flow/voice-session-mode";
+import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
 import { getSupportContact } from "@/lib/support-contact";
+import { VOICE_BUFFER_RETENTION_MS } from "@/lib/voice/constants";
 
 /**
  * Polska treść strony „Prywatność i zasady”. Proza prawna z linkami w środku
@@ -16,6 +21,16 @@ const support = getSupportContact();
 const peopleMemory = isPeopleMemoryEnabled();
 // Mapa tematów: ta sama zasada, własna flaga.
 const topicMap = isTopicMapEnabled();
+// Rozmowy głosowe: ta sama bramka co przycisk na panelu (flaga i bezpośrednie
+// OpenAI); każda liczba pochodzi z kodu, który ją egzekwuje, nigdy z prozy.
+const voiceSession = isVoiceStartAvailable();
+const voiceTrialMinutes = Math.round(VOICE_TRIAL_DURATION_SECONDS / 60);
+const voiceMonthlyMinutes = getVoiceMonthlyMinutes();
+const voiceBufferDays = Math.round(VOICE_BUFFER_RETENTION_MS / 86_400_000);
+// Dopełniacz po „do” („do 10 minut”), biernik po „wynosi” („wynosi 120 minut”).
+const MINUTES_AFTER_UP_TO = { one: "minuty", few: "minut", many: "minut" };
+const MINUTES_AMOUNT = { one: "minutę", few: "minuty", many: "minut" };
+const DAYS = { one: "dzień", few: "dni", many: "dni" };
 ---
 
 <section id="what-is" class="scroll-mt-20">
@@ -125,6 +140,45 @@ const topicMap = isTopicMapEnabled();
     ) : null
   }
 </section>
+
+{
+  voiceSession ? (
+    <section id="voice" class="scroll-mt-20" data-voice-session>
+      <h2 class="text-ink text-xl font-semibold">Rozmowy głosowe</h2>
+      <p class="text-ink-soft mt-3">
+        Rozmowę głosową zaczynasz w panelu tak jak pisaną, ale awatar słucha i mówi zamiast pisać. Po dotknięciu „Włącz
+        mikrofon” przeglądarka prosi o zgodę na jego użycie i otwiera bezpośrednie połączenie audio (WebRTC) między
+        Twoim urządzeniem a OpenAI, dostawcą modelu głosowego. SafeSpace nie odbiera, nie nagrywa ani nie przechowuje
+        dźwięku — głos wędruje wyłącznie między Twoim urządzeniem a dostawcą. Awatar słucha i mówi jednocześnie, więc do
+        dostawcy trafia wszystko, co zbierze mikrofon, także głosy innych osób w pomieszczeniu: wybierz ustronne miejsce
+        i korzystaj z wyciszenia, kiedy tego potrzebujesz.
+      </p>
+      <p class="text-ink-soft mt-3">
+        Zapis rozmowy powstaje po stronie SafeSpace z tekstu, który dostawca odsyła w trakcie rozmowy, i jest
+        przechowywany jak rozmowa pisana: czytasz go tylko Ty, zasila pamięć tego awatara jak każda inna rozmowa i jest
+        usuwany razem z rozmową. Do czasu zapisu w bazie fragmenty czekają w prywatnej pamięci roboczej w Cloudflare,
+        przypisanej wyłącznie do tej rozmowy, najdłużej {voiceBufferDays} {plural("pl", voiceBufferDays, DAYS)}; jest
+        ona opróżniana przy każdym zapisie i przy usunięciu rozmowy. Rozpoznawanie mowy bywa omylne — zwłaszcza przy
+        imionach, liczbach i nakładających się głosach — więc zapis może różnić się od tego, co zostało powiedziane.
+      </p>
+      <p class="text-ink-soft mt-3">
+        Każda Twoja wypowiedź przechodzi tę samą automatyczną ocenę bezpieczeństwa co wiadomość pisana, ale dopiero po
+        jej wypowiedzeniu — awatar może już odpowiadać, gdy ocena nadejdzie. Jeśli wskazuje ona na pilne zagrożenie,
+        awatar mówi jedno zdanie przekazania, połączenie zostaje zamknięte i pokazujemy numery pomocy. Gdy sama ocena
+        jest niedostępna, awatar robi pauzę zamiast rozmawiać bez niej. Dostawca przetwarza dźwięk i zapis na warunkach
+        swojego API; sesje głosowe otwieramy z wyłączonym zapisywaniem rozmowy po stronie dostawcy, a zerowa retencja i
+        region przetwarzania są ustawieniami konta dostawcy, tak jak przy rozmowach pisanych.
+      </p>
+      <p class="text-ink-soft mt-3">
+        Konto bezpłatne ma jedną próbę rozmowy głosowej do {voiceTrialMinutes}{" "}
+        {plural("pl", voiceTrialMinutes, MINUTES_AFTER_UP_TO)}; na koncie premium miesięczna pula wynosi{" "}
+        {voiceMonthlyMinutes} {plural("pl", voiceMonthlyMinutes, MINUTES_AMOUNT)} i jest liczona od chwili połączenia
+        audio. Pulę widać w panelu i w ustawieniach konta. Usunięcie rozmowy głosowej nie przywraca ani próby, ani
+        minut.
+      </p>
+    </section>
+  ) : null
+}
 
 <section id="deletion" class="scroll-mt-20">
   <h2 class="text-ink text-xl font-semibold">Usuwanie i kontrola</h2>

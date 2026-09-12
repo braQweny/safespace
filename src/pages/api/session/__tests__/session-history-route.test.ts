@@ -380,3 +380,39 @@ describe("DELETE /api/session/history/[sessionId]", () => {
     expect(serialized).not.toContain("hint");
   });
 });
+
+const { closeVoiceSession } = vi.hoisted(() => ({ closeVoiceSession: vi.fn() }));
+vi.mock("@/lib/session-flow/voice-reconcile", () => ({ closeVoiceSession }));
+
+describe("DELETE /api/session/history/[sessionId] for a voice conversation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: { userId: "user-1", status: "active", blockedAt: null, blockReasonCode: null },
+    });
+    closeVoiceSession.mockResolvedValue(null);
+  });
+
+  it("hangs up and purges the observer after the row is deleted, and leaves text conversations alone", async () => {
+    deleteOwnedSession.mockResolvedValue(ok({ ...tombstone, mode: "voice" }));
+    const response = await DELETE(
+      createContext(`https://safespace.local/api/session/history/${tombstone.id}`) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(closeVoiceSession).toHaveBeenCalledWith(contextData, { id: tombstone.id, mode: "voice" }, "deleted");
+    expect(deleteOwnedSession.mock.invocationCallOrder[0]).toBeLessThan(closeVoiceSession.mock.invocationCallOrder[0]);
+
+    closeVoiceSession.mockClear();
+    deleteOwnedSession.mockResolvedValue(ok(tombstone));
+    await DELETE(createContext(`https://safespace.local/api/session/history/${tombstone.id}`) as never);
+    expect(closeVoiceSession).toHaveBeenCalledWith(contextData, { id: tombstone.id, mode: undefined }, "deleted");
+
+    closeVoiceSession.mockClear();
+    deleteOwnedSession.mockResolvedValue(sessionDataError("delete_failed"));
+    await DELETE(createContext(`https://safespace.local/api/session/history/${tombstone.id}`) as never);
+    expect(closeVoiceSession).not.toHaveBeenCalled();
+  });
+});

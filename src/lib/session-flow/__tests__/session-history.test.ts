@@ -430,3 +430,11 @@ describe("session history summary markers", () => {
     }
   });
 });
+
+describe("voice conversations in history", () => {
+  it("carries the voice mode on list items and nothing for text conversations", () => {
+    expect(toSessionHistoryListItem(baseSession)).not.toHaveProperty("mode");
+    expect(toSessionHistoryListItem({ ...baseSession, mode: "voice" })).toMatchObject({ mode: "voice" });
+    expect(toSessionHistoryListItem({ ...baseSession, mode: "text" })).not.toHaveProperty("mode");
+  });
+});

@@ -23,15 +23,19 @@ import { isBillingEnabled } from "@/lib/billing/config";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
-import type { SessionQuota } from "@/lib/session-data/types";
+import { readVoiceQuota } from "@/lib/session-data/voice-quota";
+import type { SessionQuota, VoiceQuota } from "@/lib/session-data/types";
 import { readActiveSessionBadge, type ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
 import {
   formatPlanName,
   formatSessionAllowance,
+  formatVoiceAllowance,
   getPlanCopy,
   getPremiumSupportMailtoHref,
 } from "@/lib/session-flow/plan-copy";
+import { getVoiceMonthlyMinutes } from "@/lib/session-flow/voice-session-mode";
+import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { getSupportContact } from "@/lib/support-contact";
 
@@ -53,6 +57,10 @@ const isAdmin = adminContext.ok;
 // (`readSessionQuota`), żeby konto nigdy nie mówiło czego innego niż panel.
 const sessionContext = getSessionDataContext(Astro);
 let quota: SessionQuota | null = null;
+// Pula głosowa (próba free / minuty premium) tylko przy włączonej funkcji;
+// odczyt pada → akapit po prostu znika, plan i pula tekstowa zostają.
+const voiceStartAvailable = isVoiceStartAvailable();
+let voiceQuota: VoiceQuota | null = null;
 let activeSession: ActiveSessionBadge | null = null;
 // Karty osób: przełącznik za flagą, ale usuwanie zapisów zawsze — jeśli jakieś
 // są, karta ustawień pokazuje się także przy wyłączonej fladze.
@@ -65,15 +73,17 @@ let topicMapEnabled: boolean | null = null;
 let hasDifficultyRows = false;
 
 if (sessionContext.ok) {
-  const [quotaResult, badge, preference, rows, topicPreference, difficultyRows] = await Promise.all([
+  const [quotaResult, badge, preference, rows, topicPreference, difficultyRows, voiceQuotaResult] = await Promise.all([
     readSessionQuota(sessionContext.data),
     readActiveSessionBadge(sessionContext.data),
     peopleMemoryMode ? readOwnedPeopleMemoryEnabled(sessionContext.data) : null,
     hasOwnedPeopleRows(sessionContext.data),
     topicMapMode ? readOwnedTopicMapEnabled(sessionContext.data) : null,
     hasOwnedDifficultyRows(sessionContext.data),
+    voiceStartAvailable ? readVoiceQuota(sessionContext.data, { limitMinutes: getVoiceMonthlyMinutes() }) : null,
   ]);
   quota = quotaResult.ok ? quotaResult.data : null;
+  voiceQuota = voiceQuotaResult?.ok ? voiceQuotaResult.data : null;
   activeSession = badge;
   peopleMemoryEnabled = preference?.ok ? preference.data : null;
   hasPeopleRows = rows.ok ? rows.data : false;
@@ -136,6 +146,12 @@ const topicStatusIsError = topicStatus !== "saved" && topicStatus !== "deleted";
                   {formatSessionAllowance(locale, quota)} {copy.eachLasts(sessionBudgetMinutes)}
                   {quota.plan === "free" ? ` ${copy.deletingNote}` : null}
                 </p>
+                {voiceQuota ? (
+                  <p class="text-ink-muted mt-2 text-sm leading-6" data-account-voice>
+                    <span class="text-ink-soft font-medium">{copy.voiceHeading}</span>{" "}
+                    {formatVoiceAllowance(locale, voiceQuota)}
+                  </p>
+                ) : null}
                 {quota.plan === "free" && !billingEnabled ? (
                   <p class="text-ink-muted mt-3 text-sm leading-6">{getPlanCopy(locale).premiumHowTo}</p>
                 ) : null}

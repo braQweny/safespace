@@ -21,7 +21,7 @@ import type {
 } from "./types";
 
 export const SESSION_SELECT =
-  "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,uses_approved_context,uses_avatar_memory,about_person_id,about_difficulty_id,session_lens,created_at,updated_at";
+  "id,user_id,modality_id,avatar_id,status,started_at,ended_at,expires_at,deleted_at,deletion_reason_code,is_trial,trial_claim_id,duration_bucket_seconds,uses_approved_context,uses_avatar_memory,about_person_id,about_difficulty_id,session_lens,mode,voice_connected_at,created_at,updated_at";
 export const HISTORY_SESSION_SELECT = `${SESSION_SELECT},session_messages!inner(id)`;
 export const MESSAGE_SELECT = "id,session_id,user_id,role,sequence_index,content,created_at";
 export const SUMMARY_SELECT = "id,session_id,user_id,summary_text,status,is_visible,revision,created_at,updated_at";
@@ -52,6 +52,8 @@ export interface TherapySessionRow {
   about_person_id?: string | null;
   about_difficulty_id?: string | null;
   session_lens?: string | null;
+  mode?: string | null;
+  voice_connected_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -157,6 +159,9 @@ export function mapSession(row: TherapySessionRow): SessionMetadata {
     aboutDifficultyId: row.about_difficulty_id ?? null,
     // Wartość spoza katalogu (np. usunięta soczewka) czyta się jak brak.
     sessionLens: isSessionLensId(row.session_lens) ? row.session_lens : null,
+    // Wiersz sprzed migracji trybu czyta się jak rozmowa tekstowa.
+    mode: row.mode === "voice" ? "voice" : "text",
+    voiceConnectedAt: row.voice_connected_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -216,6 +221,7 @@ export function toDeletedSessionTombstone(session: SessionMetadata): DeletedSess
     isTrial: session.isTrial,
     trialClaimId: session.trialClaimId,
     durationBucketSeconds: session.durationBucketSeconds,
+    ...(session.mode === "voice" ? { mode: "voice" as const } : {}),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   API_BODY_LIMIT_BYTES,
   TRANSCRIPTION_API_BODY_LIMIT_BYTES,
+  VOICE_CONNECT_API_BODY_LIMIT_BYTES,
   evaluateApiBodyGuard,
   getAccountAccessRedirectPath,
   getApiBodyLimitBytes,
@@ -116,5 +117,30 @@ describe("getAccountAccessRedirectPath", () => {
     expect(getAccountAccessRedirectPath("account_blocked")).toBe("/account/blocked");
     expect(getAccountAccessRedirectPath("account_access_unavailable")).toBe("/account/blocked?state=unavailable");
     expect(getAccountAccessRedirectPath("missing_auth")).toBe("/account/blocked?state=unavailable");
+  });
+});
+
+describe("voice connect body cap", () => {
+  it("admits a 64 KiB WebRTC offer on the connect route only; the heartbeat keeps the default cap", () => {
+    expect(getApiBodyLimitBytes("/api/session/voice/connect")).toBe(VOICE_CONNECT_API_BODY_LIMIT_BYTES);
+    expect(getApiBodyLimitBytes("/api/session/voice/heartbeat")).toBe(API_BODY_LIMIT_BYTES);
+    expect(
+      evaluateApiBodyGuard(
+        request("POST", { contentLength: String(VOICE_CONNECT_API_BODY_LIMIT_BYTES) }),
+        "/api/session/voice/connect",
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      evaluateApiBodyGuard(
+        request("POST", { contentLength: String(VOICE_CONNECT_API_BODY_LIMIT_BYTES + 1) }),
+        "/api/session/voice/connect",
+      ),
+    ).toEqual({ ok: false, status: 413, reasonCode: "payload_too_large" });
+    expect(
+      evaluateApiBodyGuard(
+        request("POST", { contentLength: String(API_BODY_LIMIT_BYTES + 1) }),
+        "/api/session/voice/heartbeat",
+      ),
+    ).toEqual({ ok: false, status: 413, reasonCode: "payload_too_large" });
   });
 });

@@ -4,9 +4,10 @@ import { getSessionLensGuidance, type SessionLensId } from "./session-lenses";
 import type { GenerateSessionResponseInput, SessionAiSessionPhase, SessionResponsePromptMessage } from "./types";
 
 // Upper bound only: the message route decides how many turns a session of a
-// given length actually carries (`session-flow/context-window.ts`).
-const MAX_RECENT_CONTEXT_MESSAGES = 24;
-const MAX_RECENT_MESSAGE_CHARS = 1_200;
+// given length actually carries (`session-flow/context-window.ts`). Shared with
+// the voice recap (`voice-instructions.ts`), which replays the same bounded tail.
+export const MAX_RECENT_CONTEXT_MESSAGES = 24;
+export const MAX_RECENT_MESSAGE_CHARS = 1_200;
 const MAX_APPROVED_SUMMARIES = 3;
 const MAX_APPROVED_SUMMARY_CHARS = 900;
 const MAX_CURRENT_USER_MESSAGE_CHARS = 3_000;
@@ -195,7 +196,12 @@ export function buildSessionOpeningGuidance(locale: Locale) {
   ].join("\n");
 }
 
-function buildSessionResponseSystemContent(input: GenerateSessionResponseInput) {
+/**
+ * Pełna treść roli systemowej jednej odpowiedzi (bez okna ostatnich wiadomości
+ * i bez bieżącej wypowiedzi). Eksportowana dla instrukcji zaplecza rozmowy
+ * głosowej, która dokleja do niej sekcje mówione (`voice-instructions.ts`).
+ */
+export function buildSessionResponseSystemContent(input: GenerateSessionResponseInput) {
   const sections = [
     buildSessionResponseSystemPrompt(input.locale),
     buildModalitySection(input.modality, input.sessionLens),
@@ -371,11 +377,12 @@ const PEOPLE_FENCE_START = "<<<people>>>";
 const PEOPLE_FENCE_END = "<<<end people>>>";
 const TOPICS_FENCE_START = "<<<topics>>>";
 const TOPICS_FENCE_END = "<<<end topics>>>";
-// Jeden wzorzec dla wszystkich ogrodzeń: notatka nie może zamknąć ani otworzyć
-// żadnego z nich, niezależnie od tego, w której sekcji siedzi.
-const FENCE_MARKER_PATTERN = /<{2,}\s*\/?\s*(?:end\s+)?(?:summary|people|topics)\s*>{2,}/gi;
+// Jeden wzorzec dla wszystkich ogrodzeń (także `recap` transkryptu głosowego
+// z `voice-instructions.ts`): notatka nie może zamknąć ani otworzyć żadnego z
+// nich, niezależnie od tego, w której sekcji siedzi.
+const FENCE_MARKER_PATTERN = /<{2,}\s*\/?\s*(?:end\s+)?(?:summary|people|topics|recap)\s*>{2,}/gi;
 
-function stripFenceMarkers(text: string) {
+export function stripFenceMarkers(text: string) {
   return text.replace(FENCE_MARKER_PATTERN, "");
 }
 
@@ -400,7 +407,7 @@ function requireCurrentUserMessage(input: GenerateSessionResponseInput) {
   return input.currentUserMessage;
 }
 
-function trimAndLimit(value: string, maxLength: number) {
+export function trimAndLimit(value: string, maxLength: number) {
   const trimmed = value.trim();
 
   if (trimmed.length <= maxLength) {

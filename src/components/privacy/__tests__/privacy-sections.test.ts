@@ -45,6 +45,32 @@ describe("privacy page partials", () => {
     },
   );
 
+  it.each(["PrivacyContentPl.astro", "PrivacyContentEn.astro"])(
+    "%s describes voice conversations behind the dashboard's voice gate, right after the AI section, with numbers from code",
+    (fileName) => {
+      const source = readFileSync(resolve(__dirname, "..", fileName), "utf8");
+
+      expect(source).toContain('import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start"');
+      expect(source.match(/data-voice-session/g)).toHaveLength(1);
+      expect(source).toMatch(/<section id="voice" class="scroll-mt-20" data-voice-session>/);
+      // Sekcja stoi między „Jak działa AI” a „Usuwanie i kontrola”, jak w spisie treści.
+      expect(source.indexOf('id="ai"')).toBeLessThan(source.indexOf('id="voice"'));
+      expect(source.indexOf('id="voice"')).toBeLessThan(source.indexOf('id="deletion"'));
+      // Próba, pula i retencja bufora pochodzą z kodu, który je egzekwuje — nigdy z literału w prozie.
+      expect(source).toContain("VOICE_TRIAL_DURATION_SECONDS");
+      expect(source).toContain("getVoiceMonthlyMinutes()");
+      expect(source).toContain("VOICE_BUFFER_RETENTION_MS");
+      const voiceSection = source.slice(source.indexOf('id="voice"'), source.indexOf('id="deletion"'));
+      expect(voiceSection).not.toMatch(/\b(10|120|7)\s*(min|minut|minutes|dni|days)/);
+      // Kluczowe zdania: brak nagrywania, reaktywna ocena, bufor, obie pule.
+      expect(voiceSection).toMatch(/WebRTC/);
+      expect(voiceSection).toMatch(/Cloudflare/);
+      expect(voiceSection).toMatch(/voiceBufferDays/);
+      expect(voiceSection).toMatch(/voiceTrialMinutes/);
+      expect(voiceSection).toMatch(/voiceMonthlyMinutes/);
+    },
+  );
+
   it("keeps the English partial free of Polish letters outside comments", () => {
     const source = readFileSync(resolve(__dirname, "..", "PrivacyContentEn.astro"), "utf8");
     const markup = source.slice(source.lastIndexOf("---") + 3);
