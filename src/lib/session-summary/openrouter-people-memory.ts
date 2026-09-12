@@ -1,12 +1,15 @@
+import { getAiProviderEnv } from "@/lib/ai-provider/env";
+import type { AiProviderName } from "@/lib/ai-provider/types";
+import { sendAiChat } from "@/lib/ai-provider/chat";
 import type { Fetcher } from "@openrouter/sdk";
-import { getOpenRouterSummaryConfig, resolveSummaryModel } from "./env";
+import { resolveSummaryModel } from "./env";
 import {
   buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
   supportsOpenRouterTemperature,
 } from "@/lib/session-ai/openrouter-request-params";
 import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
-import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
+import { OpenRouterChatError } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import {
   getOpenRouterPrivateProviderPreferences,
@@ -31,6 +34,7 @@ const OPENROUTER_PEOPLE_MEMORY_MIN_COMPLETION_TOKENS = 8_000;
 const OPENROUTER_PEOPLE_MEMORY_TEMPERATURE = 0.2;
 
 interface OpenRouterPeopleMemoryOptions {
+  provider?: AiProviderName;
   apiKey?: string;
   model?: string;
   fetcher?: Fetcher;
@@ -54,16 +58,24 @@ type OpenRouterPeopleMemoryRequestBody = OpenRouterNonStreamingChatRequest & {
   };
 };
 
-export async function generatePeopleMemoryWithOpenRouter(
+export function generatePeopleMemoryWithOpenRouter(
   input: GeneratePeopleMemoryInput,
   options: OpenRouterPeopleMemoryOptions = {},
 ): Promise<PeopleMemoryResponse> {
-  const config = getOpenRouterSummaryConfig();
+  return generatePeopleMemoryWithAiProvider(input, { ...options, provider: "openrouter" });
+}
+
+export async function generatePeopleMemoryWithAiProvider(
+  input: GeneratePeopleMemoryInput,
+  options: OpenRouterPeopleMemoryOptions = {},
+): Promise<PeopleMemoryResponse> {
+  const config = getAiProviderEnv(options.provider);
   const apiKey = options.apiKey ?? config.apiKey;
-  const model = resolveSummaryModel(options.model ?? config.model);
+  const model = resolveSummaryModel(options.model ?? config.summaryModel);
 
   try {
-    const response = await sendOpenRouterChat({
+    const response = await sendAiChat({
+      provider: config.provider,
       apiKey,
       chatRequest: buildOpenRouterPeopleMemoryRequest(input, model),
       fetcher: options.fetcher,
@@ -72,7 +84,7 @@ export async function generatePeopleMemoryWithOpenRouter(
 
     return {
       changes: parsePeopleMemoryChanges(response, buildPeopleMemoryRefIndex(input)),
-      providerMetadata: buildSummaryProviderMetadata(response, model),
+      providerMetadata: buildSummaryProviderMetadata(response, model, config.provider),
     };
   } catch (error) {
     if (error instanceof SessionSummaryError) {

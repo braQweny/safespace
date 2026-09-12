@@ -4,7 +4,7 @@ import { ProviderSafetyError, type ProviderSafetyDecision, type SessionSafetyPro
 import type { SessionSafetyInput } from "../types";
 
 vi.mock("../openrouter-classifier", () => ({
-  openRouterSafetyProvider: {
+  configuredSafetyProvider: {
     classify: vi.fn(),
   },
 }));

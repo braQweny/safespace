@@ -8,7 +8,7 @@ import { evaluateSessionSafety } from "../evaluate-session-safety";
 import type { ProviderSafetyDecision, SessionSafetyProvider } from "../provider";
 
 vi.mock("../openrouter-classifier", () => ({
-  openRouterSafetyProvider: {
+  configuredSafetyProvider: {
     classify: vi.fn(),
   },
 }));

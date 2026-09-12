@@ -10,7 +10,7 @@ export interface TranscribeSessionAudioInput {
 }
 
 export interface SessionTranscriptionProviderMetadata {
-  provider: "openrouter";
+  provider: "openrouter" | "openai";
   model: string;
 }
 

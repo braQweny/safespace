@@ -1,4 +1,4 @@
-import { generatePeopleMemoryWithOpenRouter } from "./openrouter-people-memory";
+import { generatePeopleMemoryWithOpenRouter, generatePeopleMemoryWithAiProvider } from "./openrouter-people-memory";
 import type { GeneratePeopleMemoryInput, PeopleMemoryResponse } from "./people-memory-types";
 
 export interface GeneratePeopleMemoryOptions {
@@ -12,6 +12,12 @@ export interface PeopleMemoryProvider {
   ): Promise<PeopleMemoryResponse>;
 }
 
+export const configuredPeopleMemoryProvider = {
+  generatePeopleMemory(input, options) {
+    return generatePeopleMemoryWithAiProvider(input, { timeoutMs: options?.timeoutMs });
+  },
+} satisfies PeopleMemoryProvider;
+
 export const openRouterPeopleMemoryProvider = {
   generatePeopleMemory(input, options) {
     return generatePeopleMemoryWithOpenRouter(input, {
@@ -22,7 +28,7 @@ export const openRouterPeopleMemoryProvider = {
 
 export function generatePeopleMemory(
   input: GeneratePeopleMemoryInput,
-  provider: PeopleMemoryProvider = openRouterPeopleMemoryProvider,
+  provider: PeopleMemoryProvider = configuredPeopleMemoryProvider,
   options: GeneratePeopleMemoryOptions = {},
 ): Promise<PeopleMemoryResponse> {
   return provider.generatePeopleMemory(input, options);

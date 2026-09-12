@@ -92,7 +92,11 @@ describe("deployed OpenRouter model configuration", () => {
 
   it("keeps the API key a secret rather than a deployed var", () => {
     expect(vars.OPENROUTER_API_KEY).toBeUndefined();
-    expect(readFileSync(WRANGLER_CONFIG_PATH, "utf8")).toContain('"OPENROUTER_API_KEY"');
+    expect(readFileSync(ASTRO_CONFIG_PATH, "utf8")).toContain(
+      'OPENROUTER_API_KEY: envField.string({ context: "server", access: "secret"',
+    );
+    expect(vars.OPENAI_API_KEY).toBeUndefined();
+    expect(vars.AI_PROVIDER).toBe("openai");
   });
 
   it("declares every deployed variable in the Astro env schema", () => {

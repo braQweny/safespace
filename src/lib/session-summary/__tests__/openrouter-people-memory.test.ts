@@ -3,6 +3,10 @@ import { SessionSummaryError } from "../errors";
 import { buildOpenRouterPeopleMemoryRequest, generatePeopleMemoryWithOpenRouter } from "../openrouter-people-memory";
 import type { GeneratePeopleMemoryInput } from "../people-memory-types";
 
+vi.mock("@/lib/ai-provider/env", () => ({
+  getAiProviderEnv: () => ({ provider: "openrouter", apiKey: undefined, summaryModel: "openai/gpt-4o-mini" }),
+}));
+
 vi.mock("@/lib/session-summary/env", () => ({
   getOpenRouterSummaryConfig: () => ({ apiKey: undefined, model: "openai/gpt-4o-mini" }),
   resolveSummaryModel: (modelOverride?: string | null) => {

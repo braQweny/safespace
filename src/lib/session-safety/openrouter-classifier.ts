@@ -1,5 +1,8 @@
+import { getAiProviderEnv } from "@/lib/ai-provider/env";
+import type { AiProviderName } from "@/lib/ai-provider/types";
+import { sendAiChat } from "@/lib/ai-provider/chat";
 import type { Fetcher } from "@openrouter/sdk";
-import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
+import { OpenRouterChatError } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterEnv, resolveOpenRouterModel } from "@/lib/openrouter/env";
 import {
@@ -72,6 +75,7 @@ const OPENROUTER_SAFETY_RESPONSE_SCHEMA = {
 } as const;
 
 interface OpenRouterSafetyClassifierOptions {
+  provider?: AiProviderName;
   apiKey?: string;
   model?: string;
   fetcher?: Fetcher;
@@ -99,18 +103,27 @@ type OpenRouterSafetyRequestBody = OpenRouterNonStreamingChatRequest & {
   };
 };
 
-export async function classifySessionSafetyWithOpenRouter(
+export function classifySessionSafetyWithOpenRouter(
   input: SessionSafetyInput,
   options: OpenRouterSafetyClassifierOptions = {},
 ): Promise<ProviderSafetyDecision> {
-  const apiKey = options.apiKey ?? getOpenRouterEnv().apiKey;
-  const chatRequest = buildOpenRouterSafetyRequest(input, options.model);
+  return classifySessionSafetyWithAiProvider(input, { ...options, provider: "openrouter" });
+}
+
+export async function classifySessionSafetyWithAiProvider(
+  input: SessionSafetyInput,
+  options: OpenRouterSafetyClassifierOptions = {},
+): Promise<ProviderSafetyDecision> {
+  const config = getAiProviderEnv(options.provider);
+  const apiKey = options.apiKey ?? config.apiKey;
+  const chatRequest = buildOpenRouterSafetyRequest(input, options.model ?? config.safetyModel);
   const timeoutMs = resolveTimeoutMs(options.timeoutMs);
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= OPENROUTER_SAFETY_MAX_ATTEMPTS; attempt += 1) {
     try {
-      const response = await sendOpenRouterChat({
+      const response = await sendAiChat({
+        provider: config.provider,
         apiKey,
         chatRequest,
         fetcher: options.fetcher,
@@ -148,6 +161,10 @@ function toProviderSafetyError(error: unknown) {
 
   return new ProviderSafetyError("provider_unavailable");
 }
+
+export const configuredSafetyProvider = {
+  classify: classifySessionSafetyWithAiProvider,
+} satisfies SessionSafetyProvider;
 
 export const openRouterSafetyProvider = {
   classify: classifySessionSafetyWithOpenRouter,

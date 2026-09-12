@@ -8,6 +8,8 @@ import {
 import { SessionLensProviderError } from "../types";
 
 vi.mock("astro:env/server", () => ({
+  AI_PROVIDER: "openrouter",
+  OPENAI_API_KEY: undefined,
   OPENROUTER_API_KEY: undefined,
   OPENROUTER_SAFETY_MODEL: "openai/gpt-4o-mini",
   OPENROUTER_SESSION_MODEL: "openai/gpt-5.6-luna",

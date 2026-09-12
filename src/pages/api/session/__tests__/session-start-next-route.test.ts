@@ -9,6 +9,8 @@ const requireActiveAccountAccess = vi.fn();
 const readCurrentAvatarChoice = vi.fn();
 const createPendingSession = vi.fn();
 const prepareOwnedAvatarMemory = vi.fn();
+vi.mock("@/lib/ai-provider/env", () => ({ getAiProviderName: () => "openrouter" }));
+
 vi.mock("@/lib/session-flow/avatar-memory", () => ({ prepareOwnedAvatarMemory }));
 const transitionSessionLifecycle = vi.fn();
 const readSessionQuota = vi.fn();

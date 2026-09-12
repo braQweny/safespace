@@ -12,6 +12,8 @@ import type { GenerateSessionSummaryInput } from "@/lib/session-summary/types";
 import type { GeneratePeopleMemoryInput } from "@/lib/session-summary/people-memory-types";
 
 vi.mock("astro:env/server", () => ({
+  AI_PROVIDER: "openrouter",
+  OPENAI_API_KEY: undefined,
   OPENROUTER_API_KEY: undefined,
   OPENROUTER_SAFETY_MODEL: undefined,
   OPENROUTER_SESSION_MODEL: undefined,

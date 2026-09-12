@@ -39,7 +39,7 @@ export type OperationalEventLevel = (typeof OPERATIONAL_EVENT_LEVELS)[number];
 export const OPERATIONAL_EVENT_OUTCOMES = ["success", "failure", "redirected", "blocked", "skipped"] as const;
 export type OperationalEventOutcome = (typeof OPERATIONAL_EVENT_OUTCOMES)[number];
 
-export const OPERATIONAL_EVENT_PROVIDERS = ["supabase", "google", "openrouter"] as const;
+export const OPERATIONAL_EVENT_PROVIDERS = ["supabase", "google", "openrouter", "openai"] as const;
 export type OperationalEventProvider = (typeof OPERATIONAL_EVENT_PROVIDERS)[number];
 
 export const OPERATIONAL_RISK_STATES = ["normal", "caution", "crisis"] as const;

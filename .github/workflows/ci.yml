@@ -67,6 +67,15 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      - name: Create production secrets file
+        run: node scripts/write-production-secrets.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPERATIONAL_LOG_HASH_SECRET: ${{ secrets.OPERATIONAL_LOG_HASH_SECRET }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
       - name: Push Supabase migrations
         run: |
           if [ -n "$SUPABASE_DB_PASSWORD" ]; then
@@ -100,32 +109,6 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_POOLER_HOST: ${{ secrets.SUPABASE_DB_POOLER_HOST }}
 
-      - name: Create production secrets file
-        run: |
-          if [ -z "$OPENROUTER_API_KEY" ]; then
-            echo "OPENROUTER_API_KEY GitHub secret is required for the F-02 safety boundary." >&2
-            exit 1
-          fi
-
-          {
-            printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
-            printf 'SUPABASE_KEY=%s\n' "$SUPABASE_KEY"
-            printf 'OPENROUTER_API_KEY=%s\n' "$OPENROUTER_API_KEY"
-            if [ -n "$OPERATIONAL_LOG_HASH_SECRET" ]; then
-              printf 'OPERATIONAL_LOG_HASH_SECRET=%s\n' "$OPERATIONAL_LOG_HASH_SECRET"
-            fi
-            # Opcjonalne nadpisanie publicznego adresu kontaktowego (domyślny
-            # jest w src/lib/support-contact.ts).
-            if [ -n "$SUPPORT_EMAIL" ]; then
-              printf 'SUPPORT_EMAIL=%s\n' "$SUPPORT_EMAIL"
-            fi
-          } > .env.production
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPERATIONAL_LOG_HASH_SECRET: ${{ secrets.OPERATIONAL_LOG_HASH_SECRET }}
-          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
         with:

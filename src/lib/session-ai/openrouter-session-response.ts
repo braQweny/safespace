@@ -1,3 +1,6 @@
+import { getAiProviderEnv } from "@/lib/ai-provider/env";
+import type { AiProviderName } from "@/lib/ai-provider/types";
+import { sendAiChat } from "@/lib/ai-provider/chat";
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
 import {
@@ -5,9 +8,9 @@ import {
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
-import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
+import { OpenRouterChatError } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
-import { getOpenRouterSessionConfig, resolveSessionModel } from "./env";
+import { resolveSessionModel } from "./env";
 import { SessionAiError } from "./errors";
 import {
   buildOpenRouterReasoningParameter,
@@ -51,6 +54,7 @@ const OPENROUTER_SESSION_TEMPERATURE = 0.7;
 const OPENROUTER_SESSION_RETRY_DELAY_MS = 500;
 
 interface OpenRouterSessionResponseOptions {
+  provider?: AiProviderName;
   apiKey?: string;
   model?: string;
   fetcher?: Fetcher;
@@ -76,19 +80,27 @@ type OpenRouterSessionRequestBody = OpenRouterNonStreamingChatRequest & {
   provider: OpenRouterPrivateProviderPreferences;
 };
 
-export async function generateSessionResponseWithOpenRouter(
+export function generateSessionResponseWithOpenRouter(
   input: GenerateSessionResponseInput,
   options: OpenRouterSessionResponseOptions = {},
 ): Promise<SessionAiResponse> {
-  const config = getOpenRouterSessionConfig();
+  return generateSessionResponseWithAiProvider(input, { ...options, provider: "openrouter" });
+}
+
+export async function generateSessionResponseWithAiProvider(
+  input: GenerateSessionResponseInput,
+  options: OpenRouterSessionResponseOptions = {},
+): Promise<SessionAiResponse> {
+  const config = getAiProviderEnv(options.provider);
   const apiKey = options.apiKey ?? config.apiKey;
-  const model = resolveSessionModel(options.model ?? config.model);
+  const model = resolveSessionModel(options.model ?? config.sessionModel);
   // Krótkie powitanie jest na ścieżce startu. Nie potrzebuje kosztu xhigh
   // skonfigurowanego dla właściwych odpowiedzi w rozmowie.
-  const reasoningEffort = options.reasoningEffort ?? (input.mode === "opening" ? "low" : config.reasoningEffort);
+  const reasoningEffort = options.reasoningEffort ?? (input.mode === "opening" ? "low" : config.sessionReasoningEffort);
 
   try {
     const response = await sendSessionChatWithRetry({
+      provider: config.provider,
       apiKey,
       chatRequest: buildOpenRouterSessionRequest(input, model, { reasoningEffort }),
       fetcher: options.fetcher,
@@ -97,7 +109,7 @@ export async function generateSessionResponseWithOpenRouter(
 
     return {
       assistantText: extractAssistantText(response),
-      providerMetadata: buildProviderMetadata(response, model),
+      providerMetadata: buildProviderMetadata(response, model, config.provider),
     };
   } catch (error) {
     if (error instanceof SessionAiError) {
@@ -112,10 +124,10 @@ export async function generateSessionResponseWithOpenRouter(
   }
 }
 
-async function sendSessionChatWithRetry(options: Parameters<typeof sendOpenRouterChat>[0] & { timeoutMs: number }) {
+async function sendSessionChatWithRetry(options: Parameters<typeof sendAiChat>[0] & { timeoutMs: number }) {
   const startedAt = performance.now();
   try {
-    return await sendOpenRouterChat(options);
+    return await sendAiChat(options);
   } catch (error) {
     // Retry only transient transport failures. Incomplete/filtered replies and
     // timeouts must not trigger another generation. Both attempts share the
@@ -131,7 +143,7 @@ async function sendSessionChatWithRetry(options: Parameters<typeof sendOpenRoute
     await new Promise((resolve) => setTimeout(resolve, OPENROUTER_SESSION_RETRY_DELAY_MS));
     const remainingMs = Math.floor(options.timeoutMs - (performance.now() - startedAt));
     if (remainingMs <= 0) throw error;
-    return sendOpenRouterChat({ ...options, timeoutMs: remainingMs });
+    return sendAiChat({ ...options, timeoutMs: remainingMs });
   }
 }
 
@@ -222,12 +234,16 @@ function rejectIncompleteAssistantResponse(finishReason: string | null) {
   }
 }
 
-function buildProviderMetadata(responseBody: ChatResult, fallbackModel: string): SessionAiProviderMetadata {
+function buildProviderMetadata(
+  responseBody: ChatResult,
+  fallbackModel: string,
+  provider: AiProviderName,
+): SessionAiProviderMetadata {
   const finishReason = parseFinishReason(responseBody);
   const usage = parseUsage(responseBody);
 
   return {
-    provider: "openrouter",
+    provider,
     model: parseResponseModel(responseBody) ?? fallbackModel,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),

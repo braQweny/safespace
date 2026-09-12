@@ -11,6 +11,8 @@ const expireOwnedSession = vi.fn();
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
 
+vi.mock("@/lib/ai-provider/env", () => ({ getAiProviderName: () => "openrouter" }));
+
 vi.mock("@/lib/operational-visibility/request-context", () => ({
   buildOperationalRequestContext,
   getOperationalDurationMs: () => 12,

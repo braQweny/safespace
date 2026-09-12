@@ -4,6 +4,8 @@ import { SessionLensProviderError, type SessionLensProvider } from "../types";
 
 // Domyślny provider sięga do `astro:env/server`, którego vitest nie rozwiązuje.
 vi.mock("astro:env/server", () => ({
+  AI_PROVIDER: "openrouter",
+  OPENAI_API_KEY: undefined,
   OPENROUTER_API_KEY: undefined,
   OPENROUTER_SAFETY_MODEL: undefined,
   OPENROUTER_SESSION_MODEL: undefined,

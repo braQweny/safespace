@@ -1,6 +1,6 @@
 import type { Locale } from "@/lib/i18n/locale";
 
-export type SessionSummaryProviderName = "openrouter";
+export type SessionSummaryProviderName = "openrouter" | "openai";
 export type SessionSummaryMessageRole = "user" | "assistant";
 
 export interface SessionSummaryConversationMessage {

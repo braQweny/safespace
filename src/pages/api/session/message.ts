@@ -1,3 +1,4 @@
+import { getAiProviderName } from "@/lib/ai-provider/env";
 import type { APIRoute } from "astro";
 import { SessionAiError, type SessionAiErrorCategory } from "@/lib/session-ai/errors";
 import { getOpenRouterSessionConfig } from "@/lib/session-ai/env";
@@ -98,7 +99,7 @@ function toRecentSafetyUserMessages(messages: readonly SessionMessageRecord[]) {
 function toLensEvaluatedEvent(result: SessionLensDetectionResult) {
   return buildSessionLensEvaluatedEvent({
     result: result.outcome,
-    provider: "openrouter",
+    provider: getAiProviderName(),
     durationMs: result.durationMs,
     ...(result.outcome === "failed" ? { reasonCode: result.reasonCode } : {}),
     ...(result.outcome !== "failed" ? { inputUnits: result.usage?.promptTokens } : {}),
@@ -297,7 +298,7 @@ export const POST: APIRoute = async (context) => {
     logOperationalEvent(
       {
         ...buildSessionSafetyEvaluatedEventFromDecision(decision, {
-          provider: "openrouter",
+          provider: getAiProviderName(),
           durationMs: getOperationalDurationMs(safetyStartedAtMs),
         }),
         status: 200,
@@ -436,6 +437,7 @@ export const POST: APIRoute = async (context) => {
       logOperationalEvent(
         {
           ...buildSessionAiProviderFailedEvent({
+            provider: getAiProviderName(),
             reasonCode: category,
             durationMs: getOperationalDurationMs(startedAtMs),
           }),
@@ -510,7 +512,7 @@ export const POST: APIRoute = async (context) => {
     logOperationalEvent(
       {
         ...buildSessionAiTurnCompletedEvent({
-          provider: "openrouter",
+          provider: getAiProviderName(),
           durationMs: getOperationalDurationMs(startedAtMs),
           inputUnits,
           outputUnits,

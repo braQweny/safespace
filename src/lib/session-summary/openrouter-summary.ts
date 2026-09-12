@@ -1,6 +1,9 @@
+import { getAiProviderEnv } from "@/lib/ai-provider/env";
+import type { AiProviderName } from "@/lib/ai-provider/types";
+import { sendAiChat } from "@/lib/ai-provider/chat";
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
-import { getOpenRouterSummaryConfig, resolveSummaryModel } from "./env";
+import { resolveSummaryModel } from "./env";
 import {
   buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
@@ -12,7 +15,7 @@ import {
   usesOpenRouterReasoningBudget,
 } from "@/lib/session-ai/openrouter-request-params";
 import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
-import { OpenRouterChatError, sendOpenRouterChat } from "@/lib/openrouter/sdk-chat";
+import { OpenRouterChatError } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import {
   getOpenRouterPrivateProviderPreferences,
@@ -37,6 +40,7 @@ const OPENROUTER_GPT_5_6_LUNA_SUMMARY_MAX_COMPLETION_TOKENS = 2_400;
 const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
 
 interface OpenRouterSummaryOptions {
+  provider?: AiProviderName;
   apiKey?: string;
   model?: string;
   fetcher?: Fetcher;
@@ -58,16 +62,24 @@ type OpenRouterSummaryRequestBody = OpenRouterNonStreamingChatRequest & {
 
 export { resolveSummaryModel } from "./env";
 
-export async function generateSessionSummaryWithOpenRouter(
+export function generateSessionSummaryWithOpenRouter(
   input: GenerateSessionSummaryInput,
   options: OpenRouterSummaryOptions = {},
 ): Promise<SessionSummaryResponse> {
-  const config = getOpenRouterSummaryConfig();
+  return generateSessionSummaryWithAiProvider(input, { ...options, provider: "openrouter" });
+}
+
+export async function generateSessionSummaryWithAiProvider(
+  input: GenerateSessionSummaryInput,
+  options: OpenRouterSummaryOptions = {},
+): Promise<SessionSummaryResponse> {
+  const config = getAiProviderEnv(options.provider);
   const apiKey = options.apiKey ?? config.apiKey;
-  const model = resolveSummaryModel(options.model ?? config.model);
+  const model = resolveSummaryModel(options.model ?? config.summaryModel);
 
   try {
-    const response = await sendOpenRouterChat({
+    const response = await sendAiChat({
+      provider: config.provider,
       apiKey,
       chatRequest: buildOpenRouterSummaryRequest(input, model),
       fetcher: options.fetcher,
@@ -76,7 +88,7 @@ export async function generateSessionSummaryWithOpenRouter(
 
     return {
       summaryText: extractSummaryText(response),
-      providerMetadata: buildSummaryProviderMetadata(response, model),
+      providerMetadata: buildSummaryProviderMetadata(response, model, config.provider),
     };
   } catch (error) {
     if (error instanceof SessionSummaryError) {

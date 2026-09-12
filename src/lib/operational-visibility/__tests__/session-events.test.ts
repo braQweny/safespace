@@ -14,6 +14,19 @@ import {
 } from "../session-events";
 
 describe("session operational event builders", () => {
+  it("preserves OpenAI as the provider without admitting raw payload fields", () => {
+    const event = buildSessionAiTurnCompletedEvent({
+      provider: "openai",
+      inputUnits: 10,
+      outputUnits: 20,
+      content: "PRIVATE",
+      apiKey: "PRIVATE",
+      model: "PRIVATE",
+    } as Parameters<typeof buildSessionAiTurnCompletedEvent>[0] & Record<string, unknown>);
+    expect(event.provider).toBe("openai");
+    expect(JSON.stringify(event)).not.toContain("PRIVATE");
+  });
+
   it("reports a saved people-cards batch with unit counters only, and marks a split-and-accepted batch", () => {
     const event = buildSessionPeopleMemoryUpdatedEvent({
       requestId: "req-9",

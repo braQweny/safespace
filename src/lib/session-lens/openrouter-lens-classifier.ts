@@ -1,14 +1,13 @@
+import { getAiProviderEnv } from "@/lib/ai-provider/env";
+import type { AiProviderName } from "@/lib/ai-provider/types";
+import { sendAiChat } from "@/lib/ai-provider/chat";
 import type { Fetcher } from "@openrouter/sdk";
 import { getOpenRouterEnv, resolveOpenRouterModel } from "@/lib/openrouter/env";
 import {
   getOpenRouterPrivateProviderPreferences,
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
-import {
-  OpenRouterChatError,
-  sendOpenRouterChat,
-  type OpenRouterNonStreamingChatRequest,
-} from "@/lib/openrouter/sdk-chat";
+import { OpenRouterChatError, type OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { isOpenRouterGpt56LunaModel, supportsOpenRouterTemperature } from "@/lib/session-ai/openrouter-request-params";
 import {
   buildSessionLensClassifierUserContent,
@@ -54,6 +53,7 @@ export const OPENROUTER_SESSION_LENS_RESPONSE_SCHEMA = {
 } as const;
 
 interface OpenRouterSessionLensOptions extends DetectSessionLensOptions {
+  provider?: AiProviderName;
   apiKey?: string;
   model?: string;
   fetcher?: Fetcher;
@@ -70,15 +70,24 @@ type OpenRouterSessionLensRequestBody = OpenRouterNonStreamingChatRequest & {
   responseFormat: { type: "json_schema"; jsonSchema: typeof OPENROUTER_SESSION_LENS_RESPONSE_SCHEMA };
 };
 
-export async function detectSessionLensWithOpenRouter(
+export function detectSessionLensWithOpenRouter(
   input: SessionLensInput,
   options: OpenRouterSessionLensOptions = {},
 ): Promise<ProviderLensDecision> {
-  const apiKey = options.apiKey ?? getOpenRouterEnv().apiKey;
-  const chatRequest = buildOpenRouterSessionLensRequest(input, options.model);
+  return detectSessionLensWithAiProvider(input, { ...options, provider: "openrouter" });
+}
+
+export async function detectSessionLensWithAiProvider(
+  input: SessionLensInput,
+  options: OpenRouterSessionLensOptions = {},
+): Promise<ProviderLensDecision> {
+  const config = getAiProviderEnv(options.provider);
+  const apiKey = options.apiKey ?? config.apiKey;
+  const chatRequest = buildOpenRouterSessionLensRequest(input, options.model ?? config.safetyModel);
 
   try {
-    const response = await sendOpenRouterChat({
+    const response = await sendAiChat({
+      provider: config.provider,
       apiKey,
       chatRequest,
       fetcher: options.fetcher,
@@ -94,6 +103,12 @@ export async function detectSessionLensWithOpenRouter(
     throw new SessionLensProviderError(error instanceof OpenRouterChatError ? error.category : "provider_unavailable");
   }
 }
+
+export const configuredSessionLensProvider = {
+  detect(input, options) {
+    return detectSessionLensWithAiProvider(input, { timeoutMs: options?.timeoutMs });
+  },
+} satisfies SessionLensProvider;
 
 export const openRouterSessionLensProvider = {
   detect(input, options) {

@@ -15,6 +15,8 @@ const {
   isTopicMapEnabled: vi.fn(() => false),
   logOperationalEvent: vi.fn(),
 }));
+vi.mock("@/lib/ai-provider/env", () => ({ getAiProviderName: () => "openrouter" }));
+
 vi.mock("@/lib/session-flow/route-access", () => ({ requireSessionRouteAccess }));
 vi.mock("@/lib/session-flow/people-memory", () => ({ prepareOwnedPeopleMemory }));
 vi.mock("@/lib/session-flow/people-memory-mode", () => ({ isPeopleMemoryEnabled }));

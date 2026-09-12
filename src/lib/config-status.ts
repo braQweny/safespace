@@ -1,5 +1,9 @@
 import { SUPABASE_URL, SUPABASE_KEY } from "astro:env/server";
-import { isOpenRouterConfigured } from "@/lib/openrouter/env";
+import { getAiProviderEnv } from "@/lib/ai-provider/env";
+
+const ai = getAiProviderEnv();
+const aiName = ai.provider === "openai" ? "OpenAI" : "OpenRouter";
+const aiKeyName = ai.provider === "openai" ? "OPENAI_API_KEY" : "OPENROUTER_API_KEY";
 
 export interface ConfigStatus {
   name: string;
@@ -17,10 +21,9 @@ export const configStatuses: ConfigStatus[] = [
       "Supabase nie jest skonfigurowany (SUPABASE_URL, SUPABASE_KEY — zobacz .env.example) — funkcje uwierzytelniania są wyłączone.",
   },
   {
-    name: "OpenRouter",
-    configured: isOpenRouterConfigured(),
-    message:
-      "OpenRouter nie jest skonfigurowany (OPENROUTER_API_KEY) — sesje AI będą przerywane przez bramkę bezpieczeństwa (fail-closed).",
+    name: aiName,
+    configured: Boolean(ai.apiKey?.trim()),
+    message: `${aiName} nie jest skonfigurowany (${aiKeyName}) — sesje AI będą przerywane przez bramkę bezpieczeństwa (fail-closed).`,
   },
 ];
 

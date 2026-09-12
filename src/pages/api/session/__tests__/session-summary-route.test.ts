@@ -40,7 +40,7 @@ vi.mock("@/lib/session-flow/session-summary", async () => {
 });
 
 vi.mock("@/lib/session-summary/provider", () => ({
-  openRouterSessionSummaryProvider: {
+  configuredSessionSummaryProvider: {
     generateSessionSummary: vi.fn(),
   },
 }));

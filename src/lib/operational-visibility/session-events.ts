@@ -13,7 +13,7 @@ import {
   type OperationalSessionReasonCode,
 } from "./types";
 
-const SESSION_AI_PROVIDER_VALUES = ["openrouter"] as const satisfies readonly OperationalEventProvider[];
+const SESSION_AI_PROVIDER_VALUES = ["openrouter", "openai"] as const satisfies readonly OperationalEventProvider[];
 
 const SESSION_START_REASON_CODES = [
   "session_start_failed",

@@ -1,5 +1,5 @@
 import { isSessionLensId } from "@/lib/session-ai/session-lenses";
-import { openRouterSessionLensProvider } from "./openrouter-lens-classifier";
+import { configuredSessionLensProvider } from "./openrouter-lens-classifier";
 import {
   SessionLensProviderError,
   type DetectSessionLensOptions,
@@ -21,7 +21,7 @@ export async function detectSessionLens(
   input: SessionLensInput,
   options: DetectSessionLensRuntimeOptions = {},
 ): Promise<SessionLensDetectionResult> {
-  const provider = options.provider ?? openRouterSessionLensProvider;
+  const provider = options.provider ?? configuredSessionLensProvider;
   const startedAtMs = performance.now();
 
   try {

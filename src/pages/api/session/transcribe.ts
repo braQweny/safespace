@@ -1,3 +1,4 @@
+import { getAiProviderName } from "@/lib/ai-provider/env";
 import type { APIRoute } from "astro";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
@@ -133,7 +134,7 @@ export const POST: APIRoute = async (context) => {
     logOperationalEvent(
       {
         ...buildSessionTranscriptionFailedEvent({
-          provider: "openrouter",
+          provider: getAiProviderName(),
           reasonCode: toProviderFailureReasonCode(error),
           durationMs: getOperationalDurationMs(startedAtMs),
         }),

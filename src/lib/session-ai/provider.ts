@@ -1,4 +1,7 @@
-import { generateSessionResponseWithOpenRouter } from "./openrouter-session-response";
+import {
+  generateSessionResponseWithOpenRouter,
+  generateSessionResponseWithAiProvider,
+} from "./openrouter-session-response";
 import type { GenerateSessionResponseInput, SessionAiResponse } from "./types";
 
 export interface GenerateSessionResponseOptions {
@@ -12,6 +15,12 @@ export interface SessionAiProvider {
   ): Promise<SessionAiResponse>;
 }
 
+export const configuredSessionAiProvider = {
+  generateSessionResponse(input, options) {
+    return generateSessionResponseWithAiProvider(input, { timeoutMs: options?.timeoutMs });
+  },
+} satisfies SessionAiProvider;
+
 export const openRouterSessionAiProvider = {
   generateSessionResponse(input, options) {
     return generateSessionResponseWithOpenRouter(input, {
@@ -22,7 +31,7 @@ export const openRouterSessionAiProvider = {
 
 export function generateSessionResponse(
   input: GenerateSessionResponseInput,
-  provider: SessionAiProvider = openRouterSessionAiProvider,
+  provider: SessionAiProvider = configuredSessionAiProvider,
   options: GenerateSessionResponseOptions = {},
 ): Promise<SessionAiResponse> {
   return provider.generateSessionResponse(input, options);

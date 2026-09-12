@@ -28,6 +28,8 @@ const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
 const getOpenRouterSessionConfig = vi.fn();
 
+vi.mock("@/lib/ai-provider/env", () => ({ getAiProviderName: () => "openrouter" }));
+
 vi.mock("@/lib/session-data/auth", () => ({
   getSessionDataContext,
 }));

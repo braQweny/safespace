@@ -2,7 +2,7 @@ import type { Locale } from "@/lib/i18n/locale";
 import type { SessionAiErrorCategory } from "./errors";
 import type { SessionLensId } from "./session-lenses";
 
-export type SessionAiProviderName = "openrouter";
+export type SessionAiProviderName = "openrouter" | "openai";
 
 export type SessionAiMessageRole = "user" | "assistant";
 

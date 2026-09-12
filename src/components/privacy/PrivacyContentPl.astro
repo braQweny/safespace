@@ -73,16 +73,18 @@ const topicMap = isTopicMapEnabled();
 <section id="ai" class="scroll-mt-20">
   <h2 class="text-ink text-xl font-semibold">Jak działa AI w rozmowie</h2>
   <p class="text-ink-soft mt-3">
-    Odpowiedzi awatara generuje model językowy udostępniany przez zewnętrznego dostawcę (OpenRouter). Żeby to było
-    możliwe, treść bieżącej rozmowy — ostatnie wiadomości i automatyczne podsumowanie wcześniejszych rozmów z tym
-    awatarem — jest przesyłana do tego dostawcy w celu wygenerowania odpowiedzi. Każda Twoja wiadomość przechodzi też
-    przez automatyczną ocenę bezpieczeństwa; jeśli wskazuje na pilne zagrożenie, symulacja zostaje zatrzymana i
-    pokazujemy numery pomocy.
+    Odpowiedzi awatara generuje model językowy udostępniany przez zewnętrznego dostawcę (bezpośrednio OpenAI lub za
+    pośrednictwem OpenRouter). Żeby to było możliwe, treść bieżącej rozmowy — ostatnie wiadomości i automatyczne
+    podsumowanie wcześniejszych rozmów z tym awatarem — jest przesyłana do tego dostawcy w celu wygenerowania
+    odpowiedzi. Każda Twoja wiadomość przechodzi też przez automatyczną ocenę bezpieczeństwa; jeśli wskazuje na pilne
+    zagrożenie, symulacja zostaje zatrzymana i pokazujemy numery pomocy.
   </p>
   <p class="text-ink-soft mt-3">
-    Żądania tekstowe są kierowane wyłącznie do endpointów deklarujących brak zbierania danych i zerową retencję (ZDR).
-    Dyktowanie korzysta z osobnego interfejsu transkrypcji OpenRouter: nagranie wysyłamy dopiero po potwierdzeniu
-    aktywnej sesji i nie zapisujemy go w SafeSpace; do historii trafia wyłącznie przepisany tekst, jeśli go wyślesz.
+    W OpenAI wyłączamy zapisywanie wygenerowanych odpowiedzi. Nie wyłącza to samo w sobie retencji na potrzeby
+    monitorowania nadużyć przez dostawcę; zerowa retencja (ZDR) wymaga osobnego ustawienia konta. W OpenRouter żądania
+    tekstowe ograniczamy do endpointów deklarujących brak zbierania danych i ZDR. Dyktowanie korzysta z osobnego
+    interfejsu transkrypcji wybranego dostawcy: nagranie wysyłamy dopiero po potwierdzeniu aktywnej sesji i nie
+    zapisujemy go w SafeSpace; do historii trafia wyłącznie przepisany tekst, jeśli go wyślesz.
   </p>
   <p class="text-ink-soft mt-3">
     Każda nowa rozmowa automatycznie otrzymuje podsumowanie wszystkich dostępnych wcześniejszych rozmów z tym samym

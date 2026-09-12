@@ -12,6 +12,15 @@ const sessionConfig = vi.hoisted(() => ({
   reasoningEffort: undefined as "xhigh" | undefined,
 }));
 
+vi.mock("@/lib/ai-provider/env", () => ({
+  getAiProviderEnv: () => ({
+    provider: "openrouter",
+    apiKey: sessionConfig.apiKey,
+    sessionModel: sessionConfig.model,
+    sessionReasoningEffort: sessionConfig.reasoningEffort,
+  }),
+}));
+
 vi.mock("../env", () => ({
   getOpenRouterSessionConfig: () => sessionConfig,
   resolveSessionModel: (modelOverride?: string | null) => {

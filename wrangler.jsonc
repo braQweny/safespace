@@ -4,10 +4,9 @@
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-05-08",
   "compatibility_flags": ["nodejs_compat"],
-  "secrets": {
-    "required": ["SUPABASE_URL", "SUPABASE_KEY", "OPENROUTER_API_KEY"],
-  },
-  // Wybór modeli OpenRouter. To NIE są sekrety (`access: "public"` w
+  // Brak secrets.required: Wrangler filtruje przez tę listę lokalne sekrety,
+  // a klucz dostawcy jest warunkowy. Waliduje go write-production-secrets.mjs.
+  // Wspólne ustawienia modeli (zachowane nazwy OpenRouter). To NIE są sekrety (`access: "public"` w
   // astro.config.mjs), więc mieszkają tu — wersjonowane i widoczne w review —
   // zamiast w budowanym w CI pliku sekretów, który ich nie przenosił. Bez nich
   // `resolveOpenRouterModel()` spada na `OPENROUTER_DEFAULT_MODEL`
@@ -15,6 +14,8 @@
   // `max_tokens`, więc każda tura rozmowy kończyła się na produkcji 404 →
   // `provider_unavailable` → HTTP 503. Trzymaj w zgodzie z `.env.example`.
   "vars": {
+    // Klucz wybranego dostawcy sprawdza deploy przed migracjami.
+    "AI_PROVIDER": "openai",
     "BILLING_MODE": "off",
     "PEOPLE_MEMORY_MODE": "on",
     "SESSION_LENS_MODE": "on",
@@ -38,7 +39,12 @@
   // means open-beta API, not danger.
   "unsafe": {
     "bindings": [
-      { "name": "BILLING_RATE_LIMITER", "type": "ratelimit", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
+      {
+        "name": "BILLING_RATE_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "1003",
+        "simple": { "limit": 10, "period": 60 },
+      },
       // Per-user cap on AI-backed session endpoints (fail-closed in prod).
       {
         "name": "SESSION_RATE_LIMITER",

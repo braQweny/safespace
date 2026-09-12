@@ -8,7 +8,7 @@ import {
   saveGeneratedVisibleSessionSummary,
   toSessionSummaryPreview,
 } from "@/lib/session-data/repository";
-import { openRouterSessionSummaryProvider } from "@/lib/session-summary/provider";
+import { configuredSessionSummaryProvider } from "@/lib/session-summary/provider";
 import { parseSessionIdParam } from "@/lib/session-flow/session-id";
 import { generateOwnedSessionSummary, type SessionSummaryFlowFailureCode } from "@/lib/session-flow/session-summary";
 import {
@@ -136,7 +136,7 @@ export const POST: APIRoute = async (context) => {
       sessionId,
       locale: getRequestLocale(context.locals),
     },
-    openRouterSessionSummaryProvider,
+    configuredSessionSummaryProvider,
   );
 
   if (!generated.ok) {

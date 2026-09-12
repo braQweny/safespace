@@ -1,3 +1,4 @@
+import { getAiProviderName } from "@/lib/ai-provider/env";
 import type { APIRoute } from "astro";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { getValidAvatarChoice } from "@/lib/modalities";
@@ -55,7 +56,7 @@ export const POST: APIRoute = async (context) => {
     logOperationalEvent(
       buildSessionAiProviderFailedEvent({
         reasonCode: people.providerFailure,
-        provider: "openrouter",
+        provider: getAiProviderName(),
         durationMs: getOperationalDurationMs(startedAtMs),
       }),
       operationalContext,
@@ -66,6 +67,7 @@ export const POST: APIRoute = async (context) => {
   if (people.updated) {
     logOperationalEvent(
       buildSessionPeopleMemoryUpdatedEvent({
+        provider: getAiProviderName(),
         durationMs: getOperationalDurationMs(startedAtMs),
         partial: people.partial,
         inputUnits: people.usage?.inputUnits,

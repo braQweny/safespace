@@ -9,7 +9,7 @@ F-02 tworzy server-only granice bezpieczenstwa dla przyszlych rozmow AI. Publicz
 - `allow` jest jedyna sciezka zwyklej symulacji.
 - `allow_with_constraints` moze kontynuowac tylko z ograniczeniami z `decision.constraints`; nie zwraca widocznej kopii ostrzegawczej do UI.
 - `hard_stop` blokuje zwykla symulacje. UI ma pokazac `decision.copy` i, gdy sa obecne, `decision.crisisResources`.
-- Brak konfiguracji OpenRouter, blad sieci, timeout albo niepoprawna odpowiedz providera sa traktowane jak `hard_stop`.
+- Brak konfiguracji wybranego dostawcy AI, blad sieci, timeout albo niepoprawna odpowiedz providera sa traktowane jak `hard_stop`.
 - Handler wiadomości rozróżnia awarię tej granicy od wykrytego kryzysu: kody `provider_timeout`, `provider_rate_limited`, `provider_unavailable`, `invalid_provider_response` i `missing_configuration` zwracają `ai_retry` (503), bez zakończenia sesji ani zapisu tury. Klasyfikator ponawia błąd 429/5xx raz, po 500 ms; nie ponawia timeoutu. Dokładna kategoria trafia do odpowiedzi API i do bezpiecznych metadanych operacyjnych.
 - Nie loguj prywatnego tekstu uzytkownika, promptow, payloadow providera ani tresci odpowiedzi klasyfikatora.
 
@@ -31,3 +31,5 @@ F-03 udostepnia sesyjne zdarzenia operacyjne w `../operational-visibility/sessio
 Nie przekazuj do logow operacyjnych tekstu uzytkownika, promptow, payloadow providera, tresci decyzji klasyfikatora, kopii kryzysowej ani danych wyboru nurtu lub avatara.
 
 Historia sesji, podsumowania i admin-facing operacje prywatnych danych pozostaja poza S-04 i wymagaja osobnych planow S-05, S-06 i S-07.
+
+Dostawcę wybiera `AI_PROVIDER` (domyślnie OpenAI). Prompty, zamknięty parser i fail-closed są wspólne. Szczegóły parametrów i prywatności: [dostawcy AI](../ai-provider/README.md).

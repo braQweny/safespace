@@ -1,3 +1,4 @@
+import type { AiProviderName } from "@/lib/ai-provider/types";
 import type { ChatResult } from "@openrouter/sdk/models";
 import { SessionSummaryError } from "./errors";
 import type { SessionSummaryFinishReason, SessionSummaryProviderMetadata, SessionSummaryTokenUsage } from "./types";
@@ -17,12 +18,13 @@ export function assertCompleteSummaryResponse(responseBody: ChatResult) {
 export function buildSummaryProviderMetadata(
   responseBody: ChatResult,
   fallbackModel: string,
+  provider: AiProviderName = "openrouter",
 ): SessionSummaryProviderMetadata {
   const finishReason = parseFinishReason(responseBody);
   const usage = parseUsage(responseBody);
 
   return {
-    provider: "openrouter",
+    provider,
     model: parseResponseModel(responseBody) ?? fallbackModel,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),

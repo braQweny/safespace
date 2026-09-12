@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("astro:env/server", () => ({
+  AI_PROVIDER: "openrouter",
+  OPENAI_API_KEY: undefined,
   OPENROUTER_API_KEY: "test-key",
   OPENROUTER_SAFETY_MODEL: "openai/gpt-5.6-luna",
   OPENROUTER_SESSION_MODEL: "google/gemini-3.7-flash",

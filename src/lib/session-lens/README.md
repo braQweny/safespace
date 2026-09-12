@@ -13,3 +13,5 @@
 ## Testy
 
 `__tests__/` pokrywa katalog (budżet i słownictwo modułów), prompt klasyfikatora, zamknięty parser, budowę żądania (schema strict, brak temperatury dla modeli OpenAI z serii gpt-5, minimalne rozumowanie dla Luny, routing `azure/eu`) i fail-open `detectSessionLens`. Trasa wiadomości ma własne scenariusze (`pages/api/session/__tests__/session-message-route.test.ts`), a `openrouter/__tests__/deployed-model-budgets.test.ts` przepuszcza wdrożony model przez builder soczewki.
+
+Dostawcę wybiera `AI_PROVIDER` (domyślnie OpenAI), tak samo jak dla bezpieczeństwa i rozmowy. Nazwa zmiennej modelu pozostaje bez zmian. Szczegóły natywnych parametrów OpenAI: [dostawcy AI](../ai-provider/README.md).

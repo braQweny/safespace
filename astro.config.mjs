@@ -87,6 +87,13 @@ export default defineConfig({
       SUPABASE_KEY: envField.string({ context: "server", access: "secret", optional: true }),
       OPERATIONAL_LOG_HASH_SECRET: envField.string({ context: "server", access: "secret", optional: true }),
       OPENROUTER_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+      OPENAI_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+      AI_PROVIDER: envField.enum({
+        context: "server",
+        access: "secret",
+        values: ["openai", "openrouter"],
+        optional: true,
+      }),
       OPENROUTER_SAFETY_MODEL: envField.string({ context: "server", access: "public", optional: true }),
       OPENROUTER_SESSION_MODEL: envField.string({ context: "server", access: "public", optional: true }),
       // Poziom rozumowania odpowiedzi w rozmowie (minimal|low|medium|high|xhigh).

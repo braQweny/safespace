@@ -4,6 +4,10 @@ import { SessionSummaryError } from "../errors";
 import { buildOpenRouterSummaryRequest, generateSessionSummaryWithOpenRouter } from "../openrouter-summary";
 import type { GenerateSessionSummaryInput } from "../types";
 
+vi.mock("@/lib/ai-provider/env", () => ({
+  getAiProviderEnv: () => ({ provider: "openrouter", apiKey: undefined, summaryModel: "openai/gpt-4o-mini" }),
+}));
+
 vi.mock("@/lib/session-summary/env", () => ({
   getOpenRouterSummaryConfig: () => ({
     apiKey: undefined,

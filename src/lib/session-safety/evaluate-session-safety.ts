@@ -1,6 +1,6 @@
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
 import { getCrisisResourceRegions } from "./crisis-resources";
-import { openRouterSafetyProvider } from "./openrouter-classifier";
+import { configuredSafetyProvider } from "./openrouter-classifier";
 import { parseProviderDecisionObject } from "./parse-provider-decision";
 import {
   ProviderSafetyError,
@@ -44,7 +44,7 @@ export async function evaluateSessionSafety(
   input: SessionSafetyInput,
   options: EvaluateSessionSafetyOptions = {},
 ): Promise<SessionSafetyDecision> {
-  const provider = options.provider ?? openRouterSafetyProvider;
+  const provider = options.provider ?? configuredSafetyProvider;
   const locale = input.metadata?.locale ?? DEFAULT_LOCALE;
 
   try {
