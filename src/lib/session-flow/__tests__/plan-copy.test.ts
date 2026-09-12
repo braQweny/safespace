@@ -4,6 +4,8 @@ import {
   formatPlanName,
   formatRemainingFreeSessions,
   formatSessionAllowance,
+  formatVoiceAllowance,
+  formatVoiceMinutesRemaining,
   getPlanCopy,
   getPremiumSupportMailtoHref,
 } from "../plan-copy";
@@ -78,5 +80,51 @@ describe("plan copy (en)", () => {
     expect(getPremiumSupportMailtoHref("en", "mailto:pomoc@example.org")).toBe(
       `mailto:pomoc@example.org?subject=${encodeURIComponent("SafeSpace — premium plan access")}`,
     );
+  });
+});
+
+describe("voice allowance copy", () => {
+  const trial = { kind: "trial" as const, plan: "free" as const, available: true, durationSeconds: 600 as const };
+
+  function pool(remainingSeconds: number, limitSeconds = 7200) {
+    return {
+      kind: "pool" as const,
+      plan: "premium" as const,
+      limitSeconds,
+      usedSeconds: limitSeconds - remainingSeconds,
+      remainingSeconds,
+      canStartVoice: remainingSeconds >= 300,
+      monthStartIso: "2026-09-01T00:00:00.000Z",
+    };
+  }
+
+  it("describes the free trial before and after use, in both languages", () => {
+    expect(formatVoiceAllowance("pl", trial)).toBe("W planie bezpłatnym jest jedna rozmowa głosowa do 10 minut.");
+    expect(formatVoiceAllowance("pl", { ...trial, available: false })).toBe(
+      "Bezpłatna rozmowa głosowa została wykorzystana. Plan premium ma miesięczną pulę minut głosowych.",
+    );
+    expect(formatVoiceAllowance("en", trial)).toBe(
+      "One voice conversation of up to 10 minutes is included in the free plan.",
+    );
+    expect(formatVoiceMinutesRemaining("pl", trial)).toBeNull();
+    expect(formatVoiceMinutesRemaining("pl", null)).toBeNull();
+  });
+
+  it("counts whole minutes of the premium pool with Polish plural forms", () => {
+    expect(formatVoiceAllowance("pl", pool(4500))).toBe("Wykorzystano 45 minut z 120 minut głosowych w tym miesiącu.");
+    expect(formatVoiceAllowance("en", pool(4500))).toBe("Used 45 minutes of 120 voice minutes this month.");
+    expect(formatVoiceMinutesRemaining("pl", pool(4500))).toBe(
+      "Zostało 75 minut z 120 minut głosowych w tym miesiącu.",
+    );
+    expect(formatVoiceMinutesRemaining("pl", pool(1320))).toBe(
+      "Zostały 22 minuty z 120 minut głosowych w tym miesiącu.",
+    );
+    expect(formatVoiceMinutesRemaining("pl", pool(300))).toBe("Zostało 5 minut z 120 minut głosowych w tym miesiącu.");
+    expect(formatVoiceMinutesRemaining("pl", pool(720))).toBe("Zostało 12 minut z 120 minut głosowych w tym miesiącu.");
+    expect(formatVoiceMinutesRemaining("en", pool(360))).toBe("6 minutes of 120 voice minutes left this month.");
+    expect(formatVoiceMinutesRemaining("en", pool(7200, 3600))).toBe("60 minutes of 60 voice minutes left this month.");
+    // Pula poniżej progu startu nie obiecuje minut; zdanie o wyczerpaniu stoi osobno.
+    expect(formatVoiceMinutesRemaining("pl", pool(120))).toBeNull();
+    expect(getPlanCopy("pl").voiceMinutesExhausted).toContain("Odnowi się");
   });
 });

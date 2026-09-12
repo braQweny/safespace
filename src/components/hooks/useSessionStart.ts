@@ -62,10 +62,22 @@ export interface SessionStartRequestOptions {
   aboutPersonId?: string | null;
   /** Trudność z mapy tematów, o której ma być rozmowa — zapisana przy sesji, tylko id. */
   aboutDifficultyId?: string | null;
+  /** Rozmowa głosowa: zawsze przez `start-next` (osobne pule, bez próby tekstowej). */
+  mode?: "voice";
+}
+
+/** Kody odmowy startu głosowego: karta pokazuje zdanie zamiast przycisku, start tekstowy zostaje. */
+export const VOICE_START_FAILURE_CODES = ["voice_unavailable", "voice_trial_used", "voice_minutes_exhausted"] as const;
+
+export type VoiceStartFailureCode = (typeof VOICE_START_FAILURE_CODES)[number];
+
+export function isVoiceStartFailureCode(code: string): code is VoiceStartFailureCode {
+  return (VOICE_START_FAILURE_CODES as readonly string[]).includes(code);
 }
 
 function buildStartBody(options: SessionStartRequestOptions) {
   const body = {
+    ...(options.mode === "voice" ? { mode: "voice" } : {}),
     ...(options.aboutPersonId ? { aboutPersonId: options.aboutPersonId } : {}),
     ...(options.aboutDifficultyId ? { aboutDifficultyId: options.aboutDifficultyId } : {}),
   };
@@ -98,6 +110,7 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
   const [isPreparingMemory, setIsPreparingMemory] = useState(false);
   const startingRef = useRef(false);
   const [notice, setNotice] = useState<SessionStartNotice | null>(null);
+  const [voiceFailureCode, setVoiceFailureCode] = useState<VoiceStartFailureCode | null>(null);
   const stopMemoryPreparation = useAvatarMemoryPreparation(initialState.avatar.modality, kind === "followup_ready");
 
   async function startSession(options: SessionStartRequestOptions = {}) {
@@ -110,8 +123,10 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
     setNotice(null);
 
     try {
-      const isFollowupStart = kind === "followup_ready";
-      if (isFollowupStart) {
+      // Rozmowa głosowa idzie wyłącznie przez `start-next`: pierwsza rozmowa
+      // konta też, bo próba tekstowa zostaje nienaruszona.
+      const isFollowupStart = kind === "followup_ready" || options.mode === "voice";
+      if (kind === "followup_ready") {
         setIsPreparingMemory(true);
         // Czekamy wyłącznie na partię pamięci; karty osób jadą osobną pętlą,
         // na którą start nigdy nie czeka.
@@ -148,6 +163,13 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
         return;
       }
 
+      // Odmowa głosowa nie dotyka startu tekstowego: karta chowa przycisk
+      // głosowy i mówi dlaczego; nieznany kod chowałby cały start.
+      if (isStartSessionFailure(body) && isVoiceStartFailureCode(body.code)) {
+        setVoiceFailureCode(body.code);
+        return;
+      }
+
       if (isStartSessionFailure(body) && body.redirectTo) {
         window.location.assign(body.redirectTo);
         return;
@@ -167,6 +189,7 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
     isStarting,
     isPreparingMemory,
     notice,
+    voiceFailureCode,
     startSession,
   };
 }

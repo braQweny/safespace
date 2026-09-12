@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Clock, PlayCircle } from "lucide-react";
+import { ChevronRight, Clock, Mic, PlayCircle } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
 import { formatDay, formatTimeOfDay as formatTimeOfDayFor, getDayKey } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/locale";
@@ -308,7 +308,7 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
               <span className="font-semibold tabular-nums">{timeOfDay}</span>
               <span className="text-ink-muted text-[13px]"> · {durationLabel}</span>
             </span>
-            {badgeClassName || item.summaryState !== "none" ? (
+            {badgeClassName || item.summaryState !== "none" || item.mode === "voice" ? (
               <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                 {badgeClassName ? (
                   <span
@@ -319,6 +319,16 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
                     )}
                   >
                     {statusLegend.label}
+                  </span>
+                ) : null}
+                {item.mode === "voice" ? (
+                  <span
+                    title={copy.voiceBadge.description}
+                    className="text-ink-muted inline-flex items-center gap-1 text-xs font-semibold"
+                    data-voice-badge
+                  >
+                    <Mic aria-hidden="true" className="h-3 w-3 shrink-0" />
+                    {copy.voiceBadge.label}
                   </span>
                 ) : null}
                 <SummaryMark state={item.summaryState} />

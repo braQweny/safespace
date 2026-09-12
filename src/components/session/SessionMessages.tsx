@@ -8,8 +8,21 @@ import type { SelectedModalityAvatar } from "@/lib/modalities";
 import { cn } from "@/lib/utils";
 import { getSessionMessagesCopy } from "./session-messages-copy";
 
+/** Podgląd rozmowy głosowej: wypowiedź, której zapis z serwera jeszcze nie dotarł. */
+export interface SessionLiveFragment {
+  id: string;
+  role: Extract<UiSessionMessage["role"], "user" | "assistant">;
+  text: string;
+}
+
 interface SessionMessagesProps {
   messages: readonly UiSessionMessage[];
+  /**
+   * Rozmowa głosowa: bieżące wypowiedzi z kanału danych, pod zapisem. Tylko do
+   * wyświetlenia — znikają, gdy heartbeat przyniesie zapisane wiersze. Poza
+   * regionem `aria-live`, bo delty co 200 ms zalałyby czytnik ekranu.
+   */
+  liveFragments?: readonly SessionLiveFragment[];
   isPending?: boolean;
   /** Tura trwa dłużej niż zwykle — wskaźnik dostaje drugą, uspokajającą linijkę. */
   isResponseSlow?: boolean;
@@ -171,6 +184,7 @@ function prefersReducedMotion() {
 
 export default function SessionMessages({
   messages,
+  liveFragments = [],
   isPending = false,
   isResponseSlow = false,
   pendingUserText = null,
@@ -180,11 +194,13 @@ export default function SessionMessages({
 }: SessionMessagesProps) {
   const copy = getSessionMessagesCopy(useLocale());
   const emptyText = emptyCopy ?? copy.emptyDefault;
-  const hasContent = messages.length > 0 || Boolean(pendingUserText);
+  const hasContent = messages.length > 0 || Boolean(pendingUserText) || liveFragments.length > 0;
   const isLive = variant === "live";
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPinnedToBottomRef = useRef(true);
   const lastMessageId = messages.at(-1)?.id ?? null;
+  const lastFragment = liveFragments.at(-1);
+  const lastFragmentKey = lastFragment ? `${lastFragment.id}:${lastFragment.text.length}` : null;
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -197,7 +213,7 @@ export default function SessionMessages({
       top: container.scrollHeight,
       behavior: prefersReducedMotion() ? "auto" : "smooth",
     });
-  }, [isLive, isPending, lastMessageId, pendingUserText]);
+  }, [isLive, isPending, lastFragmentKey, lastMessageId, pendingUserText]);
 
   return (
     // Tylko trwająca rozmowa jest dziennikiem na żywo. Podgląd historii to
@@ -260,6 +276,23 @@ export default function SessionMessages({
                 <MessageContent content={pendingUserText} hasHeader={false} />
               </li>
             ) : null}
+            {liveFragments.map((fragment, index) => {
+              const previousRole = index > 0 ? liveFragments[index - 1]?.role : (messages.at(-1)?.role ?? null);
+              const showHeader = fragment.role === "assistant" && fragment.role !== previousRole;
+
+              return (
+                <li
+                  key={fragment.id}
+                  aria-live="off"
+                  data-live-fragment={fragment.role}
+                  className={cn(getMessageClasses(fragment.role), fragment.role === previousRole && "-mt-2")}
+                >
+                  {showHeader ? <MessageHeader role={fragment.role} assistantAvatar={assistantAvatar} /> : null}
+                  {fragment.role === "user" ? <span className="sr-only">{copy.youPrefix}</span> : null}
+                  <MessageContent content={fragment.text} hasHeader={showHeader} />
+                </li>
+              );
+            })}
           </ol>
         )}
 

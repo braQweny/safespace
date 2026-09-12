@@ -234,6 +234,8 @@ Trasy głosowe i haki za flagą.
 
 Wyspa `VoiceSession` na wyodrębnionym chrome `TimedSession`, drugi start na dashboardzie, minuty na koncie, odznaka w historii.
 
+> Uwaga z wdrożenia etapu 5: chrome wyodrębnione jako `SessionScreenHeader`, `SessionEndConfirmDialog`, `SessionClosingCard`, `SessionBoundariesToggle` i hook `useSessionChrome` (fokus dialogu i panelu pomocy); `TimedSession.test.tsx` bez zmian. Typ powiadomienia przeniesiony do `session-flow/session-notice.ts`, `endTimedSession` przyjmuje `EndSessionDispatch` (podzbiór akcji wspólny obu reduktorom). Podgląd transkryptu w kliencie to `pendingUtterances` + otwarte wypowiedzi z `voice-transcript.ts`, zastępowane wierszami z heartbeatu po treści, a potem po roli. Peer WebRTC (`voice-peer.ts`) nie ma metody `send`; zdarzenia nie-JSON są pomijane. Wsparcie przeglądarki sprawdza `session-flow/voice-support.ts` (karta i wyspa). Odczyt puli na koncie i akapit `data-account-voice` weszły tutaj (przeniesione z 4.4).
+
 ### Changes Required:
 
 #### 1. Moduły czyste
@@ -366,11 +368,11 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 
 #### Automated
 
-- [ ] 5.1 Moduły czyste klienta
-- [ ] 5.2 Wyodrębnienie chrome z TimedSession
-- [ ] 5.3 Wyspa VoiceSession i hooki
-- [ ] 5.4 Dashboard, konto, historia, copy
-- [ ] 5.5 Testy klienta
+- [x] 5.1 Moduły czyste klienta
+- [x] 5.2 Wyodrębnienie chrome z TimedSession
+- [x] 5.3 Wyspa VoiceSession i hooki
+- [x] 5.4 Dashboard, konto, historia, copy
+- [x] 5.5 Testy klienta
 
 #### Manual
 

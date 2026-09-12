@@ -19,6 +19,7 @@ import { getSessionStartCardCopy } from "@/components/session/session-start-card
 import { getSessionStarterPromptsCopy } from "@/components/session/session-starter-prompts-copy";
 import { getSessionTimerCopy } from "@/components/session/session-timer-copy";
 import { getTimedSessionCopy } from "@/components/session/timed-session-copy";
+import { getVoiceSessionCopy } from "@/components/session/voice-session-copy";
 import { getSiteFooterCopy } from "@/components/site-footer-copy";
 import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
 import { AUTH_ERROR_CODES, getAuthErrorMessage } from "@/lib/auth-errors";
@@ -104,6 +105,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "session-starter-prompts-copy", read: getSessionStarterPromptsCopy },
   { name: "session-timer-copy", read: getSessionTimerCopy },
   { name: "timed-session-copy", read: getTimedSessionCopy },
+  { name: "voice-session-copy", read: getVoiceSessionCopy },
   { name: "layout-copy", read: getLayoutCopy },
   { name: "dashboard-copy", read: getDashboardCopy },
   { name: "avatar-page-copy", read: getAvatarPageCopy },

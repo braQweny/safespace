@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestSessionStart, resolveFailedStartKind } from "../useSessionStart";
+import { isVoiceStartFailureCode, requestSessionStart, resolveFailedStartKind } from "../useSessionStart";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -62,5 +62,27 @@ describe("resolveFailedStartKind", () => {
   it("treats every other failure as an unknown state", () => {
     expect(resolveFailedStartKind("session_data_unavailable")).toBe("unavailable");
     expect(resolveFailedStartKind(null)).toBe("unavailable");
+  });
+});
+
+describe("voice start requests", () => {
+  it("always goes through start-next with the voice mode in the body, with or without a person card", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ ok: true, session: { id: "s" } }, { status: 201 }));
+    vi.stubGlobal("fetch", fetch);
+    await requestSessionStart(true, vi.fn(), { mode: "voice" });
+    expect(fetch).toHaveBeenCalledWith("/api/session/start-next", expect.objectContaining({ method: "POST" }));
+    expect(fetch.mock.calls[0][1]).toMatchObject({ body: JSON.stringify({ mode: "voice" }) });
+    await requestSessionStart(true, vi.fn(), { mode: "voice", aboutPersonId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a" });
+    expect(fetch.mock.calls[1][1]).toMatchObject({
+      body: JSON.stringify({ mode: "voice", aboutPersonId: "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a" }),
+    });
+  });
+
+  it("recognises the three voice refusals and nothing else", () => {
+    expect(isVoiceStartFailureCode("voice_unavailable")).toBe(true);
+    expect(isVoiceStartFailureCode("voice_trial_used")).toBe(true);
+    expect(isVoiceStartFailureCode("voice_minutes_exhausted")).toBe(true);
+    expect(isVoiceStartFailureCode("session_limit_reached")).toBe(false);
+    expect(isVoiceStartFailureCode("")).toBe(false);
   });
 });
