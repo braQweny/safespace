@@ -6,6 +6,7 @@ import {
   getRateLimitKey,
   isAuthRateLimitedRequest,
   isRateLimitedApiRequest,
+  isVoiceRateLimitedApiRequest,
   type RateLimiterBinding,
 } from "../rate-limit";
 
@@ -158,5 +159,17 @@ describe("checkAuthRateLimit", () => {
     };
 
     await expect(checkAuthRateLimit(limiter, "ip:203.0.113.7")).resolves.toBe("allowed");
+  });
+});
+
+describe("voice endpoints", () => {
+  it("keeps connect (a paid provider session) under the session limiter and the rest under the voice limiter", () => {
+    expect(isRateLimitedApiRequest("POST", "/api/session/voice/connect")).toBe(true);
+    expect(isVoiceRateLimitedApiRequest("POST", "/api/session/voice/connect")).toBe(false);
+    expect(isRateLimitedApiRequest("POST", "/api/session/voice/heartbeat")).toBe(false);
+    expect(isVoiceRateLimitedApiRequest("POST", "/api/session/voice/heartbeat")).toBe(true);
+    expect(isVoiceRateLimitedApiRequest("GET", "/api/session/voice/heartbeat")).toBe(false);
+    expect(isVoiceRateLimitedApiRequest("POST", "/api/session/voice")).toBe(false);
+    expect(isVoiceRateLimitedApiRequest("POST", "/api/session/message")).toBe(false);
   });
 });

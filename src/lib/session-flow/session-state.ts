@@ -14,10 +14,12 @@ import type {
   SessionMessageRecord,
   SessionMessageRole,
   SessionMetadata,
+  SessionMode,
   SessionQuota,
   TrialAvailability,
 } from "@/lib/session-data/types";
 import type { CurrentAvatarChoice } from "./avatar-choice";
+import { reconcileVoiceSession } from "./voice-reconcile";
 
 export { FREE_TRIAL_DURATION_SECONDS } from "./session-budget";
 
@@ -45,6 +47,8 @@ export interface SessionView {
   remainingSeconds: number | null;
   isTrial: boolean;
   durationBucketSeconds: number | null;
+  /** Tryb rozmowy; obecny tylko dla rozmowy głosowej (brak = tekst). */
+  mode?: SessionMode;
 }
 
 export interface SessionMessageView {
@@ -85,6 +89,16 @@ export interface SessionStateRepository {
   listOwnedActiveSessionMetadata: typeof listOwnedActiveSessionMetadata;
   listOwnedSessionMessages: typeof listOwnedSessionMessages;
   listNewestApprovedSessionSummaryContexts: typeof listNewestApprovedSessionSummaryContexts;
+  /**
+   * Reconcile-on-read aktywnej rozmowy głosowej: zrzut bufora obserwatora do
+   * bazy i prawdziwy status wiersza (kryzys, termin, wyłączenie), zanim strona
+   * pokaże stan. Opcjonalne, bo testy stanu nie mają obserwatora.
+   */
+  reconcileVoiceSession?: (
+    context: SessionDataContext,
+    session: SessionMetadata,
+    options: { now?: Date },
+  ) => Promise<{ session: SessionMetadata }>;
 }
 
 export interface ReadSessionStartPageStateOptions {
@@ -101,7 +115,23 @@ const defaultSessionStateRepository: SessionStateRepository = {
   listOwnedActiveSessionMetadata,
   listOwnedSessionMessages,
   listNewestApprovedSessionSummaryContexts,
+  reconcileVoiceSession: (context, session, options) => reconcileVoiceSession(context, session, options),
 };
+
+/** Tylko aktywna rozmowa głosowa ma z czym się uzgadniać; reszta wraca bez rundy do obserwatora. */
+async function reconcileIfVoice(
+  context: SessionDataContext,
+  session: SessionMetadata,
+  options: ReadSessionStartPageStateOptions,
+  repository: SessionStateRepository,
+): Promise<SessionMetadata> {
+  if (session.mode !== "voice" || session.status !== "active" || !repository.reconcileVoiceSession) {
+    return session;
+  }
+
+  const reconciled = await repository.reconcileVoiceSession(context, session, { now: options.now });
+  return reconciled.session;
+}
 
 function parseTimestampMs(timestamp: string | null) {
   if (!timestamp) {
@@ -171,6 +201,7 @@ export function toSessionView(session: SessionMetadata, now: Date = new Date()):
     remainingSeconds: computeRemainingSeconds(session.expiresAt, now),
     isTrial: session.isTrial,
     durationBucketSeconds: session.durationBucketSeconds,
+    ...(session.mode === "voice" ? { mode: "voice" as const } : {}),
   };
 }
 
@@ -332,7 +363,10 @@ async function readExplicitActiveSessionState(
     return sessionResult;
   }
 
-  const session = getSameAvatarSessionView(sessionResult.data, options);
+  const session = getSameAvatarSessionView(
+    await reconcileIfVoice(context, sessionResult.data, options, repository),
+    options,
+  );
 
   if (!session || getStateKindFromSession(session) === "trial_already_claimed") {
     return {
@@ -361,13 +395,19 @@ async function readLatestActiveSessionState(
     return activeSessions;
   }
 
-  const session = activeSessions.data
-    .map((candidate) => {
-      const sessionView = getSameAvatarSessionView(candidate, options);
+  const candidate =
+    activeSessions.data.find((item) => getSameAvatarSessionView(item, options)?.status === "active") ?? null;
 
-      return sessionView?.status === "active" ? sessionView : null;
-    })
-    .find((candidate) => candidate !== null);
+  if (!candidate) {
+    return {
+      ok: true,
+      data: null,
+    };
+  }
+
+  // Po uzgodnieniu rozmowa głosowa może już nie być aktywna (kryzys, termin);
+  // wtedy pokazujemy jej prawdziwy stan końcowy zamiast karty startu.
+  const session = getSameAvatarSessionView(await reconcileIfVoice(context, candidate, options, repository), options);
 
   if (!session) {
     return {
@@ -472,7 +512,7 @@ async function okSessionStartPageState(
     };
   }
 
-  const session = toSessionView(sessionResult.data, options.now);
+  const session = toSessionView(await reconcileIfVoice(context, sessionResult.data, options, repository), options.now);
   const stateKind = getStateKindFromSession(session);
 
   if (stateKind !== "active") {

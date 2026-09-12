@@ -5,7 +5,7 @@ import { useSessionStart } from "@/components/hooks/useSessionStart";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import type { Locale } from "@/lib/i18n/locale";
 import { getBillingCopy } from "@/lib/billing/copy";
-import type { SessionQuota } from "@/lib/session-data/types";
+import type { SessionQuota, VoiceQuota } from "@/lib/session-data/types";
 import { formatRemainingFreeSessions, getPlanCopy, getPremiumSupportMailtoHref } from "@/lib/session-flow/plan-copy";
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { parseSessionIdParam } from "@/lib/session-flow/session-id";
@@ -21,6 +21,12 @@ interface SessionStartCardProps {
   /** Kontakt jest drogą do ręcznego premium, gdy zakup jest wyłączony. */
   supportEmail?: string | null;
   billingEnabled?: boolean;
+  /**
+   * Pula rozmów głosowych z panelu (`null` = funkcja wyłączona albo odczyt
+   * padł). Przycisk głosowy karty renderuje etap klienta planu rozmowy
+   * głosowej; do tego czasu prop jest tylko przyjmowany.
+   */
+  voiceQuota?: VoiceQuota | null;
 }
 
 export interface SessionAboutOptions {

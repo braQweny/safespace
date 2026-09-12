@@ -200,6 +200,8 @@ Eksport `buildSessionResponseSystemContent`, `recap` w `FENCE_MARKER_PATTERN`, `
 
 Trasy głosowe i haki za flagą.
 
+> Uwaga z wdrożenia etapu 4: obserwator jest sprawdzany **przed** utworzeniem sesji live (bez bindingu nie powstaje płatna sesja); reconcile-on-read siedzi w `readSessionStartPageState` jako opcjonalny hak repozytorium `reconcileVoiceSession` (leniwy import koordynatora, żeby testy stanu i tras działały bez runtime Cloudflare); wyłączenie flagi w trakcie rozmowy kończy wiersz jako `completed` (nie `interrupted`); heartbeat z niższą epoką niż obserwator dostaje `closeReason: reconnected`; `DeletedSessionTombstone.mode` daje trasie usuwania sygnał do `hangup` + `purge`; odczyt `voiceQuota` na stronie konta przeniesiony do etapu 5 (tam jest jego jedyny konsument).
+
 ### Changes Required:
 
 #### 1. Start i reconcile
@@ -354,11 +356,11 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 
 #### Automated
 
-- [ ] 4.1 Start głosowy i reconcile-on-read
-- [ ] 4.2 Trasy connect i heartbeat, kontrakt, limiter, cap ciała
-- [ ] 4.3 Haki w message, end, history, zdarzenia operacyjne
-- [ ] 4.4 Odczyt voiceQuota na dashboard i koncie
-- [ ] 4.5 Testy tras i modułów
+- [x] 4.1 Start głosowy i reconcile-on-read
+- [x] 4.2 Trasy connect i heartbeat, kontrakt, limiter, cap ciała
+- [x] 4.3 Haki w message, end, history, zdarzenia operacyjne
+- [x] 4.4 Odczyt voiceQuota na dashboard i koncie (panel; odczyt na koncie razem z akapitem w etapie 5)
+- [x] 4.5 Testy tras i modułów
 
 ### Phase 5: Client, Dashboard, Account, History
 

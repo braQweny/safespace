@@ -9,7 +9,10 @@
 // audio is base64-encoded JSON.
 export const API_BODY_LIMIT_BYTES = 32 * 1024;
 export const TRANSCRIPTION_API_BODY_LIMIT_BYTES = 7 * 1024 * 1024;
+// A WebRTC offer is ~2 KB; the cap only has to admit a long ICE candidate list.
+export const VOICE_CONNECT_API_BODY_LIMIT_BYTES = 64 * 1024;
 const TRANSCRIPTION_API_PATH = "/api/session/transcribe";
+const VOICE_CONNECT_API_PATH = "/api/session/voice/connect";
 const API_BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
 export type ApiBodyGuardReasonCode = "length_required" | "payload_too_large";
@@ -37,7 +40,15 @@ const LENGTH_REQUIRED: ApiBodyGuardVerdict = { ok: false, status: 411, reasonCod
 const PAYLOAD_TOO_LARGE: ApiBodyGuardVerdict = { ok: false, status: 413, reasonCode: "payload_too_large" };
 
 export function getApiBodyLimitBytes(pathname: string) {
-  return pathname === TRANSCRIPTION_API_PATH ? TRANSCRIPTION_API_BODY_LIMIT_BYTES : API_BODY_LIMIT_BYTES;
+  if (pathname === TRANSCRIPTION_API_PATH) {
+    return TRANSCRIPTION_API_BODY_LIMIT_BYTES;
+  }
+
+  if (pathname === VOICE_CONNECT_API_PATH) {
+    return VOICE_CONNECT_API_BODY_LIMIT_BYTES;
+  }
+
+  return API_BODY_LIMIT_BYTES;
 }
 
 function parseContentLength(header: string) {

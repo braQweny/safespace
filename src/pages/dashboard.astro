@@ -29,7 +29,16 @@ import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext } from "@/lib/operational-visibility/request-context";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
-import type { DifficultyCard, OwnedSessionCountsByAvatar, PersonCard, SessionQuota } from "@/lib/session-data/types";
+import { readVoiceQuota } from "@/lib/session-data/voice-quota";
+import type {
+  DifficultyCard,
+  OwnedSessionCountsByAvatar,
+  PersonCard,
+  SessionQuota,
+  VoiceQuota,
+} from "@/lib/session-data/types";
+import { getVoiceMonthlyMinutes } from "@/lib/session-flow/voice-session-mode";
+import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
 import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
 import {
   readActiveSessionBadge,
@@ -146,6 +155,10 @@ let peopleMemoryEnabled = true;
 const topicMapMode = isTopicMapEnabled();
 let difficultyCards: DifficultyCard[] | null = null;
 let topicMapEnabled = true;
+// Pula rozmów głosowych (próba free / minuty premium) tylko przy włączonej
+// fladze i bezpośrednim OpenAI; `null` = brak przycisku głosowego na karcie.
+const voiceStartAvailable = isVoiceStartAvailable();
+let voiceQuota: VoiceQuota | null = null;
 
 if (sessionContext.ok) {
   // Po poznaniu perspektywy żaden z tych odczytów nie zależy od pozostałych,
@@ -163,6 +176,7 @@ if (sessionContext.ok) {
     peoplePreference,
     difficultyCardsResult,
     topicPreference,
+    voiceQuotaResult,
   ] = await Promise.all([
     !initialHistory && historyAvatar
       ? readSessionHistoryList(sessionContext.data, {
@@ -190,7 +204,13 @@ if (sessionContext.ok) {
       ? listOwnedDifficultyCards(sessionContext.data, currentAvatarChoice.selected.avatarId)
       : null,
     currentAvatarChoice && topicMapMode ? readOwnedTopicMapEnabled(sessionContext.data) : null,
+    currentAvatarChoice && voiceStartAvailable
+      ? readVoiceQuota(sessionContext.data, { limitMinutes: getVoiceMonthlyMinutes() })
+      : null,
   ]);
+
+  // Nieudany odczyt puli chowa tylko przycisk głosowy; start tekstowy zostaje.
+  voiceQuota = voiceQuotaResult?.ok ? voiceQuotaResult.data : null;
 
   if (historyResult) {
     initialHistory = historyResult;
@@ -387,6 +407,7 @@ const historyProps = currentSelection
                       initialState={startPageState}
                       supportEmail={support.email}
                       billingEnabled={isBillingEnabled()}
+                      voiceQuota={voiceQuota}
                     />
                   ) : (
                     <p class="text-ink-muted mt-6 text-sm leading-6">

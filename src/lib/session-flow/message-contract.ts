@@ -71,7 +71,8 @@ export type SendSessionMessageFailureResponse =
   | {
       ok: false;
       type: "session_not_active";
-      code: "session_not_active" | "session_unavailable";
+      /** `session_mode_mismatch`: rozmowa głosowa nie przyjmuje wiadomości pisanych. */
+      code: "session_not_active" | "session_unavailable" | "session_mode_mismatch";
     }
   | {
       ok: false;

@@ -221,6 +221,7 @@ export function toDeletedSessionTombstone(session: SessionMetadata): DeletedSess
     isTrial: session.isTrial,
     trialClaimId: session.trialClaimId,
     durationBucketSeconds: session.durationBucketSeconds,
+    ...(session.mode === "voice" ? { mode: "voice" as const } : {}),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };

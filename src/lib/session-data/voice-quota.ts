@@ -24,11 +24,11 @@ export interface VoiceQuotaRepository {
   listOwnedVoiceSessionTimings: typeof listOwnedVoiceSessionTimings;
 }
 
-const defaultVoiceQuotaRepository: VoiceQuotaRepository = {
-  getOwnedAccountPlan,
-  countOwnedVoiceSessions,
-  listOwnedVoiceSessionTimings,
-};
+// Odczytywane przy wywołaniu, nie przy ładowaniu modułu: trasy importujące ten
+// moduł są testowane z częściowymi atrapami repozytorium.
+function getDefaultVoiceQuotaRepository(): VoiceQuotaRepository {
+  return { getOwnedAccountPlan, countOwnedVoiceSessions, listOwnedVoiceSessionTimings };
+}
 
 /** Początek bieżącego miesiąca w UTC — pula nie zna stref czasowych. */
 export function getUtcMonthStart(now: Date): Date {
@@ -117,7 +117,7 @@ export interface ReadVoiceQuotaOptions {
 export async function readVoiceQuota(
   context: SessionDataContext,
   options: ReadVoiceQuotaOptions,
-  repository: VoiceQuotaRepository = defaultVoiceQuotaRepository,
+  repository: VoiceQuotaRepository = getDefaultVoiceQuotaRepository(),
 ): Promise<SessionDataResult<VoiceQuota>> {
   const now = options.now ?? new Date();
   const plan = await repository.getOwnedAccountPlan(context);

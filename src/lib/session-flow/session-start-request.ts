@@ -1,18 +1,25 @@
 import { isRecord } from "@/lib/type-guards";
 import { getOwnedDifficultyCard, getOwnedPersonCard } from "@/lib/session-data/repository";
-import type { SessionAvatarId, SessionDataContext } from "@/lib/session-data/types";
+import type { SessionAvatarId, SessionDataContext, SessionMode } from "@/lib/session-data/types";
 import { parseSessionIdParam } from "./session-id";
 
 /**
  * Opcjonalne body startu: `{ aboutPersonId }` z karty osoby („Porozmawiaj o
- * tej osobie”) albo `{ aboutDifficultyId }` z karty trudności („Porozmawiaj o
- * tym”). Brak body albo pusty obiekt działa jak dotychczas; dotychczasowy
- * klient nie wysyła ani body, ani nagłówka Content-Type.
+ * tej osobie”), `{ aboutDifficultyId }` z karty trudności („Porozmawiaj o
+ * tym”) albo `{ mode: "voice" }` dla rozmowy głosowej (tylko `start-next`).
+ * Brak body albo pusty obiekt działa jak dotychczas; dotychczasowy klient nie
+ * wysyła ani body, ani nagłówka Content-Type.
  */
 export type SessionStartRequestBody =
-  { ok: true; aboutPersonId: string | null; aboutDifficultyId: string | null } | { ok: false };
+  { ok: true; mode: SessionMode; aboutPersonId: string | null; aboutDifficultyId: string | null } | { ok: false };
 
-const EMPTY_START: SessionStartRequestBody = { ok: true, aboutPersonId: null, aboutDifficultyId: null };
+const EMPTY_START: SessionStartRequestBody = { ok: true, mode: "text", aboutPersonId: null, aboutDifficultyId: null };
+
+/** `null` = brak pola (tekst); `undefined` = obecne, ale nie jest trybem. */
+function readOptionalMode(value: unknown): SessionMode | null | undefined {
+  if (value === undefined || value === null) return null;
+  return value === "text" || value === "voice" ? value : undefined;
+}
 
 /** `null` = brak pola; `undefined` = obecne, ale nie jest UUID. */
 function readOptionalId(value: unknown): string | null | undefined {
@@ -35,8 +42,9 @@ export async function readSessionStartRequestBody(request: Request): Promise<Ses
   if (!isRecord(body)) return { ok: false };
   const aboutPersonId = readOptionalId(body.aboutPersonId);
   const aboutDifficultyId = readOptionalId(body.aboutDifficultyId);
-  if (aboutPersonId === undefined || aboutDifficultyId === undefined) return { ok: false };
-  return { ok: true, aboutPersonId, aboutDifficultyId };
+  const mode = readOptionalMode(body.mode);
+  if (aboutPersonId === undefined || aboutDifficultyId === undefined || mode === undefined) return { ok: false };
+  return { ok: true, mode: mode ?? "text", aboutPersonId, aboutDifficultyId };
 }
 
 /**

@@ -864,3 +864,41 @@ describe("POST /api/session/message", () => {
     });
   });
 });
+
+describe("POST /api/session/message for a voice session", () => {
+  it("refuses a text turn with session_mode_mismatch before claiming a lease", async () => {
+    vi.clearAllMocks();
+    buildOperationalRequestContext.mockResolvedValue({
+      requestId: "req-1",
+      route: "/api/session/message",
+      method: "POST",
+      userHash: "hash-1",
+    });
+    getSessionDataContext.mockReturnValue(ok(contextData));
+    requireActiveAccountAccess.mockResolvedValue({
+      ok: true,
+      data: { userId: "user-1", status: "active", blockedAt: null, blockReasonCode: null },
+    });
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...activeSession, mode: "voice", isTrial: false }));
+
+    const response = await POST({
+      request: new Request("https://safespace.local/api/session/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ sessionId: SESSION_ID, message: "Hej" }),
+      }),
+      cookies: {},
+      locals: { user: { id: "user-1" }, requestId: "req-1" },
+      url: new URL("https://safespace.local/api/session/message"),
+    } as never);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      type: "session_not_active",
+      code: "session_mode_mismatch",
+    });
+    expect(claimSessionMessageTurn).not.toHaveBeenCalled();
+    expect(evaluateSessionSafety).not.toHaveBeenCalled();
+  });
+});

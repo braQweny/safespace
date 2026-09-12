@@ -283,6 +283,8 @@ export interface DeletedSessionTombstone {
   isTrial: boolean;
   trialClaimId: TrialClaimId | null;
   durationBucketSeconds: SessionDurationBucketSeconds | null;
+  /** Tryb usuniętej rozmowy (trasa usuwania rozłącza obserwatora głosowego); brak = tekst. */
+  mode?: SessionMode;
   createdAt: string;
   updatedAt: string;
 }

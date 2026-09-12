@@ -117,6 +117,15 @@ export const POST: APIRoute = async (context) => {
   // `aboutDifficultyId` mogą tu tylko przejść walidację (cudza albo
   // nieistniejąca karta → 400) — nigdzie nie trafiają.
   const startRequest = await readSessionStartRequestBody(context.request);
+
+  // Rozmowa głosowa nigdy nie jest próbą tekstową: start głosowy idzie
+  // wyłącznie przez `start-next` (własne pule, bez `claim_free_trial_session`).
+  if (startRequest.ok && startRequest.mode === "voice") {
+    logStartAttempt("failure", 400, startedAtMs, operationalContext);
+
+    return failureResponse(context, "validation_failed", 400, "/dashboard");
+  }
+
   const aboutPerson = startRequest.ok
     ? await resolveAboutPersonForStart(
         sessionContext.data,

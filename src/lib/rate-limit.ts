@@ -7,6 +7,12 @@
  *   in the Workers runtime. Production callers use fail-closed so a missing or
  *   failing binding cannot turn provider-backed endpoints into an unbounded
  *   abuse/cost path.
+ * - `VOICE_RATE_LIMITER` — per-user cap on the voice heartbeat/drain endpoints
+ *   under `/api/session/voice/` (a few calls a minute per conversation).
+ *   `connect` creates a paid provider session, so it stays under the stricter
+ *   `SESSION_RATE_LIMITER`. Same fail-closed rule in production as the session
+ *   limiter: a broken binding must not turn the observer drain into an
+ *   unbounded loop.
  * - `AUTH_RATE_LIMITER` — per-IP cap on the credential-handling auth forms
  *   (sign-in, sign-up, password reset, confirmation resend, password change).
  *   Always fail-open, production included: an outage of the limiter must not
@@ -26,7 +32,12 @@ const RATE_LIMITED_API_PATHS = new Set([
   "/api/session/prepare-memory",
   "/api/session/prepare-people",
   "/api/session/transcribe",
+  "/api/session/voice/connect",
 ]);
+
+// Heartbeat (and any later voice endpoint that does not create a provider
+// session) has its own, looser budget: one call every 20 s per conversation.
+const VOICE_RATE_LIMITED_API_PATH_PREFIX = "/api/session/voice/";
 
 // Summary generation hits the AI provider too, but lives under a dynamic
 // `[sessionId]` segment, so it is matched by prefix instead of exact path.
@@ -61,6 +72,14 @@ export function isRateLimitedApiRequest(method: string, pathname: string) {
 
   return (
     RATE_LIMITED_API_PATHS.has(pathname) || RATE_LIMITED_API_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
+}
+
+export function isVoiceRateLimitedApiRequest(method: string, pathname: string) {
+  return (
+    method === "POST" &&
+    pathname.startsWith(VOICE_RATE_LIMITED_API_PATH_PREFIX) &&
+    !RATE_LIMITED_API_PATHS.has(pathname)
   );
 }
 

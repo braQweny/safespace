@@ -47,6 +47,7 @@ S-04 nie moze tworzyc alternatywnych nazw zdarzen sesyjnych ani recznie skladac 
 - `session.opening_failed`
 - `session.voice_observer` (sideband obserwatora rozmowy głosowej: podłączenie, rotacja, awarie)
 - `session.voice_closed` (nasz powód zamknięcia sesji live i czas jej trwania)
+- `session.voice_connected` (jedno połączenie audio rozmowy głosowej: wynik, czas do odpowiedzi SDP, kod porażki)
 
 Przyklad:
 

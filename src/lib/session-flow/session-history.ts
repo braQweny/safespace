@@ -159,6 +159,7 @@ export function toSessionHistoryListItem(
     expiresAt: session.expiresAt,
     durationBucketSeconds: session.durationBucketSeconds,
     isTrial: session.isTrial,
+    ...(session.mode === "voice" ? { mode: "voice" as const } : {}),
     summaryState,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
