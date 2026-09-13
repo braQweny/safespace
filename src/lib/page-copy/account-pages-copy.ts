@@ -29,23 +29,42 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       adminIntro:
         "This account has access to aggregate statistics. The admin panel does not show conversation content.",
       openAdmin: "Open the admin panel",
-      peopleMemory: {
-        title: "People from your conversations",
+      memory: {
+        title: "Conversation memory",
         intro:
-          "The avatar keeps short cards about the people you mention: who they are to you, what you said, how you feel about it. Everything comes from your own words and stays private to your account.",
+          "The avatar notes people and topics from your own words. Everything stays private to your account; switching a part off stops the recording, and after switching it back on the avatar notes only new conversations.",
         modeOffIntro:
-          "This feature is currently switched off. Cards saved earlier are still stored — you can delete them here.",
+          "This part is currently switched off. Cards saved earlier are still stored — you can delete them here.",
+        peopleLabel: "People from conversations",
+        peopleHint: "Who the people you mention are to you.",
+        topicsLabel: "Topics from conversations",
+        topicsHint: "What you struggle with, who it comes up with and how you cope.",
+        viewLink: "See what the avatar remembers",
+        deleteSummary: "Delete saved cards",
+        deleteBody:
+          "Conversation transcripts, their summaries and the avatar memory stay. Deleting also switches off the recording of what you delete. This cannot be undone.",
+        scopeLegend: "What to delete",
+        scopePeople: "only people",
+        scopeTopics: "only topics",
+        scopeAll: "people and topics",
+        deleteConfirmLabel: "I understand that the selected cards will be deleted permanently.",
+        deleteSubmit: "Delete",
+        status: {
+          deleted_people: "All people cards have been deleted and remembering people is switched off.",
+          deleted_topics: "All topics have been deleted and noting topics is switched off.",
+          deleted_all: "People and topics have been deleted and both are switched off.",
+          delete_failed: "The cards couldn't be deleted. Please try again in a moment.",
+          delete_confirmation_required: "Tick the confirmation before deleting.",
+          invalid_scope: "Choose what to delete.",
+        },
+      },
+      peopleMemory: {
         readFailed: "We couldn't read this setting. Refresh the page in a moment.",
         toggleLegend: "Remember people from conversations",
         on: "On",
         off: "Off",
         effects:
           "Switching off stops the recording and detaches the cards from an ongoing conversation. After switching back on, the avatar records people only from new conversations.",
-        deleteAllSummary: "Switch off and delete all cards",
-        deleteAllBody:
-          "All people cards for every perspective are deleted and remembering is switched off. Conversation transcripts and the avatar memory stay unchanged. This cannot be undone.",
-        deleteAllConfirmLabel: "I understand that all cards will be deleted permanently.",
-        deleteAllSubmit: "Delete all cards",
         status: {
           saved: "The setting has been saved.",
           save_failed: "The setting couldn't be saved. Please try again in a moment.",
@@ -56,29 +75,19 @@ const ACCOUNT_PAGES_COPY = defineCopy(
         },
       },
       topicMap: {
-        title: "Topic map",
-        intro:
-          "The avatar notes the difficulties you say you struggle with, the people they come up with, and the ways of coping that came up in conversations. Everything comes from your own words and stays private to your account.",
-        modeOffIntro:
-          "This feature is currently switched off. Difficulties saved earlier are still stored — you can delete them here.",
         readFailed: "We couldn't read this setting. Refresh the page in a moment.",
-        toggleLegend: "Keep a topic map from conversations",
+        toggleLegend: "Note topics from conversations",
         on: "On",
         off: "Off",
         effects:
-          "Switching off stops the recording; saved difficulties stay on the dashboard until you delete them. After switching back on, the avatar notes difficulties only from new conversations.",
-        deleteAllSummary: "Switch off and delete the map",
-        deleteAllBody:
-          "All difficulties for every perspective are deleted, with their entries and links to people, and the map is switched off. People cards, conversation transcripts and the avatar memory stay unchanged. This cannot be undone.",
-        deleteAllConfirmLabel: "I understand that the whole topic map will be deleted permanently.",
-        deleteAllSubmit: "Delete the map",
+          "Switching off stops the recording; saved topics stay until you delete them. After switching back on, the avatar notes topics only from new conversations.",
         status: {
           saved: "The setting has been saved.",
           save_failed: "The setting couldn't be saved. Please try again in a moment.",
-          deleted: "The topic map has been deleted and switched off.",
-          delete_failed: "The map couldn't be deleted. Please try again in a moment.",
-          delete_confirmation_required: "Tick the confirmation before deleting the map.",
-          unavailable: "The topic map is currently unavailable, so it can't be switched on.",
+          deleted: "The topics have been deleted and switched off.",
+          delete_failed: "The topics couldn't be deleted. Please try again in a moment.",
+          delete_confirmation_required: "Tick the confirmation before deleting the topics.",
+          unavailable: "Topics from conversations are currently unavailable, so they can't be switched on.",
         },
       },
     },
@@ -138,23 +147,42 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       adminTitle: "Administracja",
       adminIntro: "To konto ma dostęp do statystyk zbiorczych. Panel administracyjny nie pokazuje treści rozmów.",
       openAdmin: "Otwórz panel administracyjny",
-      peopleMemory: {
-        title: "Osoby z Twoich rozmów",
+      memory: {
+        title: "Pamięć rozmów",
         intro:
-          "Awatar prowadzi krótkie karty osób, o których wspominasz: kim są dla Ciebie, co o nich mówisz, jak to przeżywasz. Wszystko pochodzi z Twoich słów i zostaje prywatne dla Twojego konta.",
+          "Awatar zapisuje z Twoich słów osoby i tematy z rozmów. Wszystko zostaje prywatne dla Twojego konta; wyłączenie części zatrzymuje zapisywanie, a po ponownym włączeniu awatar zapisuje tylko z nowych rozmów.",
         modeOffIntro:
-          "Ta funkcja jest obecnie wyłączona. Zapisane wcześniej karty wciąż są przechowywane — możesz je tu usunąć.",
+          "Ta część jest obecnie wyłączona. Zapisane wcześniej karty wciąż są przechowywane — możesz je tu usunąć.",
+        peopleLabel: "Osoby z rozmów",
+        peopleHint: "Kim są dla Ciebie ludzie, o których mówisz.",
+        topicsLabel: "Tematy z rozmów",
+        topicsHint: "Z czym się mierzysz, przy kim to wraca i jak sobie radzisz.",
+        viewLink: "Zobacz, co pamięta awatar",
+        deleteSummary: "Usuń zapisane karty",
+        deleteBody:
+          "Zapisy rozmów, ich podsumowania i pamięć awatara zostają. Usunięcie wyłącza też zapisywanie tego, co usuwasz. Tej operacji nie można cofnąć.",
+        scopeLegend: "Co usunąć",
+        scopePeople: "tylko osoby",
+        scopeTopics: "tylko tematy",
+        scopeAll: "osoby i tematy",
+        deleteConfirmLabel: "Rozumiem, że wybrane karty zostaną trwale usunięte.",
+        deleteSubmit: "Usuń",
+        status: {
+          deleted_people: "Wszystkie karty osób zostały usunięte, a zapamiętywanie osób wyłączone.",
+          deleted_topics: "Wszystkie tematy zostały usunięte, a zapisywanie tematów wyłączone.",
+          deleted_all: "Osoby i tematy zostały usunięte, a zapisywanie obu wyłączone.",
+          delete_failed: "Nie udało się usunąć kart. Spróbuj ponownie za chwilę.",
+          delete_confirmation_required: "Zaznacz potwierdzenie, zanim usuniesz.",
+          invalid_scope: "Wybierz, co usunąć.",
+        },
+      },
+      peopleMemory: {
         readFailed: "Nie udało się odczytać tego ustawienia. Odśwież stronę za chwilę.",
         toggleLegend: "Zapamiętuj osoby z rozmów",
         on: "Włączone",
         off: "Wyłączone",
         effects:
           "Wyłączenie zatrzymuje zapisywanie i odłącza karty od trwającej rozmowy. Po ponownym włączeniu awatar zapisuje osoby tylko z nowych rozmów.",
-        deleteAllSummary: "Wyłącz i usuń wszystkie karty",
-        deleteAllBody:
-          "Usuniemy wszystkie karty osób dla każdej perspektywy i wyłączymy zapamiętywanie. Zapisy rozmów i pamięć awatara zostają bez zmian. Tej operacji nie można cofnąć.",
-        deleteAllConfirmLabel: "Rozumiem, że wszystkie karty zostaną trwale usunięte.",
-        deleteAllSubmit: "Usuń wszystkie karty",
         status: {
           saved: "Ustawienie zostało zapisane.",
           save_failed: "Nie udało się zapisać ustawienia. Spróbuj ponownie za chwilę.",
@@ -165,29 +193,19 @@ const ACCOUNT_PAGES_COPY = defineCopy(
         },
       },
       topicMap: {
-        title: "Mapa tematów",
-        intro:
-          "Awatar zapisuje trudności, o których mówisz, że się z nimi mierzysz, osoby, przy których się pojawiają, i sposoby radzenia sobie, które padły w rozmowach. Wszystko pochodzi z Twoich słów i zostaje prywatne dla Twojego konta.",
-        modeOffIntro:
-          "Ta funkcja jest obecnie wyłączona. Zapisane wcześniej trudności wciąż są przechowywane — możesz je tu usunąć.",
         readFailed: "Nie udało się odczytać tego ustawienia. Odśwież stronę za chwilę.",
-        toggleLegend: "Zapisuj mapę tematów z rozmów",
+        toggleLegend: "Zapisuj tematy z rozmów",
         on: "Włączone",
         off: "Wyłączone",
         effects:
-          "Wyłączenie zatrzymuje zapisywanie; zapisane trudności zostają w panelu, dopóki ich nie usuniesz. Po ponownym włączeniu awatar zapisuje trudności tylko z nowych rozmów.",
-        deleteAllSummary: "Wyłącz i usuń mapę",
-        deleteAllBody:
-          "Usuniemy wszystkie trudności dla każdej perspektywy razem z wpisami i powiązaniami z osobami i wyłączymy mapę. Karty osób, zapisy rozmów i pamięć awatara zostają bez zmian. Tej operacji nie można cofnąć.",
-        deleteAllConfirmLabel: "Rozumiem, że cała mapa tematów zostanie trwale usunięta.",
-        deleteAllSubmit: "Usuń mapę",
+          "Wyłączenie zatrzymuje zapisywanie; zapisane tematy zostają, dopóki ich nie usuniesz. Po ponownym włączeniu awatar zapisuje tematy tylko z nowych rozmów.",
         status: {
           saved: "Ustawienie zostało zapisane.",
           save_failed: "Nie udało się zapisać ustawienia. Spróbuj ponownie za chwilę.",
-          deleted: "Mapa tematów została usunięta i wyłączona.",
-          delete_failed: "Nie udało się usunąć mapy. Spróbuj ponownie za chwilę.",
-          delete_confirmation_required: "Zaznacz potwierdzenie, zanim usuniesz mapę.",
-          unavailable: "Mapa tematów jest obecnie niedostępna, więc nie da się jej włączyć.",
+          deleted: "Tematy zostały usunięte i wyłączone.",
+          delete_failed: "Nie udało się usunąć tematów. Spróbuj ponownie za chwilę.",
+          delete_confirmation_required: "Zaznacz potwierdzenie, zanim usuniesz tematy.",
+          unavailable: "Zapisywanie tematów jest obecnie niedostępne, więc nie da się go włączyć.",
         },
       },
     },

@@ -1,6 +1,6 @@
 # Karty osób („Osoby z Twoich rozmów”)
 
-Prywatne notatki o ludziach, o których użytkownik wspomina w rozmowach, budowane wsadowo z zakończonych rozmów i podawane awatarowi jako krótki brief. Zakres per użytkownik + awatar, jak automatyczna pamięć awatara (`avatar-memory.md`). Funkcja jest za flagą `PEOPLE_MEMORY_MODE` (`off|on`, publiczna zmienna serwerowa; w `wrangler.jsonc` włączona od 6 września 2026, wyłączenie to zmiana wartości na `off`). Flaga gasi tworzenie i używanie kart: ekstrakcję, sekcję na panelu, brief w prompcie i prefill startu. Zarządzanie zapisanymi kartami (zapomnienie, usunięcie wpisu, „wyłącz i usuń wszystko”) działa zawsze.
+Prywatne notatki o ludziach, o których użytkownik wspomina w rozmowach, budowane wsadowo z zakończonych rozmów i podawane awatarowi jako krótki brief. Zakres per użytkownik + awatar, jak automatyczna pamięć awatara (`avatar-memory.md`). Funkcja jest za flagą `PEOPLE_MEMORY_MODE` (`off|on`, publiczna zmienna serwerowa; w `wrangler.jsonc` włączona od 6 września 2026, wyłączenie to zmiana wartości na `off`). Flaga gasi tworzenie i używanie kart: ekstrakcję, część „osoby” w widoku `/dashboard/memory`, brief w prompcie i prefill startu. Zarządzanie zapisanymi kartami (zapomnienie, usunięcie wpisu, „wyłącz i usuń wszystko”) działa zawsze.
 
 ## Model danych i tożsamość
 
@@ -44,7 +44,7 @@ Brief renderuje `private.render_people_brief`: na osobę najnowszy wpis każdego
 
 ## Interfejs
 
-- `/dashboard`: sekcja `PeopleCards` (`client:visible`) pod historią, za zapisaną perspektywą; lista bez treści wpisów (cały wiersz to przycisk), natywny dialog karty z pochodzeniem wpisów (linki do `/dashboard?session=`), edycją osoby, poprawą i usuwaniem wpisów, zapomnieniem z potwierdzeniem oraz akcją główną „Porozmawiaj o tej osobie” (`/dashboard?start=now&about=<id>`; przy aktywnej rozmowie tej samej perspektywy — powrót do niej). Po zakończeniu przygotowania w tle lista odświeża się przez `GET /api/session/people?avatar=`.
+- `/dashboard/memory` („Co Lena pamięta”): wyspa `MemoryView` (`client:load`, wspólna z tematami — lista z grupami „Osoby · N” i „Tematy · M” albo mapa z osobami bez tematów na obwodzie), za zapisaną perspektywą; na panelu zostaje tylko wiersz-skrót z liczbą osób. Lista bez treści wpisów (cały wiersz to przycisk), natywny dialog karty z pochodzeniem wpisów (linki do `/dashboard?session=`), edycją osoby, poprawą i usuwaniem wpisów, zapomnieniem z potwierdzeniem oraz akcją główną „Porozmawiaj o tej osobie” (`/dashboard?start=now&about=<id>`; przy aktywnej rozmowie tej samej perspektywy — powrót do niej). Po zakończeniu przygotowania w tle lista odświeża się przez `GET /api/session/people?avatar=`.
 - Start: `aboutPersonId` w body `/api/session/start(-next)` → walidacja właściciela i awatara → `about_person_id` w sesji → osoba pierwsza w briefie; `session.astro` wstawia zdanie z imieniem i relacją do pola tylko przed pierwszą wiadomością użytkownika. Imię nigdy nie jedzie w adresie.
 - `/account/security`: karta „Osoby z Twoich rozmów” z przełącznikiem (`/api/profile/people-memory`, natywny formularz, nie fail-open) i „Wyłącz i usuń wszystkie karty”; przy fladze `off` karta zostaje, jeśli istnieją zapisy.
 - `/privacy`: akapit w `#ai` i punkt w `#deletion` w obu językach, oba za flagą.

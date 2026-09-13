@@ -85,6 +85,44 @@ describe("buildTopicGraphLayout", () => {
     expect(layout.difficulties.map((node) => node.personCount)).toEqual([1, 2, 0]);
   });
 
+  it("places people without topics on the outer ring without edges, once each, deterministically", () => {
+    const cards = [card("a", { persons: [person("marta")] }), card("b"), card("c")];
+    const extras = [
+      { id: "zofia", name: "Zofia", relation: "mama" },
+      { id: "adam", name: "Adam", relation: null },
+      // Osoba już powiązana i duplikat nie dostają drugiego miejsca.
+      { id: "marta", name: "Marta", relation: null },
+      { id: "adam", name: "Adam", relation: null },
+    ];
+    const layout = buildTopicGraphLayout(cards, extras);
+    const again = buildTopicGraphLayout([...cards].reverse(), [...extras].reverse());
+    expect(again).toEqual(layout);
+    expect(layout.persons.map((node) => [node.id, node.linked])).toEqual(
+      expect.arrayContaining([
+        ["marta", true],
+        ["adam", false],
+        ["zofia", false],
+      ]),
+    );
+    expect(layout.persons).toHaveLength(3);
+    expect(layout.edges.map((edge) => edge.personId)).toEqual(["marta"]);
+    for (const node of layout.persons) {
+      expect(Math.hypot(node.x - layout.center.x, node.y - layout.center.y)).toBeCloseTo(layout.outerRadius, 0);
+      expect(node.x).toBeGreaterThan(0);
+      expect(node.x).toBeLessThan(layout.width);
+      expect(node.y).toBeGreaterThan(0);
+      expect(node.y).toBeLessThan(layout.height);
+    }
+    const unlinked = layout.persons.find((node) => node.id === "adam");
+    expect(unlinked?.difficultyIds).toEqual([]);
+    // Sama lista osób bez tematów też daje mapę: „Ty” w środku, osoby wokół.
+    const peopleOnly = buildTopicGraphLayout([], extras.slice(0, 2));
+    expect(peopleOnly.difficulties).toHaveLength(0);
+    expect(peopleOnly.persons).toHaveLength(2);
+    const angles = [...peopleOnly.persons].map((node) => node.angle).sort((a, b) => a - b);
+    expect(angles[1] - angles[0]).toBeGreaterThanOrEqual(TOPIC_GRAPH.personSlotWidth / peopleOnly.outerRadius - 1e-9);
+  });
+
   it("keeps nodes apart at the limits: thirty difficulties and forty linked people", () => {
     const people = Array.from({ length: 40 }, (_, index) => person(`p${String(index).padStart(2, "0")}`));
     const cards = Array.from({ length: 30 }, (_, index) =>

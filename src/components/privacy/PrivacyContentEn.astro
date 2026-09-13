@@ -104,10 +104,10 @@ const DAYS = { one: "day", many: "days" };
     While preparing the memory, AI processes the transcripts of those conversations in batches — also in the background
     on the conversation's closing screen and while you are on the dashboard. The new conversation receives a condensed
     summary, not full transcripts. The memory of different avatars is kept separate. A summary may omit details or
-    contain errors — you can correct it in the conversation. You can read the current memory on the dashboard. The
-    avatar, summaries and memory use the interface language chosen at the time of the conversation; after you change the
-    language, earlier transcripts stay in the language they were written in, and the memory may be rewritten in the new
-    one.
+    contain errors — you can correct it in the conversation. You can read the current memory in the “What the avatar
+    remembers” view, reached from the dashboard. The avatar, summaries and memory use the interface language chosen at
+    the time of the conversation; after you change the language, earlier transcripts stay in the language they were
+    written in, and the memory may be rewritten in the new one.
   </p>
   {
     peopleMemory ? (
@@ -126,15 +126,15 @@ const DAYS = { one: "day", many: "days" };
   {
     topicMap ? (
       <p class="text-ink-soft mt-3" data-topic-map>
-        If you keep the “Topic map” switched on, the avatar also notes the difficulties you say you struggle with: how
-        they show up, how you cope, how it is now, which people they come up with, and the proposals from conversations,
-        your decisions and how they went. Every entry comes only from your own words — a proposal is noted as a
-        proposal, never as advice or a plan — and shows the conversations it came from. A difficulty's name carries no
-        names of people and no diagnoses; an uncertain link to a person waits for your confirmation. You can rename a
-        difficulty, fix or remove an entry, unlink a person, merge two difficulties into one, mark a difficulty as less
-        current or remove it entirely. You can switch the map off, or switch it off and delete it entirely, in the
-        account settings. The map is kept separately for each avatar and is produced by the same AI provider under the
-        same zero-retention rules.
+        If you keep “Note topics from conversations” switched on, the avatar also notes the topics you say you struggle
+        with: how they show up, how you cope, how it is now, which people they come up with, and the proposals from
+        conversations, your decisions and how they went. Every entry comes only from your own words — a proposal is
+        noted as a proposal, never as advice or a plan — and shows the conversations it came from. A topic's name
+        carries no names of people and no diagnoses; an uncertain link to a person waits for your confirmation. You can
+        rename a topic, fix or remove an entry, unlink a person, merge two topics into one, mark a topic as less current
+        or remove it entirely. You can switch topics off, or switch them off and delete them all, in the account
+        settings. Topics are kept separately for each avatar and are produced by the same AI provider under the same
+        zero-retention rules.
       </p>
     ) : null
   }
@@ -205,9 +205,9 @@ const DAYS = { one: "day", many: "days" };
     {
       topicMap ? (
         <li data-topic-map>
-          Removing a difficulty from the topic map removes it together with its entries and links to people; deleting a
-          conversation removes every map entry that came from it, and forgetting a person removes the entries noted with
-          that person. In the account settings you can delete the whole map at once and switch the feature off.
+          Removing a topic removes it together with its entries and links to people; deleting a conversation removes
+          every topic entry that came from it, and forgetting a person removes the entries noted with that person. In
+          the account settings you can delete all topics at once and switch the feature off.
         </li>
       ) : null
     }

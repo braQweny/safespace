@@ -9,14 +9,13 @@ import type {
 } from "@/lib/session-summary/topic-map-budget";
 
 /**
- * Teksty sekcji „Mapa tematów”. Język „co padło w rozmowie”, nigdy
- * „zalecenie” ani „plan”: propozycja jest propozycją, postanowienie
+ * Teksty tematów w widoku „Co pamięta”: lista, mapa, pasek „do potwierdzenia”
+ * i dialog karty. Na ekranie zawsze „temat” (w kodzie i promptach zostaje
+ * `difficulty`, jak `sesja` obok „rozmowy”). Język „co padło w rozmowie”,
+ * nigdy „zalecenie” ani „plan”: propozycja jest propozycją, postanowienie
  * postanowieniem, rezultat tym, co użytkownik sam powiedział.
  */
 interface TopicMapCopy {
-  title: string;
-  intro: (firstName: string) => string;
-  empty: (firstName: string) => string;
   disabled: string;
   disabledWithCards: string;
   settingsLink: string;
@@ -100,10 +99,11 @@ interface TopicMapCopy {
   legendConfirmed: string;
   legendSuggested: string;
   legendArchived: string;
-  unlinkedPeople: (count: number) => string;
-  peopleLink: string;
+  legendUnlinked: string;
   personNodeSr: (name: string) => string;
   personFocus: (name: string, labels: string) => string;
+  personNoTopics: (name: string) => string;
+  openPersonCard: string;
   showAll: string;
   talkAbout: string;
   talkAboutResume: string;
@@ -113,18 +113,13 @@ interface TopicMapCopy {
 
 const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
   {
-    title: "Topic map",
-    intro: (firstName) =>
-      `${firstName} notes the difficulties you say you struggle with, the people they come up with, and the ways of coping that came up. Everything comes from your own words; you can correct, merge or remove anything.`,
-    empty: (firstName) =>
-      `Once you talk about something you struggle with, ${firstName} will note it here, together with what came up about it.`,
-    disabled: "The topic map is switched off.",
-    disabledWithCards: "The topic map is switched off. The difficulties below stay until you delete them.",
+    disabled: "Topics from conversations are switched off.",
+    disabledWithCards: "Topics from conversations are switched off. The topics below stay until you delete them.",
     settingsLink: "Settings",
-    readFailed: "We couldn't read the topic map. Refresh the dashboard in a moment.",
-    openCardSr: (label) => `Open the difficulty: ${label}.`,
+    readFailed: "We couldn't read the topics. Refresh the page in a moment.",
+    openCardSr: (label) => `Open the topic: ${label}.`,
     mentions: (count) => plural("en", count, { one: "1 conversation", many: `${count} conversations` }),
-    mentionsTitle: "How many earlier conversations touched on this difficulty",
+    mentionsTitle: "How many earlier conversations touched on this topic",
     lastMentioned: (day) => `last on ${day}`,
     archivedBadge: "less current",
     newSinceArchived: "new entries since you marked it",
@@ -152,7 +147,7 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     confirmUnlinkBody: "Entries noted with this person disappear from the card; the person's own card stays.",
     confirmUnlink: "Unlink",
     relink: "Link again",
-    dialogAria: "Difficulty card",
+    dialogAria: "Topic card",
     ownAccountNote:
       "Everything on this card comes from your own words in conversations. A proposal is noted as a proposal, never as advice to follow.",
     firstMentioned: (day) => `First mentioned on ${day}`,
@@ -175,7 +170,7 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     provenanceUnknown: "from an earlier conversation",
     editedByYou: "corrected by you",
     lockedNote: (firstName) =>
-      `A name you change stays as you wrote it; ${firstName} won't rename it, and the old wording is kept as another name for the same difficulty.`,
+      `A name you change stays as you wrote it; ${firstName} won't rename it, and the old wording is kept as another name for the same topic.`,
     edit: "Edit",
     fields: {
       label: "Name",
@@ -194,28 +189,27 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     confirmEntryDeleteTitle: "Remove this entry?",
     confirmEntryDeleteBody: "The entry disappears from the card. The conversation transcript stays unchanged.",
     confirmEntryDelete: "Remove",
-    delete: "Remove this difficulty",
-    confirmDeleteTitle: "Remove this difficulty for good?",
+    delete: "Remove this topic",
+    confirmDeleteTitle: "Remove this topic for good?",
     confirmDeleteBody: (firstName) =>
       `The card disappears with all its entries and links to people. People cards, conversation transcripts and the memory of earlier conversations stay. ${firstName} may note it again from new conversations.`,
     confirmDelete: "Remove",
     deleting: "Removing…",
-    deleted: (label) => `The difficulty has been removed: ${label}.`,
+    deleted: (label) => `The topic has been removed: ${label}.`,
     archiveNudgeTitle: "Mark as less current?",
-    archiveNudgeBody: "You said this no longer troubles you. A less current difficulty stays on the map, lower down.",
+    archiveNudgeBody: "You said this no longer troubles you. A less current topic stays on the map, lower down.",
     archiveNudgeAction: "Mark as less current",
-    mergeSummary: "Merge with another difficulty",
-    mergeBody:
-      "Entries, people and other names move into the difficulty you choose; this card disappears. Nothing is lost.",
+    mergeSummary: "Merge with another topic",
+    mergeBody: "Entries, people and other names move into the topic you choose; this card disappears. Nothing is lost.",
     mergeSelectLabel: "Merge into",
     mergeAction: (label) => `Merge into “${label}”`,
     merging: "Merging…",
     merged: (source, target) => `“${source}” has been merged into “${target}”.`,
-    duplicateOffer: (label) => `This name already belongs to “${label}”. Merge the two difficulties?`,
+    duplicateOffer: (label) => `This name already belongs to “${label}”. Merge the two topics?`,
     viewLegend: "View",
     viewMap: "Map",
     viewList: "List",
-    graphAria: "Topic map: you in the middle, your difficulties around you, linked people on the edge.",
+    graphAria: "Topic map: you in the middle, your topics around you, people on the edge.",
     youNode: "You",
     nodeCounts: (entries, persons) =>
       `${plural("en", entries, { one: "1 entry", many: `${entries} entries` })} · ${plural("en", persons, { one: "1 person", many: `${persons} people` })}`,
@@ -223,48 +217,40 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     legendConfirmed: "solid line: confirmed link",
     legendSuggested: "dashed line: link to confirm",
     legendArchived: "faded: less current",
-    unlinkedPeople: (count) =>
-      plural("en", count, {
-        one: "1 person from your conversations has no topics yet.",
-        many: `${count} people from your conversations have no topics yet.`,
-      }),
-    peopleLink: "People cards",
+    legendUnlinked: "no line: a person without topics yet",
     personNodeSr: (name) => `Highlight the topics that come up with ${name}`,
     personFocus: (name, labels) => `${name}: ${labels}`,
+    personNoTopics: (name) => `${name}: no topics yet`,
+    openPersonCard: "Open the person's card",
     showAll: "Show all",
     talkAbout: "Talk about this",
     talkAboutResume: "Back to the conversation, about this",
     talkAboutDraft: (label) => `I'd like to talk about this today: ${label}.`,
     errors: {
-      missing_auth: "Sign in to see the topic map.",
+      missing_auth: "Sign in to see the topics.",
       account_blocked: "The account is blocked.",
       account_access_unavailable: "We couldn't verify access to the account. Please try again.",
-      session_data_unavailable: "The topic map is temporarily unavailable.",
-      topic_map_unavailable: "The topic map is currently unavailable.",
+      session_data_unavailable: "Topics are temporarily unavailable.",
+      topic_map_unavailable: "Topics from conversations are currently unavailable.",
       validation_failed: "Check the text: a name is required and each field has a length limit.",
-      difficulty_not_found: "This difficulty wasn't found or has already been removed.",
+      difficulty_not_found: "This topic wasn't found or has already been removed.",
       entry_not_found: "This entry wasn't found or has already been removed.",
       person_not_found: "This person wasn't found or has already been forgotten.",
-      duplicate_difficulty_label: "Another difficulty already carries this name.",
-      read_failed: "The topic map couldn't be read. Please try again in a moment.",
+      duplicate_difficulty_label: "Another topic already carries this name.",
+      read_failed: "The topics couldn't be read. Please try again in a moment.",
       update_failed: "The change couldn't be saved. Please try again in a moment.",
-      merge_failed: "The difficulties couldn't be merged. Please try again in a moment.",
+      merge_failed: "The topics couldn't be merged. Please try again in a moment.",
       delete_failed: "It couldn't be removed. Please try again in a moment.",
     },
   },
   {
-    title: "Mapa tematów",
-    intro: (firstName) =>
-      `${firstName} zapisuje trudności, o których mówisz, że się z nimi mierzysz, osoby, przy których się pojawiają, i sposoby radzenia sobie, które padły w rozmowach. Wszystko pochodzi z Twoich słów; każdą rzecz możesz poprawić, scalić albo usunąć.`,
-    empty: (firstName) =>
-      `Gdy opowiesz o czymś, z czym się mierzysz, ${firstName} zapisze to tutaj razem z tym, co na ten temat padło.`,
-    disabled: "Mapa tematów jest wyłączona.",
-    disabledWithCards: "Mapa tematów jest wyłączona. Poniższe trudności zostają, dopóki ich nie usuniesz.",
+    disabled: "Zapisywanie tematów z rozmów jest wyłączone.",
+    disabledWithCards: "Zapisywanie tematów z rozmów jest wyłączone. Poniższe tematy zostają, dopóki ich nie usuniesz.",
     settingsLink: "Ustawienia",
-    readFailed: "Nie udało się odczytać mapy tematów. Odśwież panel za chwilę.",
-    openCardSr: (label) => `Otwórz trudność: ${label}.`,
+    readFailed: "Nie udało się odczytać tematów. Odśwież stronę za chwilę.",
+    openCardSr: (label) => `Otwórz temat: ${label}.`,
     mentions: (count) => plural("pl", count, { one: "1 rozmowa", few: `${count} rozmowy`, many: `${count} rozmów` }),
-    mentionsTitle: "W ilu wcześniejszych rozmowach pojawiła się ta trudność",
+    mentionsTitle: "W ilu wcześniejszych rozmowach pojawił się ten temat",
     lastMentioned: (day) => `ostatnio ${day}`,
     archivedBadge: "mniej aktualne",
     newSinceArchived: "nowe wpisy od oznaczenia",
@@ -292,7 +278,7 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     confirmUnlinkBody: "Wpisy zapisane przy tej osobie znikną z karty; karta osoby zostaje.",
     confirmUnlink: "Odłącz",
     relink: "Połącz ponownie",
-    dialogAria: "Karta trudności",
+    dialogAria: "Karta tematu",
     ownAccountNote:
       "Wszystko na tej karcie pochodzi z Twoich słów w rozmowach. Propozycja jest zapisana jako propozycja, nigdy jako zalecenie.",
     firstMentioned: (day) => `Pierwsza wzmianka: ${day}`,
@@ -315,7 +301,7 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     provenanceUnknown: "z wcześniejszej rozmowy",
     editedByYou: "poprawione przez Ciebie",
     lockedNote: (firstName) =>
-      `Nazwę, którą zmienisz, ${firstName} zostawi tak, jak zapiszesz, a dawne sformułowanie zostanie jako inna nazwa tej samej trudności.`,
+      `Nazwę, którą zmienisz, ${firstName} zostawi tak, jak zapiszesz, a dawne sformułowanie zostanie jako inna nazwa tego samego tematu.`,
     edit: "Edytuj",
     fields: {
       label: "Nazwa",
@@ -334,27 +320,27 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     confirmEntryDeleteTitle: "Usunąć ten wpis?",
     confirmEntryDeleteBody: "Wpis zniknie z karty. Zapis rozmowy zostaje bez zmian.",
     confirmEntryDelete: "Usuń",
-    delete: "Usuń tę trudność",
-    confirmDeleteTitle: "Usunąć tę trudność na stałe?",
+    delete: "Usuń ten temat",
+    confirmDeleteTitle: "Usunąć ten temat na stałe?",
     confirmDeleteBody: (firstName) =>
-      `Karta zniknie razem ze wszystkimi wpisami i powiązaniami z osobami. Karty osób, zapisy rozmów i pamięć wcześniejszych rozmów zostają. ${firstName} może zapisać ją ponownie z nowych rozmów.`,
+      `Karta zniknie razem ze wszystkimi wpisami i powiązaniami z osobami. Karty osób, zapisy rozmów i pamięć wcześniejszych rozmów zostają. ${firstName} może zapisać ten temat ponownie z nowych rozmów.`,
     confirmDelete: "Usuń",
     deleting: "Usuwanie…",
-    deleted: (label) => `Usunięto trudność: ${label}.`,
+    deleted: (label) => `Usunięto temat: ${label}.`,
     archiveNudgeTitle: "Oznaczyć jako mniej aktualne?",
-    archiveNudgeBody: "Powiedziałeś, że to już Ci nie doskwiera. Mniej aktualna trudność zostaje na mapie, niżej.",
+    archiveNudgeBody: "Mówisz, że to już Ci nie doskwiera. Mniej aktualny temat zostaje na mapie, niżej.",
     archiveNudgeAction: "Oznacz jako mniej aktualne",
-    mergeSummary: "Scal z inną trudnością",
-    mergeBody: "Wpisy, osoby i inne nazwy przejdą do wybranej trudności, a ta karta zniknie. Nic nie ginie.",
+    mergeSummary: "Scal z innym tematem",
+    mergeBody: "Wpisy, osoby i inne nazwy przejdą do wybranego tematu, a ta karta zniknie. Nic nie ginie.",
     mergeSelectLabel: "Scal z",
     mergeAction: (label) => `Scal z „${label}”`,
     merging: "Scalanie…",
     merged: (source, target) => `Scalono „${source}” z „${target}”.`,
-    duplicateOffer: (label) => `Ta nazwa należy już do trudności „${label}”. Scalić obie?`,
+    duplicateOffer: (label) => `Ta nazwa należy już do tematu „${label}”. Scalić oba?`,
     viewLegend: "Widok",
     viewMap: "Mapa",
     viewList: "Lista",
-    graphAria: "Mapa tematów: Ty w środku, Twoje trudności wokół, powiązane osoby na obwodzie.",
+    graphAria: "Mapa tematów: Ty w środku, Twoje tematy wokół, osoby na obwodzie.",
     youNode: "Ty",
     nodeCounts: (entries, persons) =>
       `${plural("pl", entries, { one: "1 wpis", few: `${entries} wpisy`, many: `${entries} wpisów` })} · ${plural("pl", persons, { one: "1 osoba", few: `${persons} osoby`, many: `${persons} osób` })}`,
@@ -362,33 +348,29 @@ const TOPIC_MAP_COPY = defineCopy<TopicMapCopy>(
     legendConfirmed: "linia ciągła: potwierdzone powiązanie",
     legendSuggested: "linia kreskowana: powiązanie do potwierdzenia",
     legendArchived: "wyblakłe: mniej aktualne",
-    unlinkedPeople: (count) =>
-      plural("pl", count, {
-        one: "1 osoba z Twoich rozmów nie ma jeszcze tematów.",
-        few: `${count} osoby z Twoich rozmów nie mają jeszcze tematów.`,
-        many: `${count} osób z Twoich rozmów nie ma jeszcze tematów.`,
-      }),
-    peopleLink: "Karty osób",
+    legendUnlinked: "bez linii: osoba jeszcze bez tematów",
     personNodeSr: (name) => `Wyróżnij tematy przy tej osobie: ${name}`,
     personFocus: (name, labels) => `${name}: ${labels}`,
+    personNoTopics: (name) => `${name}: jeszcze bez tematów`,
+    openPersonCard: "Otwórz kartę osoby",
     showAll: "Pokaż wszystko",
     talkAbout: "Porozmawiaj o tym",
     talkAboutResume: "Wróć do rozmowy i porozmawiaj o tym",
     talkAboutDraft: (label) => `Dziś chcę porozmawiać o tym: ${label}.`,
     errors: {
-      missing_auth: "Zaloguj się, żeby zobaczyć mapę tematów.",
+      missing_auth: "Zaloguj się, żeby zobaczyć tematy.",
       account_blocked: "Konto jest zablokowane.",
       account_access_unavailable: "Nie udało się zweryfikować dostępu do konta. Spróbuj ponownie.",
-      session_data_unavailable: "Mapa tematów jest chwilowo niedostępna.",
-      topic_map_unavailable: "Mapa tematów jest obecnie niedostępna.",
+      session_data_unavailable: "Tematy są chwilowo niedostępne.",
+      topic_map_unavailable: "Zapisywanie tematów z rozmów jest obecnie niedostępne.",
       validation_failed: "Sprawdź tekst: nazwa jest wymagana, a każde pole ma limit długości.",
-      difficulty_not_found: "Nie znaleziono tej trudności albo została już usunięta.",
+      difficulty_not_found: "Nie znaleziono tego tematu albo został już usunięty.",
       entry_not_found: "Nie znaleziono tego wpisu albo został już usunięty.",
       person_not_found: "Nie znaleziono tej osoby albo została już zapomniana.",
-      duplicate_difficulty_label: "Inna trudność ma już tę nazwę.",
-      read_failed: "Nie udało się odczytać mapy tematów. Spróbuj ponownie za chwilę.",
+      duplicate_difficulty_label: "Inny temat ma już tę nazwę.",
+      read_failed: "Nie udało się odczytać tematów. Spróbuj ponownie za chwilę.",
       update_failed: "Nie udało się zapisać zmiany. Spróbuj ponownie za chwilę.",
-      merge_failed: "Nie udało się scalić trudności. Spróbuj ponownie za chwilę.",
+      merge_failed: "Nie udało się scalić tematów. Spróbuj ponownie za chwilę.",
       delete_failed: "Nie udało się usunąć. Spróbuj ponownie za chwilę.",
     },
   },

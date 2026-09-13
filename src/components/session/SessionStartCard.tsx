@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowRight, Loader2, Mail, Mic } from "lucide-react";
+import { ArrowRight, Loader2, Mail, Mic, PencilLine } from "lucide-react";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useSessionStart } from "@/components/hooks/useSessionStart";
 import { LocaleProvider } from "@/components/LocaleProvider";
@@ -12,13 +12,18 @@ import {
   getPlanCopy,
   getPremiumSupportMailtoHref,
 } from "@/lib/session-flow/plan-copy";
-import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
+import {
+  formatSessionBudgetMinutes,
+  PREMIUM_SESSION_DURATION_SECONDS,
+  resolveSessionDurationSeconds,
+} from "@/lib/session-flow/session-budget";
 import { parseSessionIdParam } from "@/lib/session-flow/session-id";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { readClientVoiceSupport } from "@/lib/session-flow/voice-support";
 import type { VoiceStartFailureCode } from "@/components/hooks/useSessionStart";
 import { cn } from "@/lib/utils";
 import { getSessionStartCardCopy } from "./session-start-card-copy";
+import { getServerStartMode, readStartMode, setStartMode, subscribeStartMode, type StartMode } from "./start-mode";
 
 export { formatRemainingFreeSessions };
 
@@ -30,9 +35,11 @@ interface SessionStartCardProps {
   billingEnabled?: boolean;
   /**
    * Pula rozmów głosowych z panelu (`null` = funkcja wyłączona albo odczyt
-   * padł): drugi przycisk startu ze swoim stanem (próba, pula, wyczerpana).
+   * padł): przełącznik „Pisana | Głosowa” i drugi zestaw stanów puli.
    */
   voiceQuota?: VoiceQuota | null;
+  /** Tylko do testów: tryb zamiast zapamiętanego wyboru (serwer zawsze zaczyna od pisanej). */
+  initialMode?: StartMode | null;
 }
 
 const subscribeNever = () => () => {
@@ -45,6 +52,12 @@ const readServerTrue = () => true;
 function useVoiceSupport() {
   return useSyncExternalStore(subscribeNever, readClientVoiceSupport, readServerTrue);
 }
+
+const PRIMARY_BUTTON =
+  "bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed";
+
+const SEGMENT =
+  "text-ink hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
  * Pula minut premium jako cienki pasek: wypełnione to minuty, które jeszcze
@@ -66,7 +79,8 @@ export function VoiceMinutesMeter({ quota }: { quota: VoiceQuota }) {
 
 interface VoiceStartSectionProps {
   locale: Locale;
-  quota: VoiceQuota | null;
+  quota: VoiceQuota;
+  avatarFirstName: string;
   isHydrated: boolean;
   isStarting: boolean;
   isVoiceStarting: boolean;
@@ -75,14 +89,15 @@ interface VoiceStartSectionProps {
 }
 
 /**
- * Drugi start na karcie: rozmowa głosowa ma osobną pulę, więc stoi także
- * przy wyczerpanym limicie tekstowym. Pięć stanów: brak funkcji (nic), próba
- * dostępna, próba zużyta, pula z minutami, pula wyczerpana; do tego
- * przeglądarka bez WebRTC.
+ * Treść trybu „Głosowa”: rozmowa głosowa ma osobną pulę, więc stoi także
+ * przy wyczerpanym limicie pisanym. Pięć stanów: próba dostępna, próba
+ * zużyta, pula z minutami, pula wyczerpana, funkcja chwilowo niedostępna; do
+ * tego przeglądarka bez WebRTC.
  */
 export function VoiceStartSection({
   locale,
   quota,
+  avatarFirstName,
   isHydrated,
   isStarting,
   isVoiceStarting,
@@ -92,10 +107,6 @@ export function VoiceStartSection({
   const copy = getSessionStartCardCopy(locale);
   const planCopy = getPlanCopy(locale);
   const isSupported = useVoiceSupport();
-
-  if (!quota) {
-    return null;
-  }
 
   if (failureCode === "voice_unavailable") {
     return (
@@ -135,37 +146,48 @@ export function VoiceStartSection({
     );
   }
 
-  const remainingCopy = formatVoiceMinutesRemaining(locale, quota);
+  const remainingCopy = quota.kind === "pool" ? formatVoiceMinutesRemaining(locale, quota) : null;
+  // Rozmowa głosowa premium ma godzinny kubełek przycięty do reszty puli, więc
+  // obietnica czasu idzie za tym, co naprawdę zostało w tym miesiącu.
+  const voiceBudgetSeconds =
+    quota.kind === "trial" ? quota.durationSeconds : Math.min(PREMIUM_SESSION_DURATION_SECONDS, quota.remainingSeconds);
+  const voiceBudgetMinutes = formatSessionBudgetMinutes(locale, voiceBudgetSeconds);
 
   return (
-    <div className="flex flex-col gap-3" data-voice-start={quota.kind}>
-      <button
-        type="button"
-        onClick={onStart}
-        disabled={!isHydrated || isStarting}
-        className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
-      >
+    <div className="flex flex-col gap-4" data-voice-start={quota.kind}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="text-ink text-base font-medium">
+          {quota.kind === "trial" ? copy.voiceTrialBudget(voiceBudgetMinutes) : copy.budget(voiceBudgetMinutes)}
+        </p>
+        {quota.kind === "trial" ? (
+          <span className="text-ink-muted text-sm">{copy.voiceTrialNote}</span>
+        ) : (
+          <span className="flex flex-wrap items-center gap-3">
+            <VoiceMinutesMeter quota={quota} />
+            {remainingCopy ? (
+              <span className="text-ink-muted text-sm" data-voice-quota>
+                {remainingCopy}
+              </span>
+            ) : null}
+          </span>
+        )}
+      </div>
+
+      <button type="button" onClick={onStart} disabled={!isHydrated || isStarting} className={PRIMARY_BUTTON}>
         {isVoiceStarting ? (
           <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />
         ) : (
-          <Mic aria-hidden="true" className="text-brand h-4 w-4 shrink-0" />
+          <Mic aria-hidden="true" className="h-4 w-4 shrink-0" />
         )}
         {isVoiceStarting
           ? copy.preparingVoice
           : quota.kind === "trial"
-            ? copy.startVoiceTrial(formatSessionBudgetMinutes(locale, quota.durationSeconds))
+            ? copy.startVoiceTrial(voiceBudgetMinutes)
             : copy.startVoice}
       </button>
-      {quota.kind === "pool" && remainingCopy ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <VoiceMinutesMeter quota={quota} />
-          <p className="text-ink-muted text-sm" data-voice-quota>
-            {remainingCopy}
-          </p>
-        </div>
-      ) : null}
+
       <p className="text-ink-muted text-sm leading-6">
-        {quota.kind === "trial" ? copy.voiceTrialIntro : copy.voiceIntro}{" "}
+        {copy.voiceIntro(avatarFirstName)}{" "}
         <a
           href="/privacy#voice"
           className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
@@ -182,7 +204,7 @@ export interface SessionAboutOptions {
   aboutDifficultyId?: string | null;
 }
 
-/** Karta osoby (`about`) i trudność (`topic`) jadą dalej samym id, nigdy imieniem ani etykietą. */
+/** Karta osoby (`about`) i temat (`topic`) jadą dalej samym id, nigdy imieniem ani etykietą. */
 export function buildSessionHref(sessionId: string, options: SessionAboutOptions = {}) {
   let href = `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
   if (options.aboutPersonId) href += `&about=${encodeURIComponent(options.aboutPersonId)}`;
@@ -192,9 +214,9 @@ export function buildSessionHref(sessionId: string, options: SessionAboutOptions
 
 /**
  * Decyzja o starcie po „Zapisz i zacznij rozmowę” z ekranu wyboru perspektywy,
- * po „Porozmawiaj o tej osobie” z karty osoby i po „Porozmawiaj o tym” z mapy
- * tematów: wszystkie wracają na panel z `?start=now`, bo kliknięcie padło już
- * gdzie indziej. Karta dokłada `about=<id>`, mapa `topic=<id>`.
+ * po „Porozmawiaj o tej osobie” z karty osoby i po „Porozmawiaj o tym” z karty
+ * tematu: wszystkie wracają na panel z `?start=now`, bo kliknięcie padło już
+ * gdzie indziej. Karta osoby dokłada `about=<id>`, temat `topic=<id>`.
  *
  * `nextSearch` to adres bez tych parametrów i musi zostać zapisany ZANIM poleci
  * żądanie startu — inaczej odświeżenie panelu zużyłoby kolejną rozmowę z puli.
@@ -260,12 +282,60 @@ export function AllowanceMeter({ quota }: { quota: SessionQuota | null }) {
   );
 }
 
+interface StartModeSwitchProps {
+  locale: Locale;
+  mode: StartMode;
+  isHydrated: boolean;
+}
+
+/**
+ * „Pisana | Głosowa”: tryb jest cechą rozmowy, nie osobną funkcją, więc dwa
+ * przyciski startu tej samej wagi zastąpił jeden przełącznik nad jednym
+ * startem. Ostatni wybór zostaje w przeglądarce.
+ */
+function StartModeSwitch({ locale, mode, isHydrated }: StartModeSwitchProps) {
+  const copy = getSessionStartCardCopy(locale);
+
+  return (
+    <fieldset className="m-0 min-w-0 border-0 p-0" data-start-mode={mode}>
+      <legend className="sr-only">{copy.modeLegend}</legend>
+      <div className="border-line-strong flex gap-0.5 rounded-xl border p-0.5">
+        <button
+          type="button"
+          aria-pressed={mode === "text"}
+          disabled={!isHydrated}
+          onClick={() => {
+            setStartMode("text");
+          }}
+          className={SEGMENT}
+        >
+          <PencilLine aria-hidden="true" className="h-4 w-4 shrink-0" />
+          {copy.modeText}
+        </button>
+        <button
+          type="button"
+          aria-pressed={mode === "voice"}
+          disabled={!isHydrated}
+          onClick={() => {
+            setStartMode("voice");
+          }}
+          className={SEGMENT}
+        >
+          <Mic aria-hidden="true" className="h-4 w-4 shrink-0" />
+          {copy.modeVoice}
+        </button>
+      </div>
+    </fieldset>
+  );
+}
+
 export default function SessionStartCard({
   locale,
   initialState,
   supportEmail = null,
   billingEnabled = false,
   voiceQuota = null,
+  initialMode = null,
 }: SessionStartCardProps) {
   return (
     <LocaleProvider locale={locale}>
@@ -275,6 +345,7 @@ export default function SessionStartCard({
         supportEmail={supportEmail}
         billingEnabled={billingEnabled}
         voiceQuota={voiceQuota}
+        initialMode={initialMode}
       />
     </LocaleProvider>
   );
@@ -286,13 +357,19 @@ function SessionStartCardView({
   supportEmail = null,
   billingEnabled = false,
   voiceQuota = null,
+  initialMode = null,
 }: SessionStartCardProps) {
   const copy = getSessionStartCardCopy(locale);
   const billingCopy = getBillingCopy(locale);
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
   const isHydrated = useIsHydrated();
-  // Karta osoby z „Porozmawiaj o tej osobie” albo trudność z „Porozmawiaj o tym”
+  // Serwer i hydratacja pokazują tryb pisany; zapamiętany wybór wchodzi dopiero
+  // po hydratacji, bez rozjazdu znaczników. Bez puli głosowej nie ma wyboru.
+  const storedMode = useSyncExternalStore(subscribeStartMode, readStartMode, getServerStartMode);
+  const hasVoice = voiceQuota !== null;
+  const mode: StartMode = hasVoice ? (initialMode ?? storedMode) : "text";
+  // Karta osoby z „Porozmawiaj o tej osobie” albo temat z „Porozmawiaj o tym”
   // — przekazane do startu i do adresu rozmowy, żeby prefill wjechał razem z
   // pierwszym ekranem.
   const aboutRef = useRef<SessionAboutOptions>({});
@@ -303,7 +380,7 @@ function SessionStartCardView({
       window.location.assign(buildSessionHref(session.id, aboutRef.current));
     },
   });
-  // Który przycisk kręci się w trakcie startu: oba są wtedy wyłączone.
+  // Który start się kręci: w trakcie oba tryby są wyłączone.
   const [startingMode, setStartingMode] = useState<"text" | "voice" | null>(null);
 
   function startVoiceSession() {
@@ -312,18 +389,6 @@ function SessionStartCardView({
       setStartingMode(null);
     });
   }
-
-  const voiceSection = (
-    <VoiceStartSection
-      locale={locale}
-      quota={voiceQuota}
-      isHydrated={isHydrated}
-      isStarting={isStarting}
-      isVoiceStarting={isStarting && startingMode === "voice"}
-      failureCode={voiceFailureCode}
-      onStart={startVoiceSession}
-    />
-  );
 
   const canStart = kind === "ready" || kind === "followup_ready";
   const remainingCopy = formatRemainingFreeSessions(locale, initialState.sessionQuota);
@@ -361,31 +426,67 @@ function SessionStartCardView({
   // „pamięć awatara” jak zdanie o systemie.
   const avatarFirstName = initialState.avatar.selected.avatarFirstName;
 
+  const modeSwitch = hasVoice ? <StartModeSwitch locale={locale} mode={mode} isHydrated={isHydrated} /> : null;
+  const noticeBlock = notice ? (
+    <div
+      role="alert"
+      className="border-danger-line bg-danger-soft text-danger rounded-2xl border p-4 text-sm leading-6"
+    >
+      <p className="font-semibold">{notice.title}</p>
+      <p className="mt-1">{notice.body}</p>
+    </div>
+  ) : null;
+  const voiceBlock =
+    voiceQuota !== null ? (
+      <VoiceStartSection
+        locale={locale}
+        quota={voiceQuota}
+        avatarFirstName={avatarFirstName}
+        isHydrated={isHydrated}
+        isStarting={isStarting}
+        isVoiceStarting={isStarting && startingMode === "voice"}
+        failureCode={voiceFailureCode}
+        onStart={startVoiceSession}
+      />
+    ) : null;
+
   if (kind === "session_limit_reached") {
-    // Koniec puli prowadzi do zakupu albo kontaktu, zależnie od konfiguracji.
+    // Koniec puli pisanej prowadzi do zakupu albo kontaktu, zależnie od
+    // konfiguracji; rozmowa głosowa ma osobną pulę, więc jej tryb zostaje.
     return (
-      <div className="bg-surface-soft text-ink-muted mt-6 rounded-2xl p-5 text-sm leading-6" data-session-limit-reached>
-        <p className="text-ink font-serif text-xl leading-snug font-medium">{copy.limitReachedTitle}</p>
-        <p className="mt-2">{copy.limitReachedBody}</p>
-        <p className="mt-3">{billingEnabled ? billingCopy.benefits : getPlanCopy(locale).premiumHowTo}</p>
-        {billingEnabled ? (
-          <a
-            href="/account/billing"
-            className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-4 inline-flex min-h-12 items-center justify-center rounded-[14px] px-5 py-3 text-sm font-medium focus:outline-none focus-visible:ring-2"
-          >
-            {billingCopy.discover}
-          </a>
-        ) : supportEmail ? (
-          <a
-            href={getPremiumSupportMailtoHref(locale, `mailto:${supportEmail}`)}
-            className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-          >
-            <Mail aria-hidden="true" className="text-brand h-4 w-4" />
-            {copy.writeAboutPremium}
-          </a>
-        ) : null}
-        {/* Rozmowa głosowa ma osobną pulę, więc nie znika razem z limitem tekstowym. */}
-        {voiceQuota ? <div className="mt-5">{voiceSection}</div> : null}
+      <div className="mt-4 flex flex-col gap-4" data-session-limit-reached>
+        {modeSwitch}
+        {mode === "voice" ? (
+          <>
+            {noticeBlock}
+            {voiceBlock}
+          </>
+        ) : (
+          <>
+            <div className="bg-surface-soft text-ink-muted rounded-2xl p-5 text-sm leading-6">
+              <p className="text-ink font-serif text-xl leading-snug font-medium">{copy.limitReachedTitle}</p>
+              <p className="mt-2">{copy.limitReachedBody}</p>
+              <p className="mt-3">{billingEnabled ? billingCopy.benefits : getPlanCopy(locale).premiumHowTo}</p>
+              {billingEnabled ? (
+                <a
+                  href="/account/billing"
+                  className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-4 inline-flex min-h-12 items-center justify-center rounded-[14px] px-5 py-3 text-sm font-medium focus:outline-none focus-visible:ring-2"
+                >
+                  {billingCopy.discover}
+                </a>
+              ) : supportEmail ? (
+                <a
+                  href={getPremiumSupportMailtoHref(locale, `mailto:${supportEmail}`)}
+                  className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                >
+                  <Mail aria-hidden="true" className="text-brand h-4 w-4" />
+                  {copy.writeAboutPremium}
+                </a>
+              ) : null}
+            </div>
+            {hasVoice ? <p className="text-ink-muted text-sm leading-6">{copy.voiceLimitHint}</p> : null}
+          </>
+        )}
       </div>
     );
   }
@@ -400,63 +501,70 @@ function SessionStartCardView({
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <div>
-        <p className="text-ink text-base font-medium">{copy.budget(sessionBudgetMinutes)}</p>
-        {remainingCopy ? (
-          <div className="mt-2 flex items-center gap-3">
-            <AllowanceMeter quota={initialState.sessionQuota} />
-            <p className="text-ink-muted text-sm" data-session-quota>
-              {remainingCopy}
-            </p>
+      {modeSwitch}
+
+      {mode === "voice" ? (
+        <>
+          {noticeBlock}
+          {voiceBlock}
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <p className="text-ink text-base font-medium">{copy.budget(sessionBudgetMinutes)}</p>
+            {remainingCopy ? (
+              <span className="flex items-center gap-3">
+                <AllowanceMeter quota={initialState.sessionQuota} />
+                <span className="text-ink-muted text-sm" data-session-quota>
+                  {remainingCopy}
+                </span>
+              </span>
+            ) : null}
           </div>
-        ) : null}
-      </div>
 
-      {notice ? (
-        <div
-          role="alert"
-          className="border-danger-line bg-danger-soft text-danger rounded-2xl border p-4 text-sm leading-6"
-        >
-          <p className="font-semibold">{notice.title}</p>
-          <p className="mt-1">{notice.body}</p>
-        </div>
-      ) : null}
+          {noticeBlock}
 
-      <button
-        type="button"
-        onClick={() => {
-          setStartingMode("text");
-          void startSession().finally(() => {
-            setStartingMode(null);
-          });
-        }}
-        disabled={!isHydrated || isStarting}
-        className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
-      >
-        {/* Ruch w przycisku: start z pamięcią trwa do kilkudziesięciu sekund i bez
-            niego nieruchomy napis wyglądał jak zawieszenie. */}
-        {isStarting && startingMode !== "voice" ? (
-          <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />
-        ) : null}
-        {isStarting && startingMode !== "voice" ? copy.preparing : copy.start}
-        {isStarting && startingMode !== "voice" ? null : <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />}
-      </button>
-      <p className={cn("text-ink-muted text-sm leading-6", !isStarting && "sr-only")} role="status" aria-live="polite">
-        {isPreparingMemory ? copy.readingHistory(avatarFirstName) : isStarting ? copy.redirecting : ""}
-      </p>
+          <button
+            type="button"
+            onClick={() => {
+              setStartingMode("text");
+              void startSession().finally(() => {
+                setStartingMode(null);
+              });
+            }}
+            disabled={!isHydrated || isStarting}
+            className={PRIMARY_BUTTON}
+          >
+            {/* Ruch w przycisku: start z pamięcią trwa do kilkudziesięciu sekund i bez
+                niego nieruchomy napis wyglądał jak zawieszenie. */}
+            {isStarting && startingMode !== "voice" ? (
+              <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />
+            ) : null}
+            {isStarting && startingMode !== "voice" ? copy.preparing : copy.start}
+            {isStarting && startingMode !== "voice" ? null : (
+              <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />
+            )}
+          </button>
+          <p
+            className={cn("text-ink-muted text-sm leading-6", !isStarting && "sr-only")}
+            role="status"
+            aria-live="polite"
+          >
+            {isPreparingMemory ? copy.readingHistory(avatarFirstName) : isStarting ? copy.redirecting : ""}
+          </p>
 
-      {/* Jedna linijka zamiast zwijanego wyjaśnienia; pełny opis stoi w „Prywatność i zasady”. */}
-      <p className="text-ink-muted text-sm leading-6">
-        {kind === "followup_ready" ? copy.followupIntro(avatarFirstName) : copy.firstIntro}{" "}
-        <a
-          href="/privacy#ai"
-          className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-        >
-          {copy.howItWorks}
-        </a>
-      </p>
-
-      {voiceSection}
+          {/* Jedna linijka zamiast zwijanego wyjaśnienia; pełny opis stoi w „Prywatność i zasady”. */}
+          <p className="text-ink-muted text-sm leading-6">
+            {kind === "followup_ready" ? copy.followupIntro(avatarFirstName) : copy.firstIntro}{" "}
+            <a
+              href="/privacy#ai"
+              className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+            >
+              {copy.howItWorks}
+            </a>
+          </p>
+        </>
+      )}
     </div>
   );
 }

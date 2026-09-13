@@ -4,11 +4,10 @@ import AdminOverview from "@/components/admin/AdminOverview";
 import SignInForm from "@/components/auth/SignInForm";
 import AvatarChoiceForm from "@/components/modality/AvatarChoiceForm";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
-import PeopleCards from "@/components/people/PeopleCards";
+import MemoryView from "@/components/memory/MemoryView";
 import SessionStartCard from "@/components/session/SessionStartCard";
 import TimedSession from "@/components/session/TimedSession";
 import VoiceSession from "@/components/session/VoiceSession";
-import TopicMap from "@/components/topics/TopicMap";
 import type { AdminOverviewMetrics } from "@/lib/admin/types";
 import { MODALITY_CHOICES, MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
 import type { SessionStartPageState, SessionView } from "@/lib/session-flow/session-state";
@@ -101,14 +100,16 @@ describe("islands rendered in English", () => {
     expect(picker).toContain("separate fact from interpretation for a moment…”");
   });
 
-  it("renders the people cards in English", () => {
+  it("renders the memory view in English", () => {
     const html = renderToStaticMarkup(
-      <PeopleCards
+      <MemoryView
         locale="en"
         avatar={avatar.selected}
-        initialCards={[
+        peopleMemoryMode
+        topicMapMode
+        initialPersonCards={[
           {
-            id: "person-1",
+            id: "7a1b2c3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d",
             avatarId: "cbt-guide",
             name: "Marta",
             nameLocked: false,
@@ -122,23 +123,7 @@ describe("islands rendered in English", () => {
             facts: [],
           },
         ]}
-        peopleMemoryEnabled
-      />,
-    );
-
-    expect(html).toContain("People from your conversations");
-    expect(html).toContain("Marek remembers who the people you mention are to you.");
-    expect(html).toContain("2 conversations");
-    expect(html).toContain("last on");
-    expect(html).not.toMatch(/[ąćęłńóśźż]/);
-  });
-
-  it("renders the topic map in English", () => {
-    const html = renderToStaticMarkup(
-      <TopicMap
-        locale="en"
-        avatar={avatar.selected}
-        initialCards={[
+        initialDifficultyCards={[
           {
             id: "difficulty-1",
             avatarId: "cbt-guide",
@@ -149,7 +134,13 @@ describe("islands rendered in English", () => {
             createdAt: "2026-09-01T10:00:00.000Z",
             aliases: [],
             persons: [
-              { personId: "person-1", name: "Marta", relation: "colleague", state: "suggested", userDecided: false },
+              {
+                personId: "7a1b2c3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d",
+                name: "Marta",
+                relation: "colleague",
+                state: "suggested",
+                userDecided: false,
+              },
             ],
             firstMentionedAt: "2026-09-01T10:00:00.000Z",
             lastMentionedAt: "2026-09-05T10:00:00.000Z",
@@ -159,16 +150,22 @@ describe("islands rendered in English", () => {
             entries: [],
           },
         ]}
+        peopleMemoryEnabled
         topicMapEnabled
+        memoryPreview={null}
+        forcedView="list"
       />,
     );
 
-    expect(html).toContain("Topic map");
-    expect(html).toContain("Marek notes the difficulties you say you struggle with");
+    expect(html).toContain("People · 1");
+    expect(html).toContain("Topics · 1");
     expect(html).toContain("To confirm");
     expect(html).toContain("Does “Saying no” come up with Marta?");
     expect(html).toContain(">better<");
     expect(html).toContain("2 conversations");
+    expect(html).toContain("last on");
+    expect(html).toContain("The summary Marek reads before a conversation");
+    expect(html).toContain("It appears after the first finished conversation.");
     expect(html).not.toMatch(/[ąćęłńóśźż]/);
   });
 

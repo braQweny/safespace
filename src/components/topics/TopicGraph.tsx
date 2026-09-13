@@ -1,18 +1,20 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { useLocale } from "@/components/hooks/useLocale";
 import type { DifficultyCard } from "@/lib/session-data/types";
-import { buildTopicGraphLayout, TOPIC_GRAPH } from "@/lib/topic-map/layout";
+import { buildTopicGraphLayout, TOPIC_GRAPH, type TopicGraphUnlinkedPerson } from "@/lib/topic-map/layout";
 import { cn } from "@/lib/utils";
 import { getOpenDifficultyButtonId } from "./TopicList";
 import { getTopicMapCopy } from "./topic-map-copy";
 
 interface TopicGraphProps {
   cards: readonly DifficultyCard[];
+  /** Osoby z kart bez żadnego tematu: stoją na obwodzie bez linii, żeby mapa pokazywała wszystkich. */
+  unlinkedPeople?: readonly TopicGraphUnlinkedPerson[];
   /** Wyspa hydratuje się z opóźnieniem; do tego czasu węzły nie są przyciskami. */
   isInteractive: boolean;
   onOpen: (difficultyId: string) => void;
-  /** Liczba kart osób tej perspektywy; `null` = karty osób wyłączone, zdanie o osobach bez tematów znika. */
-  peopleCardCount: number | null;
+  /** Otwiera kartę wyróżnionej osoby; bez tego zdanie pod mapą ma tylko „Pokaż wszystko”. */
+  onOpenPerson?: (personId: string) => void;
 }
 
 const RELATION_MAX_CHARS = 18;
@@ -28,16 +30,22 @@ function shortRelation(relation: string) {
 }
 
 /**
- * Czysty SVG bez zależności: „Ty” w środku, trudności w pierścieniu, osoby na
- * obwodzie (`buildTopicGraphLayout`). Węzły są przyciskami: trudność otwiera ten
+ * Czysty SVG bez zależności: „Ty” w środku, tematy w pierścieniu, osoby na
+ * obwodzie (`buildTopicGraphLayout`). Węzły są przyciskami: temat otwiera ten
  * sam dialog co lista, osoba wyróżnia swoje tematy. Strzałki przechodzą między
  * węzłami, Enter i spacja aktywują. Lista obok jest równoważnym widokiem, więc
  * graf nie musi opisywać krawędzi w tekście. Same tokeny motywu, żadnych
  * twardych kolorów; kontener przewija się w bok, ciało strony nigdy.
  */
-export default function TopicGraph({ cards, isInteractive, onOpen, peopleCardCount }: TopicGraphProps) {
+export default function TopicGraph({
+  cards,
+  unlinkedPeople = [],
+  isInteractive,
+  onOpen,
+  onOpenPerson,
+}: TopicGraphProps) {
   const copy = getTopicMapCopy(useLocale());
-  const layout = buildTopicGraphLayout(cards);
+  const layout = buildTopicGraphLayout(cards, unlinkedPeople);
   const [focusedPersonId, setFocusedPersonId] = useState<string | null>(null);
   const nodeRefs = useRef(new Map<string, SVGGElement>());
   const focusedPerson = focusedPersonId ? (layout.persons.find((node) => node.id === focusedPersonId) ?? null) : null;
@@ -45,7 +53,6 @@ export default function TopicGraph({ cards, isInteractive, onOpen, peopleCardCou
     ...layout.difficulties.map((node) => node.id),
     ...layout.persons.map((node) => `person:${node.id}`),
   ];
-  const unlinkedPeople = peopleCardCount === null ? 0 : Math.max(0, peopleCardCount - layout.persons.length);
   const labelById = new Map(layout.difficulties.map((node) => [node.id, node.label]));
 
   function registerNode(key: string) {
@@ -100,10 +107,12 @@ export default function TopicGraph({ cards, isInteractive, onOpen, peopleCardCou
       dimmed && "opacity-40",
     );
   const { difficultyWidth: w, difficultyHeight: h, personRadius: r, youRadius } = TOPIC_GRAPH;
+  const linkClass =
+    "text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2";
 
   return (
     <div data-topic-graph className="min-w-0">
-      {/* `contain: inline-size`: szerokość mapy nie rozpycha siatki panelu na telefonie — przewija się tylko ten kontener. */}
+      {/* `contain: inline-size`: szerokość mapy nie rozpycha siatki na telefonie — przewija się tylko ten kontener. */}
       <div className="overflow-x-auto overscroll-x-contain contain-inline-size">
         <svg
           role="group"
@@ -221,6 +230,7 @@ export default function TopicGraph({ cards, isInteractive, onOpen, peopleCardCou
                 aria-disabled={isInteractive ? undefined : true}
                 aria-pressed={isFocused}
                 aria-label={copy.personNodeSr(node.name)}
+                data-person-node={node.linked ? "linked" : "unlinked"}
                 transform={`translate(${node.x} ${node.y})`}
                 onClick={toggle}
                 onKeyDown={(event) => {
@@ -255,17 +265,30 @@ export default function TopicGraph({ cards, isInteractive, onOpen, peopleCardCou
       {focusedPerson ? (
         <p role="status" className="text-ink mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-6">
           <span>
-            {copy.personFocus(
-              focusedPerson.name,
-              focusedPerson.difficultyIds.map((id) => labelById.get(id) ?? "").join(", "),
-            )}
+            {focusedPerson.linked
+              ? copy.personFocus(
+                  focusedPerson.name,
+                  focusedPerson.difficultyIds.map((id) => labelById.get(id) ?? "").join(", "),
+                )
+              : copy.personNoTopics(focusedPerson.name)}
           </span>
+          {onOpenPerson ? (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenPerson(focusedPerson.id);
+              }}
+              className={linkClass}
+            >
+              {copy.openPersonCard}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
               setFocusedPersonId(null);
             }}
-            className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+            className={linkClass}
           >
             {copy.showAll}
           </button>
@@ -273,20 +296,9 @@ export default function TopicGraph({ cards, isInteractive, onOpen, peopleCardCou
       ) : null}
 
       <p className="text-ink-muted mt-3 text-xs leading-5">
-        {copy.legendTitle}: {copy.legendConfirmed} · {copy.legendSuggested} · {copy.legendArchived}
+        {copy.legendTitle}: {copy.legendConfirmed} · {copy.legendSuggested} · {copy.legendUnlinked} ·{" "}
+        {copy.legendArchived}
       </p>
-
-      {unlinkedPeople > 0 ? (
-        <p className="text-ink-muted mt-1 text-xs leading-5" data-topic-unlinked-people>
-          {copy.unlinkedPeople(unlinkedPeople)}{" "}
-          <a
-            href="#people-title"
-            className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-          >
-            {copy.peopleLink}
-          </a>
-        </p>
-      ) : null}
     </div>
   );
 }

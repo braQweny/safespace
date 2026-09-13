@@ -8,6 +8,7 @@ import { getAppHeaderCopy } from "@/components/app-header-copy";
 import { getAuthFormCopy } from "@/components/auth/auth-form-copy";
 import { getCrisisRegionListCopy } from "@/components/crisis-region-list-copy";
 import { getLocaleSwitchCopy } from "@/components/locale-switch-copy";
+import { getMemoryViewCopy } from "@/components/memory/memory-view-copy";
 import { getAvatarChoiceFormCopy } from "@/components/modality/avatar-choice-form-copy";
 import { getPeopleCardsCopy } from "@/components/people/people-cards-copy";
 import { getSessionHistoryCopy } from "@/components/modality/session-history-copy";
@@ -33,6 +34,7 @@ import { getAuthPagesCopy } from "@/lib/page-copy/auth-pages-copy";
 import { getAvatarPageCopy } from "@/lib/page-copy/avatar-page-copy";
 import { getDashboardCopy } from "@/lib/page-copy/dashboard-copy";
 import { getLayoutCopy } from "@/lib/page-copy/layout-copy";
+import { getMemoryPageCopy } from "@/lib/page-copy/memory-page-copy";
 import { getNotFoundCopy } from "@/lib/page-copy/not-found-copy";
 import { getPrivacyCopy } from "@/lib/page-copy/privacy-copy";
 import { getWelcomeCopy } from "@/lib/page-copy/welcome-copy";
@@ -96,6 +98,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "session-history-copy", read: getSessionHistoryCopy },
   { name: "people-cards-copy", read: getPeopleCardsCopy },
   { name: "topic-map-copy", read: getTopicMapCopy },
+  { name: "memory-view-copy", read: getMemoryViewCopy },
   { name: "session-summary-panel-copy", read: getSessionSummaryPanelCopy },
   { name: "crisis-help-copy", read: getCrisisHelpCopy },
   { name: "crisis-region-list-copy", read: getCrisisRegionListCopy },
@@ -108,6 +111,7 @@ export const COPY_CATALOGS: readonly CopyCatalog[] = [
   { name: "voice-session-copy", read: getVoiceSessionCopy },
   { name: "layout-copy", read: getLayoutCopy },
   { name: "dashboard-copy", read: getDashboardCopy },
+  { name: "memory-page-copy", read: getMemoryPageCopy },
   { name: "avatar-page-copy", read: getAvatarPageCopy },
   { name: "welcome-copy", read: getWelcomeCopy },
   { name: "privacy-copy", read: getPrivacyCopy },

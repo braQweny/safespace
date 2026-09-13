@@ -8,9 +8,11 @@ import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
  */
 interface Props {
   enabled: boolean;
+  /** W wierszu karty „Pamięć rozmów” etykietę niesie sam wiersz; legenda zostaje dla czytnika. */
+  hideLegend?: boolean;
 }
 
-const { enabled } = Astro.props;
+const { enabled, hideLegend = false } = Astro.props;
 const copy = getAccountPagesCopy(Astro.locals.locale).security.topicMap;
 const options = [
   { value: "1", label: copy.on, pressed: enabled },
@@ -20,8 +22,8 @@ const options = [
 
 <form method="POST" action="/api/profile/topic-map" data-topic-map-toggle>
   <fieldset class="m-0 min-w-0 border-0 p-0">
-    <legend class="text-ink-muted text-xs">{copy.toggleLegend}</legend>
-    <div class="border-line-strong mt-1.5 flex gap-0.5 rounded-xl border p-0.5">
+    <legend class:list={[hideLegend ? "sr-only" : "text-ink-muted text-xs"]}>{copy.toggleLegend}</legend>
+    <div class:list={["border-line-strong flex gap-0.5 rounded-xl border p-0.5", !hideLegend && "mt-1.5"]}>
       {
         options.map((option) => (
           <button

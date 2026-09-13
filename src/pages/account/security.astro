@@ -10,6 +10,7 @@ import {
   readOwnedPeopleMemoryEnabled,
   readOwnedTopicMapEnabled,
 } from "@/lib/session-data/repository";
+import { isMemorySettingsStatusCode, MEMORY_DELETE_SCOPES } from "@/lib/session-flow/memory-contract";
 import { isPeopleSettingsStatusCode } from "@/lib/session-flow/people-contract";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
 import { isTopicSettingsStatusCode } from "@/lib/session-flow/topic-map-contract";
@@ -62,12 +63,12 @@ let quota: SessionQuota | null = null;
 const voiceStartAvailable = isVoiceStartAvailable();
 let voiceQuota: VoiceQuota | null = null;
 let activeSession: ActiveSessionBadge | null = null;
-// Karty osób: przełącznik za flagą, ale usuwanie zapisów zawsze — jeśli jakieś
-// są, karta ustawień pokazuje się także przy wyłączonej fladze.
+// Pamięć rozmów: jedna karta na osoby i tematy. Każdy przełącznik jest za swoją
+// flagą, ale usuwanie zapisów działa zawsze — jeśli jakieś są, karta pokazuje
+// się także przy wyłączonych flagach.
 const peopleMemoryMode = isPeopleMemoryEnabled();
 let peopleMemoryEnabled: boolean | null = null;
 let hasPeopleRows = false;
-// Mapa tematów: ta sama zasada, osobna flaga, osobna preferencja i osobna karta.
 const topicMapMode = isTopicMapEnabled();
 let topicMapEnabled: boolean | null = null;
 let hasDifficultyRows = false;
@@ -94,16 +95,28 @@ if (sessionContext.ok) {
 const support = getSupportContact();
 const localeCopy = getLocaleSwitchCopy(locale);
 const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDurationSeconds(quota?.plan));
+const memoryCopy = copy.memory;
 const peopleCopy = copy.peopleMemory;
-const showsPeopleCard = peopleMemoryMode || hasPeopleRows;
+const topicCopy = copy.topicMap;
+// Wiersz osób i wiersz tematów mają własne przełączniki (za flagą) i własne
+// statusy z tras preferencji; usuwanie ma jeden formularz i jeden status.
+const showsPeopleRow = peopleMemoryMode || hasPeopleRows;
+const showsTopicRow = topicMapMode || hasDifficultyRows;
+const showsMemoryCard = showsPeopleRow || showsTopicRow;
 const peopleStatus = Astro.url.searchParams.get("people");
 const peopleStatusMessage = isPeopleSettingsStatusCode(peopleStatus) ? peopleCopy.status[peopleStatus] : null;
-const peopleStatusIsError = peopleStatus !== "saved" && peopleStatus !== "deleted";
-const topicCopy = copy.topicMap;
-const showsTopicCard = topicMapMode || hasDifficultyRows;
+const peopleStatusIsError = peopleStatus !== "saved";
 const topicStatus = Astro.url.searchParams.get("topics");
 const topicStatusMessage = isTopicSettingsStatusCode(topicStatus) ? topicCopy.status[topicStatus] : null;
-const topicStatusIsError = topicStatus !== "saved" && topicStatus !== "deleted";
+const topicStatusIsError = topicStatus !== "saved";
+const memoryStatus = Astro.url.searchParams.get("memory");
+const memoryStatusMessage = isMemorySettingsStatusCode(memoryStatus) ? memoryCopy.status[memoryStatus] : null;
+const memoryStatusIsError = !memoryStatus?.startsWith("deleted");
+const deleteScopes = [
+  { value: MEMORY_DELETE_SCOPES[0], label: memoryCopy.scopePeople, shown: showsPeopleRow },
+  { value: MEMORY_DELETE_SCOPES[1], label: memoryCopy.scopeTopics, shown: showsTopicRow },
+  { value: MEMORY_DELETE_SCOPES[2], label: memoryCopy.scopeAll, shown: showsPeopleRow && showsTopicRow },
+].filter((scope) => scope.shown);
 ---
 
 <Layout title={copy.pageTitle}>
@@ -197,116 +210,149 @@ const topicStatusIsError = topicStatus !== "saved" && topicStatus !== "deleted";
         </div>
 
         {
-          showsPeopleCard ? (
+          showsMemoryCard ? (
             <div
               class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8"
-              id="people-memory"
-              data-account-people
+              id="memory"
+              data-account-memory
             >
-              <h2 class="text-ink text-lg font-semibold">{peopleCopy.title}</h2>
-              <p class="text-ink-muted mt-2 text-sm leading-6">
-                {peopleMemoryMode ? peopleCopy.intro : peopleCopy.modeOffIntro}
-              </p>
-              {peopleStatusMessage ? (
+              <h2 class="text-ink text-lg font-semibold">{memoryCopy.title}</h2>
+              <p class="text-ink-muted mt-2 text-sm leading-6">{memoryCopy.intro}</p>
+              {memoryStatusMessage ? (
                 <p
-                  role={peopleStatusIsError ? "alert" : "status"}
+                  role={memoryStatusIsError ? "alert" : "status"}
                   class:list={[
                     "mt-3 rounded-xl p-3.5 text-sm leading-6",
-                    peopleStatusIsError
+                    memoryStatusIsError
                       ? "border-danger-line bg-danger-soft text-danger border"
                       : "bg-brand-tint text-brand-deep",
                   ]}
                 >
-                  {peopleStatusMessage}
+                  {memoryStatusMessage}
                 </p>
               ) : null}
-              {peopleMemoryMode ? (
-                peopleMemoryEnabled === null ? (
-                  <p class="text-ink-muted mt-3 text-sm leading-6">{peopleCopy.readFailed}</p>
-                ) : (
-                  <>
-                    <div class="mt-4 max-w-xs">
-                      <PeopleMemoryToggle enabled={peopleMemoryEnabled} />
-                    </div>
-                    <p class="text-ink-muted mt-3 text-sm leading-6">{peopleCopy.effects}</p>
-                  </>
-                )
-              ) : null}
-              {/* Potwierdzenie bez JS: wymagane pole wyboru w natywnym formularzu. */}
-              <details class="mt-5">
-                <summary class="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-11 cursor-pointer items-center rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
-                  {peopleCopy.deleteAllSummary}
-                </summary>
-                <form method="POST" action="/api/session/people/delete-all" class="mt-3" data-people-delete-all>
-                  <p class="text-ink-muted text-sm leading-6">{peopleCopy.deleteAllBody}</p>
-                  <label class="text-ink mt-3 flex items-start gap-2 text-sm leading-6">
-                    <input type="checkbox" name="confirm" value="1" required class="mt-1 h-4 w-4 shrink-0" />
-                    <span>{peopleCopy.deleteAllConfirmLabel}</span>
-                  </label>
-                  <button
-                    type="submit"
-                    class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong mt-4 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-                  >
-                    {peopleCopy.deleteAllSubmit}
-                  </button>
-                </form>
-              </details>
-            </div>
-          ) : null
-        }
 
-        {
-          showsTopicCard ? (
-            <div
-              class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8"
-              id="topic-map"
-              data-account-topics
-            >
-              <h2 class="text-ink text-lg font-semibold">{topicCopy.title}</h2>
-              <p class="text-ink-muted mt-2 text-sm leading-6">
-                {topicMapMode ? topicCopy.intro : topicCopy.modeOffIntro}
-              </p>
-              {topicStatusMessage ? (
-                <p
-                  role={topicStatusIsError ? "alert" : "status"}
-                  class:list={[
-                    "mt-3 rounded-xl p-3.5 text-sm leading-6",
-                    topicStatusIsError
-                      ? "border-danger-line bg-danger-soft text-danger border"
-                      : "bg-brand-tint text-brand-deep",
-                  ]}
-                >
-                  {topicStatusMessage}
-                </p>
-              ) : null}
-              {topicMapMode ? (
-                topicMapEnabled === null ? (
-                  <p class="text-ink-muted mt-3 text-sm leading-6">{topicCopy.readFailed}</p>
-                ) : (
-                  <>
-                    <div class="mt-4 max-w-xs">
-                      <TopicMapToggle enabled={topicMapEnabled} />
+              <div class="mt-5 flex flex-col">
+                {/* Jeden wiersz na część: etykieta i jedno zdanie po lewej, przełącznik po prawej. */}
+                {showsPeopleRow ? (
+                  <div
+                    class="border-line flex flex-col gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between"
+                    id="people-memory"
+                    data-account-people
+                  >
+                    <div class="min-w-0">
+                      <p class="text-ink text-[15px] leading-6 font-semibold">{memoryCopy.peopleLabel}</p>
+                      <p class="text-ink-muted text-[13px] leading-5">{memoryCopy.peopleHint}</p>
+                      {peopleStatusMessage ? (
+                        <p
+                          role={peopleStatusIsError ? "alert" : "status"}
+                          class:list={[
+                            "mt-2 rounded-xl p-3 text-sm leading-6",
+                            peopleStatusIsError
+                              ? "border-danger-line bg-danger-soft text-danger border"
+                              : "bg-brand-tint text-brand-deep",
+                          ]}
+                        >
+                          {peopleStatusMessage}
+                        </p>
+                      ) : null}
+                      {!peopleMemoryMode ? (
+                        <p class="text-ink-muted mt-2 text-sm leading-6">{memoryCopy.modeOffIntro}</p>
+                      ) : peopleMemoryEnabled === null ? (
+                        <p class="text-ink-muted mt-2 text-sm leading-6">{peopleCopy.readFailed}</p>
+                      ) : (
+                        <p class="text-ink-muted mt-2 text-sm leading-6">{peopleCopy.effects}</p>
+                      )}
                     </div>
-                    <p class="text-ink-muted mt-3 text-sm leading-6">{topicCopy.effects}</p>
-                  </>
-                )
-              ) : null}
-              {/* Potwierdzenie bez JS: wymagane pole wyboru w natywnym formularzu. */}
-              <details class="mt-5">
+                    {peopleMemoryMode && peopleMemoryEnabled !== null ? (
+                      <div class="w-full shrink-0 sm:w-56">
+                        <PeopleMemoryToggle enabled={peopleMemoryEnabled} hideLegend />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {showsTopicRow ? (
+                  <div
+                    class="border-line flex flex-col gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between"
+                    id="topic-map"
+                    data-account-topics
+                  >
+                    <div class="min-w-0">
+                      <p class="text-ink text-[15px] leading-6 font-semibold">{memoryCopy.topicsLabel}</p>
+                      <p class="text-ink-muted text-[13px] leading-5">{memoryCopy.topicsHint}</p>
+                      {topicStatusMessage ? (
+                        <p
+                          role={topicStatusIsError ? "alert" : "status"}
+                          class:list={[
+                            "mt-2 rounded-xl p-3 text-sm leading-6",
+                            topicStatusIsError
+                              ? "border-danger-line bg-danger-soft text-danger border"
+                              : "bg-brand-tint text-brand-deep",
+                          ]}
+                        >
+                          {topicStatusMessage}
+                        </p>
+                      ) : null}
+                      {!topicMapMode ? (
+                        <p class="text-ink-muted mt-2 text-sm leading-6">{memoryCopy.modeOffIntro}</p>
+                      ) : topicMapEnabled === null ? (
+                        <p class="text-ink-muted mt-2 text-sm leading-6">{topicCopy.readFailed}</p>
+                      ) : (
+                        <p class="text-ink-muted mt-2 text-sm leading-6">{topicCopy.effects}</p>
+                      )}
+                    </div>
+                    {topicMapMode && topicMapEnabled !== null ? (
+                      <div class="w-full shrink-0 sm:w-56">
+                        <TopicMapToggle enabled={topicMapEnabled} hideLegend />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div class="border-line border-t" />
+              </div>
+
+              <a
+                href="/dashboard/memory"
+                class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-3 inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
+              >
+                {memoryCopy.viewLink}
+              </a>
+
+              {/* Jedno usuwanie z wyborem zakresu; potwierdzenie bez JS jako wymagane pole wyboru. */}
+              <details class="mt-3">
                 <summary class="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-11 cursor-pointer items-center rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
-                  {topicCopy.deleteAllSummary}
+                  {memoryCopy.deleteSummary}
                 </summary>
-                <form method="POST" action="/api/session/topics/delete-all" class="mt-3" data-topics-delete-all>
-                  <p class="text-ink-muted text-sm leading-6">{topicCopy.deleteAllBody}</p>
+                <form method="POST" action="/api/session/memory/delete-all" class="mt-3" data-memory-delete-all>
+                  <p class="text-ink-muted text-sm leading-6">{memoryCopy.deleteBody}</p>
+                  <fieldset class="m-0 mt-3 min-w-0 border-0 p-0">
+                    <legend class="text-ink text-sm font-medium">{memoryCopy.scopeLegend}</legend>
+                    <div class="mt-2 flex flex-col gap-2">
+                      {deleteScopes.map((scope, index) => (
+                        <label class="text-ink flex min-h-8 items-center gap-2.5 text-sm leading-6">
+                          <input
+                            type="radio"
+                            name="scope"
+                            value={scope.value}
+                            required
+                            checked={index === deleteScopes.length - 1}
+                            class="h-4 w-4 shrink-0"
+                          />
+                          <span>{scope.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                   <label class="text-ink mt-3 flex items-start gap-2 text-sm leading-6">
                     <input type="checkbox" name="confirm" value="1" required class="mt-1 h-4 w-4 shrink-0" />
-                    <span>{topicCopy.deleteAllConfirmLabel}</span>
+                    <span>{memoryCopy.deleteConfirmLabel}</span>
                   </label>
                   <button
                     type="submit"
                     class="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong mt-4 inline-flex h-12 items-center justify-center rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                   >
-                    {topicCopy.deleteAllSubmit}
+                    {memoryCopy.deleteSubmit}
                   </button>
                 </form>
               </details>

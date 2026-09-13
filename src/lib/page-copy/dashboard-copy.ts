@@ -1,5 +1,6 @@
 import { defineCopy } from "@/lib/i18n/copy";
 import type { Locale } from "@/lib/i18n/locale";
+import { plural } from "@/lib/i18n/plural";
 
 const DASHBOARD_COPY = defineCopy(
   {
@@ -21,17 +22,18 @@ const DASHBOARD_COPY = defineCopy(
       "A conversation with this perspective is in progress. Changing the perspective takes effect from the next conversation.",
     startStateFailed: "We couldn't read the conversation state. Refresh the dashboard in a moment.",
     startUnavailable: "Conversations are temporarily unavailable. Please try again in a moment.",
-    memorySummary: (firstName: string) => `See what ${firstName} remembers`,
-    memoryNote: "Before the next start we'll add the conversations this memory doesn't cover yet.",
+    memoryShortcut: (firstName: string) => `What ${firstName} remembers`,
+    memoryPeopleCount: (count: number) => plural("en", count, { one: "1 person", many: `${count} people` }),
+    memoryTopicCount: (count: number) => plural("en", count, { one: "1 topic", many: `${count} topics` }),
+    memoryPendingCount: (count: number) => `${count} to confirm`,
+    memoryEmpty: "Still empty; it fills in after conversations.",
+    memorySummaryOnly: "The summary of earlier conversations",
     firstStepsEyebrow: "Two steps to your first conversation",
     firstStepsTitle: "First, choose a perspective",
     firstStepsBody:
       "Five ways of listening. Choose who should listen and decide when to start. You can change the perspective before the next conversation.",
     choosePerspective: "Choose a perspective",
     budgetNote: (minutes: string) => `A conversation lasts up to ${minutes}. The clock starts only once it begins.`,
-    activeInProgress: "Conversation in progress",
-    remainingAbout: (minutes: number) => `About ${minutes} min left.`,
-    openTimed: "You have an open conversation with a time limit.",
     helpTitle: "If something urgent is happening",
   },
   {
@@ -50,17 +52,19 @@ const DASHBOARD_COPY = defineCopy(
       "Rozmowa z tą perspektywą jest w toku. Zmiana perspektywy zadziała dopiero od następnej rozmowy.",
     startStateFailed: "Nie udało się odczytać stanu rozmowy. Odśwież panel za chwilę.",
     startUnavailable: "Rozmowa jest chwilowo niedostępna. Spróbuj ponownie za chwilę.",
-    memorySummary: (firstName) => `Zobacz, co ${firstName} pamięta`,
-    memoryNote: "Przed kolejnym startem uzupełnimy tę pamięć o rozmowy, których jeszcze nie obejmuje.",
+    memoryShortcut: (firstName) => `Co ${firstName} pamięta`,
+    memoryPeopleCount: (count) => plural("pl", count, { one: "1 osoba", few: `${count} osoby`, many: `${count} osób` }),
+    memoryTopicCount: (count) =>
+      plural("pl", count, { one: "1 temat", few: `${count} tematy`, many: `${count} tematów` }),
+    memoryPendingCount: (count) => `${count} do potwierdzenia`,
+    memoryEmpty: "Jeszcze pusto; zapełni się po rozmowach.",
+    memorySummaryOnly: "Podsumowanie wcześniejszych rozmów",
     firstStepsEyebrow: "Dwa kroki do pierwszej rozmowy",
     firstStepsTitle: "Najpierw wybierz perspektywę",
     firstStepsBody:
       "Pięć sposobów słuchania. Wybierz, kto ma słuchać, i zdecyduj, kiedy zacząć. Perspektywę możesz zmienić przed następną rozmową.",
     choosePerspective: "Wybierz perspektywę",
     budgetNote: (minutes) => `Rozmowa potrwa do ${minutes}. Czas zacznie biec dopiero po jej rozpoczęciu.`,
-    activeInProgress: "Rozmowa w toku",
-    remainingAbout: (minutes) => `Zostało jeszcze około ${minutes} min.`,
-    openTimed: "Masz otwartą rozmowę z limitem czasu.",
     helpTitle: "Gdyby działo się coś pilnego",
   },
 );

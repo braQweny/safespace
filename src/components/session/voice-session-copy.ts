@@ -10,10 +10,10 @@ import type { Locale } from "@/lib/i18n/locale";
 const VOICE_SESSION_COPY = defineCopy(
   {
     introTitle: (name: string) => `${name} is listening once the microphone is on`,
-    introBody:
-      "This is a live conversation: the avatar listens and speaks at the same time, and you can interrupt at any moment. The audio goes straight to the model provider; SafeSpace keeps only the transcript, like a written conversation.",
+    introBody: (name: string) =>
+      `A live conversation: ${name} listens and speaks at the same time, and you can interrupt at any moment.`,
     introHint:
-      "The conversation clock has been running since the start. It's best to talk somewhere private: the microphone picks up everything around you.",
+      "The audio goes straight to the model provider; SafeSpace keeps only the transcript. The clock has been running since the start, so it's best to talk somewhere private.",
     enableMicrophone: "Turn on the microphone",
     requestingMicrophone: "Waiting for microphone permission…",
     connecting: "Connecting…",
@@ -57,10 +57,9 @@ const VOICE_SESSION_COPY = defineCopy(
   },
   {
     introTitle: (name) => `${name} słucha, gdy włączysz mikrofon`,
-    introBody:
-      "To rozmowa na żywo: awatar słucha i mówi jednocześnie, a Ty możesz mu przerwać w każdej chwili. Dźwięk płynie bezpośrednio do dostawcy modelu; SafeSpace zachowuje tylko zapis, jak w rozmowie pisanej.",
+    introBody: (name) => `Rozmowa na żywo: ${name} słucha i mówi jednocześnie, a Ty możesz przerwać w każdej chwili.`,
     introHint:
-      "Czas rozmowy biegnie od jej rozpoczęcia. Najlepiej rozmawiać w ustronnym miejscu: mikrofon zbiera wszystko dookoła.",
+      "Dźwięk płynie bezpośrednio do dostawcy modelu; SafeSpace zachowuje tylko zapis. Czas biegnie od rozpoczęcia, więc najlepiej rozmawiać w ustronnym miejscu.",
     enableMicrophone: "Włącz mikrofon",
     requestingMicrophone: "Czekamy na zgodę na mikrofon…",
     connecting: "Łączenie…",

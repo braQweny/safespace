@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ok, sessionDataError } from "@/lib/session-data/errors";
+import { ok } from "@/lib/session-data/errors";
 
 const {
   requireSessionRouteAccess,
@@ -10,7 +10,6 @@ const {
   updatePersonFact,
   deletePersonFact,
   forgetPersonCard,
-  disableAndDeleteOwnedPeopleMemory,
 } = vi.hoisted(() => ({
   requireSessionRouteAccess: vi.fn(),
   isPeopleMemoryEnabled: vi.fn(() => true),
@@ -19,7 +18,6 @@ const {
   updatePersonFact: vi.fn(),
   deletePersonFact: vi.fn(),
   forgetPersonCard: vi.fn(),
-  disableAndDeleteOwnedPeopleMemory: vi.fn(),
 }));
 vi.mock("@/lib/session-flow/route-access", () => ({ requireSessionRouteAccess }));
 vi.mock("@/lib/session-flow/people-memory-mode", () => ({ isPeopleMemoryEnabled }));
@@ -30,21 +28,14 @@ vi.mock("@/lib/session-flow/people-cards", () => ({
   deletePersonFact,
   forgetPersonCard,
 }));
-vi.mock("@/lib/session-data/repository", () => ({ disableAndDeleteOwnedPeopleMemory }));
 
-const [
-  { GET },
-  { PATCH: PATCH_PERSON },
-  { POST: FORGET },
-  { PATCH: PATCH_FACT, DELETE: DELETE_FACT },
-  { POST: DELETE_ALL },
-] = await Promise.all([
-  import("@/pages/api/session/people/index"),
-  import("@/pages/api/session/people/[personId]"),
-  import("@/pages/api/session/people/[personId]/forget"),
-  import("@/pages/api/session/people/[personId]/facts/[factId]"),
-  import("@/pages/api/session/people/delete-all"),
-]);
+const [{ GET }, { PATCH: PATCH_PERSON }, { POST: FORGET }, { PATCH: PATCH_FACT, DELETE: DELETE_FACT }] =
+  await Promise.all([
+    import("@/pages/api/session/people/index"),
+    import("@/pages/api/session/people/[personId]"),
+    import("@/pages/api/session/people/[personId]/forget"),
+    import("@/pages/api/session/people/[personId]/facts/[factId]"),
+  ]);
 
 const PERSON_ID = "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a";
 const FACT_ID = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
@@ -81,7 +72,6 @@ beforeEach(() => {
   updatePersonFact.mockResolvedValue({ ok: true, type: "person_updated", card });
   deletePersonFact.mockResolvedValue({ ok: true, type: "person_fact_deleted", personId: PERSON_ID, card });
   forgetPersonCard.mockResolvedValue({ ok: true, type: "person_forgotten", personId: PERSON_ID });
-  disableAndDeleteOwnedPeopleMemory.mockResolvedValue(ok(true));
 });
 
 describe("GET /api/session/people", () => {
@@ -176,46 +166,5 @@ describe("/api/session/people/[personId]/facts/[factId]", () => {
     deletePersonFact.mockResolvedValue({ ok: true, type: "person_fact_deleted", personId: "other", card: null });
     expect((await DELETE_FACT(context({ method: "DELETE" }))).status).toBe(404);
     expect((await DELETE_FACT(context({ method: "DELETE", params: { factId: "x" } }))).status).toBe(404);
-  });
-});
-
-describe("POST /api/session/people/delete-all", () => {
-  function form(fields: Record<string, string>) {
-    const body = new FormData();
-    for (const [key, value] of Object.entries(fields)) body.append(key, value);
-    return body;
-  }
-
-  it("requires the confirmation box, then disables and deletes everything", async () => {
-    const unconfirmed = await DELETE_ALL(context({ method: "POST", body: form({}) }));
-    expect(unconfirmed.headers.get("Location")).toBe(
-      "/account/security?people=delete_confirmation_required#people-memory",
-    );
-    expect(disableAndDeleteOwnedPeopleMemory).not.toHaveBeenCalled();
-    const confirmed = await DELETE_ALL(context({ method: "POST", body: form({ confirm: "1" }) }));
-    expect(confirmed.status).toBe(303);
-    expect(confirmed.headers.get("Location")).toBe("/account/security?people=deleted#people-memory");
-    disableAndDeleteOwnedPeopleMemory.mockResolvedValue(sessionDataError("write_failed"));
-    expect((await DELETE_ALL(context({ method: "POST", body: form({ confirm: "1" }) }))).headers.get("Location")).toBe(
-      "/account/security?people=delete_failed#people-memory",
-    );
-  });
-
-  it("sends a signed-out owner to sign-in and a blocked account to its page", async () => {
-    requireSessionRouteAccess.mockResolvedValue({
-      ok: false,
-      error: { code: "missing_auth", status: 401, source: "session_context" },
-    });
-    expect((await DELETE_ALL(context({ method: "POST", body: form({ confirm: "1" }) }))).headers.get("Location")).toBe(
-      "/auth/signin",
-    );
-    requireSessionRouteAccess.mockResolvedValue({
-      ok: false,
-      error: { code: "account_blocked", status: 403, source: "account_access" },
-    });
-    expect((await DELETE_ALL(context({ method: "POST", body: form({ confirm: "1" }) }))).headers.get("Location")).toBe(
-      "/account/blocked",
-    );
-    expect(disableAndDeleteOwnedPeopleMemory).not.toHaveBeenCalled();
   });
 });

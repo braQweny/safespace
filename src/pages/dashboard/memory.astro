@@ -1,0 +1,133 @@
+---
+import AppHeader from "@/components/AppHeader.astro";
+import MemoryView from "@/components/memory/MemoryView";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Layout from "@/layouts/Layout.astro";
+import { getMemoryPageCopy } from "@/lib/page-copy/memory-page-copy";
+import { getSessionDataContext } from "@/lib/session-data/auth";
+import {
+  getOwnedAvatarMemoryPreview,
+  listOwnedDifficultyCards,
+  listOwnedPersonCards,
+  readOwnedPeopleMemoryEnabled,
+  readOwnedTopicMapEnabled,
+} from "@/lib/session-data/repository";
+import { readActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
+import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
+import { isTopicMapEnabled } from "@/lib/session-flow/topic-map-mode";
+
+// Jedno miejsce na to, co awatar pamięta z rozmów: osoby, tematy i podsumowanie
+// zapisanej perspektywy. Panel wraca do startu i historii, a tu zostaje
+// wszystko, co da się poprawić, scalić albo usunąć. Bez perspektywy nie ma czego
+// pokazać, więc strona wraca na panel, gdzie stoi wybór.
+const locale = Astro.locals.locale;
+const copy = getMemoryPageCopy(locale);
+const sessionContext = getSessionDataContext(Astro);
+
+if (!sessionContext.ok) {
+  return Astro.redirect("/dashboard");
+}
+
+const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
+
+if (!avatarChoice.ok) {
+  return Astro.redirect("/dashboard");
+}
+
+const selection = avatarChoice.data.selected;
+const peopleMemoryMode = isPeopleMemoryEnabled();
+const topicMapMode = isTopicMapEnabled();
+
+// Żaden z tych odczytów nie zależy od pozostałych: jedna runda do bazy.
+const [personCardsResult, peoplePreference, difficultyCardsResult, topicPreference, memoryPreview, activeSession] =
+  await Promise.all([
+    peopleMemoryMode ? listOwnedPersonCards(sessionContext.data, selection.avatarId) : null,
+    peopleMemoryMode ? readOwnedPeopleMemoryEnabled(sessionContext.data) : null,
+    topicMapMode ? listOwnedDifficultyCards(sessionContext.data, selection.avatarId) : null,
+    topicMapMode ? readOwnedTopicMapEnabled(sessionContext.data) : null,
+    getOwnedAvatarMemoryPreview(sessionContext.data, selection.avatarId),
+    readActiveSessionBadge(sessionContext.data),
+  ]);
+
+// `null` = odczyt padł, nie „brak kart”; nieudany odczyt preferencji nie chowa części.
+const personCards = personCardsResult ? (personCardsResult.ok ? personCardsResult.data : null) : null;
+const difficultyCards = difficultyCardsResult ? (difficultyCardsResult.ok ? difficultyCardsResult.data : null) : null;
+const peopleMemoryEnabled = peoplePreference?.ok ? peoplePreference.data : true;
+const topicMapEnabled = topicPreference?.ok ? topicPreference.data : true;
+// „Wróć do rozmowy o tej osobie” ma sens tylko dla rozmowy tej samej perspektywy.
+const resumeSessionId = activeSession?.avatarId === selection.avatarId ? activeSession.sessionId : null;
+const firstName = selection.avatarFirstName;
+---
+
+<Layout title={copy.pageTitle(firstName)}>
+  <div class="bg-paper text-ink flex min-h-screen flex-col">
+    <AppHeader activeSession={activeSession} />
+
+    <main class="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <section class="mx-auto max-w-6xl">
+        <a
+          href="/dashboard"
+          class="text-brand hover:text-brand-strong focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium transition-colors hover:underline focus:outline-none focus-visible:ring-2"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="mr-1.5 h-4 w-4"
+          >
+            <path d="M19 12H5M11 18l-6-6 6-6"></path>
+          </svg>
+          {copy.back}
+        </a>
+
+        <div class="mt-1 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="min-w-0">
+            <h1 class="text-ink text-4xl leading-tight">{copy.title(firstName)}</h1>
+            <p class="text-ink-muted mt-2 max-w-3xl text-[17px] leading-7">{copy.intro(firstName)}</p>
+          </div>
+          <a
+            href="/account/security#memory"
+            class="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 sm:self-auto"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-brand h-4 w-4"
+            >
+              <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"></path>
+            </svg>
+            {copy.settings}
+          </a>
+        </div>
+
+        <div class="mt-6">
+          <MemoryView
+            client:load
+            locale={locale}
+            avatar={selection}
+            peopleMemoryMode={peopleMemoryMode}
+            topicMapMode={topicMapMode}
+            initialPersonCards={personCards}
+            initialDifficultyCards={difficultyCards}
+            peopleMemoryEnabled={peopleMemoryEnabled}
+            topicMapEnabled={topicMapEnabled}
+            resumeSessionId={resumeSessionId}
+            memoryPreview={memoryPreview.ok ? memoryPreview.data : null}
+          />
+        </div>
+      </section>
+    </main>
+
+    <SiteFooter />
+  </div>
+</Layout>

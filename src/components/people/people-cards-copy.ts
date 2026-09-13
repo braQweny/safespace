@@ -5,14 +5,11 @@ import type { PeopleFailureCode } from "@/lib/session-flow/people-contract";
 import type { PeopleFactKind } from "@/lib/session-summary/people-memory-budget";
 
 /**
- * Teksty sekcji „Osoby z Twoich rozmów”. Imion użytkownika nie odmieniamy:
+ * Teksty kart osób w widoku „Co pamięta”. Imion użytkownika nie odmieniamy:
  * stoją w mianowniku po dwukropku albo w nagłówku, bo forma „o Marcie” nie
  * wynika z zapisu.
  */
 interface PeopleCardsCopy {
-  title: string;
-  intro: (firstName: string) => string;
-  empty: (firstName: string) => string;
   disabled: string;
   disabledWithCards: string;
   settingsLink: string;
@@ -65,14 +62,10 @@ interface PeopleCardsCopy {
 
 const PEOPLE_CARDS_COPY = defineCopy<PeopleCardsCopy>(
   {
-    title: "People from your conversations",
-    intro: (firstName) =>
-      `${firstName} remembers who the people you mention are to you. You can correct any card or ask to forget a person.`,
-    empty: (firstName) => `Once you mention someone, ${firstName} will remember who that person is to you.`,
     disabled: "Remembering people from conversations is switched off.",
     disabledWithCards: "Remembering people is switched off. The cards below stay until you delete them.",
     settingsLink: "Settings",
-    readFailed: "We couldn't read the people cards. Refresh the dashboard in a moment.",
+    readFailed: "We couldn't read the people cards. Refresh the page in a moment.",
     openCardSr: (name) => `Open the card: ${name}.`,
     mentions: (count) => plural("en", count, { one: "1 conversation", many: `${count} conversations` }),
     mentionsTitle: "How many earlier conversations mentioned this person",
@@ -141,14 +134,10 @@ const PEOPLE_CARDS_COPY = defineCopy<PeopleCardsCopy>(
     },
   },
   {
-    title: "Osoby z Twoich rozmów",
-    intro: (firstName) =>
-      `${firstName} zapamiętuje, kim są dla Ciebie osoby, o których wspominasz. Każdą kartę możesz poprawić albo poprosić o zapomnienie.`,
-    empty: (firstName) => `Gdy wspomnisz o kimś, ${firstName} zapamięta, kim ta osoba jest dla Ciebie.`,
     disabled: "Zapamiętywanie osób z rozmów jest wyłączone.",
     disabledWithCards: "Zapamiętywanie osób jest wyłączone. Poniższe karty zostają, dopóki ich nie usuniesz.",
     settingsLink: "Ustawienia",
-    readFailed: "Nie udało się odczytać kart osób. Odśwież panel za chwilę.",
+    readFailed: "Nie udało się odczytać kart osób. Odśwież stronę za chwilę.",
     openCardSr: (name) => `Otwórz kartę: ${name}.`,
     mentions: (count) => plural("pl", count, { one: "1 rozmowa", few: `${count} rozmowy`, many: `${count} rozmów` }),
     mentionsTitle: "W ilu wcześniejszych rozmowach pojawiła się ta osoba",

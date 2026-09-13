@@ -245,7 +245,7 @@ function VoiceSessionView({
                   <h2 className="text-ink font-serif text-2xl leading-tight font-medium sm:text-[28px]">
                     {copy.introTitle(avatarFirstName)}
                   </h2>
-                  <p className="text-ink-soft mt-2 text-base leading-7">{copy.introBody}</p>
+                  <p className="text-ink-soft mt-2 text-base leading-7">{copy.introBody(avatarFirstName)}</p>
                 </div>
               </div>
 

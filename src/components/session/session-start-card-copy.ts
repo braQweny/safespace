@@ -16,17 +16,21 @@ const SESSION_START_CARD_COPY = defineCopy(
     readingHistory: (name: string) =>
       `${name} is reading your earlier conversations. The conversation clock hasn't started yet; with a longer history this can take up to a minute.`,
     redirecting: "You'll be taken to the conversation screen in a moment.",
-    followupIntro: (name: string) =>
-      `${name} will take your earlier conversations into account. Opening the dashboard alone doesn't use up a trial or any time.`,
+    followupIntro: (name: string) => `${name} will take your earlier conversations into account.`,
     firstIntro:
       "The first conversation starts with whatever you want to bring up today. Opening the dashboard alone doesn't use up a trial or any time.",
     howItWorks: "How it works",
+    modeLegend: "Conversation type",
+    modeText: "Written",
+    modeVoice: "Voice",
     startVoice: "Start a voice conversation",
     startVoiceTrial: (minutes: string) => `Try a voice conversation (${minutes})`,
     preparingVoice: "Preparing the voice conversation…",
-    voiceIntro:
-      "You talk out loud and the avatar answers in a voice. The audio goes straight to the model provider; SafeSpace keeps the transcript like a written conversation.",
-    voiceTrialIntro: "One try, up to ten minutes. Deleting the conversation does not restore it.",
+    voiceIntro: (name: string) =>
+      `You talk out loud and ${name} answers in a voice. The audio goes straight to the model provider; SafeSpace keeps the transcript like a written conversation.`,
+    voiceTrialBudget: (minutes: string) => `One try, up to ${minutes}`,
+    voiceTrialNote: "Deleting the conversation does not restore it.",
+    voiceLimitHint: "A voice conversation has its own allowance: switch to “Voice” above.",
     voiceUnsupported: "A voice conversation needs a browser with a microphone and WebRTC support.",
     voiceUnavailable: "Voice conversations are unavailable right now.",
     voiceTrialUsedLink: "See the account plan",
@@ -55,17 +59,21 @@ const SESSION_START_CARD_COPY = defineCopy(
     readingHistory: (name) =>
       `${name} czyta wasze wcześniejsze rozmowy. Czas rozmowy jeszcze nie biegnie; przy dłuższej historii może to potrwać do minuty.`,
     redirecting: "Za chwilę przejdziesz do ekranu rozmowy.",
-    followupIntro: (name) =>
-      `${name} uwzględni wasze wcześniejsze rozmowy. Samo otwarcie panelu nie zużywa próby ani czasu.`,
+    followupIntro: (name) => `${name} uwzględni wasze wcześniejsze rozmowy.`,
     firstIntro:
       "Pierwsza rozmowa zaczyna się od tego, co chcesz dziś poruszyć. Samo otwarcie panelu nie zużywa próby ani czasu.",
     howItWorks: "Jak to działa",
+    modeLegend: "Rodzaj rozmowy",
+    modeText: "Pisana",
+    modeVoice: "Głosowa",
     startVoice: "Rozpocznij rozmowę głosową",
     startVoiceTrial: (minutes) => `Wypróbuj rozmowę głosową (${minutes})`,
     preparingVoice: "Przygotowujemy rozmowę głosową…",
-    voiceIntro:
-      "Mówisz na głos, a awatar odpowiada głosem. Dźwięk płynie bezpośrednio do dostawcy modelu; SafeSpace zachowuje zapis jak w rozmowie pisanej.",
-    voiceTrialIntro: "Jedna próba, do dziesięciu minut. Usunięcie rozmowy jej nie przywraca.",
+    voiceIntro: (name) =>
+      `Mówisz na głos, a ${name} odpowiada głosem. Dźwięk płynie bezpośrednio do dostawcy modelu; SafeSpace zachowuje zapis jak w rozmowie pisanej.`,
+    voiceTrialBudget: (minutes) => `Jedna próba, do ${minutes}`,
+    voiceTrialNote: "Usunięcie rozmowy jej nie przywraca.",
+    voiceLimitHint: "Rozmowa głosowa ma osobną pulę: przełącz wyżej na „Głosowa”.",
     voiceUnsupported: "Rozmowa głosowa wymaga przeglądarki z mikrofonem i obsługą WebRTC.",
     voiceUnavailable: "Rozmowa głosowa jest teraz niedostępna.",
     voiceTrialUsedLink: "Zobacz plan konta",

@@ -53,6 +53,15 @@ export interface TopicGraphPersonNode {
   x: number;
   y: number;
   difficultyIds: string[];
+  /** `false` dla osoby z kart bez żadnego powiązania: stoi na obwodzie bez linii. */
+  linked: boolean;
+}
+
+/** Osoba z kart, której nie łączy z tematami żadna krawędź; mapa i tak ją pokazuje. */
+export interface TopicGraphUnlinkedPerson {
+  id: string;
+  name: string;
+  relation: string | null;
 }
 
 export interface TopicGraphEdge {
@@ -147,7 +156,16 @@ function spreadAngles(angles: number[], minSeparation: number) {
   return spread;
 }
 
-export function buildTopicGraphLayout(cards: readonly DifficultyCard[]): TopicGraphLayout {
+/**
+ * `unlinkedPeople` to karty osób bez powiązania z żadnym tematem: dostają
+ * miejsce na tym samym obwodzie, bez krawędzi, rozłożone równo od dołu mapy,
+ * a potem rozsuwane razem z osobami powiązanymi. Dzięki temu widok pamięci
+ * pokazuje wszystkie osoby w jednym obrazie, bez zdania „N osób bez tematów”.
+ */
+export function buildTopicGraphLayout(
+  cards: readonly DifficultyCard[],
+  unlinkedPeople: readonly TopicGraphUnlinkedPerson[] = [],
+): TopicGraphLayout {
   const ordered = sortCardsForGraph(cards);
   const count = ordered.length;
   const innerRadius = Math.max(
@@ -187,12 +205,33 @@ export function buildTopicGraphLayout(cards: readonly DifficultyCard[]): TopicGr
     }
   }
 
-  const personCount = personDrafts.size;
+  // Osoby bez powiązań: deterministycznie po imieniu i id, bez duplikatów i bez
+  // tych, które i tak stoją na mapie dzięki krawędzi.
+  const seenUnlinked = new Set<string>();
+  const extras = unlinkedPeople
+    .filter((person) => {
+      if (personDrafts.has(person.id) || seenUnlinked.has(person.id)) return false;
+      seenUnlinked.add(person.id);
+      return true;
+    })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  const personCount = personDrafts.size + extras.length;
   const outerRadius = Math.max(innerRadius + TOPIC_GRAPH.ringGap, (personCount * TOPIC_GRAPH.personSlotWidth) / TWO_PI);
   const minSeparation = TOPIC_GRAPH.personSlotWidth / outerRadius;
-  const personsByAngle = [...personDrafts]
-    .map(([id, draft]) => ({ id, ...draft, angle: meanAngle(draft.angles) }))
-    .sort((a, b) => a.angle - b.angle || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const personsByAngle = [
+    ...[...personDrafts].map(([id, draft]) => ({ id, ...draft, angle: meanAngle(draft.angles), linked: true })),
+    // Równo po obwodzie od dołu mapy (godzina 6), z dala od pierwszej trudności na godzinie 12.
+    ...extras.map((person, index) => ({
+      id: person.id,
+      name: person.name,
+      relation: person.relation,
+      difficultyIds: [] as string[],
+      angles: [] as number[],
+      angle: normalizeAngle(Math.PI / 2 + (TWO_PI * index) / extras.length),
+      linked: false,
+    })),
+  ].sort((a, b) => a.angle - b.angle || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const spreadPersonAngles = spreadAngles(
     personsByAngle.map((person) => person.angle),
     minSeparation,
@@ -271,6 +310,7 @@ export function buildTopicGraphLayout(cards: readonly DifficultyCard[]): TopicGr
     x: round(personPoints[index].x + offsetX),
     y: round(personPoints[index].y + offsetY),
     difficultyIds: person.difficultyIds,
+    linked: person.linked,
   }));
 
   const difficultyById = new Map(difficulties.map((node) => [node.id, node]));

@@ -106,9 +106,9 @@ const DAYS = { one: "dzień", few: "dni", many: "dni" };
     awatarem. Przy przygotowaniu pamięci AI przetwarza zapis tych rozmów partiami — także w tle na ekranie zakończenia
     rozmowy i podczas pobytu w panelu. Do nowej rozmowy trafia skrócone podsumowanie, a nie pełne transkrypcje. Pamięć
     różnych awatarów jest rozdzielona. Podsumowanie może pomijać szczegóły lub zawierać błędy — możesz korygować je w
-    rozmowie. Aktualny zapis pamięci możesz przeczytać w panelu. Awatar, podsumowania i pamięć posługują się językiem
-    interfejsu wybranym w chwili rozmowy; po zmianie języka wcześniejsze zapisy zostają w języku, w którym powstały, a
-    pamięć może zostać przepisana w nowym.
+    rozmowie. Aktualny zapis pamięci przeczytasz w widoku „Co pamięta” (z panelu). Awatar, podsumowania i pamięć
+    posługują się językiem interfejsu wybranym w chwili rozmowy; po zmianie języka wcześniejsze zapisy zostają w języku,
+    w którym powstały, a pamięć może zostać przepisana w nowym.
   </p>
   {
     peopleMemory ? (
@@ -127,15 +127,15 @@ const DAYS = { one: "dzień", few: "dni", many: "dni" };
   {
     topicMap ? (
       <p class="text-ink-soft mt-3" data-topic-map>
-        Jeśli zostawisz włączoną „Mapę tematów”, awatar zapisuje też trudności, o których mówisz, że się z nimi
+        Jeśli zostawisz włączone „Zapisuj tematy z rozmów”, awatar zapisuje też tematy, z którymi mówisz, że się
         mierzysz: jak się objawiają, jak sobie z nimi radzisz, jak jest teraz, przy jakich osobach się pojawiają oraz
         propozycje z rozmów, Twoje postanowienia i to, jak poszło. Każdy wpis powstaje wyłącznie z Twoich słów —
         propozycja jest zapisana jako propozycja, nigdy jako zalecenie ani plan — i pokazuje rozmowy, z których
-        pochodzi. Nazwa trudności nie zawiera imion ani diagnoz; niepewne powiązanie z osobą czeka na Twoje
-        potwierdzenie. Możesz zmienić nazwę, poprawić lub usunąć wpis, odłączyć osobę, scalić dwie trudności w jedną,
-        oznaczyć trudność jako mniej aktualną albo usunąć ją w całości. Mapę wyłączysz — albo wyłączysz i usuniesz w
-        całości — w ustawieniach konta. Mapa jest osobna dla każdego awatara i powstaje u tego samego dostawcy AI na
-        tych samych zasadach zerowej retencji.
+        pochodzi. Nazwa tematu nie zawiera imion ani diagnoz; niepewne powiązanie z osobą czeka na Twoje potwierdzenie.
+        Możesz zmienić nazwę, poprawić lub usunąć wpis, odłączyć osobę, scalić dwa tematy w jeden, oznaczyć temat jako
+        mniej aktualny albo usunąć go w całości. Zapisywanie tematów wyłączysz — albo wyłączysz i usuniesz wszystkie
+        tematy — w ustawieniach konta. Tematy są osobne dla każdego awatara i powstają u tego samego dostawcy AI na tych
+        samych zasadach zerowej retencji.
       </p>
     ) : null
   }
@@ -204,9 +204,9 @@ const DAYS = { one: "dzień", few: "dni", many: "dni" };
     {
       topicMap ? (
         <li data-topic-map>
-          Usunięcie trudności z mapy tematów usuwa ją razem z wpisami i powiązaniami z osobami; usunięcie rozmowy usuwa
-          każdy wpis mapy, który z niej pochodził, a zapomnienie osoby usuwa wpisy zapisane przy tej osobie. W
-          ustawieniach konta usuniesz całą mapę naraz i wyłączysz tę funkcję.
+          Usunięcie tematu usuwa go razem z wpisami i powiązaniami z osobami; usunięcie rozmowy usuwa każdy wpis tematu,
+          który z niej pochodził, a zapomnienie osoby usuwa wpisy zapisane przy tej osobie. W ustawieniach konta
+          usuniesz wszystkie tematy naraz i wyłączysz tę funkcję.
         </li>
       ) : null
     }
