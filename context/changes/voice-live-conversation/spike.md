@@ -69,6 +69,8 @@ Odpowiedzi modelu (wybrane): „Cześć. Dobrze, że o tym mówisz. Mhm, słysz�
 
 ## Decyzje dla etapu 1
 
+- **Oferta SDP musi kończyć się terminatorem linii** (CRLF z Chrome): oferta bez końcowego CRLF daje 400 „Failed to parse offer: failed to unmarshal SDP: EOF”; LF-only z terminatorem przechodzi (sonda 2026-09-13). `parseVoiceSdpOffer` nie może przycinać końca oferty.
+
 - **Transport**: tylko WebRTC przez REST `POST /v1/live/sessions` (WS alfa niedostępna). Konfiguracja: `{ model: "gpt-live-1", store: false, instructions, audio: { output: { voice } }, delegation: { type: "responses", responses: { model, instructions, reasoning: { effort: "low" }, max_output_tokens } } }`.
 - **Sideband**: `wss://api.openai.com/v1/live/sessions/{id}/attach`, tylko `Authorization: Bearer`, bez nagłówka alfa; pierwsze zdarzenie to `session.started` z pełnym zasobem.
 - **Nazwy zdarzeń**: z prefiksem `session.` (`session.input_transcript.delta`, `session.output_transcript.delta`, `session.delegation.created`, `session.usage.updated`, `session.closed`, `session.input_audio.muted/unmuted`, `session.instructions.appended`); koperty `response.event`.

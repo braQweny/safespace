@@ -198,7 +198,8 @@ describe("POST /api/session/voice/connect", () => {
 
     const createCall = createLiveSession.mock.calls[0][0] as { apiKey: string; sdp: string };
     expect(createCall.apiKey).toBe("sk-test-key");
-    expect(createCall.sdp).toBe(OFFER.trimEnd());
+    // The offer reaches the provider with its final CRLF intact; a trimmed offer is a 400 there.
+    expect(createCall.sdp).toBe(OFFER);
     const config = lastLiveConfig();
     expect(config).toMatchObject({
       model: "gpt-live-1",

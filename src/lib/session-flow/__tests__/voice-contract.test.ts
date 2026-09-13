@@ -24,9 +24,13 @@ function request(body: string) {
 }
 
 describe("parseVoiceSdpOffer", () => {
-  it("accepts a trimmed WebRTC offer and rejects anything that is not one", () => {
-    expect(parseVoiceSdpOffer(`  ${OFFER}  `)).toBe(OFFER.trimEnd());
-    expect(parseVoiceSdpOffer("v=0")).toBe("v=0");
+  it("accepts a WebRTC offer, keeps its final line terminator and rejects anything that is not one", () => {
+    // Trimming used to eat the offer's trailing CRLF; the provider's SDP parser
+    // then rejected the whole offer (HTTP 400 "failed to unmarshal SDP: EOF").
+    expect(parseVoiceSdpOffer(`  ${OFFER}  `)).toBe(OFFER);
+    expect(parseVoiceSdpOffer(OFFER.trimEnd())).toBe(OFFER);
+    expect(parseVoiceSdpOffer("v=0\na=x\n")).toBe("v=0\na=x\n");
+    expect(parseVoiceSdpOffer("v=0")).toBe("v=0\n");
     for (const value of [undefined, null, 5, "", "   ", "o=- 1", "hello", `x${OFFER}`]) {
       expect(parseVoiceSdpOffer(value)).toBeNull();
     }
@@ -37,7 +41,7 @@ describe("parseVoiceSdpOffer", () => {
     const escape = String.fromCharCode(27);
     expect(parseVoiceSdpOffer(`v=0\r\na=x${nul}y`)).toBeNull();
     expect(parseVoiceSdpOffer(`v=0\n${escape}[31m`)).toBeNull();
-    expect(parseVoiceSdpOffer(`v=0\ta=tab`)).toBe("v=0\ta=tab");
+    expect(parseVoiceSdpOffer(`v=0\ta=tab`)).toBe("v=0\ta=tab\n");
     expect(parseVoiceSdpOffer(`v=0\r\n${"a=x\r\n".repeat(VOICE_SDP_MAX_CHARS / 5)}`)).toBeNull();
   });
 });
@@ -48,7 +52,7 @@ describe("parseVoiceConnectRequest", () => {
       parseVoiceConnectRequest(request(JSON.stringify({ sessionId: SESSION_ID, sdp: OFFER }))),
     ).resolves.toEqual({
       sessionId: SESSION_ID,
-      sdp: OFFER.trimEnd(),
+      sdp: OFFER,
     });
     for (const body of [
       "{",

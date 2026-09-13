@@ -343,7 +343,7 @@ Sekcja `#voice`, kontrakty w `CLAUDE.md` i README, E2E dla powierzchni anonimowy
 
 #### Manual
 
-- [ ] 2.5 npm run dev z bindingiem DO
+- [x] 2.5 npm run dev z bindingiem DO (2026-09-13: `astro dev` i build pod `wrangler dev`; po drodze naprawione ucinanie CRLF oferty SDP i schemat DO tworzony przed odczytem stanu — `verification.md`)
 
 ### Phase 3: Live Transport And Voice Instructions
 

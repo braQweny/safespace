@@ -29,10 +29,12 @@ export class VoiceSessionObserver extends DurableObject<VoiceObserverEnv> {
 
   constructor(ctx: DurableObjectState, env: VoiceObserverEnv) {
     super(ctx, env);
-    void ctx.blockConcurrencyWhile(() => {
-      initializeVoiceObserverSchema(ctx.storage.sql);
-      return Promise.resolve();
-    });
+    // Schemat synchronicznie i przed rdzeniem: `sql.exec` nie potrzebuje
+    // `blockConcurrencyWhile`, a rdzeń czyta `observer_state` już w swoim
+    // konstruktorze. Odroczony callback `blockConcurrencyWhile` (tak działa
+    // wrapper lokalnego runtime) dawał „no such table: observer_state” na
+    // pierwszym uzbrojeniu obiektu, czyli 503 `voice_observer_unavailable`.
+    initializeVoiceObserverSchema(ctx.storage.sql);
     const apiKey = env.OPENAI_API_KEY ?? "";
     this.core = new VoiceObserverCore(createSqlVoiceObserverStore(ctx.storage.sql), {
       openSideband: (liveSessionId) => openLiveSideband({ apiKey, liveSessionId }),

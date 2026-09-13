@@ -10,6 +10,20 @@ import { test, expect } from "@playwright/test";
  * conversations; once the flip commit lands, the page must describe them.
  */
 function readShippedVoiceFlag() {
+  // The build resolves `.dev.vars` over `wrangler.jsonc` (the platform proxy
+  // loads both), so a local override must win here too or a developer with
+  // the flag on in `.dev.vars` sees this spec fail on a correct build.
+  try {
+    const local = readFileSync(new URL("../../.dev.vars", import.meta.url), "utf8");
+    const override = /^\s*VOICE_SESSION_MODE\s*=\s*"?(\w+)"?/m.exec(local);
+
+    if (override) {
+      return override[1].toLowerCase() === "on";
+    }
+  } catch {
+    // No `.dev.vars` (CI, a fresh clone): the shipped configuration decides.
+  }
+
   const config = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
   return /"VOICE_SESSION_MODE":\s*"on"/.test(config);
 }

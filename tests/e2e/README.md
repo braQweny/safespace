@@ -12,7 +12,8 @@ sandbox purchase; the checklist is in `src/lib/billing/README.md`.
 visitor: the “Voice conversations” entry and section on `/privacy` follow the
 flag shipped in `wrangler.jsonc` (absent while `VOICE_SESSION_MODE` is `off`,
 present after the flip commit — public `astro:env` variables are inlined at
-build time, so the spec reads that file rather than the preview's `vars`), the
+build time, so the spec reads that file, with a local `.dev.vars` override
+winning the way it does in the build, rather than the preview's `vars`), the
 conversation page redirects to sign-in, and the `voice/connect` and
 `voice/heartbeat` routes answer a stable 401 through the custom Worker entry.
 It does not verify an audio connection, the observer or the transcript; that

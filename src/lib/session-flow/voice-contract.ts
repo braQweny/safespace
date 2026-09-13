@@ -157,7 +157,11 @@ export function parseVoiceSdpOffer(value: unknown): string | null {
     return null;
   }
 
-  return sdp;
+  // SDP wymaga terminatora po każdej linii, także ostatniej (RFC 8866).
+  // Przycięcie zjada końcowy CRLF oferty z przeglądarki, a parser dostawcy
+  // odrzuca wtedy całą ofertę („failed to unmarshal SDP: EOF”, HTTP 400) —
+  // dlatego terminator wraca w stylu, którego używa sama oferta.
+  return `${sdp}${sdp.includes("\r\n") ? "\r\n" : "\n"}`;
 }
 
 export async function parseVoiceConnectRequest(request: Request): Promise<VoiceConnectRequest | null> {
