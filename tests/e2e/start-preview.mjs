@@ -40,7 +40,7 @@ try {
     vars: {
       BILLING_MODE: "off",
       VOICE_SESSION_MODE: "off",
-      VOICE_MONTHLY_MINUTES: "120",
+      VOICE_MONTHLY_MINUTES: "60",
       SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_KEY: "test-public-key",
       OPENROUTER_API_KEY: "",
