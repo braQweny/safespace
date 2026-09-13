@@ -145,14 +145,14 @@ export default function SessionTimer({
               ? copy.ariaRemainingWarning
               : copy.ariaRemaining
         }
-        className="inline-flex items-center gap-2 sm:gap-2.5"
+        className="inline-flex items-center gap-2 md:gap-2.5"
       >
         <svg
           width="36"
           height="36"
           viewBox="0 0 36 36"
           aria-hidden="true"
-          className="hidden shrink-0 sm:block sm:h-9 sm:w-9"
+          className="hidden shrink-0 md:block md:h-9 md:w-9"
         >
           <circle cx="18" cy="18" r={RING_RADIUS} fill="none" strokeWidth="3" className="stroke-line-strong" />
           {elapsedRatio === null ? null : (
@@ -178,7 +178,7 @@ export default function SessionTimer({
           </span>
           {/* Faza i budżet nie mieszczą się w jednym rzędzie telefonu — tam czas
               niesie pierścień i pasek pod nagłówkiem. */}
-          <span className="text-ink-muted hidden text-xs sm:block">
+          <span className="text-ink-muted hidden text-xs md:block">
             {level === "critical"
               ? copy.timeRunningOut
               : [phase ? copy.phaseLabels[phase] : null, totalMinutes ? copy.ofTotalMinutes(totalMinutes) : null]
@@ -198,7 +198,7 @@ export default function SessionTimer({
         rozmowa ma nie dokładać.
       */}
       {elapsedRatio === null ? null : (
-        <span aria-hidden="true" className="bg-line absolute inset-x-0 bottom-0 h-0.5 sm:hidden">
+        <span aria-hidden="true" className="bg-line absolute inset-x-0 bottom-0 h-0.5 md:hidden">
           <span
             className={cn(
               "block h-0.5 transition-[width] duration-1000 ease-linear",

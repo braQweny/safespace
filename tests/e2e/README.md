@@ -8,6 +8,11 @@ sign-in screen. It does not verify successful Supabase login or an AI session.
 entry points in that same isolated preview. It does not verify a Stripe
 sandbox purchase; the checklist is in `src/lib/billing/README.md`.
 
+`landing-mobile.spec.ts` checks that the landing introduction, account actions
+and conversation preview fit a 320 px viewport in English and Polish. It measures
+the content bounds because a document-width check misses content clipped by an
+ancestor. It follows the account link without creating an account.
+
 `voice-off.spec.ts` checks the voice conversation surface for an anonymous
 visitor: the “Voice conversations” entry and section on `/privacy` follow the
 flag shipped in `wrangler.jsonc` (absent while `VOICE_SESSION_MODE` is `off`,

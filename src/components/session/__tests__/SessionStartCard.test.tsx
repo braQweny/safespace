@@ -470,6 +470,13 @@ describe("SessionStartCard voice start", () => {
     expect(renderVoice({ ...pool, remainingSeconds: 1500 }, { ...readyState, sessionQuota: premiumQuota })).toContain(
       "Do 25 min rozmowy",
     );
+    const partialMinute = renderVoice(
+      { ...pool, usedSeconds: 3740, remainingSeconds: 3460 },
+      { ...readyState, sessionQuota: premiumQuota },
+    );
+    expect(partialMinute).toContain("Do 57 min rozmowy");
+    expect(partialMinute).toContain("Zostało 57 minut z 120 minut głosowych w tym miesiącu.");
+    expect(partialMinute).not.toContain("Do 58 min rozmowy");
   });
 
   it("says the pool is used up and keeps the voice mode when the text allowance is exhausted", () => {

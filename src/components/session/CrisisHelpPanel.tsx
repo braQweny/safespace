@@ -32,13 +32,13 @@ export function CrisisHelpTrigger({ isOpen, onToggle, ref }: CrisisHelpTriggerPr
       onClick={onToggle}
       aria-expanded={isOpen}
       aria-controls="crisis-help-panel"
-      className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 sm:gap-2 sm:px-4"
+      className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 md:gap-2 md:px-4"
     >
       {/* Glina tylko na ikonie: przycisk ma być znajdowalny, nie alarmujący. */}
       <Phone aria-hidden="true" className="text-clay h-4 w-4" />
       {/* Pomoc zostaje na widoku także na telefonie — skraca się napis, nie dostęp. */}
-      <span className="sm:hidden">{copy.triggerShort}</span>
-      <span className="hidden sm:inline">{copy.triggerLong}</span>
+      <span className="md:hidden">{copy.triggerShort}</span>
+      <span className="hidden md:inline">{copy.triggerLong}</span>
     </button>
   );
 }

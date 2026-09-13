@@ -70,7 +70,7 @@ const activeSessionHref = activeSession
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </summary>
-            <div class="border-line-strong bg-surface shadow-rail absolute right-0 z-40 mt-2 w-72 rounded-2xl border p-2">
+            <div class="border-line-strong bg-surface shadow-rail absolute right-0 z-40 mt-2 max-h-[calc(100dvh-5rem-env(safe-area-inset-bottom))] w-72 max-w-[calc(100vw-3rem)] overflow-y-auto overscroll-contain rounded-2xl border p-2">
               <p class="text-ink-muted truncate px-2.5 py-2 text-xs">{user.email}</p>
               <a
                 href="/account/security"
@@ -131,7 +131,7 @@ const activeSessionHref = activeSession
               <form method="POST" action="/api/auth/signout">
                 <button
                   type="submit"
-                  class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2"
+                  class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-11 w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2"
                 >
                   {copy.signOut}
                 </button>

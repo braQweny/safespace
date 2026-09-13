@@ -60,7 +60,9 @@ const SESSION_BUDGET_COPY = defineCopy(
 );
 
 function toBudgetMinutes(durationSeconds: number) {
-  return Math.max(1, Math.round(durationSeconds / 60));
+  // Pełne minuty, tak jak w opisie pozostałej puli głosowej. Nie obiecujemy
+  // dodatkowej minuty, gdy w puli zostało np. 57 minut i 40 sekund.
+  return Math.max(1, Math.floor(durationSeconds / 60));
 }
 
 /** „15 min” — skrót jest ten sam w obu językach; `locale` zostaje dla spójnej sygnatury. */

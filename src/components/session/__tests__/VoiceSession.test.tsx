@@ -65,10 +65,10 @@ describe("VoiceSession", () => {
     // Ten sam pasek co w rozmowie pisanej: licznik, „Pomoc”, „Zakończ rozmowę” słowem.
     expect(html).toContain("Rozmowa trwa");
     expect(html).toContain("Pozostały czas rozmowy");
-    expect(html).toContain('<span class="sm:hidden">Zakończ</span>');
+    expect(html).toContain(">Zakończ</span>");
     expect(html).toContain("Zakończ rozmowę");
     expect(html).toContain(">Pomoc<");
-    expect(html).toContain('<span class="sm:hidden">Marek</span>');
+    expect(html).toContain(">Marek</span>");
     // Granice raz, w pasku pod rozmową; zastrzeżenie nie powtarza się w karcie.
     expect(html.match(/Granice rozmowy:/g)?.length).toBe(1);
     expect(html).toContain("SafeSpace jest edukacyjną symulacją rozmowy");

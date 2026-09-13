@@ -17,7 +17,7 @@ export function useSessionChrome() {
 
   useEffect(() => {
     if (isConfirmingEnd) {
-      confirmEndRef.current?.focus();
+      confirmEndRef.current?.focus({ preventScroll: true });
       return;
     }
 
@@ -25,7 +25,7 @@ export function useSessionChrome() {
     // poczekać na render po zamknięciu.
     if (restoreEndFocusRef.current) {
       restoreEndFocusRef.current = false;
-      endButtonRef.current?.focus();
+      endButtonRef.current?.focus({ preventScroll: true });
     }
   }, [isConfirmingEnd]);
 
@@ -51,7 +51,7 @@ export function useSessionChrome() {
     }
 
     restoreCrisisFocusRef.current = false;
-    crisisTriggerRef.current?.focus();
+    crisisTriggerRef.current?.focus({ preventScroll: true });
   }, [isCrisisHelpOpen]);
 
   const closeCrisisHelp = useCallback(() => {

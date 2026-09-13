@@ -31,6 +31,12 @@ describe("session budget copy", () => {
     expect(formatSessionBudgetCopy("pl", PREMIUM_SESSION_DURATION_SECONDS)).toContain("do 60 minut");
   });
 
+  it("does not round a partial voice allowance up to an unavailable minute", () => {
+    expect(formatSessionBudgetMinutes("pl", 57 * 60 + 40)).toBe("57 min");
+    expect(formatSessionBudgetMinutes("en", 59 * 60 + 59)).toBe("59 min");
+    expect(formatSessionBudgetCopy("en", 57 * 60 + 40)).toContain("up to 57 minutes");
+  });
+
   it("phrases the English pre-start sentence with singular and plural", () => {
     expect(formatSessionBudgetCopy("en")).toBe(
       "Each conversation lasts up to 15 minutes — the time stays visible on screen throughout.",

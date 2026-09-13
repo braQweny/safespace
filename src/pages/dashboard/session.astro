@@ -105,11 +105,13 @@ if (initialDraft === null && aboutDifficultyId && topicMapMode && acceptsPrefill
       /*
       `display: contents` na wyspie Astro, żeby wysokość 100dvh dochodziła do layoutu rozmowy.
       `relative`: elementy `sr-only` (position: absolute) w zapisie i pod polem pisania muszą
-      mieć containing block tutaj — bez tego wypadają poza `overflow-hidden`, rozciągają
+      mieć containing block tutaj — bez tego wypadają poza obszar rozmowy, rozciągają
       dokument i telefon pozwala przeciągnąć całą rozmowę w górę, zostawiając pusty pas.
+      `overflow-clip` blokuje także przewijanie przez fokus przy otwieraniu dialogu;
+      `overflow-hidden` pozwalało przesunąć cały nagłówek poza górę niskiego ekranu.
     */
     }
-    <main class="relative min-h-0 flex-1 overflow-hidden [&>astro-island]:contents">
+    <main class="relative min-h-0 flex-1 overflow-clip [&>astro-island]:contents">
       {
         isVoiceSession ? (
           <VoiceSession

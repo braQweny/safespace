@@ -75,8 +75,8 @@ export default function SessionScreenHeader({
 
   return (
     <header className="border-line bg-surface/70 relative z-10 shrink-0 border-b backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5 sm:gap-x-4 sm:px-6 lg:px-8">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-2 gap-y-2 px-3 py-2.5 md:gap-x-4 md:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
           {/*
             Ten pasek jest jedynym nagłówkiem strony rozmowy. Wcześniej stał pod
             `AppHeader`, więc na telefonie 120 px znikało na dwa paski, zanim
@@ -104,33 +104,39 @@ export default function SessionScreenHeader({
             alt=""
             width="96"
             height="96"
-            className="hidden h-9 w-9 shrink-0 rounded-full object-cover sm:block"
+            className="hidden h-9 w-9 shrink-0 rounded-full object-cover md:block"
             loading="lazy"
           />
-          <div className="min-w-0">
-            {/* Na telefonie samo imię: pełna nazwa perspektywy stoi przy każdej
-                wypowiedzi w zapisie, a w jednym rzędzie paska liczy się każdy
-                piksel — to on robi miejsce na „Zakończ” słowem. */}
-            <h1 className="text-ink truncate font-sans text-[15px] leading-tight font-semibold tracking-normal">
-              <span className="sm:hidden">{avatarFirstName}</span>
-              <span className="hidden sm:inline">{avatarCopy.avatarName}</span>
+          <div className="min-w-0 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-x-4">
+            {/* Licznik pod imieniem na telefonie zostawia miejsce na pełne imię
+                i przyciski. Na większym ekranie stoi obok nazwy perspektywy. */}
+            <h1 className="text-ink truncate font-sans text-[15px] leading-tight font-semibold tracking-normal md:col-start-1 md:row-start-1">
+              <span className="md:hidden">{avatarFirstName}</span>
+              <span className="hidden md:inline">{avatarCopy.avatarName}</span>
             </h1>
-            <p className="text-ink-muted hidden truncate text-xs leading-tight sm:block">{avatarCopy.modalityName}</p>
+            <p className="text-ink-muted hidden truncate text-xs leading-tight md:col-start-1 md:row-start-2 md:block">
+              {avatarCopy.modalityName}
+            </p>
+            {canEndSession && session ? (
+              <div className="mt-0.5 md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0">
+                <p className="sr-only">{stateTitle}</p>
+                <SessionTimer
+                  key={session.id}
+                  expiresAt={session.expiresAt}
+                  initialRemainingSeconds={session.remainingSeconds}
+                  totalSeconds={getSessionTotalSeconds(session)}
+                  onExpired={onExpired}
+                />
+              </div>
+            ) : (
+              <p className="text-ink-muted mt-0.5 text-xs md:hidden">{stateTitle}</p>
+            )}
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 md:gap-3">
           {canEndSession && session ? (
             <>
-              {/* Stan czyta się z pierścienia; czytnik ekranu dostaje go słowami. */}
-              <p className="sr-only">{stateTitle}</p>
-              <SessionTimer
-                key={session.id}
-                expiresAt={session.expiresAt}
-                initialRemainingSeconds={session.remainingSeconds}
-                totalSeconds={getSessionTotalSeconds(session)}
-                onExpired={onExpired}
-              />
               <CrisisHelpTrigger ref={crisisTriggerRef} isOpen={isCrisisHelpOpen} onToggle={onToggleCrisisHelp} />
               {/* Tura w locie nie blokuje wyjścia: serwer sam sprawdza status
                   sesji, zanim zapisze odpowiedź. */}
@@ -139,7 +145,7 @@ export default function SessionScreenHeader({
                 type="button"
                 onClick={onRequestEnd}
                 disabled={isEnding || isConfirmingEnd}
-                className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3.5"
+                className="text-ink-muted hover:bg-surface-soft hover:text-ink focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full px-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 md:px-3.5"
               >
                 {/* Słowo, nie ikona: drzwi nie są konwencją „zakończ”, a jedynego
                     wyjścia z rozmowy nie powinno się zgadywać. Na telefonie
@@ -151,15 +157,15 @@ export default function SessionScreenHeader({
                   </>
                 ) : (
                   <>
-                    <span className="sm:hidden">{copy.endShort}</span>
-                    <span className="hidden sm:inline">{copy.endLong}</span>
+                    <span className="md:hidden">{copy.endShort}</span>
+                    <span className="hidden md:inline">{copy.endLong}</span>
                   </>
                 )}
               </button>
             </>
           ) : (
             <>
-              <p className="text-ink-muted inline-flex items-center gap-2 text-sm">
+              <p className="text-ink-muted hidden items-center gap-2 text-sm md:inline-flex">
                 <span aria-hidden="true" className="bg-clay h-2 w-2 shrink-0 rounded-full" />
                 {stateTitle}
               </p>
@@ -174,7 +180,7 @@ export default function SessionScreenHeader({
         // nagłówek panel z numerami spychał na telefonie zapis i pole pisania
         // za ekran, a sam kończył się poza nim bez możliwości przewinięcia.
         // Pływa nad rozmową, która zostaje na swoim miejscu, i przewija się sam.
-        <div className="absolute inset-x-0 top-full z-20 px-4 pb-4 sm:px-6">
+        <div className="absolute inset-x-0 top-full z-20 px-4 pb-4 md:px-6">
           <CrisisHelpPanel onClose={onCloseCrisisHelp} />
         </div>
       ) : null}

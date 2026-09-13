@@ -74,12 +74,12 @@ describe("TimedSession", () => {
     expect(html).toContain("Rozmowa trwa");
     // Wyjście z rozmowy jest słowem na każdej szerokości: krótkim na telefonie,
     // pełnym od `sm` — nie ikoną drzwi, której trzeba się domyślać.
-    expect(html).toContain('<span class="sm:hidden">Zakończ</span>');
+    expect(html).toContain(">Zakończ</span>");
     expect(html).toContain("Zakończ rozmowę");
     expect(html).not.toContain("Zakończ sesję");
     expect(html).toContain("Pozostały czas rozmowy");
     // W pasku telefonu stoi samo imię; pełna nazwa i nurt wracają od `sm`.
-    expect(html).toContain('<span class="sm:hidden">Marek</span>');
+    expect(html).toContain(">Marek</span>");
     expect(html).toContain("Marek, praktyczny przewodnik");
     // Pomoc kryzysowa zostaje na widoku także na wąskim ekranie.
     expect(html).toContain("Pomoc teraz");

@@ -1,0 +1,12 @@
+
+--- 2026-09-13T17:26:15.005Z debug
+🪵  Writing logs to "/Users/pformela/projects/safespace/tmp/qa-mobile-2026-09-13/wrangler-astro-check.log"
+---
+
+--- 2026-09-13T17:26:15.005Z warn
+▲ [WARNING] Processing wrangler.jsonc configuration:
+
+    - "unsafe" fields are experimental and may change or break at any time.
+
+
+---
