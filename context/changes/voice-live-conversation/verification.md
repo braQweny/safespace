@@ -55,7 +55,7 @@ Do wyjaśnienia przed przełączeniem flagi (z logów obserwatora `astro dev` w 
 
 ## Bramki manualne (otwarte)
 
-Status: **nie potwierdzone** — wymagają właściciela, prawdziwego konta Cloudflare i telefonów. Bez nich flaga zostaje `off`.
+Status: **nie potwierdzone** — wymagają właściciela, prawdziwego konta Cloudflare i telefonów. Pierwotnie warunek przełączenia flagi; od 2026-09-19 flaga jest `on` mimo otwartych bramek (patrz 6.4), więc lista jest długiem do spłacenia na działającej funkcji.
 
 - **0.5 (S3/S4)** — ocena PL na prawdziwych nagraniach: ≥ 9/10 próbek poprawnych semantycznie, 0 zmian sensu, 0 przełączeń na EN w 20 turach, wymowa akceptowalna dla dwóch native'ów; odsłuch głosu `cedar` (Marek, Olek) — katalog przypisał go bez odsłuchu.
 - **0.6 (S12/S13)** — `npx wrangler login`, bieg 60 min Workera obserwatora z `scripts/spike/observer-worker/` na runtime Cloudflare: rotacja sideband co 12 min bez luki > 2 s, luka po wymuszonym eviction ≤ 30 s domykana przez alarm/heartbeat, klasyfikator z DO działa. Negatywny wynik → wariant awaryjny A z planu.
@@ -63,7 +63,7 @@ Status: **nie potwierdzone** — wymagają właściciela, prawdziwego konta Clou
 - **1.5** — migracja `20260912200000_add_voice_sessions.sql` na lokalnym Supabase (`npx supabase start`, `db push`) i `npm run test:db`.
 - **2.5** — potwierdzone 2026-09-13 (sekcja „Bieg lokalny”): `astro dev` i build pod `wrangler dev` uzbrajają obserwatora, sideband się podłącza.
 - **5.6** — lista z planu („Weryfikacja manualna”): mikrofon i łańcuch dotknięcia, „Lena mówi”/„Słucham”, wyciszenie, przerwanie awatara w pół zdania, pauza 3 s bez wcięcia, reconnect po zmianie Wi-Fi (ta sama sesja, ten sam termin), zamknięcie karty i powrót po 2 min (zapis kompletny, stan prawdziwy), wygaśnięcie sesji 10-minutowej free, druga próba free zablokowana także po usunięciu pierwszej, przycięcie premium do resztki puli, hard stop na frazie testowej (zdanie przekazania słyszalne, ekran z numerami, `interrupted` w historii), awaria klasyfikatora (podmieniony model) → pauza, po trzeciej próbie zamknięcie do ponowienia, flaga wyłączona w trakcie → rozmowa zamknięta z komunikatem, odznaka „Głos” i pamięć awatara z transkryptu, `npx wrangler tail` bez tekstu i id, 60-minutowa rozmowa premium bez luk w zapisie.
-- **6.4** — po powyższych: osobny commit zmieniający tylko `VOICE_SESSION_MODE` na `on` w `wrangler.jsonc` (E2E `voice-off.spec.ts` przełączy się sam na gałąź „włączone”).
+- **6.4** — flaga przełączona na `on` w `wrangler.jsonc` 2026-09-19 decyzją właściciela, **przed** bramkami 0.5, 0.6, 0.7, 1.5 i 5.6 — pozostają otwarte i obowiązują na włączonej funkcji. Razem z flagą zmienił się test `src/lib/__tests__/wrangler-voice-config.test.ts` (pinuje `on` tylko obok `AI_PROVIDER=openai`); E2E `voice-off.spec.ts` przełącza się sam na gałąź „włączone”. Nierozwiązane ustalenia z biegu lokalnego 2026-09-13 (transkrypt z sideband późno albo wcale, zamykanie cichej sesji po ok. 100 s, próg 700 ms) dotyczą produkcji: bramka bezpieczeństwa klasyfikuje wypowiedzi z tego samego transkryptu. Wycofanie: flaga na `off`, commit i deploy.
 
 ## Hosted checks
 

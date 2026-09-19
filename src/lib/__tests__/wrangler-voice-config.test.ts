@@ -43,8 +43,11 @@ describe("wrangler voice configuration", () => {
     expect(new Set(namespaces).size).toBe(namespaces.length);
   });
 
-  it("keeps the voice flag off in production until the rollout flips it deliberately", () => {
-    expect(config.vars?.VOICE_SESSION_MODE).toBe("off");
+  it("ships the voice flag on only beside the provider that can serve a live session", () => {
+    // GPT-Live has no OpenRouter route: with any other provider
+    // `isVoiceStartAvailable()` stays false and the shipped flag is a dead switch.
+    expect(config.vars?.VOICE_SESSION_MODE).toBe("on");
+    expect(config.vars?.AI_PROVIDER).toBe("openai");
     expect(config.vars?.VOICE_MONTHLY_MINUTES).toMatch(/^[1-9]\d*$/);
   });
 });

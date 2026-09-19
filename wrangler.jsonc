@@ -22,7 +22,7 @@
     "PEOPLE_MEMORY_MODE": "on",
     "SESSION_LENS_MODE": "on",
     "TOPIC_MAP_MODE": "on",
-    "VOICE_SESSION_MODE": "off",
+    "VOICE_SESSION_MODE": "on",
     // 60, nie 120: minuta GPT-Live-1 z zapleczem Luny i klasyfikatorem kosztuje
     // ok. 0,20 zł, a abonament 49 zł brutto zostawia ~36 zł netto. Pełne 120 min
     // zostawiałoby ~12 zł marży; 60 min trzyma ją przy ~22 zł (wycena 2026-09-13).
