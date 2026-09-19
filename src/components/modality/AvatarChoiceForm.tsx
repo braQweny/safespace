@@ -101,14 +101,12 @@ function AvatarChoiceFormView({
             <div
               key={modality.modalityId}
               className={cn(
-                "bg-surface scroll-mt-20 scroll-mb-36 rounded-2xl border transition-colors",
-                isSelected ? cn("ring-2", tint.border, tint.ring) : "border-line-strong hover:border-line-accent",
+                "bg-surface scroll-mt-20 scroll-mb-36 rounded-2xl border transition-colors has-[input:focus-visible]:ring-4",
+                tint.ring,
+                isSelected ? cn("ring-2", tint.border) : "border-line-strong hover:border-line-accent",
               )}
             >
-              <label
-                htmlFor={id}
-                className="focus-within:ring-brand-ring block cursor-pointer rounded-2xl px-4 pt-4 pb-2 focus-within:ring-2"
-              >
+              <label htmlFor={id} className="block cursor-pointer rounded-2xl px-4 pt-4 pb-2">
                 <input
                   id={id}
                   type="radio"
