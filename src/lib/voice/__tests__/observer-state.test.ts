@@ -14,6 +14,7 @@ import {
   closeObserverState,
   createInitialObserverState,
   decideAlarm,
+  isTerminalVoiceCloseReason,
   nextAlarmAt,
   resolveVoiceDeadlineAtMs,
   scheduleCrisisHangup,
@@ -144,5 +145,16 @@ describe("observer state", () => {
     expect(closed.closeReason).toBe("interrupted");
     expect(closed.closedAtMs).toBe(NOW + 9000);
     expect(closed.pendingHangupAtMs).toBeNull();
+  });
+});
+
+describe("isTerminalVoiceCloseReason", () => {
+  it("marks only reasons after which the conversation cannot be resumed", () => {
+    for (const reason of ["completed", "interrupted", "time_limit_reached", "voice_disabled", "deleted"] as const) {
+      expect(isTerminalVoiceCloseReason(reason)).toBe(true);
+    }
+    for (const reason of ["heartbeat_lost", "safety_unavailable", "reconnected", "provider_closed", null] as const) {
+      expect(isTerminalVoiceCloseReason(reason)).toBe(false);
+    }
   });
 });

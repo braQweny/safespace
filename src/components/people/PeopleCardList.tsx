@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
+import { useTimeZone } from "@/components/hooks/useTimeZone";
 import { formatDay } from "@/lib/i18n/format";
 import type { PersonCard } from "@/lib/session-data/types";
 import { getPeopleCardsCopy } from "./people-cards-copy";
@@ -22,6 +23,7 @@ export function getOpenPersonCardButtonId(personId: string) {
  */
 export default function PeopleCardList({ cards, isInteractive, onOpen }: PeopleCardListProps) {
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const copy = getPeopleCardsCopy(locale);
 
   return (
@@ -52,7 +54,7 @@ export default function PeopleCardList({ cards, isInteractive, onOpen }: PeopleC
                 </span>
                 {card.lastMentionedAt ? (
                   <span className="text-ink-muted text-xs">
-                    {copy.lastMentioned(formatDay(locale, new Date(card.lastMentionedAt)))}
+                    {copy.lastMentioned(formatDay(locale, timeZone, new Date(card.lastMentionedAt)))}
                   </span>
                 ) : null}
               </span>

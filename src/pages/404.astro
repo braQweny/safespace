@@ -1,6 +1,7 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import { BLOCK_PRIMARY } from "@/components/ui/button-styles";
 import Layout from "@/layouts/Layout.astro";
 import { getNotFoundCopy } from "@/lib/page-copy/not-found-copy";
 
@@ -27,17 +28,11 @@ const { user } = Astro.locals;
           <div class="mt-6 flex flex-wrap gap-3">
             {
               user ? (
-                <a
-                  href="/dashboard"
-                  class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-                >
+                <a href="/dashboard" class:list={BLOCK_PRIMARY}>
                   {copy.goDashboard}
                 </a>
               ) : (
-                <a
-                  href="/"
-                  class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 items-center justify-center rounded-[14px] px-5 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-                >
+                <a href="/" class:list={BLOCK_PRIMARY}>
                   {copy.backHome}
                 </a>
               )

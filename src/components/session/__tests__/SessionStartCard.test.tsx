@@ -2,12 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { SessionQuota } from "@/lib/session-data/types";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
-import SessionStartCard, {
-  buildSessionHref,
-  formatRemainingFreeSessions,
-  resolveAutoStartRequest,
-} from "../SessionStartCard";
-import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import SessionStartCard, { formatRemainingFreeSessions } from "../SessionStartCard";
+import { MODALITY_CATALOG, toSelectedModalityAvatar } from "@/lib/modality-catalog";
 
 vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
@@ -31,25 +27,11 @@ const premiumQuota: SessionQuota = {
   canStartSession: true,
 };
 
-// Katalog jest jedynym źródłem kształtu perspektywy; testy dokładają tylko krótkie hinty.
-const CBT_MODALITY = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
+// Stan strony niesie tylko pola katalogu — prompty perspektywy zostają na serwerze.
+const CBT_MODALITY = MODALITY_CATALOG.find((entry) => entry.modalityId === "cbt") ?? MODALITY_CATALOG[1];
 const avatar = {
-  modality: {
-    ...CBT_MODALITY,
-    sessionStyleHint: "Uzywa jasnej struktury.",
-    summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-  },
   selected: toSelectedModalityAvatar(CBT_MODALITY),
 } satisfies SessionStartPageState["avatar"];
-
-const approvedSummary = {
-  id: "summary-1",
-  sessionId: "old-session-1",
-  summaryText: "Zatwierdzone podsumowanie widoczne przed startem.",
-  revision: 1,
-  createdAt: "2026-06-07T09:00:00.000Z",
-  updatedAt: "2026-06-07T09:00:00.000Z",
-};
 
 function renderStartCard(initialState: SessionStartPageState) {
   return renderToStaticMarkup(<SessionStartCard locale="pl" initialState={initialState} />);
@@ -64,8 +46,6 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -83,55 +63,17 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [approvedSummary],
-      canStartWithoutContext: true,
       sessionQuota: null,
     });
 
     expect(html).toContain("Marek uwzględni wasze wcześniejsze rozmowy.");
     expect(html).toContain('href="/privacy#ai"');
     expect(html).not.toContain("<details");
-    expect(html).not.toContain("Zatwierdzone podsumowanie widoczne przed startem.");
     expect(html).toContain("Rozpocznij rozmowę");
     // Pamięć przygotowuje się automatycznie, bez ręcznego zatwierdzania.
+    expect(html).not.toContain("zatwierdz");
     expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
     expect(html).not.toContain('id="skip-approved-context"');
-  });
-
-  it("omits the opt-out when a context-free start is not offered", () => {
-    const html = renderStartCard({
-      kind: "followup_ready",
-      trialAvailable: false,
-      avatar,
-      session: null,
-      messages: [],
-      messageFetchFailed: false,
-      approvedSummaries: [approvedSummary],
-      canStartWithoutContext: false,
-      sessionQuota: null,
-    });
-
-    expect(html).not.toContain("Zacznij bez przekazywania kontekstu");
-    expect(html).not.toContain("Zatwierdzone podsumowanie widoczne przed startem.");
-    expect(html).toContain("Rozpocznij rozmowę");
-  });
-
-  it("prepares history even when no summaries were manually approved", () => {
-    const html = renderStartCard({
-      kind: "followup_ready",
-      trialAvailable: false,
-      avatar,
-      session: null,
-      messages: [],
-      messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: true,
-      sessionQuota: null,
-    });
-
-    expect(html).toContain("Marek uwzględni wasze wcześniejsze rozmowy.");
-    expect(html).not.toContain("zatwierdz");
-    expect(html).toContain("Rozpocznij rozmowę");
   });
 
   it("explains a used-up trial instead of offering a start", () => {
@@ -142,8 +84,6 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -159,8 +99,6 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: { ...freeQuota, usedSessions: 3, remainingSessions: 0, canStartSession: false },
     });
 
@@ -183,8 +121,6 @@ describe("SessionStartCard", () => {
           session: null,
           messages: [],
           messageFetchFailed: false,
-          approvedSummaries: [],
-          canStartWithoutContext: false,
           sessionQuota: { ...freeQuota, usedSessions: 3, remainingSessions: 0, canStartSession: false },
         }}
         supportEmail="pomoc@example.org"
@@ -207,8 +143,6 @@ describe("SessionStartCard", () => {
           session: null,
           messages: [],
           messageFetchFailed: false,
-          approvedSummaries: [],
-          canStartWithoutContext: false,
           sessionQuota: { ...freeQuota, usedSessions: 3, remainingSessions: 0, canStartSession: false },
         }}
         supportEmail="pomoc@example.org"
@@ -231,8 +165,6 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: freeQuota,
     });
 
@@ -248,8 +180,6 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: true,
       sessionQuota: freeQuota,
     });
 
@@ -265,8 +195,6 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: premiumQuota,
     });
 
@@ -299,92 +227,10 @@ describe("SessionStartCard", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
     expect(html).toContain("disabled");
-  });
-});
-
-/*
- * „Zapisz i zacznij rozmowę” wraca na panel z `?start=now`. Najgroźniejszy błąd
- * tej ścieżki to zużycie kolejnej rozmowy z puli przy zwykłym odświeżeniu, więc
- * parametr musi znikać z adresu także wtedy, gdy start w ogóle nie następuje.
- */
-describe("resolveAutoStartRequest", () => {
-  it("ignores a panel opened without the start request", () => {
-    expect(resolveAutoStartRequest("?avatar=updated", true)).toEqual({
-      isRequested: false,
-      shouldStart: false,
-      nextSearch: "?avatar=updated",
-      aboutPersonId: null,
-      aboutDifficultyId: null,
-    });
-  });
-
-  it("starts once and strips the parameter from the address", () => {
-    expect(resolveAutoStartRequest("?start=now", true)).toEqual({
-      isRequested: true,
-      shouldStart: true,
-      nextSearch: "",
-      aboutPersonId: null,
-      aboutDifficultyId: null,
-    });
-  });
-
-  it("keeps the remaining query while dropping the start request", () => {
-    expect(resolveAutoStartRequest("?historyAvatar=cbt-guide&start=now", true)).toEqual({
-      isRequested: true,
-      shouldStart: true,
-      nextSearch: "?historyAvatar=cbt-guide",
-      aboutPersonId: null,
-      aboutDifficultyId: null,
-    });
-  });
-
-  it("strips the parameter but does not start when the allowance is used up", () => {
-    expect(resolveAutoStartRequest("?start=now", false)).toEqual({
-      isRequested: true,
-      shouldStart: false,
-      nextSearch: "",
-      aboutPersonId: null,
-      aboutDifficultyId: null,
-    });
-  });
-
-  it("ignores any other value of the parameter", () => {
-    expect(resolveAutoStartRequest("?start=later", true).isRequested).toBe(false);
-  });
-
-  it("carries a person card from the dashboard into the start and strips it from the address too", () => {
-    const personId = "5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a";
-    expect(resolveAutoStartRequest(`?start=now&about=${personId}`, true)).toEqual({
-      isRequested: true,
-      shouldStart: true,
-      nextSearch: "",
-      aboutPersonId: personId,
-      aboutDifficultyId: null,
-    });
-    expect(resolveAutoStartRequest("?start=now&about=marta", true).aboutPersonId).toBeNull();
-    expect(buildSessionHref("s", { aboutPersonId: personId })).toBe(`/dashboard/session?sessionId=s&about=${personId}`);
-    expect(buildSessionHref("s")).toBe("/dashboard/session?sessionId=s");
-  });
-
-  it("carries a difficulty from the topic map the same way, under its own parameter", () => {
-    const difficultyId = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
-    expect(resolveAutoStartRequest(`?start=now&topic=${difficultyId}`, true)).toEqual({
-      isRequested: true,
-      shouldStart: true,
-      nextSearch: "",
-      aboutPersonId: null,
-      aboutDifficultyId: difficultyId,
-    });
-    expect(resolveAutoStartRequest("?start=now&topic=odmawianie", true).aboutDifficultyId).toBeNull();
-    expect(buildSessionHref("s", { aboutDifficultyId: difficultyId })).toBe(
-      `/dashboard/session?sessionId=s&topic=${difficultyId}`,
-    );
   });
 });
 
@@ -396,8 +242,6 @@ describe("SessionStartCard voice start", () => {
     session: null,
     messages: [],
     messageFetchFailed: false,
-    approvedSummaries: [],
-    canStartWithoutContext: false,
     sessionQuota: freeQuota,
   };
   const trial = { kind: "trial" as const, plan: "free" as const, available: true, durationSeconds: 600 as const };
@@ -413,13 +257,15 @@ describe("SessionStartCard voice start", () => {
   }
 
   it("shows nothing about voice without a pool: no switch, no second start", () => {
+    // Zapamiętany tryb głosowy (`renderVoice` podaje go domyślnie) nic nie znaczy bez puli.
     const html = renderVoice(null);
     expect(html).not.toContain("głosow");
     expect(html).not.toContain("data-start-mode");
     expect(html).not.toContain("data-voice-start");
+    expect(html).toContain("Rozpocznij rozmowę");
   });
 
-  it("offers one switch over one start: the server renders the written mode, the voice mode replaces the block", () => {
+  it("offers one switch over one start: the server renders the remembered mode (written without a choice)", () => {
     const written = renderVoice(trial, readyState, null);
     expect(written).toContain('data-start-mode="text"');
     expect(written).toMatch(/<button[^>]*aria-pressed="true"[^>]*>[\s\S]*?Pisana<\/button>/);

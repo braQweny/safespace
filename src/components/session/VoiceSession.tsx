@@ -8,16 +8,17 @@ import { useSessionChrome } from "@/components/hooks/useSessionChrome";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useVoiceSession } from "@/components/hooks/useVoiceSession";
 import { LocaleProvider } from "@/components/LocaleProvider";
+import { PILL_BRAND } from "@/components/ui/button-styles";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
 import type { Locale } from "@/lib/i18n/locale";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import { getSessionCopy } from "@/lib/session-copy";
-import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
+import { formatRemainingFreeSessions, getPlanCopy } from "@/lib/session-flow/plan-copy";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { isVoiceConnected, type VoiceSessionUiState } from "@/lib/session-flow/voice-session-state";
 import { cn } from "@/lib/utils";
 import SessionBoundariesToggle from "./SessionBoundariesToggle";
-import SessionClosingCard from "./SessionClosingCard";
+import SessionClosingCard, { shouldClosingCardTakeFocus } from "./SessionClosingCard";
 import SessionMessages from "./SessionMessages";
 import SessionSafetyNotice from "./SessionSafetyNotice";
 import SessionScreenHeader from "./SessionScreenHeader";
@@ -92,6 +93,8 @@ function VoiceSessionView({
   const locale = useLocale();
   const copy = getVoiceSessionCopy(locale);
   const chromeCopy = getTimedSessionCopy(locale);
+  // Te same zdania o puli, co w karcie startu na panelu.
+  const planCopy = getPlanCopy(locale);
   const stateCopy = chromeCopy.states;
   const { boundaries } = getSessionCopy(locale);
   const isHydrated = useIsHydrated();
@@ -109,8 +112,8 @@ function VoiceSessionView({
   } = useVoiceSession(initialState, { locale, voiceAvailable });
   const { kind, session, status, notice, isEnding, isMuted, persistedMessages } = state;
   const isFinished = session !== null && (kind === "completed" || kind === "expired" || kind === "interrupted");
-  useAvatarMemoryPreparation(initialState.avatar.modality, isFinished);
-  usePeopleMemoryPreparation(initialState.avatar.modality, prepareCards && isFinished, noop);
+  useAvatarMemoryPreparation(initialState.avatar.selected, isFinished);
+  usePeopleMemoryPreparation(initialState.avatar.selected, prepareCards && isFinished, noop);
   const chrome = useSessionChrome();
   const { summaryState, summaryStatus, summaryErrorCode, generateSummary, approveSummary } =
     useSessionSummary(initialSummary);
@@ -150,6 +153,8 @@ function VoiceSessionView({
   const canSummarizeSession = showHistoryCta && persistedMessages.length > 0;
   const connected = isVoiceConnected(status);
   const showsTranscript = connected || status === "reconnecting";
+  // Odmowa puli w trakcie rozmowy: komunikat mówi, że wszystko jest zapisane, więc zapis zostaje widoczny.
+  const showsSavedTranscript = status === "refused" && persistedMessages.length > 0;
   const showsIntro = kind === "active" && session !== null && !showsTranscript;
   const canConnect = status === "idle" || status === "reconnecting";
   const historyHref = session ? `/dashboard?session=${encodeURIComponent(session.id)}` : "/dashboard";
@@ -177,6 +182,10 @@ function VoiceSessionView({
 
   return (
     <div className={cn("flex h-full w-full flex-col", !isChatLayout && "overflow-y-auto")}>
+      {/* Zdalny strumień WebRTC nie ma ścieżki napisów, a jego odpowiednikiem
+          tekstowym jest zapis rozmowy na ekranie: wypowiedzi na żywo i zapisane
+          wiersze z heartbeatu. */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- live WebRTC audio; the on-screen transcript is its text equivalent */}
       <audio ref={audioRef} autoPlay className="hidden" />
 
       <SessionScreenHeader
@@ -214,10 +223,7 @@ function VoiceSessionView({
             <p className="text-ink-muted mt-4 text-xs leading-5">
               <span className="text-ink-soft font-medium">{chromeCopy.boundariesLabel}</span> {boundaries}
             </p>
-            <a
-              href="/dashboard"
-              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-            >
+            <a href="/dashboard" className={cn(PILL_BRAND, "mt-5")}>
               {chromeCopy.backToDashboard}
             </a>
           </div>
@@ -249,7 +255,30 @@ function VoiceSessionView({
                 </div>
               </div>
 
-              {status === "unsupported" || status === "unavailable" ? (
+              {status === "refused" && state.refusal ? (
+                // Pula nie pozwala połączyć: zamiast przycisku, który nic nie zmieni, mówimy co dalej.
+                <div className="mt-5" data-voice-refused={state.refusal}>
+                  <SessionSafetyNotice
+                    variant="info"
+                    copy={{
+                      title: copy.refusedTitle,
+                      body:
+                        state.refusal === "voice_trial_used" ? planCopy.voiceTrialUsed : planCopy.voiceMinutesExhausted,
+                      nextSteps: [copy.refusedNextStep],
+                    }}
+                  />
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {state.refusal === "voice_trial_used" ? (
+                      <a href="/account/security" className={PILL_CLASS}>
+                        {copy.refusedPlanLink}
+                      </a>
+                    ) : null}
+                    <a href="/dashboard" className={PILL_CLASS}>
+                      {chromeCopy.backToDashboard}
+                    </a>
+                  </div>
+                </div>
+              ) : status === "unsupported" || status === "unavailable" ? (
                 <div className="mt-5">
                   <SessionSafetyNotice
                     variant="info"
@@ -291,6 +320,7 @@ function VoiceSessionView({
               body={stateCopy[kind].body}
               historyHref={historyHref}
               remainingSessionsCopy={remainingSessionsCopy}
+              takesFocus={shouldClosingCardTakeFocus(initialState.kind, notice?.variant)}
             />
 
             <SessionSummaryPanel
@@ -315,11 +345,12 @@ function VoiceSessionView({
           </div>
         ) : null}
 
-        {session && (showsTranscript || showHistoryCta) ? (
+        {session && (showsTranscript || showHistoryCta || showsSavedTranscript) ? (
           <SessionMessages
-            variant={showHistoryCta ? "finished" : "live"}
+            variant={showHistoryCta || showsSavedTranscript ? "finished" : "live"}
             messages={persistedMessages}
-            liveFragments={showHistoryCta ? [] : liveFragments}
+            liveFragments={showHistoryCta || showsSavedTranscript ? [] : liveFragments}
+            announcesMessages={false}
             assistantAvatar={avatar}
             emptyCopy={copy.transcriptEmpty}
           />

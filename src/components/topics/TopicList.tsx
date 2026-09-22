@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
+import { useTimeZone } from "@/components/hooks/useTimeZone";
 import { formatDay } from "@/lib/i18n/format";
 import type { DifficultyCard } from "@/lib/session-data/types";
 import EffectChip from "./EffectChip";
@@ -29,6 +30,7 @@ export function listLinkedPersonNames(card: DifficultyCard) {
  */
 export default function TopicList({ cards, isInteractive, onOpen }: TopicListProps) {
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const copy = getTopicMapCopy(locale);
 
   return (
@@ -67,7 +69,7 @@ export default function TopicList({ cards, isInteractive, onOpen }: TopicListPro
                   </span>
                   {card.lastMentionedAt ? (
                     <span className="text-ink-muted text-xs">
-                      {copy.lastMentioned(formatDay(locale, new Date(card.lastMentionedAt)))}
+                      {copy.lastMentioned(formatDay(locale, timeZone, new Date(card.lastMentionedAt)))}
                     </span>
                   ) : null}
                   {card.hasNewEntriesSinceArchived ? (

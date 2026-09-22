@@ -1,5 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
+import { useClientCapability } from "@/components/hooks/useClientCapability";
 import { useLocale } from "@/components/hooks/useLocale";
 import { useSessionChrome } from "@/components/hooks/useSessionChrome";
 import { useSessionSummary } from "@/components/hooks/useSessionSummary";
@@ -8,6 +9,7 @@ import { useVisualViewportBox } from "@/components/hooks/useVisualViewportBox";
 import { useAvatarMemoryPreparation } from "@/components/hooks/useAvatarMemoryPreparation";
 import { usePeopleMemoryPreparation } from "@/components/hooks/usePeopleMemoryPreparation";
 import { LocaleProvider } from "@/components/LocaleProvider";
+import { PILL_BRAND, PILL_OUTLINE_SOFT } from "@/components/ui/button-styles";
 import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
 import type { Locale } from "@/lib/i18n/locale";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
@@ -16,7 +18,7 @@ import { formatRemainingFreeSessions } from "@/lib/session-flow/plan-copy";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import { cn } from "@/lib/utils";
 import SessionBoundariesToggle from "./SessionBoundariesToggle";
-import SessionClosingCard from "./SessionClosingCard";
+import SessionClosingCard, { shouldClosingCardTakeFocus } from "./SessionClosingCard";
 import SessionComposer from "./SessionComposer";
 import SessionMessages from "./SessionMessages";
 import SessionSafetyNotice from "./SessionSafetyNotice";
@@ -43,12 +45,6 @@ interface TimedSessionProps {
 
 const noop = () => undefined;
 
-const subscribeNever = () => () => {
-  // Dostępność schowka nie zmienia się po hydratacji.
-};
-
-const readServerFalse = () => false;
-
 function readClientClipboardSupport() {
   if (typeof navigator === "undefined") {
     return false;
@@ -68,7 +64,7 @@ function readClientClipboardSupport() {
  */
 export function UnsentMessageNotice({ text }: { text: string }) {
   const { turn } = getSessionCopy(useLocale());
-  const canCopy = useSyncExternalStore(subscribeNever, readClientClipboardSupport, readServerFalse);
+  const canCopy = useClientCapability(readClientClipboardSupport, false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   async function copyUnsentText() {
@@ -86,11 +82,7 @@ export function UnsentMessageNotice({ text }: { text: string }) {
       <blockquote className="text-ink mt-2 text-base leading-relaxed whitespace-pre-wrap">{text}</blockquote>
       {canCopy ? (
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={copyUnsentText}
-            className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-          >
+          <button type="button" onClick={copyUnsentText} className={PILL_OUTLINE_SOFT}>
             <Copy aria-hidden="true" className="h-4 w-4" />
             {copyStatus === "copied" ? turn.copiedUnsent : turn.copyUnsent}
           </button>
@@ -150,10 +142,10 @@ function TimedSessionView({
     notice,
   } = state;
   const isFinished = session !== null && (kind === "completed" || kind === "expired" || kind === "interrupted");
-  useAvatarMemoryPreparation(initialState.avatar.modality, isFinished);
+  useAvatarMemoryPreparation(initialState.avatar.selected, isFinished);
   // Karty osób dojeżdżają osobną pętlą po pamięci; ten ekran nie ma czego
   // odświeżać, więc bez wywołania zwrotnego.
-  usePeopleMemoryPreparation(initialState.avatar.modality, prepareCards && isFinished, noop);
+  usePeopleMemoryPreparation(initialState.avatar.selected, prepareCards && isFinished, noop);
   const chrome = useSessionChrome();
   const { summaryState, summaryStatus, summaryErrorCode, generateSummary, approveSummary } =
     useSessionSummary(initialSummary);
@@ -276,10 +268,7 @@ function TimedSessionView({
             <p className="text-ink-muted text-xs leading-5">
               <span className="text-ink-soft font-medium">{copy.boundariesLabel}</span> {boundaries}
             </p>
-            <a
-              href="/dashboard"
-              className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-5 inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-            >
+            <a href="/dashboard" className={cn(PILL_BRAND, "mt-5")}>
               {copy.backToDashboard}
             </a>
           </div>
@@ -301,6 +290,7 @@ function TimedSessionView({
               body={stateCopy[kind].body}
               historyHref={historyHref}
               remainingSessionsCopy={remainingSessionsCopy}
+              takesFocus={shouldClosingCardTakeFocus(initialState.kind, notice?.variant)}
             >
               {unsentText && kind !== "interrupted" ? <UnsentMessageNotice text={unsentText} /> : null}
             </SessionClosingCard>
@@ -359,6 +349,10 @@ function TimedSessionView({
               value={draft}
               isDisabled={!composerAvailable}
               isPending={isMessagePending}
+              // Nie natywny `autofocus`: kompozytor przenosi fokus (bez przewijania)
+              // tylko przy prefillu z „Porozmawiaj o tej osobie”, czyli krok po
+              // jawnym wyborze użytkownika, żeby dało się od razu dopisać zdanie.
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- custom prop, only after an explicit "talk about this person"
               autoFocus={Boolean(initialDraft)}
               onChange={setDraft}
               onSubmit={() => {

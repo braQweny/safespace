@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import { MODALITY_CATALOG, toSelectedModalityAvatar } from "@/lib/modality-catalog";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import SessionStartCard from "../SessionStartCard";
 
@@ -18,12 +18,10 @@ vi.mock("@/components/hooks/useSessionStart", () => ({
 const initialState: SessionStartPageState = {
   kind: "followup_ready",
   trialAvailable: false,
-  avatar: { modality: MVP_MODALITIES[0], selected: toSelectedModalityAvatar(MVP_MODALITIES[0]) },
+  avatar: { selected: toSelectedModalityAvatar(MODALITY_CATALOG[0]) },
   session: null,
   messages: [],
   messageFetchFailed: false,
-  approvedSummaries: [],
-  canStartWithoutContext: false,
   sessionQuota: null,
 };
 

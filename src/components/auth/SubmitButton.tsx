@@ -1,16 +1,15 @@
 import type { ReactNode } from "react";
-import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 
 interface SubmitButtonProps {
+  /** Formularz już wysłany (`useNativeSubmitPending`) — natywny POST nie zgłasza tego Reactowi sam. */
+  pending: boolean;
   pendingText: string;
   icon: ReactNode;
   children: ReactNode;
 }
 
-export function SubmitButton({ pendingText, icon, children }: SubmitButtonProps) {
-  const { pending } = useFormStatus();
-
+export function SubmitButton({ pending, pendingText, icon, children }: SubmitButtonProps) {
   return (
     <Button
       type="submit"
@@ -19,7 +18,11 @@ export function SubmitButton({ pendingText, icon, children }: SubmitButtonProps)
     >
       {pending ? (
         <span className="flex items-center justify-center gap-2">
-          <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          {/* Kolor napisu przycisku, nie biel: po zmroku marka jest jasna, a napis ciemny. */}
+          <span
+            aria-hidden="true"
+            className="border-surface/40 border-t-surface size-4 animate-spin rounded-full border-2"
+          />
           {pendingText}
         </span>
       ) : (

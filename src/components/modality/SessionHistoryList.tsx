@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, Clock, Mic, PlayCircle } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
+import { useTimeZone } from "@/components/hooks/useTimeZone";
 import { formatDay, formatTimeOfDay as formatTimeOfDayFor, getDayKey } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/locale";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
 import { computeClientRemainingSeconds, formatRemainingTime } from "@/lib/session-flow/message-state";
+import { parseTimestampMs } from "@/lib/session-flow/session-clock";
 import { cn } from "@/lib/utils";
 import { getSessionHistoryCopy } from "./session-history-copy";
 
@@ -63,44 +65,41 @@ const statusBadgeClasses: Partial<Record<SessionHistoryListItem["status"], strin
  * The list deliberately shows no conversation content, so the date is the only
  * thing telling two entries apart. "Today"/"Yesterday" reads faster than three
  * identical medium dates. Days are compared by a locale-independent key in the
- * session time zone, never by the formatted label.
+ * viewer's time zone (`locals.timeZone`, passed down as a prop), never by the
+ * formatted label.
  */
 function parseTimestamp(timestamp: string | null) {
-  if (!timestamp) {
-    return null;
-  }
+  const timestampMs = parseTimestampMs(timestamp);
 
-  const date = new Date(timestamp);
-
-  return Number.isNaN(date.getTime()) ? null : date;
+  return timestampMs === null ? null : new Date(timestampMs);
 }
 
-function relativeDayLabel(locale: Locale, date: Date, now: Date) {
+function relativeDayLabel(locale: Locale, timeZone: string, date: Date, now: Date) {
   const copy = getSessionHistoryCopy(locale);
-  const dayKey = getDayKey(date);
+  const dayKey = getDayKey(timeZone, date);
 
-  if (dayKey === getDayKey(now)) {
+  if (dayKey === getDayKey(timeZone, now)) {
     return copy.today;
   }
 
-  if (dayKey === getDayKey(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
+  if (dayKey === getDayKey(timeZone, new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
     return copy.yesterday;
   }
 
   return null;
 }
 
-export function formatDateTime(locale: Locale, timestamp: string | null, now = new Date()) {
+export function formatDateTime(locale: Locale, timeZone: string, timestamp: string | null, now = new Date()) {
   const date = parseTimestamp(timestamp);
 
   if (!date) {
     return getSessionHistoryCopy(locale).noDate;
   }
 
-  const time = formatTimeOfDayFor(locale, date);
-  const relative = relativeDayLabel(locale, date, now);
+  const time = formatTimeOfDayFor(locale, timeZone, date);
+  const relative = relativeDayLabel(locale, timeZone, date, now);
 
-  return `${relative ?? formatDay(locale, date)}, ${time}`;
+  return `${relative ?? formatDay(locale, timeZone, date)}, ${time}`;
 }
 
 /**
@@ -108,20 +107,20 @@ export function formatDateTime(locale: Locale, timestamp: string | null, now = n
  * wierszu zostaje sama godzina — kilka rozmów z jednego dnia przestaje wyglądać
  * jak kilka kopii tego samego napisu.
  */
-export function formatDayGroupLabel(locale: Locale, timestamp: string | null, now = new Date()) {
+export function formatDayGroupLabel(locale: Locale, timeZone: string, timestamp: string | null, now = new Date()) {
   const date = parseTimestamp(timestamp);
 
   if (!date) {
     return getSessionHistoryCopy(locale).noDate;
   }
 
-  return relativeDayLabel(locale, date, now) ?? formatDay(locale, date);
+  return relativeDayLabel(locale, timeZone, date, now) ?? formatDay(locale, timeZone, date);
 }
 
-export function formatTimeOfDay(locale: Locale, timestamp: string | null) {
+export function formatTimeOfDay(locale: Locale, timeZone: string, timestamp: string | null) {
   const date = parseTimestamp(timestamp);
 
-  return date ? formatTimeOfDayFor(locale, date) : getSessionHistoryCopy(locale).unknownTime;
+  return date ? formatTimeOfDayFor(locale, timeZone, date) : getSessionHistoryCopy(locale).unknownTime;
 }
 
 export interface SessionHistoryDayGroup {
@@ -137,10 +136,11 @@ function getItemTimestamp(item: SessionHistoryListItem) {
 /**
  * Lista przychodzi już posortowana od najnowszej, więc grupowanie zachowuje
  * kolejność i nie sortuje niczego po raz drugi. Klucz grupy to dzień w strefie
- * sesji, nie etykieta — „Dzisiaj” i „Today” to ten sam dzień.
+ * osoby, nie etykieta — „Dzisiaj” i „Today” to ten sam dzień.
  */
 export function groupSessionHistoryItemsByDay(
   locale: Locale,
+  timeZone: string,
   items: readonly SessionHistoryListItem[],
   now = new Date(),
 ): SessionHistoryDayGroup[] {
@@ -149,7 +149,7 @@ export function groupSessionHistoryItemsByDay(
   for (const item of items) {
     const timestamp = getItemTimestamp(item);
     const date = parseTimestamp(timestamp);
-    const key = date ? getDayKey(date) : "no-date";
+    const key = date ? getDayKey(timeZone, date) : "no-date";
     const lastGroup = groups.at(-1);
 
     if (lastGroup?.key === key) {
@@ -159,7 +159,7 @@ export function groupSessionHistoryItemsByDay(
 
     groups.push({
       key,
-      label: formatDayGroupLabel(locale, timestamp, now),
+      label: formatDayGroupLabel(locale, timeZone, timestamp, now),
       items: [item],
     });
   }
@@ -176,11 +176,17 @@ export function groupSessionHistoryItemsByDay(
 export function getDurationLabel(locale: Locale, item: SessionHistoryListItem) {
   const { duration } = getSessionHistoryCopy(locale);
 
-  if (item.startedAt && item.endedAt) {
-    const started = Date.parse(item.startedAt);
-    const ended = Date.parse(item.endedAt);
+  const started = parseTimestampMs(item.startedAt);
+  const endedAt = parseTimestampMs(item.endedAt);
 
-    if (Number.isFinite(started) && Number.isFinite(ended) && ended >= started) {
+  if (started !== null && endedAt !== null) {
+    // A conversation that ran out of time is often marked `expired` only when
+    // someone next opens the app — hours or days later — so its `endedAt` is
+    // that read, not the deadline. Nothing is said after `expiresAt`.
+    const expires = parseTimestampMs(item.expiresAt);
+    const ended = expires === null ? endedAt : Math.min(endedAt, expires);
+
+    if (ended >= started) {
       const minutes = Math.round((ended - started) / 60_000);
 
       return minutes < 1 ? duration.underMinute : duration.minutes(minutes);
@@ -252,6 +258,7 @@ interface SessionHistoryListItemRowProps {
 
 function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDetail }: SessionHistoryListItemRowProps) {
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const copy = getSessionHistoryCopy(locale);
   const [remainingSeconds, setRemainingSeconds] = useState(() => getInitialActiveRemainingSeconds(item));
 
@@ -275,7 +282,7 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
   const isActive = effectiveStatus === "active";
   const statusLegend = copy.statusLegend[effectiveStatus];
   const badgeClassName = statusBadgeClasses[effectiveStatus];
-  const timeOfDay = formatTimeOfDay(locale, item.startedAt ?? item.createdAt);
+  const timeOfDay = formatTimeOfDay(locale, timeZone, item.startedAt ?? item.createdAt);
   const durationLabel = getDurationLabel(locale, item);
 
   return (
@@ -301,7 +308,7 @@ function SessionHistoryListItemRow({ item, isSelected, isInteractive, onOpenDeta
           className="text-ink hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span className="sr-only">
-            {copy.openTranscriptSr(formatDateTime(locale, item.startedAt ?? item.createdAt))}
+            {copy.openTranscriptSr(formatDateTime(locale, timeZone, item.startedAt ?? item.createdAt))}
           </span>
           <span className="min-w-0 flex-1">
             <span className="text-ink block text-[15px] leading-6">
@@ -368,7 +375,7 @@ export default function SessionHistoryList({
   isInteractive = true,
   onOpenDetail,
 }: SessionHistoryListProps) {
-  const groups = groupSessionHistoryItemsByDay(useLocale(), items);
+  const groups = groupSessionHistoryItemsByDay(useLocale(), useTimeZone(), items);
 
   return (
     <div className="flex flex-col gap-4">

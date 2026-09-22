@@ -30,13 +30,12 @@ import {
   type OwnedSessionCountsByAvatar,
   type OwnedSessionHistoryPage,
   type SessionDataContext,
-  type SessionDurationBucketSeconds,
   type SessionId,
   type SessionLifecycleStatus,
   type SessionMetadata,
   type TransitionSessionLifecycleInput,
   type UpdateSessionTombstoneInput,
-  type VoiceSessionTiming,
+  type VoiceUsage,
 } from "./types";
 
 const ALLOWED_TRANSITIONS: Readonly<Record<SessionLifecycleStatus, readonly SessionLifecycleStatus[]>> = {
@@ -121,56 +120,80 @@ export async function countOwnedVoiceSessions(context: SessionDataContext): Prom
   return ok(typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : 0);
 }
 
-const VOICE_TIMING_SELECT = "voice_connected_at,ended_at,expires_at,duration_bucket_seconds,status";
-const VOICE_TIMING_LIMIT = 200;
-
-function toVoiceSessionTiming(value: unknown): VoiceSessionTiming | null {
-  if (!isRecord(value) || typeof value.voice_connected_at !== "string" || typeof value.status !== "string") {
-    return null;
-  }
-
-  return {
-    voiceConnectedAt: value.voice_connected_at,
-    endedAt: typeof value.ended_at === "string" ? value.ended_at : null,
-    expiresAt: typeof value.expires_at === "string" ? value.expires_at : null,
-    durationBucketSeconds:
-      typeof value.duration_bucket_seconds === "number"
-        ? (value.duration_bucket_seconds as SessionDurationBucketSeconds)
-        : null,
-    status: value.status as SessionLifecycleStatus,
-  };
+function toVoiceUsageSeconds(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
 }
 
 /**
- * Czasy rozmów głosowych właściciela połączonych od `sinceIso` (miesięczna
- * pula premium). Bez treści i bez identyfikatorów: tylko to, co potrzebne do
- * policzenia zużytych sekund. Tombstone liczy się jak każda inna rozmowa —
- * usunięcie nie zwraca minut.
+ * Zużycie puli głosowej właściciela z rozmów połączonych od `sinceIso`,
+ * policzone w bazie (`get_owned_voice_usage`) pod RLS właściciela i **bez
+ * limitu wierszy** — lista ucinana w aplikacji robiła z każdej rozmowy ponad
+ * limit darmową. `excludeSessionId` to rozmowa, którą właśnie łączymy: jej
+ * zużycie się liczy, ale nie rezerwuje reszty własnego terminu. Tombstone
+ * liczy się jak każda inna rozmowa — usunięcie nie zwraca minut. Nieczytelna
+ * odpowiedź to błąd odczytu, nigdy zero (pula zamyka się, nie otwiera).
  */
-export async function listOwnedVoiceSessionTimings(
+export async function readOwnedVoiceUsage(
   context: SessionDataContext,
   sinceIso: string,
-): Promise<SessionDataResult<VoiceSessionTiming[]>> {
-  const { data, error } = await context.supabase
-    .from("therapy_sessions")
-    .select(VOICE_TIMING_SELECT)
-    .eq("user_id", context.user.id)
-    .eq("mode", "voice")
-    .gte("voice_connected_at", sinceIso)
-    .order("voice_connected_at", { ascending: true })
-    .limit(VOICE_TIMING_LIMIT);
+  excludeSessionId: SessionId | null = null,
+): Promise<SessionDataResult<VoiceUsage>> {
+  const { data, error } = (await context.supabase.rpc("get_owned_voice_usage", {
+    p_since: sinceIso,
+    p_exclude_session_id: excludeSessionId,
+  })) as { data: unknown; error: unknown };
 
   if (error) {
     return sessionDataError(mapSupabaseReadError(error));
   }
 
-  return ok(Array.isArray(data) ? data.map(toVoiceSessionTiming).filter((row) => row !== null) : []);
+  if (!isRecord(data) || typeof data.used_seconds !== "number" || typeof data.reserved_seconds !== "number") {
+    return sessionDataError("read_failed");
+  }
+
+  return ok({
+    usedSeconds: toVoiceUsageSeconds(data.used_seconds),
+    reservedSeconds: toVoiceUsageSeconds(data.reserved_seconds),
+  });
+}
+
+/**
+ * Rozmowy głosowe właściciela, których obserwator (Durable Object) może
+ * jeszcze trzymać tekst albo trwającą sesję live: połączone kiedykolwiek
+ * (obserwator jest uzbrajany dopiero po zapisie `voice_connected_at`), a do
+ * tego aktywne albo założone od `sinceIso` — także tombstone, bo purge przy
+ * usunięciu rozmowy jest best-effort. Same identyfikatory, najnowsze
+ * pierwsze, do `limit` — dla sprzątania przy usunięciu konta.
+ */
+export async function listOwnedVoiceObserverSessionIds(
+  context: SessionDataContext,
+  sinceIso: string,
+  limit: number,
+): Promise<SessionDataResult<SessionId[]>> {
+  const { data, error } = await context.supabase
+    .from("therapy_sessions")
+    .select("id")
+    .eq("user_id", context.user.id)
+    .eq("mode", "voice")
+    .not("voice_connected_at", "is", null)
+    .or(`status.eq.active,created_at.gte.${sinceIso}`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return sessionDataError(mapSupabaseReadError(error));
+  }
+
+  const rows = Array.isArray(data) ? (data as unknown[]) : [];
+  return ok(rows.flatMap((row) => (isRecord(row) && typeof row.id === "string" ? [row.id] : [])));
 }
 
 /**
  * Zapisuje pierwsze udane połączenie audio: tylko właściciel, tylko rozmowa
  * głosowa i tylko pusta kolumna, więc reconnect nigdy nie przesuwa startu
- * puli. `true` = zapisano teraz, `false` = już było albo warunek nie zaszedł.
+ * puli. Czas nadaje baza (`now()` w triggerze metadanych), nie ten argument —
+ * wartość z żądania właściciela nie może przesunąć zużycia puli.
+ * `true` = zapisano teraz, `false` = już było albo warunek nie zaszedł.
  */
 export async function markVoiceSessionConnected(
   context: SessionDataContext,

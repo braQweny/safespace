@@ -11,9 +11,11 @@ const transitionSessionLifecycle = vi.fn();
 const appendVoiceSessionUtterances = vi.fn();
 const loadOwnedSessionContinuity = vi.fn();
 const isVoiceStartAvailable = vi.fn(() => true);
+const resolveVoiceConnectAllowance = vi.fn();
 const getVoiceObserver = vi.fn();
 const createLiveSession = vi.fn();
 const hangupLiveSession = vi.fn();
+const buildVoiceBackendInstructions = vi.fn();
 const buildOperationalRequestContext = vi.fn();
 const logOperationalEvent = vi.fn();
 
@@ -32,9 +34,21 @@ vi.mock("@/lib/session-data/repository", () => ({
   transitionSessionLifecycle,
   appendVoiceSessionUtterances,
 }));
-vi.mock("@/lib/session-flow/session-continuity", () => ({ loadOwnedSessionContinuity }));
-vi.mock("@/lib/session-flow/voice-start", () => ({ isVoiceStartAvailable }));
+// The real prompt-context helper comes with the continuity module; its flag readers need no `astro:env`.
+vi.mock("@/lib/session-flow/people-memory-mode", () => ({ isPeopleMemoryEnabled: () => true }));
+vi.mock("@/lib/session-flow/topic-map-mode", () => ({ isTopicMapEnabled: () => true }));
+vi.mock("@/lib/session-flow/session-continuity", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/session-flow/session-continuity")>()),
+  loadOwnedSessionContinuity,
+}));
+vi.mock("@/lib/session-flow/voice-start", () => ({ isVoiceStartAvailable, resolveVoiceConnectAllowance }));
 vi.mock("@/lib/voice/coordinator", () => ({ getVoiceObserver }));
+// The real builder, observed: the test checks what the route hands it.
+vi.mock("@/lib/session-ai/voice-instructions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/session-ai/voice-instructions")>();
+  buildVoiceBackendInstructions.mockImplementation(actual.buildVoiceBackendInstructions);
+  return { ...actual, buildVoiceBackendInstructions };
+});
 vi.mock("@/lib/openai/live", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/openai/live")>()),
   createLiveSession,
@@ -51,6 +65,8 @@ vi.mock("@/lib/operational-visibility/request-context", () => ({
 vi.mock("@/lib/operational-visibility/logger", () => ({ logOperationalEvent }));
 
 const { OpenAiLiveError } = await import("@/lib/openai/live");
+const { getValidAvatarChoice } = await import("@/lib/modalities");
+const { toSessionPromptContext } = await import("@/lib/session-flow/session-continuity");
 const { POST } = await import("@/pages/api/session/voice/connect");
 
 const contextData = { user: { id: "user-1" } } as SessionDataContext;
@@ -174,6 +190,7 @@ describe("POST /api/session/voice/connect", () => {
     );
     appendVoiceSessionUtterances.mockResolvedValue(ok({ inserted: 0, skipped: 0, messages: [] }));
     isVoiceStartAvailable.mockReturnValue(true);
+    resolveVoiceConnectAllowance.mockResolvedValue({ ok: true, deadlineAtMs: Date.parse("2026-09-12T10:10:00.000Z") });
     getVoiceObserver.mockReturnValue(stub);
     createLiveSession.mockResolvedValue({ liveSessionId: LIVE_SESSION_ID, answerSdp: "v=0\r\na=answer" });
     hangupLiveSession.mockResolvedValue("closed");
@@ -257,6 +274,104 @@ describe("POST /api/session/voice/connect", () => {
     );
   });
 
+  it("builds the backend prompt from the same shared prompt context as the written paths", async () => {
+    loadOwnedSessionContinuity.mockResolvedValueOnce({
+      ok: true,
+      data: [],
+      avatarMemory: "Pamięć z poprzednich rozmów.",
+      peopleBrief: "- Marta (koleżanka z pracy)",
+      topicBrief: "- Odmawianie w pracy",
+    });
+    const cbt = getValidAvatarChoice("cbt", "cbt-guide");
+    if (!cbt) throw new Error("cbt avatar missing from the catalog");
+
+    expect((await POST(createContext() as never)).status).toBe(200);
+    expect(buildVoiceBackendInstructions).toHaveBeenCalledWith(
+      expect.objectContaining(
+        toSessionPromptContext(
+          cbt,
+          {
+            ok: true,
+            data: [],
+            avatarMemory: "Pamięć z poprzednich rozmów.",
+            peopleBrief: "- Marta (koleżanka z pracy)",
+            topicBrief: "- Odmawianie w pracy",
+          },
+          "pl",
+        ),
+      ),
+    );
+    expect(lastLiveConfig().delegation.responses.instructions).toContain("- Odmawianie w pracy");
+  });
+
+  it("checks the minute pool before every paid live session, reconnects included", async () => {
+    getOwnedSessionMetadata.mockResolvedValue(ok({ ...voiceSession, voiceConnectedAt: "2026-09-12T10:00:05.000Z" }));
+
+    await POST(createContext() as never);
+
+    expect(resolveVoiceConnectAllowance).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ id: SESSION_ID, durationBucketSeconds: 600 }),
+      { expiresAtMs: Date.parse("2026-09-12T10:10:00.000Z"), now: new Date("2026-09-12T10:01:00.000Z") },
+    );
+    expect(resolveVoiceConnectAllowance.mock.invocationCallOrder[0]).toBeLessThan(
+      createLiveSession.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("arms the observer with the pool's shorter deadline when other conversations hold the rest", async () => {
+    resolveVoiceConnectAllowance.mockResolvedValueOnce({
+      ok: true,
+      deadlineAtMs: Date.parse("2026-09-12T10:05:00.000Z"),
+    });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    expect(stub.arm).toHaveBeenCalledWith(
+      expect.objectContaining({ expiresAtMs: Date.parse("2026-09-12T10:05:00.000Z") }),
+    );
+    // The client timer counts down to the same shortened deadline, not the frozen `expires_at`.
+    await expect(readJson(response)).resolves.toMatchObject({
+      expiresAt: "2026-09-12T10:05:00.000Z",
+      session: { expiresAt: "2026-09-12T10:05:00.000Z", remainingSeconds: 240 },
+    });
+  });
+
+  it("refuses an exhausted pool or spent trial with 403 and never creates a provider session", async () => {
+    for (const code of ["voice_minutes_exhausted", "voice_trial_used"] as const) {
+      resolveVoiceConnectAllowance.mockResolvedValueOnce({ ok: false, code, status: 403 });
+
+      const response = await POST(createContext() as never);
+
+      expect(response.status).toBe(403);
+      await expect(readJson(response)).resolves.toEqual({ ok: false, type: "voice_error", code });
+      expect(logOperationalEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "session.voice_connected",
+          outcome: "blocked",
+          reasonCode: code,
+          status: 403,
+        }),
+        expect.anything(),
+      );
+    }
+
+    expect(createLiveSession).not.toHaveBeenCalled();
+    expect(markVoiceSessionConnected).not.toHaveBeenCalled();
+    expect(stub.arm).not.toHaveBeenCalled();
+  });
+
+  it("fails closed with 503 when the pool cannot be read", async () => {
+    resolveVoiceConnectAllowance.mockResolvedValueOnce({ ok: false, code: "session_quota_unavailable", status: 503 });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(503);
+    await expect(readJson(response)).resolves.toMatchObject({ code: "session_data_unavailable" });
+    expect(createLiveSession).not.toHaveBeenCalled();
+  });
+
   it("rejects missing auth, a malformed offer and an unknown session before touching the provider", async () => {
     requireSessionRouteAccess.mockResolvedValueOnce({
       ok: false,
@@ -303,6 +418,56 @@ describe("POST /api/session/voice/connect", () => {
       contextData,
       expect.objectContaining({ nextStatus: "expired", sessionId: SESSION_ID }),
     );
+    expect(stub.hangupNow).toHaveBeenCalledWith("time_limit_reached");
+    expect(createLiveSession).not.toHaveBeenCalled();
+  });
+
+  it("treats the last 15 s before the deadline as expired, never creating a live session the observer would drop", async () => {
+    // Now is 10:01:00; the observer hangs up 15 s before `expires_at`.
+    getOwnedSessionMetadata.mockResolvedValueOnce(ok({ ...voiceSession, expiresAt: "2026-09-12T10:01:15.000Z" }));
+
+    const reserve = await POST(createContext() as never);
+
+    expect(reserve.status).toBe(409);
+    await expect(readJson(reserve)).resolves.toMatchObject({
+      ok: false,
+      type: "expired",
+      code: "session_expired",
+      session: { status: "expired" },
+    });
+    expect(transitionSessionLifecycle).toHaveBeenCalledWith(
+      contextData,
+      expect.objectContaining({ sessionId: SESSION_ID, nextStatus: "expired" }),
+    );
+    expect(stub.hangupNow).toHaveBeenCalledWith("time_limit_reached");
+    expect(resolveVoiceConnectAllowance).not.toHaveBeenCalled();
+    expect(createLiveSession).not.toHaveBeenCalled();
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "session.time_limit_reached", status: 409 }),
+      expect.anything(),
+    );
+
+    // One second more and the connection is worth making.
+    vi.clearAllMocks();
+    getVoiceObserver.mockReturnValue(stub);
+    resolveVoiceConnectAllowance.mockResolvedValue({ ok: true, deadlineAtMs: Date.parse("2026-09-12T10:01:16.000Z") });
+    getOwnedSessionMetadata.mockResolvedValueOnce(ok({ ...voiceSession, expiresAt: "2026-09-12T10:01:16.000Z" }));
+
+    const allowed = await POST(createContext() as never);
+
+    expect(allowed.status).toBe(200);
+    expect(createLiveSession).toHaveBeenCalledTimes(1);
+    expect(transitionSessionLifecycle).not.toHaveBeenCalled();
+
+    // A deadline already past answers exactly as before.
+    vi.clearAllMocks();
+    getVoiceObserver.mockReturnValue(stub);
+    getOwnedSessionMetadata.mockResolvedValueOnce(ok({ ...voiceSession, expiresAt: "2026-09-12T10:00:30.000Z" }));
+
+    const past = await POST(createContext() as never);
+
+    expect(past.status).toBe(409);
+    await expect(readJson(past)).resolves.toMatchObject({ type: "expired", code: "session_expired" });
     expect(stub.hangupNow).toHaveBeenCalledWith("time_limit_reached");
     expect(createLiveSession).not.toHaveBeenCalled();
   });

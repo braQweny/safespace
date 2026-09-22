@@ -2,7 +2,7 @@ import { useState } from "react";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { useLocale } from "@/components/hooks/useLocale";
 import type { Locale } from "@/lib/i18n/locale";
-import type { AvatarId, SelectedModalityAvatar } from "@/lib/modalities";
+import type { AvatarId, SelectedModalityAvatar } from "@/lib/modality-catalog";
 import { cn } from "@/lib/utils";
 import type { OwnedSessionCountsByAvatar } from "@/lib/session-data/types";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
@@ -11,6 +11,8 @@ import { getSessionHistoryCopy } from "./session-history-copy";
 
 interface DashboardSessionHistoryProps {
   locale: Locale;
+  /** Strefa osoby (`Astro.locals.timeZone`): dni i godziny historii liczone w niej; domyślnie Europe/Warsaw. */
+  timeZone?: string;
   /** Perspektywa zapisana do kolejnej rozmowy — domyślna, ale nie jedyna do przejrzenia. */
   selectedAvatar: SelectedModalityAvatar;
   /** Perspektywa wskazana w adresie, żeby odświeżenie strony nie gubiło podglądu. */
@@ -80,9 +82,9 @@ function updateHistoryUrl(avatarId: AvatarId, savedAvatarId: AvatarId, page: num
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-export default function DashboardSessionHistory({ locale, ...props }: DashboardSessionHistoryProps) {
+export default function DashboardSessionHistory({ locale, timeZone, ...props }: DashboardSessionHistoryProps) {
   return (
-    <LocaleProvider locale={locale}>
+    <LocaleProvider locale={locale} timeZone={timeZone}>
       <DashboardSessionHistoryView {...props} />
     </LocaleProvider>
   );
@@ -96,7 +98,7 @@ function DashboardSessionHistoryView({
   initialHistory,
   sessionCountsByAvatar = null,
   className,
-}: Omit<DashboardSessionHistoryProps, "locale">) {
+}: Omit<DashboardSessionHistoryProps, "locale" | "timeZone">) {
   const copy = getSessionHistoryCopy(useLocale());
   const [historyPage, setHistoryPage] = useState(initialHistoryPage);
   const [viewedAvatarId, setViewedAvatarId] = useState<AvatarId>(initialViewedAvatarId ?? selectedAvatar.avatarId);
@@ -156,11 +158,12 @@ function DashboardSessionHistoryView({
                         : "border-line-strong text-ink-muted hover:bg-surface-soft",
                     )}
                   >
+                    {/* Bez `aria-label`: nazwą radia jest cały `<label>`, czyli imię
+                        razem z liczbą rozmów, którą nadpisanie ukrywało przed czytnikiem. */}
                     <input
                       type="radio"
                       name="history-avatar"
                       value={modality.avatarId}
-                      aria-label={modality.avatarFirstName}
                       checked={isViewed}
                       onChange={() => {
                         changeViewedAvatar(modality.avatarId);

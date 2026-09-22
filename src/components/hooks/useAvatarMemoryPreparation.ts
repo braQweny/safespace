@@ -18,6 +18,14 @@ export function isAvatarMemoryPreparing(result: ApiJsonResult) {
   );
 }
 
+/**
+ * Treść żądań `prepare-memory` / `prepare-people`: same identyfikatory, nigdy
+ * przekazany obiekt w całości — pełny wpis perspektywy niesie personę AI.
+ */
+export function toPreparationRequestBody(avatar: AvatarChoice) {
+  return JSON.stringify({ avatarId: avatar.avatarId, modalityId: avatar.modalityId });
+}
+
 // Wyłącznie w przeglądarce: współdzielimy trwające żądanie, nigdy gotowość ani
 // treść pamięci. Ponowne wejście musi wykryć nową rozmowę lub usunięcie źródła.
 const pendingBatches = new Map<string, Promise<ApiJsonResult>>();
@@ -28,7 +36,7 @@ function requestMemoryBatch(avatar: AvatarChoice) {
   if (pending) return pending;
   const request = requestApiJson("/api/session/prepare-memory", {
     method: "POST",
-    body: JSON.stringify(avatar),
+    body: toPreparationRequestBody(avatar),
     timeoutMs: 80_000,
   }).finally(() => pendingBatches.delete(key));
   pendingBatches.set(key, request);

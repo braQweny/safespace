@@ -7,7 +7,6 @@ import { generateSessionResponse } from "@/lib/session-ai/provider";
 import { getSafetyBoundaryUnavailableCopy, getSessionAiFailureCopy } from "@/lib/session-ai/session-response-copy";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { getValidAvatarChoice } from "@/lib/modalities";
-import { getModalityPromptNames } from "@/lib/modality-copy";
 import { evaluateSessionSafety } from "@/lib/session-safety/evaluate-session-safety";
 import {
   isFailClosedSessionSafetyReasonCode,
@@ -47,7 +46,7 @@ import { persistSuccessfulMessageTurn, toSessionMessageViewModel } from "@/lib/s
 import { expireOwnedSession, getProviderTimeoutWithinSessionMs, isSessionExpired } from "@/lib/session-flow/time-limit";
 import { resolveSessionPhase } from "@/lib/session-flow/session-phase";
 import { toSessionView } from "@/lib/session-flow/session-state";
-import { loadOwnedSessionContinuity } from "@/lib/session-flow/session-continuity";
+import { loadOwnedSessionContinuity, toSessionPromptContext } from "@/lib/session-flow/session-continuity";
 
 export const prerender = false;
 
@@ -127,6 +126,24 @@ function expiredResponse(session: SessionMetadata, now: Date) {
   );
 }
 
+/**
+ * Moves an overrun session to `expired` and answers with the view the client
+ * shows on the closing card. A failed transition still answers `expired`:
+ * the deadline passed either way, and the next read reconciles the row.
+ */
+async function expireAndRespond(context: SessionDataContext, session: SessionMetadata, now: Date) {
+  const expired = await expireOwnedSession(context, session, now);
+  return jsonResponse(
+    {
+      ok: false,
+      type: "expired",
+      code: "session_expired",
+      session: expired.ok ? expired.data.session : toSessionView(session, now),
+    },
+    409,
+  );
+}
+
 function notActiveResponse() {
   return jsonResponse(
     {
@@ -157,6 +174,13 @@ export const POST: APIRoute = async (context) => {
   const locale = getRequestLocale(context.locals);
   const operationalContext = await buildOperationalRequestContext(context);
   const sessionContext = await requireSessionRouteAccess(context);
+
+  function logTimeLimitReached() {
+    logOperationalEvent(
+      { ...buildSessionTimeLimitReachedEvent({ durationMs: getOperationalDurationMs(startedAtMs) }), status: 409 },
+      operationalContext,
+    );
+  }
 
   if (!sessionContext.ok) {
     return jsonResponse(missingOrUnauthorizedResponse(sessionContext.error.code), sessionContext.error.status);
@@ -198,18 +222,7 @@ export const POST: APIRoute = async (context) => {
       return jsonResponse({ ok: false, type: code, code }, 409);
     }
     if (code === "invalid_lifecycle_transition" || code === "session_not_found") return notActiveResponse();
-    if (code === "session_expired") {
-      const expired = await expireOwnedSession(sessionContext.data, session, now);
-      return jsonResponse(
-        {
-          ok: false,
-          type: "expired",
-          code: "session_expired",
-          session: expired.ok ? expired.data.session : toSessionView(session, now),
-        },
-        409,
-      );
-    }
+    if (code === "session_expired") return expireAndRespond(sessionContext.data, session, now);
     return jsonResponse(unavailableResponse(), 503);
   }
 
@@ -237,27 +250,9 @@ export const POST: APIRoute = async (context) => {
     }
 
     if (isSessionExpired(session, now)) {
-      const expired = await expireOwnedSession(sessionContext.data, session, now);
-
-      logOperationalEvent(
-        {
-          ...buildSessionTimeLimitReachedEvent({
-            durationMs: getOperationalDurationMs(startedAtMs),
-          }),
-          status: 409,
-        },
-        operationalContext,
-      );
-
-      return jsonResponse(
-        {
-          ok: false,
-          type: "expired",
-          code: "session_expired",
-          session: expired.ok ? expired.data.session : toSessionView(session, now),
-        },
-        409,
-      );
+      const response = await expireAndRespond(sessionContext.data, session, now);
+      logTimeLimitReached();
+      return response;
     }
 
     const modality = getValidAvatarChoice(session.modalityId, session.avatarId);
@@ -288,7 +283,7 @@ export const POST: APIRoute = async (context) => {
     // user turns reach it as reach the safety classifier.
     const recentUserMessages = toRecentSafetyUserMessages(recentMessages.data);
     const safetyStartedAtMs = performance.now();
-    const [decision, approvedSummaries, lensResult] = await Promise.all([
+    const [decision, continuity, lensResult] = await Promise.all([
       evaluateSessionSafety({
         currentUserMessage: messageRequest.message,
         recentUserMessages,
@@ -349,7 +344,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    if (!approvedSummaries.ok) {
+    if (!continuity.ok) {
       return jsonResponse(unavailableResponse(), 503);
     }
 
@@ -371,27 +366,9 @@ export const POST: APIRoute = async (context) => {
     );
 
     if (providerTimeoutMs <= 0) {
-      const expired = await expireOwnedSession(sessionContext.data, session, new Date());
-
-      logOperationalEvent(
-        {
-          ...buildSessionTimeLimitReachedEvent({
-            durationMs: getOperationalDurationMs(startedAtMs),
-          }),
-          status: 409,
-        },
-        operationalContext,
-      );
-
-      return jsonResponse(
-        {
-          ok: false,
-          type: "expired",
-          code: "session_expired",
-          session: expired.ok ? expired.data.session : toSessionView(session, new Date()),
-        },
-        409,
-      );
+      const response = await expireAndRespond(sessionContext.data, session, new Date());
+      logTimeLimitReached();
+      return response;
     }
 
     // Resolved from this session's own budget, so the arc holds for a short trial
@@ -409,24 +386,11 @@ export const POST: APIRoute = async (context) => {
       const response = await generateSessionResponse(
         {
           currentUserMessage: messageRequest.message,
-          modality: {
-            ...getModalityPromptNames(modality.modalityId),
-            sessionStyleHint: modality.sessionStyleHint,
-            registerExamples: modality.registerExamples[locale],
-          },
+          ...toSessionPromptContext(modality, continuity, locale),
           ...(sessionPhase ? { sessionPhase } : {}),
           cautionConstraints: decision.action === "allow_with_constraints" ? decision.constraints : undefined,
           recentMessages: toRecentSessionAiMessages(recentMessages.data),
-          avatarMemory: approvedSummaries.avatarMemory,
-          peopleBrief: approvedSummaries.peopleBrief,
-          topicBrief: approvedSummaries.topicBrief,
           ...(sessionLens ? { sessionLens } : {}),
-          approvedSummaries: approvedSummaries.data.map((summary) => ({
-            summaryText: summary.summaryText,
-            revision: summary.revision,
-            createdAt: summary.createdAt,
-            updatedAt: summary.updatedAt,
-          })),
           locale,
         },
         undefined,
@@ -495,16 +459,7 @@ export const POST: APIRoute = async (context) => {
         return notActiveResponse();
       }
       if (persistedTurn.error.code === "session_expired") {
-        const expired = await expireOwnedSession(sessionContext.data, latestSession.data, new Date());
-        return jsonResponse(
-          {
-            ok: false,
-            type: "expired",
-            code: "session_expired",
-            session: expired.ok ? expired.data.session : toSessionView(latestSession.data, new Date()),
-          },
-          409,
-        );
+        return await expireAndRespond(sessionContext.data, latestSession.data, new Date());
       }
       return jsonResponse(
         {

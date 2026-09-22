@@ -65,7 +65,10 @@ export default defineConfig({
       },
     },
   },
-  integrations: [react(), ...(siteUrl ? [sitemap()] : [])],
+  // React Compiler memoizuje komponenty w czasie budowania. Sama reguła ESLint
+  // tylko sprawdza, czy kod spełnia jego założenia; bez wtyczki Babel pisanie
+  // w kompozytorze renderowało od nowa cały transkrypt przy każdym klawiszu.
+  integrations: [react({ babel: { plugins: ["babel-plugin-react-compiler"] } }), ...(siteUrl ? [sitemap()] : [])],
   // SafeSpace does not render code examples. Disabling Shiki prevents its
   // inline styles from weakening the CSP if Markdown content is added later.
   markdown: {

@@ -44,6 +44,26 @@ export function isVoiceCloseReason(value: unknown): value is VoiceCloseReason {
   return typeof value === "string" && (VOICE_CLOSE_REASONS as readonly string[]).includes(value);
 }
 
+/**
+ * Powody, po których rozmowy nie da się wznowić: wiersz w bazie jest (albo za
+ * chwilę będzie) w stanie końcowym, a `connect` odmawia takiej rozmowie. Po
+ * nich obserwator niczego już nie klasyfikuje, więc nie trzyma ogona
+ * zrzuconych wypowiedzi. Utrata pulsu, awaria klasyfikatora, zamknięcie przez
+ * dostawcę i wznowienie zostawiają ogon jako kontekst klasyfikatora po
+ * ponownym połączeniu.
+ */
+export const TERMINAL_VOICE_CLOSE_REASONS = [
+  "completed",
+  "interrupted",
+  "time_limit_reached",
+  "voice_disabled",
+  "deleted",
+] as const satisfies readonly VoiceCloseReason[];
+
+export function isTerminalVoiceCloseReason(reason: VoiceCloseReason | null): boolean {
+  return reason !== null && (TERMINAL_VOICE_CLOSE_REASONS as readonly string[]).includes(reason);
+}
+
 export interface VoiceObserverState {
   /** Rośnie przy każdym `arm`; spóźnione wyniki ze starej epoki są ignorowane. */
   epoch: number;

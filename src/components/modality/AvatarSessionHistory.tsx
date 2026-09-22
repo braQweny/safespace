@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 import { getModalityCopy } from "@/lib/modality-copy";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
+import {
+  DialogEscapeLayersContext,
+  handleDialogCancel,
+  useDialogEscapeLayers,
+} from "@/components/hooks/useDialogEscapeLayers";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useLocale } from "@/components/hooks/useLocale";
 import { useSessionDeletion } from "@/components/hooks/useSessionDeletion";
@@ -13,6 +18,9 @@ import { cn } from "@/lib/utils";
 import SessionHistoryDetailPanel from "./SessionHistoryDetail";
 import SessionHistoryList, { getOpenDetailButtonId } from "./SessionHistoryList";
 import { getSessionHistoryCopy } from "./session-history-copy";
+
+const PAGE_BUTTON =
+  "border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 interface AvatarSessionHistoryProps {
   selectedAvatar: SelectedModalityAvatar | null;
@@ -69,6 +77,7 @@ function SessionHistoryContent({
   const [notice, setNotice] = useState<string | null>(null);
   const isHydrated = useIsHydrated();
   const detailPanelRef = useRef<HTMLDialogElement | null>(null);
+  const escapeLayers = useDialogEscapeLayers();
   const autoOpenedRef = useRef(false);
   // Ostatnio żądana rozmowa — po zamknięciu podglądu fokus wraca na jej wiersz,
   // także gdy podgląd zamknięto jeszcze w trakcie ładowania (detail === null).
@@ -265,28 +274,30 @@ function SessionHistoryContent({
           aria-label={copy.dialogAria}
           tabIndex={-1}
           onCancel={(event) => {
-            event.preventDefault();
-            handleCloseDetail();
+            // Escape najpierw cofa otwarte potwierdzenie usunięcia, dopiero potem zamyka podgląd.
+            handleDialogCancel(event, escapeLayers, handleCloseDetail);
           }}
           className="border-line-strong bg-surface text-ink fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border p-0 backdrop:bg-black/50"
         >
-          <SessionHistoryDetailPanel
-            detail={detail}
-            detailStatus={detailStatus}
-            selectedAvatar={selectedAvatar}
-            summaryState={summaryState}
-            summaryStatus={summaryStatus}
-            summaryErrorCode={summaryErrorCode}
-            canSummarize={canSummarizeDetail}
-            onGenerateSummary={handleGenerateSummary}
-            onApproveSummary={handleApproveSummary}
-            onClose={handleCloseDetail}
-            isConfirmingDelete={detail !== null && pendingDeleteId === detail.session.id}
-            isDeleting={detail !== null && deletingId === detail.session.id}
-            onRequestDelete={requestDelete}
-            onCancelDelete={cancelDelete}
-            onConfirmDelete={handleConfirmDelete}
-          />
+          <DialogEscapeLayersContext value={escapeLayers}>
+            <SessionHistoryDetailPanel
+              detail={detail}
+              detailStatus={detailStatus}
+              selectedAvatar={selectedAvatar}
+              summaryState={summaryState}
+              summaryStatus={summaryStatus}
+              summaryErrorCode={summaryErrorCode}
+              canSummarize={canSummarizeDetail}
+              onGenerateSummary={handleGenerateSummary}
+              onApproveSummary={handleApproveSummary}
+              onClose={handleCloseDetail}
+              isConfirmingDelete={detail !== null && pendingDeleteId === detail.session.id}
+              isDeleting={detail !== null && deletingId === detail.session.id}
+              onRequestDelete={requestDelete}
+              onCancelDelete={cancelDelete}
+              onConfirmDelete={handleConfirmDelete}
+            />
+          </DialogEscapeLayersContext>
         </dialog>
       ) : null}
       {selectedAvatar && showPagination ? (
@@ -299,7 +310,7 @@ function SessionHistoryContent({
               onClick={() => {
                 changePage(activePage - 1);
               }}
-              className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className={PAGE_BUTTON}
             >
               <ChevronLeft aria-hidden="true" className="h-4 w-4" />
               {copy.previous}
@@ -310,7 +321,7 @@ function SessionHistoryContent({
               onClick={() => {
                 changePage(activePage + 1);
               }}
-              className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className={PAGE_BUTTON}
             >
               {copy.next}
               <ChevronRight aria-hidden="true" className="h-4 w-4" />

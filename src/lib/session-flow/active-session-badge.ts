@@ -1,5 +1,6 @@
 import { listOwnedActiveSessionMetadata } from "@/lib/session-data/repository";
 import type { SessionAvatarId, SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
+import { parseTimestampMs } from "./session-clock";
 
 /**
  * Nagłówek aplikacji nie ma już zakładki „Sesja”, więc powrót do trwającej
@@ -28,9 +29,9 @@ export function toActiveSessionBadge(
     return null;
   }
 
-  const expiresAtMs = session.expiresAt ? Date.parse(session.expiresAt) : Number.NaN;
+  const expiresAtMs = parseTimestampMs(session.expiresAt);
 
-  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= now.getTime()) {
+  if (expiresAtMs === null || expiresAtMs <= now.getTime()) {
     return null;
   }
 

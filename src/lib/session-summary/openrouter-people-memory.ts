@@ -1,6 +1,7 @@
 import { getAiProviderEnv } from "@/lib/ai-provider/env";
 import type { AiProviderName } from "@/lib/ai-provider/types";
 import { sendAiChat } from "@/lib/ai-provider/chat";
+import { buildChatProviderMetadata } from "@/lib/ai-provider/chat-response";
 import type { Fetcher } from "@openrouter/sdk";
 import { resolveSummaryModel } from "./env";
 import {
@@ -17,7 +18,6 @@ import {
 } from "@/lib/openrouter/privacy";
 import { SessionSummaryError } from "./errors";
 import { resolveSummaryMaxCompletionTokens, resolveSummaryReasoningEffort } from "./openrouter-summary";
-import { buildSummaryProviderMetadata } from "./provider-response";
 import { buildPeopleMemoryMessages } from "./people-memory-prompt";
 import { OPENROUTER_PEOPLE_MEMORY_RESPONSE_SCHEMA } from "./people-memory-schema";
 import { parsePeopleMemoryChanges } from "./parse-people-memory-changes";
@@ -84,7 +84,7 @@ export async function generatePeopleMemoryWithAiProvider(
 
     return {
       changes: parsePeopleMemoryChanges(response, buildPeopleMemoryRefIndex(input)),
-      providerMetadata: buildSummaryProviderMetadata(response, model, config.provider),
+      providerMetadata: buildChatProviderMetadata(response, model, config.provider),
     };
   } catch (error) {
     if (error instanceof SessionSummaryError) {

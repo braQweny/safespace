@@ -9,7 +9,7 @@ import SessionStartCard from "@/components/session/SessionStartCard";
 import TimedSession from "@/components/session/TimedSession";
 import VoiceSession from "@/components/session/VoiceSession";
 import type { AdminOverviewMetrics } from "@/lib/admin/types";
-import { MODALITY_CHOICES, MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import { MODALITY_CATALOG, MODALITY_CHOICES, toSelectedModalityAvatar } from "@/lib/modality-catalog";
 import type { SessionStartPageState, SessionView } from "@/lib/session-flow/session-state";
 
 /**
@@ -17,8 +17,8 @@ import type { SessionStartPageState, SessionView } from "@/lib/session-flow/sess
  * Pozostałe testy komponentów asertują po polsku przez mock `useLocale`; ten
  * plik sprawdza angielski render bez żadnego mocka — czyli tak, jak w produkcie.
  */
-const cbt = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
-const avatar: SessionStartPageState["avatar"] = { modality: cbt, selected: toSelectedModalityAvatar(cbt) };
+const cbt = MODALITY_CATALOG.find((entry) => entry.modalityId === "cbt") ?? MODALITY_CATALOG[1];
+const avatar: SessionStartPageState["avatar"] = { selected: toSelectedModalityAvatar(cbt) };
 
 const activeState: SessionStartPageState = {
   kind: "active",
@@ -36,8 +36,6 @@ const activeState: SessionStartPageState = {
   },
   messages: [],
   messageFetchFailed: false,
-  approvedSummaries: [],
-  canStartWithoutContext: false,
   sessionQuota: null,
 };
 
@@ -153,7 +151,7 @@ describe("islands rendered in English", () => {
         peopleMemoryEnabled
         topicMapEnabled
         memoryPreview={null}
-        forcedView="list"
+        initialView="list"
       />,
     );
 

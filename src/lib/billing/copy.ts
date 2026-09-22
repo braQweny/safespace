@@ -108,14 +108,18 @@ export function getBillingCopy(locale: Locale) {
   return BILLING_COPY[locale];
 }
 
-export function formatBillingDate(locale: Locale, value: string) {
+/**
+ * Koniec opłaconego okresu w strefie osoby (`locals.timeZone`), z nazwą strefy
+ * — to konkretna chwila, a nie „dzień”, więc skrót strefy mówi, w której.
+ */
+export function formatBillingDate(locale: Locale, timeZone: string, value: string) {
   return new Intl.DateTimeFormat(localeTag(locale), {
     year: "numeric",
     month: "long",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Warsaw",
+    timeZone,
     timeZoneName: "short",
   }).format(new Date(value));
 }

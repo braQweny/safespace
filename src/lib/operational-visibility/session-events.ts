@@ -57,6 +57,9 @@ const SESSION_VOICE_CLOSE_REASON_CODES = [
 ] as const satisfies readonly OperationalSessionReasonCode[];
 const SESSION_VOICE_CONNECT_REASON_CODES = [
   "voice_unavailable",
+  // Pula sprawdzana przy każdym połączeniu: pusta pula premium, zużyta próba free.
+  "voice_minutes_exhausted",
+  "voice_trial_used",
   "voice_observer_unavailable",
   "reconnected",
   "provider_timeout",
@@ -214,6 +217,35 @@ function sanitizeUnitCount(value: unknown) {
   return value;
 }
 
+// Domyślny dostawca z konfiguracji (`ai-provider/env.ts`: brak `AI_PROVIDER`
+// → OpenAI). Trasy zawsze podają `getAiProviderName()`; ta wartość dotyczy
+// tylko brakującego lub nieznanego pola i nigdy nie przepuszcza nic spoza listy.
+const DEFAULT_SESSION_AI_PROVIDER: SessionAiProvider = "openai";
+
+/** Dostawca z listy albo domyślny — dla zdarzeń, w których pole jest zawsze obecne. */
+function pickProvider(value: unknown): SessionAiProvider {
+  return hasAllowedValue(SESSION_AI_PROVIDER_VALUES, value) ? value : DEFAULT_SESSION_AI_PROVIDER;
+}
+
+/** Pole `provider` tylko dla wartości z listy — dla zdarzeń, w których jest opcjonalne. */
+function pickOptionalProvider(value: unknown): { provider?: SessionAiProvider } {
+  return hasAllowedValue(SESSION_AI_PROVIDER_VALUES, value) ? { provider: value } : {};
+}
+
+/** Liczniki jednostek providera: tylko nieujemne liczby całkowite, nigdy tekst, na który poszły. */
+function pickUnits(metadata: {
+  inputUnits?: unknown;
+  outputUnits?: unknown;
+}): Pick<OperationalEvent, "inputUnits" | "outputUnits"> {
+  const inputUnits = sanitizeUnitCount(metadata.inputUnits);
+  const outputUnits = sanitizeUnitCount(metadata.outputUnits);
+
+  return {
+    ...(inputUnits !== undefined ? { inputUnits } : {}),
+    ...(outputUnits !== undefined ? { outputUnits } : {}),
+  };
+}
+
 function sanitizeDurationMs(value: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     return undefined;
@@ -322,7 +354,6 @@ export function buildSessionSafetyEvaluatedEvent(metadata: SessionSafetyEvaluate
   const reasonCode = hasAllowedValue(SESSION_SAFETY_REASON_CODE_VALUES, metadata.reasonCode)
     ? metadata.reasonCode
     : "provider_unavailable";
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : undefined;
   const outcome = metadata.outcome ?? getSafetyOutcome(action);
   const event = buildSessionEvent("session.safety_evaluated", getSafetyLevel(riskState, action), {
     requestId: metadata.requestId,
@@ -336,7 +367,7 @@ export function buildSessionSafetyEvaluatedEvent(metadata: SessionSafetyEvaluate
     riskState,
     action,
     reasonCode,
-    ...(provider ? { provider } : {}),
+    ...pickOptionalProvider(metadata.provider),
   };
 }
 
@@ -359,7 +390,7 @@ export function buildSessionSafetyEvaluatedEventFromDecision(
 }
 
 export function buildSessionAiProviderFailedEvent(metadata: SessionProviderFailedEventMetadata): OperationalEvent {
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
+  const provider = pickProvider(metadata.provider);
   const reasonCode = hasAllowedValue(SESSION_PROVIDER_FAILURE_REASON_CODES, metadata.reasonCode)
     ? metadata.reasonCode
     : "provider_unavailable";
@@ -381,9 +412,7 @@ export function buildSessionAiProviderFailedEvent(metadata: SessionProviderFaile
  * provider's token counts, never the text they were spent on.
  */
 export function buildSessionAiTurnCompletedEvent(metadata: SessionAiTurnCompletedEventMetadata = {}): OperationalEvent {
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
-  const inputUnits = sanitizeUnitCount(metadata.inputUnits);
-  const outputUnits = sanitizeUnitCount(metadata.outputUnits);
+  const provider = pickProvider(metadata.provider);
 
   return {
     ...buildSessionEvent("session.ai_turn_completed", "info", {
@@ -393,8 +422,7 @@ export function buildSessionAiTurnCompletedEvent(metadata: SessionAiTurnComplete
       userHash: metadata.userHash,
     }),
     provider,
-    ...(inputUnits !== undefined ? { inputUnits } : {}),
-    ...(outputUnits !== undefined ? { outputUnits } : {}),
+    ...pickUnits(metadata),
   };
 }
 
@@ -405,9 +433,7 @@ export function buildSessionAiTurnCompletedEvent(metadata: SessionAiTurnComplete
 export function buildSessionPeopleMemoryUpdatedEvent(
   metadata: SessionPeopleMemoryUpdatedEventMetadata = {},
 ): OperationalEvent {
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
-  const inputUnits = sanitizeUnitCount(metadata.inputUnits);
-  const outputUnits = sanitizeUnitCount(metadata.outputUnits);
+  const provider = pickProvider(metadata.provider);
   const partial = metadata.partial === true;
 
   return {
@@ -419,8 +445,7 @@ export function buildSessionPeopleMemoryUpdatedEvent(
     }),
     provider,
     ...(partial ? { reasonCode: "people_memory_partial" as const } : {}),
-    ...(inputUnits !== undefined ? { inputUnits } : {}),
-    ...(outputUnits !== undefined ? { outputUnits } : {}),
+    ...pickUnits(metadata),
   };
 }
 
@@ -430,15 +455,13 @@ export function buildSessionPeopleMemoryUpdatedEvent(
  * przekazana omyłkowo nie przechodzi przez ten builder.
  */
 export function buildSessionLensEvaluatedEvent(metadata: SessionLensEvaluatedEventMetadata): OperationalEvent {
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
+  const provider = pickProvider(metadata.provider);
   const outcome: SessionLifecycleOutcome =
     metadata.result === "detected" ? "success" : metadata.result === "none" ? "skipped" : "failure";
   const reasonCode =
     outcome === "failure" && hasAllowedValue(SESSION_PROVIDER_FAILURE_REASON_CODES, metadata.reasonCode)
       ? metadata.reasonCode
       : undefined;
-  const inputUnits = sanitizeUnitCount(metadata.inputUnits);
-  const outputUnits = sanitizeUnitCount(metadata.outputUnits);
 
   return {
     ...buildSessionEvent("session.lens_evaluated", outcome === "failure" ? "warn" : "info", {
@@ -449,15 +472,14 @@ export function buildSessionLensEvaluatedEvent(metadata: SessionLensEvaluatedEve
     }),
     provider,
     ...(reasonCode ? { reasonCode } : {}),
-    ...(inputUnits !== undefined ? { inputUnits } : {}),
-    ...(outputUnits !== undefined ? { outputUnits } : {}),
+    ...pickUnits(metadata),
   };
 }
 
 export function buildSessionTranscriptionFailedEvent(
   metadata: SessionTranscriptionFailedEventMetadata,
 ): OperationalEvent {
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : "openrouter";
+  const provider = pickProvider(metadata.provider);
   const reasonCode = hasAllowedValue(SESSION_PROVIDER_FAILURE_REASON_CODES, metadata.reasonCode)
     ? metadata.reasonCode
     : "provider_unavailable";
@@ -526,7 +548,6 @@ export function buildSessionVoiceClosedEvent(metadata: SessionVoiceClosedEventMe
   const reasonCode = hasAllowedValue(SESSION_VOICE_CLOSE_REASON_CODES, metadata.reasonCode)
     ? metadata.reasonCode
     : "provider_closed";
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : undefined;
   const outcome =
     metadata.outcome ??
     (reasonCode === "completed" || reasonCode === "time_limit_reached" || reasonCode === "reconnected"
@@ -539,7 +560,7 @@ export function buildSessionVoiceClosedEvent(metadata: SessionVoiceClosedEventMe
     userHash: metadata.userHash,
   });
 
-  return { ...event, reasonCode, ...(provider ? { provider } : {}) };
+  return { ...event, reasonCode, ...pickOptionalProvider(metadata.provider) };
 }
 
 /**
@@ -551,7 +572,6 @@ export function buildSessionVoiceConnectedEvent(metadata: SessionVoiceConnectedE
   const reasonCode = hasAllowedValue(SESSION_VOICE_CONNECT_REASON_CODES, metadata.reasonCode)
     ? metadata.reasonCode
     : undefined;
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : undefined;
   const event = buildSessionEvent("session.voice_connected", getOutcomeLevel(metadata.outcome), {
     requestId: metadata.requestId,
     outcome: metadata.outcome,
@@ -559,7 +579,7 @@ export function buildSessionVoiceConnectedEvent(metadata: SessionVoiceConnectedE
     userHash: metadata.userHash,
   });
 
-  return { ...event, ...(reasonCode ? { reasonCode } : {}), ...(provider ? { provider } : {}) };
+  return { ...event, ...(reasonCode ? { reasonCode } : {}), ...pickOptionalProvider(metadata.provider) };
 }
 
 /** Sideband obserwatora: podłączenie, rotacja, ponowne podłączenie i ich awarie. */
@@ -567,7 +587,6 @@ export function buildSessionVoiceObserverEvent(metadata: SessionVoiceObserverEve
   const reasonCode = hasAllowedValue(SESSION_VOICE_OBSERVER_REASON_CODES, metadata.reasonCode)
     ? metadata.reasonCode
     : "observer_attach_failed";
-  const provider = hasAllowedValue(SESSION_AI_PROVIDER_VALUES, metadata.provider) ? metadata.provider : undefined;
   const event = buildSessionEvent("session.voice_observer", getOutcomeLevel(metadata.outcome), {
     requestId: metadata.requestId,
     outcome: metadata.outcome,
@@ -575,5 +594,5 @@ export function buildSessionVoiceObserverEvent(metadata: SessionVoiceObserverEve
     userHash: metadata.userHash,
   });
 
-  return { ...event, reasonCode, ...(provider ? { provider } : {}) };
+  return { ...event, reasonCode, ...pickOptionalProvider(metadata.provider) };
 }

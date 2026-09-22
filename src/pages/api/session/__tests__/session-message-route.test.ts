@@ -105,6 +105,8 @@ vi.mock("@/lib/operational-visibility/logger", () => ({
 }));
 
 const { POST } = await import("@/pages/api/session/message");
+const { getValidAvatarChoice } = await import("@/lib/modalities");
+const { toSessionPromptContext } = await import("@/lib/session-flow/session-continuity");
 
 const contextData = {
   user: {
@@ -344,6 +346,23 @@ describe("POST /api/session/message", () => {
       expect.any(Object),
     );
     expect(evaluateSessionSafety).toHaveBeenCalledBefore(generateSessionResponse);
+    // The reply path hands the model exactly the shared prompt context (same as opening and voice).
+    const cbt = getValidAvatarChoice("cbt", "cbt-guide");
+    if (!cbt) throw new Error("cbt avatar missing from the catalog");
+    const [input] = generateSessionResponse.mock.calls[0] as [GenerateSessionResponseInput];
+    expect(input).toMatchObject(
+      toSessionPromptContext(
+        cbt,
+        {
+          ok: true,
+          data: [],
+          avatarMemory: "Fakty ze wszystkich poprzednich rozmów z Markiem.",
+          peopleBrief: "- Marta (koleżanka z pracy)",
+          topicBrief: "- Odmawianie w pracy",
+        },
+        input.locale,
+      ),
+    );
   });
 
   it("drops the pinned people brief while the people-cards flag is off", async () => {

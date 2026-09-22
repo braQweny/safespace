@@ -165,7 +165,11 @@ export default function TopicGraph({
             return (
               <g
                 key={node.id}
-                id={getOpenDifficultyButtonId(node.id)}
+                // Ten sam id ma przycisk listy, do którego wraca fokus po zamknięciu
+                // karty. Przed hydratacją (i bez JS) bez wyboru widoku stoją oba
+                // widoki naraz, więc id dostaje tylko lista — graf dopiero wtedy,
+                // gdy klient zostawił jeden widok.
+                id={isInteractive ? getOpenDifficultyButtonId(node.id) : undefined}
                 ref={registerNode(node.id)}
                 role="button"
                 tabIndex={isInteractive ? 0 : -1}

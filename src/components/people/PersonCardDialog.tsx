@@ -1,7 +1,16 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Loader2, Pencil, Trash2, X } from "lucide-react";
+import InlineConfirm from "@/components/InlineConfirm";
 import type { PersonMutations } from "@/components/hooks/usePersonMutations";
 import { useLocale } from "@/components/hooks/useLocale";
+import { useTimeZone } from "@/components/hooks/useTimeZone";
+import {
+  BLOCK_PRIMARY_FULL,
+  FIELD,
+  PILL_OUTLINE,
+  PILL_QUIET_DANGER,
+  PILL_SMALL_SIZE,
+} from "@/components/ui/button-styles";
 import { formatDay } from "@/lib/i18n/format";
 import type { PersonCard, PersonFact } from "@/lib/session-data/types";
 import { PEOPLE_LIMITS } from "@/lib/session-flow/people-contract";
@@ -24,15 +33,6 @@ interface PersonCardDialogProps {
 
 const FORGET_HEADING_ID = "people-card-forget-heading";
 const FACT_DELETE_HEADING_ID = "people-card-fact-delete-heading";
-
-const PILL =
-  "border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
-const QUIET_DANGER =
-  "text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
-const DANGER =
-  "bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong disabled:bg-danger-line inline-flex h-11 items-center justify-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed";
-const FIELD =
-  "border-line-strong bg-surface text-ink placeholder:text-ink-muted focus-visible:ring-brand-ring block w-full rounded-[14px] border px-4 py-3 text-base leading-relaxed focus:outline-none focus-visible:ring-2";
 
 export function buildTalkAboutHref(personId: string, resumeSessionId: string | null) {
   const about = `about=${encodeURIComponent(personId)}`;
@@ -92,6 +92,7 @@ export default function PersonCardDialog({
   onClose,
 }: PersonCardDialogProps) {
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const copy = getPeopleCardsCopy(locale);
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(card.name);
@@ -100,33 +101,14 @@ export default function PersonCardDialog({
   const [savedNotice, setSavedNotice] = useState(false);
   const [editingFactId, setEditingFactId] = useState<string | null>(null);
   const [draftFact, setDraftFact] = useState("");
-  const confirmForgetRef = useRef<HTMLDivElement | null>(null);
   const forgetButtonRef = useRef<HTMLButtonElement | null>(null);
-  const confirmFactDeleteRef = useRef<HTMLDivElement | null>(null);
   const isConfirmingForget = mutations.pendingForgetId === card.id;
   const isForgetting = mutations.forgettingId === card.id;
   const isSavingPerson = mutations.savingPersonId === card.id;
 
-  // Blok potwierdzenia pojawia się poza fokusem — bez przeniesienia fokusu
-  // czytnik ekranu nie dowiedziałby się, że coś wymaga decyzji.
-  useEffect(() => {
-    if (isConfirmingForget) confirmForgetRef.current?.focus();
-  }, [isConfirmingForget]);
-
-  useEffect(() => {
-    if (mutations.pendingDeleteFactId) confirmFactDeleteRef.current?.focus();
-  }, [mutations.pendingDeleteFactId]);
-
   function handleCancelForget() {
     mutations.cancelForget();
     forgetButtonRef.current?.focus();
-  }
-
-  function stopEscape(event: KeyboardEvent<HTMLElement>, cancel: () => void) {
-    if (event.key !== "Escape") return;
-    event.preventDefault();
-    event.stopPropagation();
-    cancel();
   }
 
   function startEditing() {
@@ -171,12 +153,12 @@ export default function PersonCardDialog({
             onClick={() => {
               mutations.requestForget(card.id);
             }}
-            className={QUIET_DANGER}
+            className={PILL_QUIET_DANGER}
           >
             <Trash2 aria-hidden="true" className="h-4 w-4" />
             {copy.forget}
           </button>
-          <button type="button" onClick={onClose} className={PILL}>
+          <button type="button" onClick={onClose} className={PILL_OUTLINE}>
             <X aria-hidden="true" className="h-4 w-4" />
             {copy.close}
           </button>
@@ -185,43 +167,30 @@ export default function PersonCardDialog({
 
       <p className="text-ink-muted mt-4 text-sm leading-6">{copy.ownAccountNote}</p>
       <p className="text-ink-muted mt-1 text-xs leading-5">
-        {card.firstMentionedAt ? copy.firstMentioned(formatDay(locale, new Date(card.firstMentionedAt))) : null}
+        {card.firstMentionedAt
+          ? copy.firstMentioned(formatDay(locale, timeZone, new Date(card.firstMentionedAt)))
+          : null}
         {card.firstMentionedAt ? " · " : null}
         {copy.mentions(card.mentionCount)}
       </p>
 
+      {/* Escape przy otwartym potwierdzeniu cofa tylko je; kartę zamyka dopiero
+          następne (`onCancel` dialogu w `MemoryView`). */}
       {isConfirmingForget ? (
-        <div
-          ref={confirmForgetRef}
-          role="group"
-          aria-labelledby={FORGET_HEADING_ID}
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            stopEscape(event, handleCancelForget);
+        <InlineConfirm
+          headingId={FORGET_HEADING_ID}
+          title={copy.confirmForgetTitle}
+          body={copy.confirmForgetBody(avatarFirstName, card.name)}
+          cancelLabel={copy.cancel}
+          confirmLabel={copy.confirmForget}
+          isPending={isForgetting}
+          pendingLabel={copy.forgetting}
+          showsPendingSpinner
+          onCancel={handleCancelForget}
+          onConfirm={() => {
+            void mutations.confirmForget(card.id);
           }}
-          className="border-line-accent bg-surface text-ink-soft mt-4 rounded-xl border p-4 text-sm leading-6 focus:outline-none"
-        >
-          <p id={FORGET_HEADING_ID} className="font-semibold">
-            {copy.confirmForgetTitle}
-          </p>
-          <p className="mt-1">{copy.confirmForgetBody(avatarFirstName, card.name)}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={handleCancelForget} className={PILL}>
-              {copy.cancel}
-            </button>
-            <button
-              type="button"
-              disabled={isForgetting}
-              onClick={() => {
-                void mutations.confirmForget(card.id);
-              }}
-              className={DANGER}
-            >
-              {isForgetting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-              {isForgetting ? copy.forgetting : copy.confirmForget}
-            </button>
-          </div>
-        </div>
+        />
       ) : null}
 
       {isEditing ? (
@@ -279,7 +248,7 @@ export default function PersonCardDialog({
           </div>
           <p className="text-ink-muted text-xs leading-5">{copy.lockedNote(avatarFirstName)}</p>
           <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={isSavingPerson || draftName.trim().length === 0} className={PILL}>
+            <button type="submit" disabled={isSavingPerson || draftName.trim().length === 0} className={PILL_OUTLINE}>
               {isSavingPerson ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
               {isSavingPerson ? copy.saving : copy.save}
             </button>
@@ -288,7 +257,7 @@ export default function PersonCardDialog({
               onClick={() => {
                 setIsEditing(false);
               }}
-              className={PILL}
+              className={PILL_OUTLINE}
             >
               {copy.cancel}
             </button>
@@ -296,7 +265,7 @@ export default function PersonCardDialog({
         </form>
       ) : (
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={startEditing} className={PILL}>
+          <button type="button" onClick={startEditing} className={PILL_OUTLINE}>
             <Pencil aria-hidden="true" className="h-4 w-4" />
             {copy.edit}
           </button>
@@ -355,7 +324,7 @@ export default function PersonCardDialog({
                           <button
                             type="submit"
                             disabled={mutations.savingFactId === fact.id || draftFact.trim().length === 0}
-                            className={PILL}
+                            className={PILL_OUTLINE}
                           >
                             {copy.factSave}
                           </button>
@@ -364,7 +333,7 @@ export default function PersonCardDialog({
                             onClick={() => {
                               setEditingFactId(null);
                             }}
-                            className={PILL}
+                            className={PILL_OUTLINE}
                           >
                             {copy.cancel}
                           </button>
@@ -384,7 +353,7 @@ export default function PersonCardDialog({
                                     href={`/dashboard?session=${encodeURIComponent(source.sessionId)}`}
                                     className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded underline underline-offset-4 focus:outline-none focus-visible:ring-2"
                                   >
-                                    {formatDay(locale, new Date(source.conversationAt))}
+                                    {formatDay(locale, timeZone, new Date(source.conversationAt))}
                                   </a>
                                 </span>
                               ))}
@@ -395,36 +364,19 @@ export default function PersonCardDialog({
                           {fact.userEdited ? ` · ${copy.editedByYou}` : null}
                         </p>
                         {mutations.pendingDeleteFactId === fact.id ? (
-                          <div
-                            ref={confirmFactDeleteRef}
-                            role="group"
-                            aria-labelledby={FACT_DELETE_HEADING_ID}
-                            tabIndex={-1}
-                            onKeyDown={(event) => {
-                              stopEscape(event, mutations.cancelDeleteFact);
+                          <InlineConfirm
+                            variant="nested"
+                            headingId={FACT_DELETE_HEADING_ID}
+                            title={copy.confirmFactDeleteTitle}
+                            body={copy.confirmFactDeleteBody}
+                            cancelLabel={copy.cancel}
+                            confirmLabel={copy.confirmFactDelete}
+                            isPending={mutations.savingFactId === fact.id}
+                            onCancel={mutations.cancelDeleteFact}
+                            onConfirm={() => {
+                              void mutations.confirmDeleteFact(card.id, fact.id);
                             }}
-                            className="border-line-accent bg-surface-soft text-ink-soft mt-2 rounded-xl border p-3 text-sm leading-6 focus:outline-none"
-                          >
-                            <p id={FACT_DELETE_HEADING_ID} className="font-semibold">
-                              {copy.confirmFactDeleteTitle}
-                            </p>
-                            <p className="mt-1">{copy.confirmFactDeleteBody}</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button type="button" onClick={mutations.cancelDeleteFact} className={PILL}>
-                                {copy.cancel}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={mutations.savingFactId === fact.id}
-                                onClick={() => {
-                                  void mutations.confirmDeleteFact(card.id, fact.id);
-                                }}
-                                className={DANGER}
-                              >
-                                {copy.confirmFactDelete}
-                              </button>
-                            </div>
-                          </div>
+                          />
                         ) : (
                           <div className="mt-2 flex flex-wrap gap-2">
                             <button
@@ -433,7 +385,7 @@ export default function PersonCardDialog({
                                 setDraftFact(fact.text);
                                 setEditingFactId(fact.id);
                               }}
-                              className={cn(PILL, "h-9 px-3 text-xs")}
+                              className={cn(PILL_OUTLINE, PILL_SMALL_SIZE)}
                             >
                               {copy.factEdit}
                             </button>
@@ -442,7 +394,7 @@ export default function PersonCardDialog({
                               onClick={() => {
                                 mutations.requestDeleteFact(fact.id);
                               }}
-                              className={cn(QUIET_DANGER, "h-9 px-3 text-xs")}
+                              className={cn(PILL_QUIET_DANGER, PILL_SMALL_SIZE)}
                             >
                               {copy.factDelete}
                             </button>
@@ -459,10 +411,7 @@ export default function PersonCardDialog({
       )}
 
       {/* Jedna akcja główna: rozmowa, nie statyczna notatka „co robić”. */}
-      <a
-        href={talkAboutHref}
-        className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-[14px] px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
-      >
+      <a href={talkAboutHref} className={cn(BLOCK_PRIMARY_FULL, "mt-6")}>
         {resumeSessionId ? copy.talkAboutResume : copy.talkAbout}
       </a>
     </div>

@@ -1,6 +1,7 @@
 import { transitionSessionLifecycle } from "@/lib/session-data/repository";
 import type { SessionDataResult } from "@/lib/session-data/errors";
 import type { SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
+import { isPastDeadline, remainingMs } from "./session-clock";
 import { toSessionView, type SessionView } from "./session-state";
 
 const PROVIDER_TIMEOUT_RESERVE_MS = 1_000;
@@ -19,28 +20,14 @@ const defaultExpireSessionRepository: ExpireSessionRepository = {
   transitionSessionLifecycle,
 };
 
-function parseTimestampMs(timestamp: string | null) {
-  if (!timestamp) {
-    return null;
-  }
-
-  const parsed = Date.parse(timestamp);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
+/** Dokładne milisekundy do terminu (bez zaokrąglenia) — budżet wywołania providera. */
 export function getRemainingSessionTimeMs(session: Pick<SessionMetadata, "expiresAt">, now: Date = new Date()) {
-  const expiresAtMs = parseTimestampMs(session.expiresAt);
-
-  if (expiresAtMs === null) {
-    return null;
-  }
-
-  return Math.max(0, expiresAtMs - now.getTime());
+  return remainingMs(session.expiresAt, now.getTime());
 }
 
+/** Bez sprawdzania statusu — trasy wołają to dla sesji, którą już uznały za aktywną. */
 export function isSessionExpired(session: Pick<SessionMetadata, "expiresAt">, now: Date = new Date()) {
-  const remainingMs = getRemainingSessionTimeMs(session, now);
-  return remainingMs !== null && remainingMs <= 0;
+  return isPastDeadline(session.expiresAt, now.getTime());
 }
 
 /**
@@ -58,13 +45,13 @@ export function getProviderTimeoutWithinSessionMs(
     Number.isFinite(maxTimeoutMs) && maxTimeoutMs >= PROVIDER_TIMEOUT_MIN_MS
       ? Math.floor(maxTimeoutMs)
       : PROVIDER_TIMEOUT_MAX_MS;
-  const remainingMs = getRemainingSessionTimeMs(session, now);
+  const sessionRemainingMs = getRemainingSessionTimeMs(session, now);
 
-  if (remainingMs === null) {
+  if (sessionRemainingMs === null) {
     return ceilingMs;
   }
 
-  const safeBudgetMs = remainingMs - PROVIDER_TIMEOUT_RESERVE_MS;
+  const safeBudgetMs = sessionRemainingMs - PROVIDER_TIMEOUT_RESERVE_MS;
 
   if (safeBudgetMs < PROVIDER_TIMEOUT_MIN_MS) {
     return 0;

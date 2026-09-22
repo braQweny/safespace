@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
  * Papier i promienie jak w reszcie aplikacji — te ekrany stały wcześniej na
  * czystej bieli z promieniem 10 px, więc pierwszy ekran nowej osoby wyglądał
  * jak inny produkt. Placeholder miał twardo wpisane #87968f (3,09:1) zamiast
- * tokenu; teraz to `ink-muted`, czyli 5,58:1.
+ * tokenu; teraz to `ink-muted`, czyli 5,58:1. Obrys to `line-control` (3,58:1
+ * na `surface`) — przy `line-strong` (1,30:1) pole znikało na karcie.
  */
 const inputBase =
   "w-full rounded-[14px] border bg-surface px-3.5 pl-11 h-12 text-ink placeholder:text-ink-muted transition-colors focus:outline-none focus:ring-2";
@@ -65,7 +66,7 @@ export function FormField({
           className={cn(
             inputBase,
             endContent && "pr-14",
-            error ? "border-danger focus:ring-danger-line" : "border-line-strong focus:ring-brand-ring",
+            error ? "border-danger focus:ring-danger-line" : "border-line-control focus:ring-brand-ring",
           )}
         />
         {endContent}

@@ -26,9 +26,12 @@ export function createClient(requestHeaders: Headers, cookies: AstroCookies) {
     // The SSR helper defaults to `sameSite: "lax"` but leaves `secure` off;
     // the production site is HTTPS-only (HSTS), so the auth cookies must never
     // be sent over plain HTTP. Local `astro dev` runs on http://localhost,
-    // hence the build-mode switch. Other defaults (path, sameSite, maxAge)
-    // are kept — the options object is merged over them, not replacing them.
-    cookieOptions: { secure: import.meta.env.PROD },
+    // hence the build-mode switch. `httpOnly` because no browser code talks to
+    // Supabase — every auth call runs on the server — so an XSS that slipped
+    // past the CSP must not be able to read the access/refresh tokens. Other
+    // defaults (path, sameSite, maxAge) are kept — the options object is
+    // merged over them, not replacing them.
+    cookieOptions: { secure: import.meta.env.PROD, httpOnly: true },
     cookies: {
       getAll() {
         return parseCookieHeader(requestHeaders.get("Cookie") ?? "").map(({ name, value }) => ({

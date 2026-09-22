@@ -15,6 +15,7 @@ import {
   parseVoiceHeartbeatRequest,
   voiceRouteFailure,
   voiceRouteValidationFailure,
+  withVoiceDeadline,
   type VoiceHeartbeatNotice,
   type VoiceHeartbeatResponse,
 } from "@/lib/session-flow/voice-contract";
@@ -25,6 +26,7 @@ import {
   type VoiceDrainOutcome,
 } from "@/lib/session-flow/voice-reconcile";
 import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
+import { VOICE_DEADLINE_RESERVE_MS } from "@/lib/voice/constants";
 import { getVoiceObserver, type VoiceObserverStub } from "@/lib/voice/coordinator";
 import type { VoiceCloseReason } from "@/lib/voice/observer-state";
 
@@ -143,6 +145,12 @@ export const POST: APIRoute = async (context) => {
   const closeReason = outcome.closeReason ?? (superseded ? "reconnected" : snapshot.closeReason);
   const live = outcome.live ?? (superseded ? false : snapshot.live);
   const notice = resolveNotice(locale, closeReason);
+  // Termin obserwatora mógł zostać przycięty do reszty puli przy `connect`;
+  // klient liczy czas od niego, a nie od zamrożonego `expires_at`.
+  const viewedSession = withVoiceDeadline(
+    outcome.session,
+    snapshot.deadlineAtMs === null ? null : snapshot.deadlineAtMs + VOICE_DEADLINE_RESERVE_MS,
+  );
 
   return jsonResponse({
     ok: true,
@@ -150,9 +158,9 @@ export const POST: APIRoute = async (context) => {
     live,
     closeReason,
     epoch: snapshot.epoch,
-    remainingSeconds: computeRemainingSeconds(outcome.session.expiresAt, now),
+    remainingSeconds: computeRemainingSeconds(viewedSession.expiresAt, now),
     serverNow: now.toISOString(),
-    session: toSessionView(outcome.session, now),
+    session: toSessionView(viewedSession, now),
     messages: outcome.drained.messages,
     ...(notice ? { notice } : {}),
   });

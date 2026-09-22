@@ -74,6 +74,10 @@ export class VoiceSessionObserver extends DurableObject<VoiceObserverEnv> {
     return this.core.purge();
   }
 
+  erase() {
+    return this.core.erase();
+  }
+
   getState(): Promise<VoiceObserverSnapshot> {
     return this.core.getState();
   }

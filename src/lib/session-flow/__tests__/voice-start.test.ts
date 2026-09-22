@@ -18,7 +18,13 @@ const env = vi.hoisted((): Record<string, string | undefined> => ({
 }));
 vi.mock("astro:env/server", () => env);
 
-import { isVoiceStartAvailable, resolveVoiceStart, type VoiceStartDependencies } from "../voice-start";
+import {
+  isVoiceStartAvailable,
+  resolveVoiceConnectAllowance,
+  resolveVoiceStart,
+  type VoiceConnectDependencies,
+  type VoiceStartDependencies,
+} from "../voice-start";
 
 const context = { user: { id: "user-1" } } as SessionDataContext;
 const now = new Date("2026-09-12T10:00:00.000Z");
@@ -143,6 +149,63 @@ describe("resolveVoiceStart", () => {
         context,
         { plan: "premium", now },
         createDependencies({ readVoiceQuota: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))) }),
+      ),
+    ).resolves.toEqual({ ok: false, code: "session_quota_unavailable", status: 503 });
+  });
+});
+
+describe("resolveVoiceConnectAllowance", () => {
+  const session = { id: "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f", durationBucketSeconds: 3600 as const };
+  const expiresAtMs = now.getTime() + 3_600_000;
+
+  function connectDependencies(overrides: Partial<VoiceConnectDependencies> = {}): VoiceConnectDependencies {
+    return {
+      getVoiceMonthlyMinutes: () => 90,
+      readVoiceConnectAllowance: vi.fn(() =>
+        Promise.resolve(ok({ ok: true as const, deadlineAtMs: expiresAtMs - 60_000, remainingSeconds: 3540 })),
+      ),
+      ...overrides,
+    };
+  }
+
+  it("asks the quota module with the session, its deadline and the configured pool, and returns its deadline", async () => {
+    const dependencies = connectDependencies();
+
+    await expect(resolveVoiceConnectAllowance(context, session, { expiresAtMs, now }, dependencies)).resolves.toEqual({
+      ok: true,
+      deadlineAtMs: expiresAtMs - 60_000,
+    });
+    expect(dependencies.readVoiceConnectAllowance).toHaveBeenCalledWith(context, {
+      sessionId: session.id,
+      sessionDurationBucketSeconds: 3600,
+      sessionExpiresAtMs: expiresAtMs,
+      limitMinutes: 90,
+      now,
+    });
+  });
+
+  it("maps an empty pool to a 403 with the start path's code and an unreadable pool to a 503", async () => {
+    await expect(
+      resolveVoiceConnectAllowance(
+        context,
+        session,
+        { expiresAtMs, now },
+        connectDependencies({
+          readVoiceConnectAllowance: vi.fn(() =>
+            Promise.resolve(ok({ ok: false as const, code: "voice_minutes_exhausted" as const })),
+          ),
+        }),
+      ),
+    ).resolves.toEqual({ ok: false, code: "voice_minutes_exhausted", status: 403 });
+
+    await expect(
+      resolveVoiceConnectAllowance(
+        context,
+        session,
+        { expiresAtMs, now },
+        connectDependencies({
+          readVoiceConnectAllowance: vi.fn(() => Promise.resolve(sessionDataError("read_failed"))),
+        }),
       ),
     ).resolves.toEqual({ ok: false, code: "session_quota_unavailable", status: 503 });
   });

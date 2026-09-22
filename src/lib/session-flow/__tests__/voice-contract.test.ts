@@ -10,6 +10,7 @@ import {
   voiceRouteFailure,
   voiceRouteValidationFailure,
   type VoiceRouteFailureCode,
+  withVoiceDeadline,
 } from "../voice-contract";
 
 const SESSION_ID = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
@@ -102,6 +103,8 @@ describe("voice route responses", () => {
       missing_auth: 401,
       account_blocked: 403,
       voice_unavailable: 403,
+      voice_minutes_exhausted: 403,
+      voice_trial_used: 403,
       session_not_found: 404,
       session_not_active: 409,
       session_expired: 409,
@@ -147,5 +150,23 @@ describe("voice route responses", () => {
     expect(isVoiceSession(session)).toBe(true);
     expect(isVoiceSession({ ...session, mode: undefined })).toBe(false);
     expect(isVoiceSession(null)).toBe(false);
+  });
+});
+
+describe("withVoiceDeadline", () => {
+  const session = { id: "s1", expiresAt: "2026-09-12T10:10:00.000Z" };
+
+  it("moves the deadline earlier when the observer was armed with a shorter one", () => {
+    expect(withVoiceDeadline(session, Date.parse("2026-09-12T10:06:00.000Z"))).toEqual({
+      id: "s1",
+      expiresAt: "2026-09-12T10:06:00.000Z",
+    });
+  });
+
+  it("never stretches the stored deadline and keeps the row as is without an observer deadline", () => {
+    expect(withVoiceDeadline(session, Date.parse("2026-09-12T10:10:00.000Z"))).toBe(session);
+    expect(withVoiceDeadline(session, Date.parse("2026-09-12T11:00:00.000Z"))).toBe(session);
+    expect(withVoiceDeadline(session, null)).toBe(session);
+    expect(withVoiceDeadline(session, Number.NaN)).toBe(session);
   });
 });

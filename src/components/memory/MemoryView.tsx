@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronDown } from "lucide-react";
+import {
+  DialogEscapeLayersContext,
+  handleDialogCancel,
+  useDialogEscapeLayers,
+} from "@/components/hooks/useDialogEscapeLayers";
 import { useDifficultyMutations } from "@/components/hooks/useDifficultyMutations";
 import { useIsHydrated } from "@/components/hooks/useIsHydrated";
 import { useLocale } from "@/components/hooks/useLocale";
@@ -16,6 +21,7 @@ import TopicList, { getOpenDifficultyButtonId } from "@/components/topics/TopicL
 import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
 import {
   getServerTopicMapView,
+  migrateLegacyTopicMapView,
   readTopicMapView,
   setTopicMapView,
   subscribeTopicMapView,
@@ -23,7 +29,7 @@ import {
 } from "@/components/topics/topic-map-view";
 import { requestApiJson } from "@/lib/api-client";
 import type { Locale } from "@/lib/i18n/locale";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 import type { DifficultyCard, PersonCard } from "@/lib/session-data/types";
 import { isPeopleListSuccess } from "@/lib/session-flow/people-contract";
 import { isTopicListSuccess } from "@/lib/session-flow/topic-map-contract";
@@ -34,7 +40,7 @@ import { getMemoryViewCopy } from "./memory-view-copy";
 const SETTINGS_HREF = "/account/security#memory";
 
 const SEGMENT =
-  "text-ink hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep flex h-10 flex-1 items-center justify-center rounded-[10px] px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
+  "text-ink hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep aria-pressed:inset-ring-brand flex h-10 flex-1 items-center justify-center rounded-[10px] px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold aria-pressed:inset-ring disabled:cursor-not-allowed disabled:opacity-50";
 
 const NOTE = "bg-surface-soft text-ink-muted mt-4 rounded-xl p-4 text-sm leading-6";
 const LINK =
@@ -42,6 +48,8 @@ const LINK =
 
 interface MemoryViewProps {
   locale: Locale;
+  /** Strefa osoby (`Astro.locals.timeZone`) dla dat na kartach; domyślnie Europe/Warsaw. */
+  timeZone?: string;
   /** Zapisana perspektywa — karty są jej, a „porozmawiaj” startuje z nią. */
   avatar: SelectedModalityAvatar;
   /** Flagi funkcji: część wyłączona flagą nie renderuje się w ogóle. */
@@ -60,8 +68,52 @@ interface MemoryViewProps {
   /** Tylko do testów: otwarty dialog w pierwszym renderze. */
   initialSelectedPersonId?: string | null;
   initialSelectedDifficultyId?: string | null;
-  /** Tylko do testów: wymuszony widok zamiast zapamiętanego wyboru. */
-  forcedView?: TopicMapView | null;
+  /**
+   * Widok „Mapa | Lista” odczytany przez stronę z ciasteczka
+   * (`TOPIC_MAP_VIEW_COOKIE`); `null` = jeszcze bez wyboru, wtedy o widoku
+   * decyduje szerokość ekranu — przed hydratacją przez CSS, więc bez przeskoku.
+   */
+  initialView?: TopicMapView | null;
+}
+
+interface TopicViewSwitchProps {
+  pressedView: TopicMapView;
+  isHydrated: boolean;
+  className?: string;
+}
+
+function TopicViewSwitch({ pressedView, isHydrated, className }: TopicViewSwitchProps) {
+  const topicCopy = getTopicMapCopy(useLocale());
+
+  return (
+    <fieldset className={cn("m-0 mt-4 max-w-xs min-w-0 border-0 p-0", className)}>
+      <legend className="sr-only">{topicCopy.viewLegend}</legend>
+      <div className="border-line-strong flex gap-0.5 rounded-xl border p-0.5">
+        <button
+          type="button"
+          aria-pressed={pressedView === "graph"}
+          disabled={!isHydrated}
+          onClick={() => {
+            setTopicMapView("graph");
+          }}
+          className={SEGMENT}
+        >
+          {topicCopy.viewMap}
+        </button>
+        <button
+          type="button"
+          aria-pressed={pressedView === "list"}
+          disabled={!isHydrated}
+          onClick={() => {
+            setTopicMapView("list");
+          }}
+          className={SEGMENT}
+        >
+          {topicCopy.viewList}
+        </button>
+      </div>
+    </fieldset>
+  );
 }
 
 /** Osoby z kart, których nie łączy z żadnym tematem nieodrzucona krawędź. */
@@ -80,9 +132,9 @@ export function listUnlinkedPeople(
     .map((card) => ({ id: card.id, name: card.name, relation: card.relation }));
 }
 
-export default function MemoryView({ locale, ...props }: MemoryViewProps) {
+export default function MemoryView({ locale, timeZone, ...props }: MemoryViewProps) {
   return (
-    <LocaleProvider locale={locale}>
+    <LocaleProvider locale={locale} timeZone={timeZone}>
       <MemoryViewBody {...props} />
     </LocaleProvider>
   );
@@ -107,17 +159,25 @@ function MemoryViewBody({
   memoryPreview,
   initialSelectedPersonId = null,
   initialSelectedDifficultyId = null,
-  forcedView = null,
-}: Omit<MemoryViewProps, "locale">) {
+  initialView = null,
+}: Omit<MemoryViewProps, "locale" | "timeZone">) {
   const locale = useLocale();
   const copy = getMemoryViewCopy(locale);
   const peopleCopy = getPeopleCardsCopy(locale);
   const topicCopy = getTopicMapCopy(locale);
   const isHydrated = useIsHydrated();
-  // Serwer i hydratacja pokazują listę; zapamiętany wybór albo szerokość ekranu
-  // wchodzą dopiero po hydratacji, bez rozjazdu znaczników.
-  const storedView = useSyncExternalStore(subscribeTopicMapView, readTopicMapView, getServerTopicMapView);
-  const view = forcedView ?? storedView;
+  // Serwer i hydratacja renderują wybór z ciasteczka. Bez niego (`null`) stoją
+  // oba widoki, a `md:` pokazuje ten dla szerokości ekranu; zaraz po hydratacji
+  // klient zostawia właśnie ten widoczny, więc nic nie przeskakuje.
+  const view = useSyncExternalStore<TopicMapView | null>(
+    subscribeTopicMapView,
+    () => readTopicMapView(initialView),
+    () => getServerTopicMapView(initialView),
+  );
+
+  useEffect(() => {
+    migrateLegacyTopicMapView(initialView !== null);
+  }, [initialView]);
   const [personCards, setPersonCards] = useState<PersonCard[] | null>(peopleMemoryMode ? initialPersonCards : []);
   const [difficultyCards, setDifficultyCards] = useState<DifficultyCard[] | null>(
     topicMapMode ? initialDifficultyCards : [],
@@ -126,6 +186,7 @@ function MemoryViewBody({
   const [selectedDifficultyId, setSelectedDifficultyId] = useState<string | null>(initialSelectedDifficultyId);
   const [notice, setNotice] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const escapeLayers = useDialogEscapeLayers();
   const requestedRef = useRef<{ kind: "person" | "difficulty"; id: string } | null>(
     initialSelectedPersonId
       ? { kind: "person", id: initialSelectedPersonId }
@@ -344,45 +405,29 @@ function MemoryViewBody({
 
       {hasAnyCards ? (
         <>
-          {/* Dwa równoważne widoki: mapa domyślnie od 768 px, lista poniżej; wybór zapamiętany. */}
-          <fieldset className="m-0 mt-4 max-w-xs min-w-0 border-0 p-0">
-            <legend className="sr-only">{topicCopy.viewLegend}</legend>
-            <div className="border-line-strong flex gap-0.5 rounded-xl border p-0.5">
-              <button
-                type="button"
-                aria-pressed={view === "graph"}
-                disabled={!isHydrated}
-                onClick={() => {
-                  setTopicMapView("graph");
-                }}
-                className={SEGMENT}
-              >
-                {topicCopy.viewMap}
-              </button>
-              <button
-                type="button"
-                aria-pressed={view === "list"}
-                disabled={!isHydrated}
-                onClick={() => {
-                  setTopicMapView("list");
-                }}
-                className={SEGMENT}
-              >
-                {topicCopy.viewList}
-              </button>
-            </div>
-          </fieldset>
+          {/* Dwa równoważne widoki: mapa domyślnie od `md:` (48rem), lista poniżej; wybór zapamiętany. */}
+          {view === null ? (
+            <>
+              <TopicViewSwitch pressedView="list" isHydrated={isHydrated} className="md:hidden" />
+              <TopicViewSwitch pressedView="graph" isHydrated={isHydrated} className="hidden md:block" />
+            </>
+          ) : (
+            <TopicViewSwitch pressedView={view} isHydrated={isHydrated} />
+          )}
           <div className="mt-3">
-            {view === "graph" ? (
-              <TopicGraph
-                cards={topics}
-                unlinkedPeople={listUnlinkedPeople(people, topics)}
-                isInteractive={isHydrated}
-                onOpen={openDifficulty}
-                onOpenPerson={peopleMemoryMode ? openPerson : undefined}
-              />
-            ) : (
-              <div className="flex flex-col gap-5">
+            {view !== "list" ? (
+              <div className={cn(view === null && "hidden md:block")} data-topic-view="graph">
+                <TopicGraph
+                  cards={topics}
+                  unlinkedPeople={listUnlinkedPeople(people, topics)}
+                  isInteractive={isHydrated}
+                  onOpen={openDifficulty}
+                  onOpenPerson={peopleMemoryMode ? openPerson : undefined}
+                />
+              </div>
+            ) : null}
+            {view !== "graph" ? (
+              <div className={cn("flex flex-col gap-5", view === null && "md:hidden")} data-topic-view="list">
                 {people.length > 0 ? (
                   <div data-memory-group="people">
                     <div className="flex items-center gap-3">
@@ -406,7 +451,7 @@ function MemoryViewBody({
                   </div>
                 ) : null}
               </div>
-            )}
+            ) : null}
           </div>
         </>
       ) : !readFailed ? (
@@ -442,29 +487,31 @@ function MemoryViewBody({
           aria-label={selectedPerson ? peopleCopy.dialogAria : topicCopy.dialogAria}
           tabIndex={-1}
           onCancel={(event) => {
-            event.preventDefault();
-            handleClose();
+            // Escape najpierw cofa otwarte potwierdzenie w karcie, dopiero potem zamyka kartę.
+            handleDialogCancel(event, escapeLayers, handleClose);
           }}
           className="border-line-strong bg-surface text-ink fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border p-0 backdrop:bg-black/50"
         >
-          {selectedPerson ? (
-            <PersonCardDialog
-              card={selectedPerson}
-              avatarFirstName={firstName}
-              resumeSessionId={resumeSessionId}
-              mutations={personMutations}
-              onClose={handleClose}
-            />
-          ) : selectedDifficulty && difficultyCards ? (
-            <DifficultyDialog
-              card={selectedDifficulty}
-              cards={difficultyCards}
-              avatarFirstName={firstName}
-              resumeSessionId={resumeSessionId}
-              mutations={difficultyMutations}
-              onClose={handleClose}
-            />
-          ) : null}
+          <DialogEscapeLayersContext value={escapeLayers}>
+            {selectedPerson ? (
+              <PersonCardDialog
+                card={selectedPerson}
+                avatarFirstName={firstName}
+                resumeSessionId={resumeSessionId}
+                mutations={personMutations}
+                onClose={handleClose}
+              />
+            ) : selectedDifficulty && difficultyCards ? (
+              <DifficultyDialog
+                card={selectedDifficulty}
+                cards={difficultyCards}
+                avatarFirstName={firstName}
+                resumeSessionId={resumeSessionId}
+                mutations={difficultyMutations}
+                onClose={handleClose}
+              />
+            ) : null}
+          </DialogEscapeLayersContext>
         </dialog>
       ) : null}
     </section>

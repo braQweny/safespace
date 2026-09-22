@@ -2,15 +2,12 @@ import { readSessionQuota, readTrialAvailability } from "@/lib/session-data/quot
 import {
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata,
-  listNewestApprovedSessionSummaryContexts,
   listOwnedSessionMessages,
 } from "@/lib/session-data/repository";
 import type { SessionDataResult } from "@/lib/session-data/errors";
 import type {
-  ApprovedSessionSummaryContext,
   SessionDataContext,
   SessionId,
-  SessionLifecycleStatus,
   SessionMessageRecord,
   SessionMessageRole,
   SessionMetadata,
@@ -19,24 +16,28 @@ import type {
   TrialAvailability,
 } from "@/lib/session-data/types";
 import type { CurrentAvatarChoice } from "./avatar-choice";
+import {
+  computeRemainingSeconds,
+  getEffectiveSessionStatus,
+  toSessionStartPageStateKind,
+  type EffectiveSessionStatus,
+  type SessionStartPageStateKind,
+} from "./session-state-kind";
 import { reconcileVoiceSession } from "./voice-reconcile";
 
 export { FREE_TRIAL_DURATION_SECONDS } from "./session-budget";
+// Czyste mapowania żyją w liściu bez importów serwerowych (islandy importują je
+// stamtąd); tu zostają re-eksporty dla tras i stanu startu.
+export {
+  computeRemainingSeconds,
+  getEffectiveSessionStatus,
+  hasSessionExpired,
+  toSessionStartPageStateKind,
+  type EffectiveSessionStatus,
+  type SessionStartPageStateKind,
+} from "./session-state-kind";
 
 const ACTIVE_SESSION_SCAN_LIMIT = 5;
-
-export type EffectiveSessionStatus = Exclude<SessionLifecycleStatus, "created" | "deleted"> | "claimed";
-
-export type SessionStartPageStateKind =
-  | "ready"
-  | "active"
-  | "expired"
-  | "completed"
-  | "interrupted"
-  | "followup_ready"
-  | "trial_already_claimed"
-  | "session_limit_reached"
-  | "unavailable";
 
 export interface SessionView {
   id: SessionId;
@@ -59,20 +60,20 @@ export interface SessionMessageView {
   createdAt: string;
 }
 
+/**
+ * Wybór awatara w stanie strony: tylko pola katalogu (`selected`). Stan idzie w
+ * propsach islandów, więc trafia do HTML — pełny wpis `modality` z personą AI
+ * zostaje na serwerze (`readSessionStartPageState` go odcina).
+ */
+export type SessionStartAvatar = Pick<CurrentAvatarChoice, "selected">;
+
 export interface SessionStartPageState {
   kind: SessionStartPageStateKind;
   trialAvailable: boolean;
-  avatar: CurrentAvatarChoice;
+  avatar: SessionStartAvatar;
   session: SessionView | null;
   messages: SessionMessageView[];
   messageFetchFailed: boolean;
-  approvedSummaries: ApprovedSessionSummaryContext[];
-  /**
-   * True when an explicit context-free start is offered. With no approved
-   * summaries it is the only way forward; with summaries present it is the
-   * opt-out the user can pick before starting.
-   */
-  canStartWithoutContext: boolean;
   /**
    * The owner's session allowance, read only for start states (`ready`,
    * `followup_ready`, `session_limit_reached`); null while a session is shown
@@ -88,7 +89,6 @@ export interface SessionStateRepository {
   getOwnedSessionMetadata: typeof getOwnedSessionMetadata;
   listOwnedActiveSessionMetadata: typeof listOwnedActiveSessionMetadata;
   listOwnedSessionMessages: typeof listOwnedSessionMessages;
-  listNewestApprovedSessionSummaryContexts: typeof listNewestApprovedSessionSummaryContexts;
   /**
    * Reconcile-on-read aktywnej rozmowy głosowej: zrzut bufora obserwatora do
    * bazy i prawdziwy status wiersza (kryzys, termin, wyłączenie), zanim strona
@@ -102,7 +102,7 @@ export interface SessionStateRepository {
 }
 
 export interface ReadSessionStartPageStateOptions {
-  avatar: CurrentAvatarChoice;
+  avatar: SessionStartAvatar;
   includeMessagesForActive?: boolean;
   resumeSessionId?: string | null;
   now?: Date;
@@ -114,7 +114,6 @@ const defaultSessionStateRepository: SessionStateRepository = {
   getOwnedSessionMetadata,
   listOwnedActiveSessionMetadata,
   listOwnedSessionMessages,
-  listNewestApprovedSessionSummaryContexts,
   reconcileVoiceSession: (context, session, options) => reconcileVoiceSession(context, session, options),
 };
 
@@ -133,62 +132,9 @@ async function reconcileIfVoice(
   return reconciled.session;
 }
 
-function parseTimestampMs(timestamp: string | null) {
-  if (!timestamp) {
-    return null;
-  }
-
-  const parsed = Date.parse(timestamp);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function normalizeResumeSessionId(value: string | null | undefined) {
   const sessionId = typeof value === "string" ? value.trim() : "";
   return sessionId || null;
-}
-
-export function computeRemainingSeconds(expiresAt: string | null, now: Date = new Date()) {
-  const expiresAtMs = parseTimestampMs(expiresAt);
-
-  if (expiresAtMs === null) {
-    return null;
-  }
-
-  return Math.max(0, Math.ceil((expiresAtMs - now.getTime()) / 1000));
-}
-
-export function hasSessionExpired(session: Pick<SessionMetadata, "expiresAt">, now: Date = new Date()) {
-  const remainingSeconds = computeRemainingSeconds(session.expiresAt, now);
-  return remainingSeconds !== null && remainingSeconds <= 0;
-}
-
-export function getEffectiveSessionStatus(
-  session: Pick<SessionMetadata, "status" | "expiresAt">,
-  now: Date = new Date(),
-): EffectiveSessionStatus {
-  if (session.status === "active" && hasSessionExpired(session, now)) {
-    return "expired";
-  }
-
-  if (session.status === "created") {
-    return "claimed";
-  }
-
-  if (session.status === "deleted") {
-    // A deleted session never reaches active flows; map it to "claimed" so the
-    // page state resolves to trial_already_claimed without leaking "deleted".
-    return "claimed";
-  }
-
-  return session.status;
-}
-
-export function toSessionStartPageStateKind(status: EffectiveSessionStatus): SessionStartPageStateKind {
-  if (status === "active" || status === "expired" || status === "completed" || status === "interrupted") {
-    return status;
-  }
-
-  return "trial_already_claimed";
 }
 
 export function toSessionView(session: SessionMetadata, now: Date = new Date()): SessionView {
@@ -230,7 +176,7 @@ function getSameAvatarSessionView(
   return toSessionView(session, options.now);
 }
 
-function unavailableState(avatar: CurrentAvatarChoice): SessionStartPageState {
+function unavailableState(avatar: SessionStartAvatar): SessionStartPageState {
   return {
     kind: "unavailable",
     trialAvailable: false,
@@ -238,13 +184,11 @@ function unavailableState(avatar: CurrentAvatarChoice): SessionStartPageState {
     session: null,
     messages: [],
     messageFetchFailed: false,
-    approvedSummaries: [],
-    canStartWithoutContext: false,
     sessionQuota: null,
   };
 }
 
-function readyState(avatar: CurrentAvatarChoice, sessionQuota: SessionQuota): SessionStartPageState {
+function readyState(avatar: SessionStartAvatar, sessionQuota: SessionQuota): SessionStartPageState {
   return {
     kind: "ready",
     trialAvailable: true,
@@ -252,17 +196,11 @@ function readyState(avatar: CurrentAvatarChoice, sessionQuota: SessionQuota): Se
     session: null,
     messages: [],
     messageFetchFailed: false,
-    approvedSummaries: [],
-    canStartWithoutContext: false,
     sessionQuota,
   };
 }
 
-function claimedState(
-  avatar: CurrentAvatarChoice,
-  sessionQuota: SessionQuota,
-  approvedSummaries: ApprovedSessionSummaryContext[] = [],
-): SessionStartPageState {
+function claimedState(avatar: SessionStartAvatar, sessionQuota: SessionQuota): SessionStartPageState {
   return {
     kind: "followup_ready",
     trialAvailable: false,
@@ -270,15 +208,12 @@ function claimedState(
     session: null,
     messages: [],
     messageFetchFailed: false,
-    approvedSummaries,
-    canStartWithoutContext: false,
     sessionQuota,
   };
 }
 
-// The allowance is exhausted: no start is offered at all. Approved summaries
-// are not loaded — there is nothing to carry them into.
-function sessionLimitReachedState(avatar: CurrentAvatarChoice, sessionQuota: SessionQuota): SessionStartPageState {
+// The allowance is exhausted: no start is offered at all.
+function sessionLimitReachedState(avatar: SessionStartAvatar, sessionQuota: SessionQuota): SessionStartPageState {
   return {
     kind: "session_limit_reached",
     trialAvailable: false,
@@ -286,8 +221,6 @@ function sessionLimitReachedState(avatar: CurrentAvatarChoice, sessionQuota: Ses
     session: null,
     messages: [],
     messageFetchFailed: false,
-    approvedSummaries: [],
-    canStartWithoutContext: false,
     sessionQuota,
   };
 }
@@ -329,8 +262,6 @@ async function pageStateFromSessionView(
     trialAvailable: false,
     avatar: options.avatar,
     session,
-    approvedSummaries: [],
-    canStartWithoutContext: false,
     sessionQuota: null,
     ...messageState,
   };
@@ -424,9 +355,12 @@ async function readLatestActiveSessionState(
 
 export async function readSessionStartPageState(
   context: SessionDataContext,
-  options: ReadSessionStartPageStateOptions,
+  input: ReadSessionStartPageStateOptions,
   repository: SessionStateRepository = defaultSessionStateRepository,
 ): Promise<SessionDataResult<SessionStartPageState>> {
+  // Strony podają pełny `CurrentAvatarChoice`; typ go nie odetnie, więc
+  // przepisujemy samo `selected`, zanim wybór trafi do któregokolwiek stanu.
+  const options: ReadSessionStartPageStateOptions = { ...input, avatar: { selected: input.avatar.selected } };
   const explicitActiveState = await readExplicitActiveSessionState(context, options, repository);
 
   if (!explicitActiveState.ok) {
@@ -534,8 +468,6 @@ async function okSessionStartPageState(
       trialAvailable: false,
       avatar: options.avatar,
       session,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota,
       ...messageState,
     },

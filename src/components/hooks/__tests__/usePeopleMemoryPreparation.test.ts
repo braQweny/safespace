@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MVP_MODALITIES } from "@/lib/modalities";
 import { startAvatarMemoryPreparation } from "../useAvatarMemoryPreparation";
 import { startPeopleMemoryPreparation } from "../usePeopleMemoryPreparation";
 
@@ -26,6 +27,15 @@ describe("background people cards", () => {
       expect(init).toMatchObject({ method: "POST", body: JSON.stringify(avatar) });
     }
     expect(onUpdated).toHaveBeenCalledTimes(2);
+  });
+
+  it("posts only the ids even when handed a full perspective entry with its persona", async () => {
+    const fetch = vi.fn().mockResolvedValue(ready());
+    vi.stubGlobal("fetch", fetch);
+    const cbt = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
+    await startPeopleMemoryPreparation(cbt, vi.fn()).done;
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][1]).toMatchObject({ body: JSON.stringify(avatar) });
   });
 
   it("stops on a paused provider, a 404 flag or throttling without refreshing", async () => {

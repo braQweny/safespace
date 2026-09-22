@@ -7,12 +7,6 @@ export interface SessionTranscriptionProvider {
   transcribeSessionAudio(input: TranscribeSessionAudioInput): Promise<SessionTranscriptionResponse>;
 }
 
-export const openRouterSessionTranscriptionProvider = {
-  transcribeSessionAudio(input) {
-    return transcribeSessionAudioWithOpenRouter(input);
-  },
-} satisfies SessionTranscriptionProvider;
-
 export function transcribeSessionAudio(
   input: TranscribeSessionAudioInput,
   provider: SessionTranscriptionProvider = configuredSessionTranscriptionProvider,

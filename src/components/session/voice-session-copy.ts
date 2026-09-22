@@ -23,6 +23,10 @@ const VOICE_SESSION_COPY = defineCopy(
     unavailableTitle: "Voice conversations are unavailable right now",
     unavailableBody:
       "This conversation was started, but the voice feature is switched off. End it and go back to the dashboard.",
+    // Odmowa `connect` z powodu puli; treść o puli bierze się z `plan-copy`, jak w karcie startu.
+    refusedTitle: "This voice conversation can't connect",
+    refusedNextStep: "Everything said so far is saved. End the conversation or go back to the dashboard.",
+    refusedPlanLink: "See the account plan",
     transcriptEmpty: "The conversation starts once the avatar says hello.",
     statusAria: "Voice conversation status",
     status: {
@@ -68,6 +72,9 @@ const VOICE_SESSION_COPY = defineCopy(
       "Potrzebny jest dostęp do mikrofonu i WebRTC. Spróbuj w aktualnym Chrome, Safari albo Firefoksie, albo zakończ rozmowę i wróć do panelu.",
     unavailableTitle: "Rozmowa głosowa jest teraz niedostępna",
     unavailableBody: "Ta rozmowa została rozpoczęta, ale funkcja jest wyłączona. Zakończ ją i wróć do panelu.",
+    refusedTitle: "Tej rozmowy głosowej nie da się połączyć",
+    refusedNextStep: "Wszystko, co zostało powiedziane, jest zapisane. Zakończ rozmowę albo wróć do panelu.",
+    refusedPlanLink: "Zobacz plan konta",
     transcriptEmpty: "Rozmowa zacznie się, gdy awatar się przywita.",
     statusAria: "Stan rozmowy głosowej",
     status: {

@@ -110,12 +110,6 @@ export const configuredSessionLensProvider = {
   },
 } satisfies SessionLensProvider;
 
-export const openRouterSessionLensProvider = {
-  detect(input, options) {
-    return detectSessionLensWithOpenRouter(input, { timeoutMs: options?.timeoutMs });
-  },
-} satisfies SessionLensProvider;
-
 export function buildOpenRouterSessionLensRequest(
   input: SessionLensInput,
   modelOverride?: string,

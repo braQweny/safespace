@@ -1,5 +1,6 @@
 import type { SessionTranscriptionFormat, TranscribeSessionAudioInput } from "@/lib/session-transcription/types";
 import type { SessionId } from "@/lib/session-data/types";
+import { isRecord } from "@/lib/type-guards";
 import { parseSessionIdParam } from "./session-id";
 
 export const SESSION_TRANSCRIPTION_FORMAT = "webm" satisfies SessionTranscriptionFormat;
@@ -171,8 +172,4 @@ function validationFailure(
     code,
     status,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

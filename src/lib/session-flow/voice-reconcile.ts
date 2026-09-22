@@ -5,6 +5,7 @@ import type { VoiceObserverStub } from "@/lib/voice/coordinator";
 import type { VoiceObserverSnapshot } from "@/lib/voice/observer-core";
 import type { VoiceCloseReason } from "@/lib/voice/observer-state";
 import type { SessionMessageViewModel } from "./message-contract";
+import { isPastDeadline } from "./session-clock";
 
 /**
  * Uzgadnianie sesji głosowej z jej obserwatorem (Durable Object):
@@ -61,13 +62,6 @@ function toVoiceMessageView(message: SessionMessageRecord): SessionMessageViewMo
 
 /** Górny limit rund jednego zrzutu: 4 × 50 wypowiedzi to więcej niż godzina rozmowy. */
 const MAX_DRAIN_ROUNDS = 4;
-
-// Lokalna kopia `isSessionExpired` z `time-limit.ts`: tamten moduł importuje
-// `session-state`, który importuje ten — bez pętli modułów.
-function hasVoiceSessionExpired(session: Pick<SessionMetadata, "expiresAt">, now: Date) {
-  const expiresAtMs = session.expiresAt ? Date.parse(session.expiresAt) : Number.NaN;
-  return Number.isFinite(expiresAtMs) && expiresAtMs <= now.getTime();
-}
 
 export interface VoiceDrainOutcome {
   snapshot: VoiceObserverSnapshot;
@@ -200,7 +194,7 @@ export async function reconcileVoiceSession(
   const now = options.now ?? new Date();
 
   try {
-    const expired = session.status === "active" && hasVoiceSessionExpired(session, now);
+    const expired = session.status === "active" && isPastDeadline(session.expiresAt, now.getTime());
 
     if (expired) {
       // Termin minął po stronie bazy: sesja live nie może już trwać (idempotentne).

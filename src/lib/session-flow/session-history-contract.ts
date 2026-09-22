@@ -4,7 +4,7 @@ import type {
   SessionHistoryListItem,
   SessionHistoryPagination,
 } from "@/lib/session-data/types";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 
 export type SessionHistoryFailureCode =
   | "missing_auth"

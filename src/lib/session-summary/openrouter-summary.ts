@@ -1,6 +1,7 @@
 import { getAiProviderEnv } from "@/lib/ai-provider/env";
 import type { AiProviderName } from "@/lib/ai-provider/types";
 import { sendAiChat } from "@/lib/ai-provider/chat";
+import { buildChatProviderMetadata, readCompleteChoiceContent } from "@/lib/ai-provider/chat-response";
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
 import { resolveSummaryModel } from "./env";
@@ -22,11 +23,8 @@ import {
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 import { SessionSummaryError } from "./errors";
-import { assertCompleteSummaryResponse, buildSummaryProviderMetadata, extractFirstChoice } from "./provider-response";
 import { buildSessionSummaryMessages } from "./summary-prompt";
 import type { GenerateSessionSummaryInput, SessionSummaryResponse, SessionSummaryPromptMessage } from "./types";
-
-export { assertCompleteSummaryResponse, buildSummaryProviderMetadata } from "./provider-response";
 
 const OPENROUTER_SUMMARY_TIMEOUT_MS = 12_000;
 // A model that thinks before it writes needs longer than a plain chat model;
@@ -88,7 +86,7 @@ export async function generateSessionSummaryWithAiProvider(
 
     return {
       summaryText: extractSummaryText(response),
-      providerMetadata: buildSummaryProviderMetadata(response, model, config.provider),
+      providerMetadata: buildChatProviderMetadata(response, model, config.provider),
     };
   } catch (error) {
     if (error instanceof SessionSummaryError) {
@@ -127,7 +125,7 @@ export function buildOpenRouterSummaryRequest(
  * Reasoning models bill hidden thinking against the same completion budget as
  * the visible answer, and they think *before* writing. Gemini 3.7 Flash spent
  * 304 of 320 tokens reasoning and came back with `finish_reason: "length"`,
- * which `assertCompleteSummaryResponse` rejects — every summary failed. Keep
+ * which `readCompleteChoiceContent` rejects — every summary failed. Keep
  * this branch in step with `resolveSessionMaxCompletionTokens` in session-ai.
  */
 export function resolveSummaryMaxCompletionTokens(model: string) {
@@ -179,21 +177,12 @@ function resolveTimeoutMs(timeoutMs: number | undefined, model: string) {
   return Math.round(timeoutMs);
 }
 
+// `length`, `content_filter` and `tool_calls` are incomplete replies: rejected,
+// never trimmed into a summary.
 function extractSummaryText(responseBody: ChatResult) {
-  assertCompleteSummaryResponse(responseBody);
+  return readCompleteChoiceContent(responseBody, throwInvalidProviderResponse).trim();
+}
 
-  const choice = extractFirstChoice(responseBody);
-  const content: unknown = choice.message.content;
-
-  if (typeof content !== "string") {
-    throw new SessionSummaryError("invalid_provider_response");
-  }
-
-  const summaryText = content.trim();
-
-  if (!summaryText) {
-    throw new SessionSummaryError("invalid_provider_response");
-  }
-
-  return summaryText;
+function throwInvalidProviderResponse(): never {
+  throw new SessionSummaryError("invalid_provider_response");
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { adminError, adminOk } from "@/lib/admin/errors";
+import { ADMIN_SELF_TARGET_SQLSTATE, adminError, adminOk } from "@/lib/admin/errors";
 import type { AdminAuditEvent, AdminContext, AdminUserListItem } from "@/lib/admin/types";
 import {
   listAdminUsers,
@@ -386,6 +386,28 @@ describe("admin block actions", () => {
       input_action: "block",
       input_reason_code: "policy_violation",
     });
+  });
+
+  it("maps the database self-target gate to the same stable code as the app-side refusal", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: ADMIN_SELF_TARGET_SQLSTATE, message: "admin_self_target_forbidden" },
+    });
+
+    await expect(
+      setAdminUserBlockState(createAdminContext(rpc), {
+        targetUserId: TARGET_USER_ID,
+        action: "block",
+        reasonCode: "other",
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "self_target_forbidden" } });
+    await expect(
+      setAdminUserPlanState(createAdminContext(rpc), {
+        targetUserId: TARGET_USER_ID,
+        action: "grant",
+        reasonCode: "other",
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "self_target_forbidden" } });
   });
 
   it("maps a transactional target miss to the stable public code", async () => {

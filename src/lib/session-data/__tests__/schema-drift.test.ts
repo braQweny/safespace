@@ -119,6 +119,11 @@ const VOICE_SESSIONS_MIGRATION_PATH = resolve(
   "../../../../supabase/migrations/20260912200000_add_voice_sessions.sql",
 );
 
+const SERVER_OWNED_VOICE_TIMESTAMPS_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260922120000_server_owned_voice_timestamps.sql",
+);
+
 // Every table the app touches through PostgREST with a user JWT, mapped to
 // the migration that carries its table-level revoke. Supabase's default
 // privileges grant `anon`/`authenticated` ALL on new tables, so a
@@ -562,6 +567,49 @@ describe("voice sessions migration", () => {
       "grant execute on function public.append_voice_session_utterances(uuid, jsonb) to authenticated",
     );
     // Transcript text is conversation content: never an admin surface.
+    expect(sql).not.toMatch(/admin/i);
+  });
+});
+
+describe("server-owned voice timestamps migration", () => {
+  const sql = readFileSync(SERVER_OWNED_VOICE_TIMESTAMPS_MIGRATION_PATH, "utf8");
+
+  it("stamps the first audio connection with database time and freezes it afterwards", () => {
+    expect(sql).toMatch(
+      /if old\.voice_connected_at is not null then\s+new\.voice_connected_at = old\.voice_connected_at;\s+elsif new\.voice_connected_at is not null then\s+new\.voice_connected_at = now\(\);/,
+    );
+  });
+
+  it("lets only a terminal transition set ended_at, with database time, and freezes it once set", () => {
+    expect(sql).toMatch(/if old\.ended_at is not null then\s+new\.ended_at = old\.ended_at;/);
+    expect(sql).toContain("new.status in ('completed', 'expired', 'interrupted')");
+    expect(sql).toContain("(new.status = 'deleted' and old.status = 'active')");
+    expect(sql).toContain(
+      "new.ended_at = greatest(now(), least(coalesce(new.started_at, now()), now() + interval '5 seconds'));",
+    );
+    // The frozen start is restored before the end is computed from it, never the start sent in the same request.
+    expect(sql.indexOf("new.started_at = old.started_at;")).toBeLessThan(
+      sql.indexOf("if old.ended_at is not null then"),
+    );
+    expect(sql).toMatch(/else\s+new\.ended_at = null;/);
+    // Everything the voice migration froze stays frozen in the replaced trigger.
+    expect(sql).toContain("new.mode = old.mode;");
+    expect(sql).toMatch(/if old\.status <> 'created' then\s+new\.started_at = old\.started_at;/);
+  });
+
+  it("counts the voice pool in an owner-bound invoker function without a row cap", () => {
+    expect(sql).toContain("create function public.get_owned_voice_usage(");
+    const fn = sql.slice(sql.indexOf("create function public.get_owned_voice_usage("));
+    expect(fn).toContain("security invoker");
+    expect(fn).toContain("set search_path = ''");
+    expect(fn).toContain("where sessions.user_id = (select auth.uid())");
+    expect(fn).toContain("and sessions.mode = 'voice'");
+    expect(fn).not.toMatch(/\blimit\b/i);
+    expect(sql).toContain(
+      "revoke execute on function public.get_owned_voice_usage(timestamptz, uuid) from public, anon",
+    );
+    expect(sql).toContain("grant execute on function public.get_owned_voice_usage(timestamptz, uuid) to authenticated");
+    // Pool seconds are the owner's conversation metadata: never an admin surface.
     expect(sql).not.toMatch(/admin/i);
   });
 });

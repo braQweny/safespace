@@ -73,19 +73,28 @@ export type VoiceQuota =
       kind: "pool";
       plan: "premium";
       limitSeconds: number;
+      /** Naprawdę przegadane w tym miesiącu — to widzi użytkownik jako „wykorzystano”. */
       usedSeconds: number;
+      /**
+       * Trwające rozmowy mogą jeszcze zużyć tyle do swojego terminu; nie ma ich
+       * w puli, ale nie są „wykorzystane”. Brak = 0.
+       */
+      reservedSeconds?: number;
+      /** Pula minus przegadane i zarezerwowane — tego pilnuje start i miernik. */
       remainingSeconds: number;
       canStartVoice: boolean;
       monthStartIso: string;
     };
 
-/** Czas jednej rozmowy głosowej potrzebny do policzenia puli — bez treści. */
-export interface VoiceSessionTiming {
-  voiceConnectedAt: string;
-  endedAt: string | null;
-  expiresAt: string | null;
-  durationBucketSeconds: SessionDurationBucketSeconds | null;
-  status: SessionLifecycleStatus;
+/**
+ * Zużycie puli głosowej policzone w bazie (`get_owned_voice_usage`, RLS
+ * właściciela, bez limitu wierszy) — same sekundy, bez treści i identyfikatorów.
+ */
+export interface VoiceUsage {
+  /** Przegadane: od `voice_connected_at` do końca, terminu albo teraz; nigdy ponad bucket. */
+  usedSeconds: number;
+  /** Trwające rozmowy (poza wykluczoną) mogą jeszcze zużyć tyle do swojego `expires_at`. */
+  reservedSeconds: number;
 }
 
 /** Wypowiedź transkryptu do zapisu; `utteranceId` nadaje serwer, nigdy przeglądarka. */
@@ -269,6 +278,14 @@ export interface DifficultyCard {
   currentState: DifficultyCurrentState | null;
   hasNewEntriesSinceArchived: boolean;
   entries: DifficultyEntry[];
+}
+
+/** Liczby do wiersza-skrótu panelu; same liczby, bez treści kart. */
+export interface DifficultyCardCounts {
+  /** Karty tematów perspektywy, także „mniej aktualne” — jak `list_difficulty_cards`. */
+  cards: number;
+  /** Powiązania z osobą `suggested` bez decyzji użytkownika — reguła paska „Do potwierdzenia”. */
+  pendingLinks: number;
 }
 
 export interface DeletedSessionTombstone {

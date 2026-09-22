@@ -127,4 +127,24 @@ describe("voice allowance copy", () => {
     expect(formatVoiceMinutesRemaining("pl", pool(120))).toBeNull();
     expect(getPlanCopy("pl").voiceMinutesExhausted).toContain("Odnowi się");
   });
+
+  it("does not call a running conversation's reservation used, but says it is held", () => {
+    // Five minutes spoken, the running conversation may still use 55: the meter shows 60 left.
+    const running = { ...pool(3600), usedSeconds: 300, reservedSeconds: 3300 };
+
+    expect(formatVoiceAllowance("pl", running)).toBe(
+      "Wykorzystano 5 minut z 120 minut głosowych w tym miesiącu. Trwająca rozmowa rezerwuje jeszcze 55 minut, dopóki się nie skończy.",
+    );
+    expect(formatVoiceAllowance("en", running)).toBe(
+      "Used 5 minutes of 120 voice minutes this month. A conversation in progress holds another 55 minutes until it ends.",
+    );
+    expect(formatVoiceMinutesRemaining("pl", running)).toBe("Zostało 60 minut z 120 minut głosowych w tym miesiącu.");
+    // Accusative after „rezerwuje”: „1 minutę”, „2 minuty”.
+    expect(formatVoiceAllowance("pl", { ...running, reservedSeconds: 60 })).toContain("rezerwuje jeszcze 1 minutę");
+    expect(formatVoiceAllowance("pl", { ...running, reservedSeconds: 120 })).toContain("rezerwuje jeszcze 2 minuty");
+    // Under a minute of reservation says nothing extra.
+    expect(formatVoiceAllowance("en", { ...running, reservedSeconds: 59 })).toBe(
+      "Used 5 minutes of 120 voice minutes this month.",
+    );
+  });
 });

@@ -34,6 +34,7 @@ if (adminContext.ok) {
       <AdminShell title={copy.usersTitle} active="users" adminEmail={adminContext.data.user.email}>
         <AdminUsersTable
           locale={locale}
+          timeZone={Astro.locals.timeZone}
           initialResponse={usersResponse}
           currentAdminUserId={adminContext.data.user.id}
           client:idle

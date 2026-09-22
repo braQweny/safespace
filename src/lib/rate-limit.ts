@@ -20,6 +20,7 @@
  *   rate limits behind us, so the worst case is the pre-existing behaviour.
  */
 import { getAuthErrorRedirect } from "@/lib/auth-errors";
+import { normalizeGuardPathname } from "@/lib/request-guards";
 
 export interface RateLimiterBinding {
   limit(options: { key: string }): Promise<{ success: boolean }>;
@@ -70,21 +71,17 @@ export function isRateLimitedApiRequest(method: string, pathname: string) {
     return false;
   }
 
-  return (
-    RATE_LIMITED_API_PATHS.has(pathname) || RATE_LIMITED_API_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-  );
+  const path = normalizeGuardPathname(pathname);
+  return RATE_LIMITED_API_PATHS.has(path) || RATE_LIMITED_API_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
 export function isVoiceRateLimitedApiRequest(method: string, pathname: string) {
-  return (
-    method === "POST" &&
-    pathname.startsWith(VOICE_RATE_LIMITED_API_PATH_PREFIX) &&
-    !RATE_LIMITED_API_PATHS.has(pathname)
-  );
+  const path = normalizeGuardPathname(pathname);
+  return method === "POST" && path.startsWith(VOICE_RATE_LIMITED_API_PATH_PREFIX) && !RATE_LIMITED_API_PATHS.has(path);
 }
 
 export function isAuthRateLimitedRequest(method: string, pathname: string) {
-  return method === "POST" && Object.prototype.hasOwnProperty.call(AUTH_RATE_LIMITED_ROUTES, pathname);
+  return method === "POST" && getAuthRateLimitRedirect(pathname) !== null;
 }
 
 /**
@@ -92,11 +89,59 @@ export function isAuthRateLimitedRequest(method: string, pathname: string) {
  * `rate_limited` copy; `null` for paths outside the allowlist.
  */
 export function getAuthRateLimitRedirect(pathname: string) {
-  if (!Object.prototype.hasOwnProperty.call(AUTH_RATE_LIMITED_ROUTES, pathname)) {
+  const path = normalizeGuardPathname(pathname);
+
+  if (!Object.prototype.hasOwnProperty.call(AUTH_RATE_LIMITED_ROUTES, path)) {
     return null;
   }
 
-  return getAuthErrorRedirect(AUTH_RATE_LIMITED_ROUTES[pathname], "rate_limited");
+  return getAuthErrorRedirect(AUTH_RATE_LIMITED_ROUTES[path], "rate_limited");
+}
+
+const IPV6_PREFIX_GROUPS = 4;
+
+/**
+ * The limiter bucket for a client address. An IPv6 client usually owns a whole
+ * /64 and can rotate through it freely, so keying on the full address would
+ * hand every request a fresh budget; IPv6 is keyed by its /64 prefix instead.
+ * IPv4 (and IPv4-mapped IPv6) stays per address. Anything unparsable is kept
+ * verbatim — never widened into a shared bucket.
+ */
+export function getClientAddressKey(address: string) {
+  const value = address.trim().toLowerCase();
+
+  if (!value.includes(":")) {
+    return value;
+  }
+
+  const mappedIpv4 = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(value);
+  if (mappedIpv4) {
+    return mappedIpv4[1];
+  }
+
+  const halves = value.split("::");
+  if (halves.length > 2) {
+    return value;
+  }
+
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - head.length - tail.length;
+
+  if ((halves.length === 1 && missing !== 0) || missing < 0) {
+    return value;
+  }
+
+  const groups = [...head, ...Array<string>(halves.length === 2 ? missing : 0).fill("0"), ...tail];
+
+  if (groups.length !== 8 || !groups.every((group) => /^[0-9a-f]{1,4}$/.test(group))) {
+    return value;
+  }
+
+  return `${groups
+    .slice(0, IPV6_PREFIX_GROUPS)
+    .map((group) => group.replace(/^0+(?=.)/, ""))
+    .join(":")}::/64`;
 }
 
 export function getRateLimitKey(userId: string | null, request: Request) {
@@ -105,7 +150,7 @@ export function getRateLimitKey(userId: string | null, request: Request) {
   }
 
   const clientIp = request.headers.get("cf-connecting-ip")?.trim();
-  return clientIp ? `ip:${clientIp}` : "anonymous";
+  return clientIp ? `ip:${getClientAddressKey(clientIp)}` : "anonymous";
 }
 
 export async function checkSessionRateLimit(

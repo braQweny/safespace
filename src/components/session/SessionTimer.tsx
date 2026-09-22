@@ -6,6 +6,7 @@ import {
   computeServerClockOffsetMs,
   formatRemainingTime,
 } from "@/lib/session-flow/message-state";
+import { parseTimestampMs } from "@/lib/session-flow/session-clock";
 import { resolveSessionPhase, type SessionPhase } from "@/lib/session-flow/session-phase";
 import { cn } from "@/lib/utils";
 import { getSessionTimerCopy } from "./session-timer-copy";
@@ -47,13 +48,9 @@ function getSessionPhase(
   remainingSeconds: number | null,
   totalSeconds: number | null | undefined,
 ): SessionPhase | null {
-  if (!expiresAt || remainingSeconds === null || !totalSeconds || totalSeconds <= 0) {
-    return null;
-  }
+  const expiresAtMs = parseTimestampMs(expiresAt);
 
-  const expiresAtMs = Date.parse(expiresAt);
-
-  if (!Number.isFinite(expiresAtMs)) {
+  if (expiresAtMs === null || remainingSeconds === null || !totalSeconds || totalSeconds <= 0) {
     return null;
   }
 

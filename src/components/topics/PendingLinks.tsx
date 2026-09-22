@@ -1,7 +1,9 @@
 import { Loader2 } from "lucide-react";
 import type { DifficultyMutations } from "@/components/hooks/useDifficultyMutations";
 import { useLocale } from "@/components/hooks/useLocale";
+import { PILL_OUTLINE, PILL_SMALL_SIZE } from "@/components/ui/button-styles";
 import type { DifficultyCard, DifficultyPersonLink } from "@/lib/session-data/types";
+import { cn } from "@/lib/utils";
 import { getTopicMapCopy } from "./topic-map-copy";
 
 interface PendingLink {
@@ -18,8 +20,8 @@ export function listPendingLinks(cards: readonly DifficultyCard[]): PendingLink[
   );
 }
 
-const PILL =
-  "border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
+// Mała pigułka (36 px) — ta sama co przy wierszach w karcie tematu.
+const PILL = cn(PILL_OUTLINE, PILL_SMALL_SIZE);
 
 /**
  * Pasek „Do potwierdzenia”: jedyne, co mapa prosi potwierdzić, to niepewne

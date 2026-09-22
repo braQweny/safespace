@@ -1,56 +1,87 @@
+import { takeLegacyStoredChoice, writePreferenceCookie } from "@/lib/preference-cookie";
+
 export type TopicMapView = "list" | "graph";
 
-const STORAGE_KEY = "safespace:topic-map-view";
-const WIDE_QUERY = "(min-width: 768px)";
+/** Ciasteczko z wyborem; serwer czyta je i podaje widokowi jako `initialView`. */
+export const TOPIC_MAP_VIEW_COOKIE = "safespace-topic-view";
 
-// Wybór trzymany w pamięci sesji na wypadek, gdy przeglądarka blokuje
-// `localStorage` (okno prywatne, ustawienia): przełącznik działa i wtedy.
+const LEGACY_STORAGE_KEY = "safespace:topic-map-view";
+/**
+ * Dokładnie próg `md:` z Tailwinda 4 (`48rem`), nie 768 px: rem idzie za
+ * domyślnym rozmiarem czcionki, więc przy powiększonej czcionce CSS i skrypt
+ * muszą przełączać widok w tym samym miejscu, inaczej widok przeskakuje po
+ * hydratacji właśnie u osób, które powiększyły tekst.
+ */
+const WIDE_QUERY = "(min-width: 48rem)";
+
+// Wybór z tej strony: wygrywa z ciasteczkiem odczytanym przy renderze i działa
+// także wtedy, gdy przeglądarka blokuje ciasteczka.
 let chosenView: TopicMapView | null = null;
 const listeners = new Set<() => void>();
 
-function isTopicMapView(value: unknown): value is TopicMapView {
-  return value === "list" || value === "graph";
+/** Walidacja przy każdym odczycie: cokolwiek innego niż znany widok to „brak wyboru”. */
+export function parseTopicMapView(value: unknown): TopicMapView | null {
+  return value === "list" || value === "graph" ? value : null;
 }
 
+function readWideMedia(): MediaQueryList | null {
+  try {
+    return typeof window.matchMedia === "function" ? window.matchMedia(WIDE_QUERY) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Wybór i — póki go nie ma — szerokość ekranu, tak jak robiłby to CSS. */
 export function subscribeTopicMapView(listener: () => void) {
   listeners.add(listener);
+  const media = readWideMedia();
+  media?.addEventListener("change", listener);
+
   return () => {
     listeners.delete(listener);
+    media?.removeEventListener("change", listener);
   };
 }
 
-/** Domyślnie mapa od 768 px, lista poniżej; zapamiętany wybór wygrywa. Czysto po stronie klienta. */
-export function readTopicMapView(): TopicMapView {
+/**
+ * Widok po hydratacji: wybór z tej strony, potem ten z ciasteczka, a bez
+ * żadnego szerokość ekranu — mapa od `md:` (48rem), lista poniżej. To ten sam widok,
+ * który przed hydratacją pokazywał CSS, więc nic nie przeskakuje.
+ */
+export function readTopicMapView(initialView: TopicMapView | null): TopicMapView {
   if (chosenView) return chosenView;
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (isTopicMapView(stored)) return stored;
-  } catch {
-    // Brak dostępu do pamięci przeglądarki: decyduje szerokość ekranu.
-  }
-  try {
-    return typeof window.matchMedia === "function" && window.matchMedia(WIDE_QUERY).matches ? "graph" : "list";
-  } catch {
-    return "list";
-  }
+  if (initialView) return initialView;
+  return readWideMedia()?.matches ? "graph" : "list";
 }
 
-/** Serwer i pierwszy render po hydratacji pokazują listę: działa bez JS i nie zależy od ekranu. */
-export function getServerTopicMapView(): TopicMapView {
-  return "list";
+/**
+ * Serwer i hydratacja: zapamiętany wybór albo `null` — wtedy renderują się oba
+ * widoki, a próg `md:` pokazuje właściwy dla szerokości ekranu bez skryptu.
+ */
+export function getServerTopicMapView(initialView: TopicMapView | null): TopicMapView | null {
+  return initialView;
 }
 
 export function setTopicMapView(view: TopicMapView) {
   chosenView = view;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, view);
-  } catch {
-    // Wybór zostaje na czas tej strony.
-  }
+  writePreferenceCookie(TOPIC_MAP_VIEW_COOKIE, view);
   for (const listener of listeners) listener();
 }
 
-/** Tylko do testów: zapomina wybór z tej strony (pamięć przeglądarki zostaje). */
+/**
+ * Wybór sprzed ciasteczka (`localStorage`) przechodzi do ciasteczka raz, gdy
+ * serwer nie miał jeszcze czego odczytać; klucz znika w każdym przypadku.
+ */
+export function migrateLegacyTopicMapView(hasCookieChoice: boolean) {
+  const legacy = parseTopicMapView(takeLegacyStoredChoice(LEGACY_STORAGE_KEY));
+
+  if (legacy && !hasCookieChoice) {
+    setTopicMapView(legacy);
+  }
+}
+
+/** Tylko do testów: zapomina wybór z tej strony. */
 export function resetTopicMapViewForTests() {
   chosenView = null;
 }

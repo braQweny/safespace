@@ -7,7 +7,7 @@ import {
   type ProviderSafetyReasonCode,
 } from "./provider";
 import type { SessionSafetyAction, SessionSafetyRisk } from "./types";
-import { isRecord } from "@/lib/type-guards";
+import { parseStrictJsonObject, readCompleteChoiceContent } from "@/lib/ai-provider/chat-response";
 
 const PROVIDER_DECISION_KEYS = new Set(["risk", "action", "reasonCode"]);
 const SESSION_SAFETY_RISK_VALUES = ["normal", "caution", "crisis"] as const satisfies readonly SessionSafetyRisk[];
@@ -18,8 +18,11 @@ const SESSION_SAFETY_ACTION_VALUES = [
 ] as const satisfies readonly SessionSafetyAction[];
 
 export function parseProviderSafetyDecision(response: unknown): ProviderSafetyDecision {
-  const content = extractFirstChoiceContent(response);
-  const decision = parseDecisionContent(content);
+  // A truncated, filtered or tool-call finish is rejected like any malformed
+  // reply: `invalid_provider_response` is a fail-closed reason code, so the
+  // turn is refused as retryable instead of trusting a partial verdict.
+  const content = readCompleteChoiceContent(response, throwInvalidProviderResponse);
+  const decision = parseStrictJsonObject(content, throwInvalidProviderResponse);
 
   return parseProviderDecisionObject(decision);
 }
@@ -36,44 +39,6 @@ export function parseProviderDecisionObject(decision: Record<string, unknown>): 
   }
 
   return { risk, action, reasonCode };
-}
-
-function extractFirstChoiceContent(response: unknown) {
-  if (!isRecord(response)) {
-    throwInvalidProviderResponse();
-  }
-
-  const { choices } = response;
-  if (!isNonEmptyUnknownArray(choices)) {
-    throwInvalidProviderResponse();
-  }
-
-  const firstChoice = choices[0];
-  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
-    throwInvalidProviderResponse();
-  }
-
-  const { content } = firstChoice.message;
-  if (typeof content !== "string" || content.trim().length === 0) {
-    throwInvalidProviderResponse();
-  }
-
-  return content;
-}
-
-function parseDecisionContent(content: string) {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throwInvalidProviderResponse();
-  }
-
-  if (!isRecord(parsed)) {
-    throwInvalidProviderResponse();
-  }
-
-  return parsed;
 }
 
 function rejectUnknownKeys(decision: Record<string, unknown>) {
@@ -124,10 +89,6 @@ function isReasonAllowedForRisk(risk: SessionSafetyRisk, reasonCode: ProviderSaf
     reasonCode === "harm_to_others_signal" ||
     reasonCode === "immediate_danger_signal"
   );
-}
-
-function isNonEmptyUnknownArray(value: unknown): value is readonly [unknown, ...unknown[]] {
-  return Array.isArray(value) && value.length > 0;
 }
 
 function includesValue<const T extends string>(values: readonly T[], value: string): value is T {

@@ -1,4 +1,5 @@
 import { VOICE_MONTHLY_MINUTES, VOICE_SESSION_MODE } from "astro:env/server";
+import { isOnOffFlagOn } from "./on-off-flag";
 import { DEFAULT_VOICE_MONTHLY_MINUTES } from "@/lib/session-data/voice-quota";
 
 /**
@@ -7,21 +8,8 @@ import { DEFAULT_VOICE_MONTHLY_MINUTES } from "@/lib/session-data/voice-quota";
  * który przy wyłączonej fladze rozłącza trwającą rozmowę), przycisk na panelu
  * i sekcję prywatności; zapisane transkrypty i historia działają zawsze.
  */
-export type VoiceSessionMode = "off" | "on";
-
-/** Wszystko poza dosłownym `on` to `off` — literówka nie może włączyć funkcji. */
-export function parseVoiceSessionMode(value: string | null | undefined): VoiceSessionMode {
-  return value?.trim().toLowerCase() === "on" ? "on" : "off";
-}
-
 export function isVoiceSessionEnabled() {
-  try {
-    return parseVoiceSessionMode(VOICE_SESSION_MODE) === "on";
-  } catch {
-    // Środowisko bez tej zmiennej w schemacie (np. częściowa atrapa w testach)
-    // oznacza wyłączoną funkcję, nigdy włączoną.
-    return false;
-  }
+  return isOnOffFlagOn(() => VOICE_SESSION_MODE);
 }
 
 /** Dodatnia liczba całkowita minut; wszystko inne to domyślne 120. */

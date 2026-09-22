@@ -1,4 +1,4 @@
-import type { ModalityId } from "@/lib/modalities";
+import type { ModalityId } from "@/lib/modality-catalog";
 
 /**
  * Klasy odcienia dla każdej perspektywy. Wartości kolorów żyją w tokenach

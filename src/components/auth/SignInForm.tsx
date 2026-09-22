@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useFormValidationFocus } from "@/components/hooks/useFormValidationFocus";
+import { useNativeSubmitPending } from "@/components/hooks/useNativeSubmitPending";
 import { Mail, Lock, LogIn } from "lucide-react";
 import { FormField } from "@/components/auth/FormField";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
@@ -31,6 +32,7 @@ function SignInFormView({ locale, serverError }: Props) {
     shouldRestore: Boolean(serverError),
   });
   const { formRef, focusFirstError } = useFormValidationFocus();
+  const { isSubmitting, markSubmitting } = useNativeSubmitPending();
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -55,12 +57,19 @@ function SignInFormView({ locale, serverError }: Props) {
   }
 
   function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
+    // Drugie kliknięcie albo Enter w trakcie wysyłki nie wyśle drugiego POST-a.
+    if (isSubmitting) {
+      e.preventDefault();
+      return;
+    }
+
     if (!validate()) {
       e.preventDefault();
       return;
     }
 
     rememberEmailBeforeSubmit();
+    markSubmitting();
   }
 
   return (
@@ -112,7 +121,7 @@ function SignInFormView({ locale, serverError }: Props) {
 
       <ServerError message={serverError} />
 
-      <SubmitButton pendingText={copy.signInPending} icon={<LogIn className="size-4" />}>
+      <SubmitButton pending={isSubmitting} pendingText={copy.signInPending} icon={<LogIn className="size-4" />}>
         {copy.signIn}
       </SubmitButton>
     </form>

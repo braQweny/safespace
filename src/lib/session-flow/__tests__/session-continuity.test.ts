@@ -19,7 +19,8 @@ vi.mock("@/lib/session-data/repository", () => ({
 }));
 vi.mock("@/lib/session-flow/people-memory-mode", () => ({ isPeopleMemoryEnabled }));
 vi.mock("@/lib/session-flow/topic-map-mode", () => ({ isTopicMapEnabled }));
-import { loadOwnedSessionContinuity } from "../session-continuity";
+import { getValidAvatarChoice } from "@/lib/modalities";
+import { loadOwnedSessionContinuity, toSessionPromptContext } from "../session-continuity";
 
 const context = { user: { id: "owner" } } as SessionDataContext;
 const session = {
@@ -84,5 +85,74 @@ describe("loadOwnedSessionContinuity", () => {
       ok: true,
       data: [],
     });
+  });
+});
+
+describe("toSessionPromptContext", () => {
+  const cbt = getValidAvatarChoice("cbt", "cbt-guide");
+  if (!cbt) throw new Error("cbt avatar missing from the catalog");
+
+  it("builds the modality in English prompt names with the register examples of the conversation language", () => {
+    const context = toSessionPromptContext(cbt, { ok: true, data: [] }, "pl");
+
+    expect(context.modality).toEqual({
+      modalityName: "Cognitive-behavioural approach",
+      avatarName: "Marek, practical guide",
+      sessionStyleHint: cbt.sessionStyleHint,
+      registerExamples: cbt.registerExamples.pl,
+    });
+    expect(toSessionPromptContext(cbt, { ok: true, data: [] }, "en").modality.registerExamples).toBe(
+      cbt.registerExamples.en,
+    );
+  });
+
+  it("carries the pinned memory and both briefs exactly as the continuity read them", () => {
+    expect(
+      toSessionPromptContext(
+        cbt,
+        { ok: true, data: [], avatarMemory: "Pamięć", peopleBrief: "- Marta", topicBrief: "- Odmawianie" },
+        "pl",
+      ),
+    ).toMatchObject({
+      avatarMemory: "Pamięć",
+      peopleBrief: "- Marta",
+      topicBrief: "- Odmawianie",
+      approvedSummaries: [],
+    });
+
+    // A brief the continuity dropped (flag off, nothing pinned) stays absent, never invented.
+    const withoutBriefs = toSessionPromptContext(cbt, { ok: true, data: [], avatarMemory: "Pamięć" }, "pl");
+    expect(withoutBriefs.peopleBrief).toBeUndefined();
+    expect(withoutBriefs.topicBrief).toBeUndefined();
+  });
+
+  it("passes legacy summaries as text, revision and dates only, without row or session ids", () => {
+    const context = toSessionPromptContext(
+      cbt,
+      {
+        ok: true,
+        data: [
+          {
+            id: "summary-1",
+            sessionId: "session-1",
+            summaryText: "Zatwierdzone podsumowanie.",
+            revision: 2,
+            createdAt: "2026-06-07T09:00:00.000Z",
+            updatedAt: "2026-06-07T09:30:00.000Z",
+          },
+        ],
+      },
+      "pl",
+    );
+
+    expect(context.approvedSummaries).toEqual([
+      {
+        summaryText: "Zatwierdzone podsumowanie.",
+        revision: 2,
+        createdAt: "2026-06-07T09:00:00.000Z",
+        updatedAt: "2026-06-07T09:30:00.000Z",
+      },
+    ]);
+    expect(context.avatarMemory).toBeUndefined();
   });
 });

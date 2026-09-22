@@ -191,10 +191,6 @@ export const configuredSafetyProvider = {
   classify: classifySessionSafetyWithAiProvider,
 } satisfies SessionSafetyProvider;
 
-export const openRouterSafetyProvider = {
-  classify: classifySessionSafetyWithOpenRouter,
-} satisfies SessionSafetyProvider;
-
 export function buildOpenRouterSafetyRequest(
   input: SessionSafetyInput,
   modelOverride?: string,

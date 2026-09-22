@@ -60,6 +60,8 @@ declare namespace App {
     requestId: string;
     /** Język interfejsu z cookie (middleware); domyślnie angielski. */
     locale: import("@/lib/i18n/locale").Locale;
+    /** Strefa IANA z cookie `safespace-tz` (middleware), zwalidowana przez `Intl`; domyślnie Europe/Warsaw. */
+    timeZone: string;
     accountAccess?: import("@/lib/admin/types").AccountAccessState | null;
   }
 }

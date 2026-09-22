@@ -1,6 +1,6 @@
 import { defineCopy } from "@/lib/i18n/copy";
 import type { Locale } from "@/lib/i18n/locale";
-import { getModalityByAvatarId, MVP_MODALITIES, type AvatarId, type ModalityId } from "@/lib/modalities";
+import { getCatalogEntryByAvatarId, MODALITY_CATALOG, type AvatarId, type ModalityId } from "@/lib/modality-catalog";
 
 /**
  * Teksty perspektyw widoczne dla użytkownika. Imiona awatarów (Lena, Marek,
@@ -164,7 +164,7 @@ const MODALITY_COPY = defineCopy<Readonly<Record<ModalityId, ModalityCopyInput>>
 );
 
 const FIRST_NAMES: Readonly<Record<ModalityId, string>> = Object.fromEntries(
-  MVP_MODALITIES.map((modality) => [modality.modalityId, modality.avatarFirstName]),
+  MODALITY_CATALOG.map((entry) => [entry.modalityId, entry.avatarFirstName]),
 ) as Record<ModalityId, string>;
 
 export function getModalityCopy(locale: Locale, modalityId: ModalityId): ModalityCopy {
@@ -172,13 +172,13 @@ export function getModalityCopy(locale: Locale, modalityId: ModalityId): Modalit
 }
 
 export function getModalityCopyByAvatarId(locale: Locale, avatarId: AvatarId): ModalityCopy {
-  const modality = getModalityByAvatarId(avatarId);
+  const entry = getCatalogEntryByAvatarId(avatarId);
 
-  if (!modality) {
+  if (!entry) {
     throw new Error("unknown_avatar_id");
   }
 
-  return getModalityCopy(locale, modality.modalityId);
+  return getModalityCopy(locale, entry.modalityId);
 }
 
 export function getPerspectiveLabel(locale: Locale, modalityId: ModalityId) {

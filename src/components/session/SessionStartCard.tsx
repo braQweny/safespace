@@ -6,24 +6,19 @@ import { LocaleProvider } from "@/components/LocaleProvider";
 import type { Locale } from "@/lib/i18n/locale";
 import { getBillingCopy } from "@/lib/billing/copy";
 import type { SessionQuota, VoiceQuota } from "@/lib/session-data/types";
-import {
-  formatRemainingFreeSessions,
-  formatVoiceMinutesRemaining,
-  getPlanCopy,
-  getPremiumSupportMailtoHref,
-} from "@/lib/session-flow/plan-copy";
-import {
-  formatSessionBudgetMinutes,
-  PREMIUM_SESSION_DURATION_SECONDS,
-  resolveSessionDurationSeconds,
-} from "@/lib/session-flow/session-budget";
-import { parseSessionIdParam } from "@/lib/session-flow/session-id";
+import { formatRemainingFreeSessions, getPlanCopy, getPremiumSupportMailtoHref } from "@/lib/session-flow/plan-copy";
+import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
-import { readClientVoiceSupport } from "@/lib/session-flow/voice-support";
-import type { VoiceStartFailureCode } from "@/components/hooks/useSessionStart";
+import {
+  buildSessionHref,
+  resolveAutoStartRequest,
+  type SessionAboutOptions,
+} from "@/lib/session-flow/session-start-url";
 import { cn } from "@/lib/utils";
 import { getSessionStartCardCopy } from "./session-start-card-copy";
-import { getServerStartMode, readStartMode, setStartMode, subscribeStartMode, type StartMode } from "./start-mode";
+import { PRIMARY_BUTTON } from "./start-card-styles";
+import { migrateLegacyStartMode, readStartMode, setStartMode, subscribeStartMode, type StartMode } from "./start-mode";
+import { VoiceStartSection } from "./VoiceStartSection";
 
 export { formatRemainingFreeSessions };
 
@@ -38,220 +33,16 @@ interface SessionStartCardProps {
    * padł): przełącznik „Pisana | Głosowa” i drugi zestaw stanów puli.
    */
   voiceQuota?: VoiceQuota | null;
-  /** Tylko do testów: tryb zamiast zapamiętanego wyboru (serwer zawsze zaczyna od pisanej). */
+  /**
+   * Ostatni wybór trybu odczytany przez stronę z ciasteczka (`START_MODE_COOKIE`);
+   * `null` = jeszcze bez wyboru, czyli pisana. Serwer i hydratacja renderują
+   * go od razu, więc karta nie przeskakuje z pisanej na głosową.
+   */
   initialMode?: StartMode | null;
 }
 
-const subscribeNever = () => () => {
-  // Wsparcie WebRTC nie zmienia się po hydratacji.
-};
-
-const readServerTrue = () => true;
-
-/** `true` w SSR (przycisk i tak czeka na hydratację), prawdziwa odpowiedź od pierwszego renderu klienta. */
-function useVoiceSupport() {
-  return useSyncExternalStore(subscribeNever, readClientVoiceSupport, readServerTrue);
-}
-
-const PRIMARY_BUTTON =
-  "bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed";
-
 const SEGMENT =
-  "text-ink hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
-
-/**
- * Pula minut premium jako cienki pasek: wypełnione to minuty, które jeszcze
- * zostały. Zdanie obok mówi to samo słowami — pasek jest tylko dla oka.
- */
-export function VoiceMinutesMeter({ quota }: { quota: VoiceQuota }) {
-  if (quota.kind !== "pool" || quota.limitSeconds <= 0) {
-    return null;
-  }
-
-  const ratio = Math.max(0, Math.min(1, quota.remainingSeconds / quota.limitSeconds));
-
-  return (
-    <div aria-hidden="true" className="bg-line-accent h-1.5 w-full max-w-[220px] overflow-hidden rounded-full">
-      <div className="bg-brand h-full rounded-full" style={{ width: `${Math.round(ratio * 100)}%` }} />
-    </div>
-  );
-}
-
-interface VoiceStartSectionProps {
-  locale: Locale;
-  quota: VoiceQuota;
-  avatarFirstName: string;
-  isHydrated: boolean;
-  isStarting: boolean;
-  isVoiceStarting: boolean;
-  failureCode: VoiceStartFailureCode | null;
-  onStart: () => void;
-}
-
-/**
- * Treść trybu „Głosowa”: rozmowa głosowa ma osobną pulę, więc stoi także
- * przy wyczerpanym limicie pisanym. Pięć stanów: próba dostępna, próba
- * zużyta, pula z minutami, pula wyczerpana, funkcja chwilowo niedostępna; do
- * tego przeglądarka bez WebRTC.
- */
-export function VoiceStartSection({
-  locale,
-  quota,
-  avatarFirstName,
-  isHydrated,
-  isStarting,
-  isVoiceStarting,
-  failureCode,
-  onStart,
-}: VoiceStartSectionProps) {
-  const copy = getSessionStartCardCopy(locale);
-  const planCopy = getPlanCopy(locale);
-  const isSupported = useVoiceSupport();
-
-  if (failureCode === "voice_unavailable") {
-    return (
-      <p className="text-ink-muted text-sm leading-6" data-voice-start="unavailable">
-        {copy.voiceUnavailable}
-      </p>
-    );
-  }
-
-  if ((quota.kind === "trial" && !quota.available) || failureCode === "voice_trial_used") {
-    return (
-      <p className="text-ink-muted text-sm leading-6" data-voice-start="trial_used">
-        {planCopy.voiceTrialUsed}{" "}
-        <a
-          href="/account/security"
-          className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-        >
-          {copy.voiceTrialUsedLink}
-        </a>
-      </p>
-    );
-  }
-
-  if ((quota.kind === "pool" && !quota.canStartVoice) || failureCode === "voice_minutes_exhausted") {
-    return (
-      <p className="text-ink-muted text-sm leading-6" data-voice-start="exhausted">
-        {planCopy.voiceMinutesExhausted}
-      </p>
-    );
-  }
-
-  if (isHydrated && !isSupported) {
-    return (
-      <p className="text-ink-muted text-sm leading-6" data-voice-start="unsupported">
-        {copy.voiceUnsupported}
-      </p>
-    );
-  }
-
-  const remainingCopy = quota.kind === "pool" ? formatVoiceMinutesRemaining(locale, quota) : null;
-  // Rozmowa głosowa premium ma godzinny kubełek przycięty do reszty puli, więc
-  // obietnica czasu idzie za tym, co naprawdę zostało w tym miesiącu.
-  const voiceBudgetSeconds =
-    quota.kind === "trial" ? quota.durationSeconds : Math.min(PREMIUM_SESSION_DURATION_SECONDS, quota.remainingSeconds);
-  const voiceBudgetMinutes = formatSessionBudgetMinutes(locale, voiceBudgetSeconds);
-
-  return (
-    <div className="flex flex-col gap-4" data-voice-start={quota.kind}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <p className="text-ink text-base font-medium">
-          {quota.kind === "trial" ? copy.voiceTrialBudget(voiceBudgetMinutes) : copy.budget(voiceBudgetMinutes)}
-        </p>
-        {quota.kind === "trial" ? (
-          <span className="text-ink-muted text-sm">{copy.voiceTrialNote}</span>
-        ) : (
-          <span className="flex flex-wrap items-center gap-3">
-            <VoiceMinutesMeter quota={quota} />
-            {remainingCopy ? (
-              <span className="text-ink-muted text-sm" data-voice-quota>
-                {remainingCopy}
-              </span>
-            ) : null}
-          </span>
-        )}
-      </div>
-
-      <button type="button" onClick={onStart} disabled={!isHydrated || isStarting} className={PRIMARY_BUTTON}>
-        {isVoiceStarting ? (
-          <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />
-        ) : (
-          <Mic aria-hidden="true" className="h-4 w-4 shrink-0" />
-        )}
-        {isVoiceStarting
-          ? copy.preparingVoice
-          : quota.kind === "trial"
-            ? copy.startVoiceTrial(voiceBudgetMinutes)
-            : copy.startVoice}
-      </button>
-
-      <p className="text-ink-muted text-sm leading-6">
-        {copy.voiceIntro(avatarFirstName)}{" "}
-        <a
-          href="/privacy#voice"
-          className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-        >
-          {copy.howVoiceWorks}
-        </a>
-      </p>
-    </div>
-  );
-}
-
-export interface SessionAboutOptions {
-  aboutPersonId?: string | null;
-  aboutDifficultyId?: string | null;
-}
-
-/** Karta osoby (`about`) i temat (`topic`) jadą dalej samym id, nigdy imieniem ani etykietą. */
-export function buildSessionHref(sessionId: string, options: SessionAboutOptions = {}) {
-  let href = `/dashboard/session?sessionId=${encodeURIComponent(sessionId)}`;
-  if (options.aboutPersonId) href += `&about=${encodeURIComponent(options.aboutPersonId)}`;
-  if (options.aboutDifficultyId) href += `&topic=${encodeURIComponent(options.aboutDifficultyId)}`;
-  return href;
-}
-
-/**
- * Decyzja o starcie po „Zapisz i zacznij rozmowę” z ekranu wyboru perspektywy,
- * po „Porozmawiaj o tej osobie” z karty osoby i po „Porozmawiaj o tym” z karty
- * tematu: wszystkie wracają na panel z `?start=now`, bo kliknięcie padło już
- * gdzie indziej. Karta osoby dokłada `about=<id>`, temat `topic=<id>`.
- *
- * `nextSearch` to adres bez tych parametrów i musi zostać zapisany ZANIM poleci
- * żądanie startu — inaczej odświeżenie panelu zużyłoby kolejną rozmowę z puli.
- * Przy wyczerpanej puli żądanie zostaje rozpoznane (`isRequested`), ale start
- * nie następuje: panel ma wtedy pokazać stan limitu, a nie startować mimo woli.
- */
-export function resolveAutoStartRequest(search: string, canStart: boolean) {
-  const params = new URLSearchParams(search);
-
-  if (params.get("start") !== "now") {
-    return {
-      isRequested: false,
-      shouldStart: false,
-      nextSearch: search,
-      aboutPersonId: null,
-      aboutDifficultyId: null,
-    };
-  }
-
-  params.delete("start");
-  const aboutPersonId = parseSessionIdParam(params.get("about") ?? undefined);
-  params.delete("about");
-  const aboutDifficultyId = parseSessionIdParam(params.get("topic") ?? undefined);
-  params.delete("topic");
-
-  const remaining = params.toString();
-
-  return {
-    isRequested: true,
-    shouldStart: canStart,
-    nextSearch: remaining.length > 0 ? `?${remaining}` : "",
-    aboutPersonId,
-    aboutDifficultyId,
-  };
-}
+  "text-ink hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep aria-pressed:inset-ring-brand flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold aria-pressed:inset-ring disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
  * Pula bezpłatnych rozmów jako kilka kresek: wypełnione to te, które jeszcze
@@ -364,11 +155,19 @@ function SessionStartCardView({
   // Wyspa hydratuje się z opóźnieniem, a kliknięcia sprzed hydratacji ginęły bez
   // żadnej reakcji — do tego czasu przycisk startu pozostaje wyłączony.
   const isHydrated = useIsHydrated();
-  // Serwer i hydratacja pokazują tryb pisany; zapamiętany wybór wchodzi dopiero
-  // po hydratacji, bez rozjazdu znaczników. Bez puli głosowej nie ma wyboru.
-  const storedMode = useSyncExternalStore(subscribeStartMode, readStartMode, getServerStartMode);
+  // Serwer i hydratacja renderują wybór z ciasteczka, a klient zaczyna od tego
+  // samego — dopiero kliknięcie go zmienia. Bez puli głosowej nie ma wyboru.
+  const storedMode = useSyncExternalStore(
+    subscribeStartMode,
+    () => readStartMode(initialMode),
+    () => initialMode ?? "text",
+  );
   const hasVoice = voiceQuota !== null;
-  const mode: StartMode = hasVoice ? (initialMode ?? storedMode) : "text";
+  const mode: StartMode = hasVoice ? storedMode : "text";
+
+  useEffect(() => {
+    migrateLegacyStartMode(initialMode !== null);
+  }, [initialMode]);
   // Karta osoby z „Porozmawiaj o tej osobie” albo temat z „Porozmawiaj o tym”
   // — przekazane do startu i do adresu rozmowy, żeby prefill wjechał razem z
   // pierwszym ekranem.

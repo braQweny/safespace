@@ -3,6 +3,7 @@ import { includeIgnoreFile } from "@eslint/config-helpers";
 import eslint from "@eslint/js";
 import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 import eslintPluginAstro from "eslint-plugin-astro";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import pluginReact from "eslint-plugin-react";
 import reactCompiler from "eslint-plugin-react-compiler";
 import eslintPluginReactHooks from "eslint-plugin-react-hooks";
@@ -70,6 +71,17 @@ const reactConfig = tseslint.config({
   },
 });
 
+// `eslint-plugin-astro`'s jsx-a11y preset only fires inside `.astro` files
+// (its `astro/jsx-a11y/*` rules return no listeners unless the parser is
+// Astro's), so the React islands — dialogs, the composer, the topic graph —
+// need the plugin's own recommended rules to be linted for accessibility at
+// all. The preset already registers the `jsx-a11y` plugin globally, so only
+// the rules are added here (registering it a second time is a config error).
+const reactA11yConfig = tseslint.config({
+  files: ["**/*.{jsx,tsx}"],
+  rules: jsxA11y.flatConfigs.recommended.rules,
+});
+
 const astroConfig = tseslint.config({
   files: ["**/*.astro"],
   rules: {
@@ -90,15 +102,51 @@ const astroPagesConfig = tseslint.config({
   },
 });
 
+// `@/lib/modalities` holds the full AI personas (`sessionStyleHint`,
+// `summaryLensHint`, `registerExamples`, the live-voice hints). Anything an
+// island can import ends up in the browser bundle, so UI code reads ids, first
+// names and asset paths from the prompt-free `@/lib/modality-catalog` instead.
+// Type-only imports are erased, but under `verbatimModuleSyntax` an import
+// whose specifiers are all inline `type` still survives as a bare
+// `import "…"` — hence `no-import-type-side-effects` alongside.
+// `src/lib/__tests__/modality-catalog.test.ts` walks the real import graph.
+const promptBoundaryConfig = tseslint.config({
+  files: [
+    "src/components/**/*.{ts,tsx,astro}",
+    "src/lib/modality-catalog.ts",
+    "src/lib/modality-copy.ts",
+    "src/lib/perspective-tint.ts",
+  ],
+  ignores: ["src/components/**/__tests__/**"],
+  rules: {
+    "@typescript-eslint/no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: ["@/lib/modalities", "**/lib/modalities", "./modalities"],
+            allowTypeImports: true,
+            message:
+              "`@/lib/modalities` carries the AI persona prompts and must not reach the client bundle. Import ids, names and asset paths from `@/lib/modality-catalog`.",
+          },
+        ],
+      },
+    ],
+    "@typescript-eslint/no-import-type-side-effects": "error",
+  },
+});
+
 export default tseslint.config(
   includeIgnoreFile(gitignorePath),
   baseConfig,
   buildConfigFilesConfig,
   reactConfig,
+  reactA11yConfig,
   eslintPluginAstro.configs["flat/recommended"],
   ...eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
   astroPagesConfig,
+  promptBoundaryConfig,
   // The disposable PostgreSQL harness runs as native Node JavaScript. Keep
   // syntax/style checks; the application's type-aware TS rules do not apply.
   { ...tseslint.configs.disableTypeChecked, files: ["tests/**/*.mjs"] },

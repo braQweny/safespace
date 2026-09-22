@@ -106,6 +106,31 @@ describe("parseProviderSafetyDecision", () => {
     expectInvalidProviderResponse(() => parseProviderSafetyDecision({ choices: [] }));
   });
 
+  // A cut-off or filtered classifier reply may still parse as a valid verdict;
+  // it is refused anyway, which lands on a fail-closed reason code.
+  it.each([
+    ["length", "finishReason"],
+    ["content_filter", "finishReason"],
+    ["tool_calls", "finishReason"],
+    ["length", "finish_reason"],
+  ])("rejects a %s finish (%s) even when the content is a valid decision", (reason, key) => {
+    const response = buildProviderResponse({ risk: "normal", action: "allow", reasonCode: "none_detected" });
+
+    expectInvalidProviderResponse(() =>
+      parseProviderSafetyDecision({ choices: [{ ...response.choices[0], [key]: reason }] }),
+    );
+  });
+
+  it("accepts a complete stop finish", () => {
+    const response = buildProviderResponse({ risk: "normal", action: "allow", reasonCode: "none_detected" });
+
+    expect(parseProviderSafetyDecision({ choices: [{ ...response.choices[0], finishReason: "stop" }] })).toEqual({
+      risk: "normal",
+      action: "allow",
+      reasonCode: "none_detected",
+    });
+  });
+
   it("rejects extra unsupported action values", () => {
     expectInvalidProviderResponse(() =>
       parseProviderSafetyDecision(

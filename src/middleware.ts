@@ -18,7 +18,13 @@ import {
   isVoiceRateLimitedApiRequest,
 } from "@/lib/rate-limit";
 import { resolveRequestLocale } from "@/lib/i18n/locale-cookie";
-import { ACCOUNT_ACCESS_UNAVAILABLE_PATH, BLOCKED_ACCOUNT_PATH, evaluateApiBodyGuard } from "@/lib/request-guards";
+import { resolveRequestTimeZone } from "@/lib/i18n/time-zone";
+import {
+  ACCOUNT_ACCESS_UNAVAILABLE_PATH,
+  BLOCKED_ACCOUNT_PATH,
+  evaluateApiBodyGuard,
+  normalizeGuardPathname,
+} from "@/lib/request-guards";
 import { createClient } from "@/lib/supabase";
 
 const PROTECTED_ROUTES = [AUTHENTICATED_REDIRECT_PATH, "/account", "/admin"] as const;
@@ -79,8 +85,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // bazy); ustawiane przed każdym wczesnym `return`, żeby odmowy i redirecty
   // też znały język.
   context.locals.locale = resolveRequestLocale(context.cookies);
+  // Strefa do formatowania dat, z ciasteczka zapisanego przez skrypt w
+  // `Layout.astro`; zła albo brak → Europe/Warsaw. Nie trafia do logów.
+  context.locals.timeZone = resolveRequestTimeZone(context.cookies);
 
-  const { pathname } = context.url;
+  // Every guard below compares against one normalized path: Astro serves
+  // `/api/session/message/` from the same handler as `/api/session/message`,
+  // and an exact-match check on the raw path let that slash skip the limiters.
+  const pathname = normalizeGuardPathname(context.url.pathname);
   const { method } = context.request;
 
   function finalize(response: Response) {
@@ -134,7 +146,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   // Stripe authenticates its own raw, bounded payload; no user/Auth request is needed.
-  if (pathname === "/api/billing/webhook") return finalize(await next());
+  if (pathname === "/api/billing/webhook") {
+    context.locals.user = null;
+    context.locals.accountAccess = null;
+    return finalize(await next());
+  }
 
   const supabase = createClient(context.request.headers, context.cookies);
 

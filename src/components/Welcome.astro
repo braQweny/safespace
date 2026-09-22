@@ -3,7 +3,7 @@ import AppHeader from "@/components/AppHeader.astro";
 import CrisisRegionList from "@/components/CrisisRegionList.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { AUTHENTICATED_REDIRECT_PATH } from "@/lib/auth-redirect";
-import { MVP_MODALITIES } from "@/lib/modalities";
+import { MODALITY_CATALOG } from "@/lib/modality-catalog";
 import { getModalityCopy } from "@/lib/modality-copy";
 import { getWelcomeCopy } from "@/lib/page-copy/welcome-copy";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
@@ -34,7 +34,7 @@ const budgetMinutes = Math.max(1, Math.round(FREE_TRIAL_DURATION_SECONDS / 60));
 
 // Narysowana karta rozmowy w hero: pierwsza perspektywa z katalogu, dwie
 // minuty po starcie. Pierścień to ten sam łuk, który pokazuje prawdziwa sesja.
-const featured = MVP_MODALITIES[0];
+const featured = MODALITY_CATALOG[0];
 const featuredCopy = getModalityCopy(locale, featured.modalityId);
 const featuredFirstName = featured.avatarFirstName;
 const previewElapsedMinutes = Math.min(2, budgetMinutes);
@@ -197,7 +197,7 @@ const boundaries = copy.boundaries;
       </div>
       <ul class="grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-6">
         {
-          MVP_MODALITIES.map((modality) => {
+          MODALITY_CATALOG.map((modality) => {
             const tint = getPerspectiveTint(modality.modalityId);
             const modalityCopy = getModalityCopy(locale, modality.modalityId);
 

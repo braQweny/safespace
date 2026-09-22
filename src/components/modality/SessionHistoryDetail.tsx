@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
+import { useMemo, useRef } from "react";
 import { Loader2, Trash2, X } from "lucide-react";
+import InlineConfirm from "@/components/InlineConfirm";
 import { useLocale } from "@/components/hooks/useLocale";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 import { getModalityCopy } from "@/lib/modality-copy";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import type { SessionSummaryFailureCode } from "@/lib/session-flow/session-summary-contract";
@@ -68,30 +69,11 @@ export default function SessionHistoryDetailPanel({
   const locale = useLocale();
   const copy = getSessionHistoryCopy(locale).detail;
   const detailMessages = useMemo(() => (detail ? toUiMessages(detail) : []), [detail]);
-  const confirmDeleteRef = useRef<HTMLDivElement | null>(null);
   const deleteButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  // Blok potwierdzenia pojawia się poza fokusem — bez przeniesienia fokusu
-  // czytnik ekranu nie dowiedziałby się, że coś wymaga decyzji.
-  useEffect(() => {
-    if (isConfirmingDelete) {
-      confirmDeleteRef.current?.focus();
-    }
-  }, [isConfirmingDelete]);
 
   function handleCancelDelete() {
     onCancelDelete();
     deleteButtonRef.current?.focus();
-  }
-
-  function handleConfirmKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== "Escape") {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    handleCancelDelete();
   }
 
   return (
@@ -127,40 +109,22 @@ export default function SessionHistoryDetailPanel({
         {copy.readOnly}
       </p>
 
+      {/* Escape przy otwartym potwierdzeniu cofa tylko je; podgląd zamyka dopiero
+          następne (`onCancel` dialogu w `AvatarSessionHistory`). */}
       {detail && isConfirmingDelete ? (
-        <div
-          ref={confirmDeleteRef}
-          role="group"
-          aria-labelledby={DELETE_CONFIRM_HEADING_ID}
-          tabIndex={-1}
-          onKeyDown={handleConfirmKeyDown}
-          className="border-line-accent bg-surface text-ink-soft mt-4 rounded-xl border p-4 text-sm leading-6 focus:outline-none"
-        >
-          <p id={DELETE_CONFIRM_HEADING_ID} className="font-semibold">
-            {copy.confirmDeleteTitle}
-          </p>
-          <p className="mt-1">{copy.confirmDeleteBody}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleCancelDelete}
-              className="border-line-accent bg-surface text-ink hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center rounded-full border px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-            >
-              {copy.cancel}
-            </button>
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={() => {
-                onConfirmDelete(detail.session.id);
-              }}
-              className="bg-danger text-surface hover:bg-danger-strong focus-visible:ring-danger-strong disabled:bg-danger-line inline-flex h-11 items-center justify-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
-            >
-              {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-              {copy.confirmDelete}
-            </button>
-          </div>
-        </div>
+        <InlineConfirm
+          headingId={DELETE_CONFIRM_HEADING_ID}
+          title={copy.confirmDeleteTitle}
+          body={copy.confirmDeleteBody}
+          cancelLabel={copy.cancel}
+          confirmLabel={copy.confirmDelete}
+          isPending={isDeleting}
+          showsPendingSpinner
+          onCancel={handleCancelDelete}
+          onConfirm={() => {
+            onConfirmDelete(detail.session.id);
+          }}
+        />
       ) : null}
 
       {detailStatus === "loading" ? (

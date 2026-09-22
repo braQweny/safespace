@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestApiJson } from "@/lib/api-client";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 import type { SessionHistoryListItem, SessionHistoryPagination } from "@/lib/session-data/types";
 import {
   isSessionHistoryFailure,

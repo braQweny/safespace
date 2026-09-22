@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import type { SessionHistoryListItem } from "@/lib/session-data/types";
 import SessionHistoryList, {
   SESSION_STATUS_LEGEND_ORDER,
@@ -17,6 +18,8 @@ vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
 }));
 
 const sessionStatusLegend = getSessionStatusLegend("pl");
+const WARSAW = "Europe/Warsaw";
+const NEW_YORK = "America/New_York";
 
 function createItem(overrides: Partial<SessionHistoryListItem> = {}): SessionHistoryListItem {
   return {
@@ -41,6 +44,15 @@ describe("getDurationLabel", () => {
     expect(getDurationLabel("pl", createItem({ endedAt: "2026-06-07T08:02:00.000Z" }))).toBe("2 min rozmowy");
   });
 
+  it("never counts time after the deadline for a conversation expired on a later read", () => {
+    expect(
+      getDurationLabel(
+        "pl",
+        createItem({ status: "expired", endedAt: "2026-06-09T19:40:00.000Z", expiresAt: "2026-06-07T08:15:00.000Z" }),
+      ),
+    ).toBe("15 min rozmowy");
+  });
+
   it("does not round a very short conversation up to a minute", () => {
     expect(getDurationLabel("pl", createItem({ endedAt: "2026-06-07T08:00:20.000Z" }))).toBe("krócej niż minutę");
   });
@@ -60,23 +72,23 @@ describe("formatDateTime", () => {
   const now = new Date("2026-06-07T20:00:00.000Z");
 
   it("labels same-day sessions as today", () => {
-    expect(formatDateTime("pl", "2026-06-07T08:00:00.000Z", now)).toMatch(/^Dzisiaj, /);
+    expect(formatDateTime("pl", WARSAW, "2026-06-07T08:00:00.000Z", now)).toMatch(/^Dzisiaj, /);
   });
 
   it("labels the previous day as yesterday", () => {
-    expect(formatDateTime("pl", "2026-06-06T08:00:00.000Z", now)).toMatch(/^Wczoraj, /);
+    expect(formatDateTime("pl", WARSAW, "2026-06-06T08:00:00.000Z", now)).toMatch(/^Wczoraj, /);
   });
 
   it("keeps a full date for older sessions", () => {
-    const label = formatDateTime("pl", "2026-05-30T08:00:00.000Z", now);
+    const label = formatDateTime("pl", WARSAW, "2026-05-30T08:00:00.000Z", now);
 
     expect(label).not.toMatch(/Dzisiaj|Wczoraj/);
     expect(label).toContain("2026");
   });
 
   it("stays safe on missing and unparsable timestamps", () => {
-    expect(formatDateTime("pl", null, now)).toBe("Brak daty");
-    expect(formatDateTime("pl", "not-a-date", now)).toBe("Brak daty");
+    expect(formatDateTime("pl", WARSAW, null, now)).toBe("Brak daty");
+    expect(formatDateTime("pl", WARSAW, "not-a-date", now)).toBe("Brak daty");
   });
 });
 
@@ -177,6 +189,7 @@ describe("SessionHistoryList", () => {
     });
     const groups = groupSessionHistoryItemsByDay(
       "pl",
+      WARSAW,
       [
         createItem({ id: "session-1", startedAt: "2026-06-07T08:00:00.000Z" }),
         createItem({ id: "session-2", startedAt: "2026-06-07T06:30:00.000Z" }),
@@ -196,6 +209,7 @@ describe("SessionHistoryList", () => {
     const today = new Date("2026-06-07T20:00:00.000Z");
     const groups = groupSessionHistoryItemsByDay(
       "en",
+      WARSAW,
       [
         createItem({ id: "session-1", startedAt: "2026-06-07T08:00:00.000Z" }),
         createItem({ id: "session-3", startedAt: "2026-06-06T20:02:00.000Z" }),
@@ -204,8 +218,40 @@ describe("SessionHistoryList", () => {
     );
 
     expect(groups.map((group) => group.label)).toEqual(["Today", "Yesterday"]);
-    expect(formatDateTime("en", "2026-05-30T08:00:00.000Z", today)).toBe("May 30, 2026, 10:00 AM");
+    expect(formatDateTime("en", WARSAW, "2026-05-30T08:00:00.000Z", today)).toBe("May 30, 2026, 10:00 AM");
     expect(getDurationLabel("en", createItem({ endedAt: "2026-06-07T08:02:00.000Z" }))).toBe("2 min conversation");
+  });
+
+  it("groups and labels days in the viewer's zone, not in Warsaw", () => {
+    // 03:00 UTC to 23:00 poprzedniego dnia w Nowym Jorku: oba wpisy są tam
+    // z „dzisiaj”, a w Warszawie jeden z dzisiaj i jeden z wczoraj.
+    const now = new Date("2026-06-07T03:00:00.000Z");
+    const items = [
+      createItem({ id: "session-1", startedAt: "2026-06-07T02:00:00.000Z" }),
+      createItem({ id: "session-2", startedAt: "2026-06-06T12:00:00.000Z" }),
+    ];
+
+    const newYork = groupSessionHistoryItemsByDay("en", NEW_YORK, items, now);
+    const warsaw = groupSessionHistoryItemsByDay("en", WARSAW, items, now);
+
+    expect(newYork.map((group) => [group.key, group.label, group.items.length])).toEqual([["2026-06-06", "Today", 2]]);
+    expect(warsaw.map((group) => [group.key, group.label])).toEqual([
+      ["2026-06-07", "Today"],
+      ["2026-06-06", "Yesterday"],
+    ]);
+    expect(formatDateTime("en", NEW_YORK, "2026-06-07T02:00:00.000Z", now)).toBe("Today, 10:00 PM");
+  });
+
+  it("reads the zone from the island's provider for row times", () => {
+    const html = renderToStaticMarkup(
+      <LocaleProvider locale="pl" timeZone={NEW_YORK}>
+        <SessionHistoryList items={[createItem()]} selectedSessionId={null} onOpenDetail={() => undefined} />
+      </LocaleProvider>,
+    );
+
+    // 08:00 UTC to 04:00 w Nowym Jorku (w Warszawie byłoby 10:00).
+    expect(html).toContain(">04:00</span>");
+    expect(html).not.toContain(">10:00</span>");
   });
 
   it("marks what carries over without showing any of its text", () => {

@@ -12,10 +12,10 @@ import {
   type VoiceSessionAction,
   type VoiceSessionUiState,
 } from "../voice-session-state";
-import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import { MODALITY_CATALOG, toSelectedModalityAvatar } from "@/lib/modality-catalog";
 
-const cbt = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
-const avatar: SessionStartPageState["avatar"] = { modality: cbt, selected: toSelectedModalityAvatar(cbt) };
+const cbt = MODALITY_CATALOG.find((entry) => entry.modalityId === "cbt") ?? MODALITY_CATALOG[1];
+const avatar: SessionStartPageState["avatar"] = { selected: toSelectedModalityAvatar(cbt) };
 
 const activeSession: SessionView = {
   id: "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f",
@@ -38,8 +38,6 @@ const activeState: SessionStartPageState = {
     { id: "m1", role: "assistant", sequenceIndex: 0, content: "Cześć.", createdAt: "2026-09-12T10:00:05.000Z" },
   ],
   messageFetchFailed: false,
-  approvedSummaries: [],
-  canStartWithoutContext: false,
   sessionQuota: null,
 };
 
@@ -130,6 +128,107 @@ describe("connecting", () => {
     expect(shouldHeartbeat(retryable)).toBe(true);
     const final = reduce(initial, { type: "connect_failed", notice: null, retryable: false });
     expect(final).toMatchObject({ status: "idle", reconnectAttempt: 0 });
+  });
+
+  it("stops on a pool refusal: no retry, no heartbeat, no automatic reconnect, the reason kept for the screen", () => {
+    const initial = getInitialVoiceSessionState(activeState, { voiceAvailable: true });
+    const refused = reduce(
+      initial,
+      { type: "mic_requested" },
+      { type: "connecting" },
+      { type: "connect_refused", refusal: "voice_minutes_exhausted" },
+    );
+    expect(refused).toMatchObject({
+      kind: "active",
+      status: "refused",
+      refusal: "voice_minutes_exhausted",
+      reconnectAttempt: 0,
+      notice: null,
+    });
+    expect(shouldHeartbeat(refused)).toBe(false);
+    expect(isVoiceConnected(refused.status)).toBe(false);
+
+    // A refused reconnect of a conversation under way drops the retry counter and the stale notice too.
+    const reconnecting = reduce(connected(), { type: "connection_lost", notice: notices.connectionLost });
+    expect(reconnecting).toMatchObject({ status: "reconnecting", reconnectAttempt: 1 });
+    const trialUsed = reduce(reconnecting, { type: "connect_refused", refusal: "voice_trial_used" });
+    expect(trialUsed).toMatchObject({
+      status: "refused",
+      refusal: "voice_trial_used",
+      reconnectAttempt: 0,
+      notice: null,
+    });
+    expect(shouldHeartbeat(trialUsed)).toBe(false);
+  });
+
+  it("keeps a refusal when a heartbeat sent before it comes back late, while still taking its saved rows", () => {
+    // Connection lost → reconnect refused → the heartbeat started on the loss resolves afterwards.
+    const refused = reduce(
+      connected(),
+      { type: "connection_lost", notice: notices.connectionLost },
+      { type: "connect_refused", refusal: "voice_minutes_exhausted" },
+    );
+    const late = reduce(refused, {
+      type: "heartbeat",
+      response: heartbeat({
+        live: false,
+        closeReason: "heartbeat_lost",
+        messages: [{ id: "m2", role: "user", sequenceIndex: 1, content: "Ostatnie słowa.", createdAt: "x" }],
+      }),
+      notices,
+    });
+
+    expect(late).toMatchObject({ kind: "active", status: "refused", refusal: "voice_minutes_exhausted", notice: null });
+    expect(late.persistedMessages.map((message) => message.id)).toEqual(["m1", "m2"]);
+    expect(shouldHeartbeat(late)).toBe(false);
+
+    for (const response of [
+      heartbeat({ live: false, closeReason: null }),
+      heartbeat({ live: false, closeReason: "provider_closed" }),
+      heartbeat({ live: false, closeReason: "safety_unavailable" }),
+      heartbeat({ live: true }),
+    ]) {
+      expect(reduce(refused, { type: "heartbeat", response, notices })).toMatchObject({
+        status: "refused",
+        notice: null,
+        reconnectAttempt: 0,
+      });
+    }
+  });
+
+  it("lets a real end from the server replace a refusal", () => {
+    const refused = reduce(connected(), { type: "connect_refused", refusal: "voice_trial_used" });
+
+    expect(
+      reduce(refused, {
+        type: "heartbeat",
+        response: heartbeat({
+          live: false,
+          closeReason: "time_limit_reached",
+          session: { ...activeSession, status: "expired" },
+        }),
+        notices,
+      }),
+    ).toMatchObject({ kind: "expired", status: "ended", notice: notices.expired });
+    expect(
+      reduce(refused, {
+        type: "heartbeat",
+        response: heartbeat({ live: false, closeReason: null, session: { ...activeSession, status: "completed" } }),
+        notices,
+      }),
+    ).toMatchObject({ kind: "completed", status: "ended" });
+    expect(
+      reduce(refused, {
+        type: "heartbeat",
+        response: heartbeat({
+          live: false,
+          closeReason: "interrupted",
+          session: { ...activeSession, status: "interrupted" },
+          notice: { variant: "hard_stop", copy: { title: "Stop", body: "Pomoc.", nextSteps: [] }, crisisResources: [] },
+        }),
+        notices,
+      }),
+    ).toMatchObject({ kind: "interrupted", status: "hard_stop" });
   });
 
   it("marks the browser as unsupported only while the conversation is active", () => {

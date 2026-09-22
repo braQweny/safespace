@@ -1,6 +1,7 @@
 import { getAiProviderEnv } from "@/lib/ai-provider/env";
 import type { AiProviderName } from "@/lib/ai-provider/types";
 import { sendAiChat } from "@/lib/ai-provider/chat";
+import { buildChatProviderMetadata, readCompleteChoiceContent } from "@/lib/ai-provider/chat-response";
 import type { Fetcher } from "@openrouter/sdk";
 import type { ChatResult } from "@openrouter/sdk/models";
 import {
@@ -23,14 +24,7 @@ import {
   supportsOpenRouterTemperature,
 } from "./openrouter-request-params";
 import { buildSessionResponseMessages } from "./session-response-prompt";
-import type {
-  GenerateSessionResponseInput,
-  SessionAiFinishReason,
-  SessionAiProviderMetadata,
-  SessionAiResponse,
-  SessionAiTokenUsage,
-  SessionResponsePromptMessage,
-} from "./types";
+import type { GenerateSessionResponseInput, SessionAiResponse, SessionResponsePromptMessage } from "./types";
 
 const OPENROUTER_SESSION_MAX_COMPLETION_TOKENS = 800;
 // Gemini Flash thinking models spend hidden reasoning tokens from the same
@@ -109,7 +103,7 @@ export async function generateSessionResponseWithAiProvider(
 
     return {
       assistantText: extractAssistantText(response),
-      providerMetadata: buildProviderMetadata(response, model, config.provider),
+      providerMetadata: buildChatProviderMetadata(response, model, config.provider),
     };
   } catch (error) {
     if (error instanceof SessionAiError) {
@@ -207,105 +201,12 @@ function resolveTimeoutMs(timeoutMs: number | undefined, reasoningEffort?: OpenR
   return Math.round(timeoutMs);
 }
 
+// A truncated, filtered or tool-call reply is never persisted as if it were a
+// complete assistant turn (same check as summaries and extraction).
 function extractAssistantText(responseBody: ChatResult) {
-  const choice = extractFirstChoice(responseBody);
-  rejectIncompleteAssistantResponse(choice.finishReason);
-
-  const content: unknown = choice.message.content;
-
-  if (typeof content !== "string") {
-    throw new SessionAiError("invalid_provider_response");
-  }
-
-  const assistantText = content.trim();
-
-  if (!assistantText) {
-    throw new SessionAiError("invalid_provider_response");
-  }
-
-  return assistantText;
+  return readCompleteChoiceContent(responseBody, throwInvalidProviderResponse).trim();
 }
 
-// Mirrors the summary path: a truncated, filtered or tool-call reply is never
-// persisted as if it were a complete assistant turn.
-function rejectIncompleteAssistantResponse(finishReason: string | null) {
-  if (finishReason === "length" || finishReason === "content_filter" || finishReason === "tool_calls") {
-    throw new SessionAiError("invalid_provider_response");
-  }
-}
-
-function buildProviderMetadata(
-  responseBody: ChatResult,
-  fallbackModel: string,
-  provider: AiProviderName,
-): SessionAiProviderMetadata {
-  const finishReason = parseFinishReason(responseBody);
-  const usage = parseUsage(responseBody);
-
-  return {
-    provider,
-    model: parseResponseModel(responseBody) ?? fallbackModel,
-    ...(finishReason ? { finishReason } : {}),
-    ...(usage ? { usage } : {}),
-  };
-}
-
-function extractFirstChoice(responseBody: ChatResult) {
-  const { choices } = responseBody;
-
-  if (choices.length === 0) {
-    throw new SessionAiError("invalid_provider_response");
-  }
-
-  return choices[0];
-}
-
-function parseResponseModel(responseBody: ChatResult) {
-  const model = responseBody.model.trim();
-
-  return model.length > 0 ? model : undefined;
-}
-
-function parseFinishReason(responseBody: ChatResult): SessionAiFinishReason | undefined {
-  const choice = extractFirstChoice(responseBody);
-  // The SDK types finishReason as a branded Unrecognized<string> union that
-  // equality checks cannot narrow; widen to plain string first.
-  const finishReason = choice.finishReason as string | undefined;
-
-  if (finishReason === "stop" || finishReason === "length" || finishReason === "content_filter") {
-    return finishReason;
-  }
-
-  if (finishReason === "tool_calls") {
-    return finishReason;
-  }
-
-  return typeof finishReason === "string" && finishReason.trim().length > 0 ? "unknown" : undefined;
-}
-
-function parseUsage(responseBody: ChatResult): SessionAiTokenUsage | undefined {
-  if (!responseBody.usage) {
-    return undefined;
-  }
-
-  const usage = {
-    ...parseTokenCount(responseBody.usage.promptTokens, "promptTokens"),
-    ...parseTokenCount(responseBody.usage.completionTokens, "completionTokens"),
-    ...parseTokenCount(responseBody.usage.totalTokens, "totalTokens"),
-  };
-
-  return Object.keys(usage).length > 0 ? usage : undefined;
-}
-
-function parseTokenCount<K extends keyof SessionAiTokenUsage>(
-  value: unknown,
-  key: K,
-): Pick<SessionAiTokenUsage, K> | Record<string, never> {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-    return {};
-  }
-
-  return {
-    [key]: Math.round(value),
-  } as Pick<SessionAiTokenUsage, K>;
+function throwInvalidProviderResponse(): never {
+  throw new SessionAiError("invalid_provider_response");
 }

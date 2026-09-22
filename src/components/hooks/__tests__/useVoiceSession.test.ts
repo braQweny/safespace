@@ -5,7 +5,7 @@ import type { SessionView } from "@/lib/session-flow/session-state";
 import type { VoiceHeartbeatSuccessResponse } from "@/lib/session-flow/voice-contract";
 import type { VoiceSessionAction } from "@/lib/session-flow/voice-session-state";
 import { getVoiceSessionCopy } from "@/components/session/voice-session-copy";
-import type { TimedSessionTransport } from "../useTimedSession";
+import type { TimedSessionTransport } from "../timed-session-transport";
 import { buildVoiceHeartbeatNotices, connectVoiceSession, runVoiceHeartbeat } from "../useVoiceSession";
 
 const SESSION_ID = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
@@ -142,6 +142,24 @@ describe("connectVoiceSession", () => {
       notice: { copy: { title: copy.unavailableTitle } },
     });
   });
+});
+
+describe("connectVoiceSession pool refusals", () => {
+  it.each(["voice_minutes_exhausted", "voice_trial_used"] as const)(
+    "turns a %s refusal into a terminal refusal, never a retryable connect failure",
+    async (code) => {
+      const { transport, dispatched, dispatch, navigate } = createTransport(
+        json(403, { ok: false, type: "voice_error", code }),
+      );
+
+      await expect(
+        connectVoiceSession({ sessionId: SESSION_ID, offerSdp: "v=0", locale: "pl" }, dispatch, transport),
+      ).resolves.toBeNull();
+      expect(dispatched.map((action) => action.type)).toEqual(["connecting", "connect_refused"]);
+      expect(dispatched.at(-1)).toEqual({ type: "connect_refused", refusal: code });
+      expect(navigate).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("runVoiceHeartbeat", () => {

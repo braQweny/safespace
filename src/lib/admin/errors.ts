@@ -14,6 +14,13 @@ export const ADMIN_ERROR_CODES = {
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_CODES;
 
+/**
+ * SQLSTATE raised by the admin block/plan RPCs when the target is the acting
+ * admin. The app refuses first; this is the database gate for a direct
+ * PostgREST call. Pinned to its migration by `self-target-migration.test.ts`.
+ */
+export const ADMIN_SELF_TARGET_SQLSTATE = "P0017";
+
 export interface AdminError {
   code: AdminErrorCode;
 }

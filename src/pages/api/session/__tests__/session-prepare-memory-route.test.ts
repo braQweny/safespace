@@ -2,10 +2,19 @@ import type { APIRoute } from "astro";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ok, sessionDataError } from "@/lib/session-data/errors";
 
-const { requireSessionRouteAccess, readSessionQuota, prepareOwnedAvatarMemory } = vi.hoisted(() => ({
-  requireSessionRouteAccess: vi.fn(),
-  readSessionQuota: vi.fn(),
-  prepareOwnedAvatarMemory: vi.fn(),
+const { requireSessionRouteAccess, readSessionQuota, prepareOwnedAvatarMemory, logOperationalEvent } = vi.hoisted(
+  () => ({
+    requireSessionRouteAccess: vi.fn(),
+    readSessionQuota: vi.fn(),
+    prepareOwnedAvatarMemory: vi.fn(),
+    logOperationalEvent: vi.fn(),
+  }),
+);
+vi.mock("@/lib/ai-provider/env", () => ({ getAiProviderName: () => "openai" }));
+vi.mock("@/lib/operational-visibility/logger", () => ({ logOperationalEvent }));
+vi.mock("@/lib/operational-visibility/request-context", () => ({
+  buildOperationalRequestContext: vi.fn().mockResolvedValue({ requestId: "req" }),
+  getOperationalDurationMs: () => 12,
 }));
 vi.mock("@/lib/session-flow/route-access", () => ({ requireSessionRouteAccess }));
 vi.mock("@/lib/session-data/quota", () => ({ readSessionQuota }));
@@ -75,5 +84,25 @@ describe("POST /api/session/prepare-memory", () => {
     const response = await POST(context());
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ ok: false, code: "summary_context_unavailable" });
+  });
+
+  it("logs a provider failure with its category only, and nothing for a data failure", async () => {
+    prepareOwnedAvatarMemory.mockResolvedValueOnce({ ok: false, providerFailure: "provider_timeout" });
+    await POST(context());
+    expect(logOperationalEvent).toHaveBeenCalledTimes(1);
+    expect(logOperationalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "session.ai_provider_failed",
+        reasonCode: "provider_timeout",
+        provider: "openai",
+        durationMs: 12,
+      }),
+      { requestId: "req" },
+    );
+
+    logOperationalEvent.mockClear();
+    prepareOwnedAvatarMemory.mockResolvedValueOnce({ ok: false });
+    expect((await POST(context())).status).toBe(503);
+    expect(logOperationalEvent).not.toHaveBeenCalled();
   });
 });

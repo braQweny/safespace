@@ -1,6 +1,10 @@
 import type { APIRoute } from "astro";
+import { getAiProviderName } from "@/lib/ai-provider/env";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { getValidAvatarChoice } from "@/lib/modalities";
+import { logOperationalEvent } from "@/lib/operational-visibility/logger";
+import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
+import { buildSessionAiProviderFailedEvent } from "@/lib/operational-visibility/session-events";
 import { readSessionQuota } from "@/lib/session-data/quota";
 import { prepareOwnedAvatarMemory } from "@/lib/session-flow/avatar-memory";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
@@ -14,6 +18,7 @@ function json(body: Record<string, unknown>, status: number) {
 
 /** Przygotowuje wyłącznie pamięć właściciela. Nie tworzy sesji ani nie uruchamia czasu. */
 export const POST: APIRoute = async (context) => {
+  const startedAtMs = performance.now();
   const access = await requireSessionRouteAccess(context);
   if (!access.ok) return json({ ok: false, code: access.error.code }, access.error.status);
 
@@ -34,7 +39,21 @@ export const POST: APIRoute = async (context) => {
   if (!quota.data.canStartSession) return json({ ok: false, code: "session_limit_reached" }, 403);
 
   const memory = await prepareOwnedAvatarMemory(access.data, avatar, { locale: getRequestLocale(context.locals) });
-  if (!memory.ok) return json({ ok: false, code: "summary_context_unavailable" }, 503);
+  if (!memory.ok) {
+    // To główna, tłowa ścieżka pamięci — bez tego wpisu awarie providera
+    // widać było tylko wtedy, gdy trafiły na start-next.
+    if (memory.providerFailure) {
+      logOperationalEvent(
+        buildSessionAiProviderFailedEvent({
+          reasonCode: memory.providerFailure,
+          provider: getAiProviderName(),
+          durationMs: getOperationalDurationMs(startedAtMs),
+        }),
+        await buildOperationalRequestContext(context),
+      );
+    }
+    return json({ ok: false, code: "summary_context_unavailable" }, 503);
+  }
   return json(
     { ok: true, type: memory.ready ? "avatar_memory_ready" : "avatar_memory_preparing" },
     memory.ready ? 200 : 202,
