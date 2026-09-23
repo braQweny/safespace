@@ -103,6 +103,26 @@ describe("connectVoiceSession", () => {
     }
   });
 
+  it("does not claim the clock keeps running when the first connection fails, since it has not started", async () => {
+    for (const result of [
+      json(503, { ok: false, type: "voice_error", code: "voice_provider_unavailable", category: "provider_timeout" }),
+      json(200, { unexpected: true }),
+    ]) {
+      const { transport, dispatched, dispatch } = createTransport(result);
+      await connectVoiceSession(
+        { sessionId: SESSION_ID, offerSdp: "v=0", locale: "pl", awaitingFirstConnection: true },
+        dispatch,
+        transport,
+      );
+      expect(dispatched.at(-1)).toMatchObject({
+        type: "connect_failed",
+        retryable: true,
+        notice: { copy: { body: copy.notices.connectFailedFirstBody } },
+      });
+    }
+    expect(copy.notices.connectFailedFirstBody).toBe("Spróbuj ponownie za chwilę. Czas rozmowy jeszcze nie ruszył.");
+  });
+
   it("expires, ends, redirects or declares the feature unavailable by the route's code", async () => {
     const expired = createTransport(
       json(409, { ok: false, type: "expired", code: "session_expired", session: { ...session, status: "expired" } }),

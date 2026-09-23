@@ -35,7 +35,6 @@ const budgetMinutes = Math.max(1, Math.round(FREE_TRIAL_DURATION_SECONDS / 60));
 // Narysowana karta rozmowy w hero: pierwsza perspektywa z katalogu, dwie
 // minuty po starcie. Pierścień to ten sam łuk, który pokazuje prawdziwa sesja.
 const featured = MODALITY_CATALOG[0];
-const featuredCopy = getModalityCopy(locale, featured.modalityId);
 const featuredFirstName = featured.avatarFirstName;
 const previewElapsedMinutes = Math.min(2, budgetMinutes);
 const previewRemainingMinutes = budgetMinutes - previewElapsedMinutes;
@@ -52,7 +51,8 @@ const boundaries = copy.boundaries;
     /* Ten sam nagłówek co w aplikacji — zalogowana osoba nie trafia na drugi,
       niepodobny system nawigacji. */
   }
-  <AppHeader />
+  {/* Sekcje strony głównej mają odstęp w środku `max-w-6xl`, więc nagłówek i stopka też. */}
+  <AppHeader align="inset" />
 
   <main>
     <section
@@ -128,7 +128,7 @@ const boundaries = copy.boundaries;
                 loading="eager"
                 decoding="async"
               />
-              <span class="truncate text-sm font-semibold">{featuredCopy.avatarName}</span>
+              <span class="truncate text-sm font-semibold">{featuredFirstName}</span>
             </div>
             <div class="flex shrink-0 items-center gap-2">
               <svg width="28" height="28" viewBox="0 0 36 36" class="h-7 w-7">
@@ -213,8 +213,11 @@ const boundaries = copy.boundaries;
                   decoding="async"
                 />
                 <div class="flex flex-col gap-0.5">
-                  <p class="text-ink text-base font-semibold">{modalityCopy.avatarName}</p>
-                  <p class:list={["text-[13px] font-medium", tint.text]}>{modalityCopy.perspectiveLabel}</p>
+                  {/* Ta sama para co w aplikacji (imię i to, na czym perspektywa się
+                      skupia); nazwa nurtu pod spodem, bo tu się jej uczy. */}
+                  <p class="text-ink text-base font-semibold">{modality.avatarFirstName}</p>
+                  <p class:list={["text-[13px] font-medium", tint.text]}>{modalityCopy.perspectiveFocus}</p>
+                  <p class="text-ink-muted text-[13px]">{modalityCopy.perspectiveLabel}</p>
                 </div>
                 <p class="text-ink-muted text-sm leading-6">{modalityCopy.explanation}</p>
               </li>
@@ -309,5 +312,5 @@ const boundaries = copy.boundaries;
     </section>
   </main>
 
-  <SiteFooter />
+  <SiteFooter align="inset" />
 </div>

@@ -131,11 +131,7 @@ export function VoiceStartSection({
         ) : (
           <Mic aria-hidden="true" className="h-4 w-4 shrink-0" />
         )}
-        {isVoiceStarting
-          ? copy.preparingVoice
-          : quota.kind === "trial"
-            ? copy.startVoiceTrial(voiceBudgetMinutes)
-            : copy.startVoice}
+        {isVoiceStarting ? copy.preparingVoice : quota.kind === "trial" ? copy.startVoiceTrial : copy.startVoice}
       </button>
 
       <p className="text-ink-muted text-sm leading-6">

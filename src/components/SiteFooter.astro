@@ -10,17 +10,33 @@ import { getSupportContact } from "@/lib/support-contact";
 interface Props {
   /** Gęstszy wariant dla kart wyśrodkowanych na ekranie (auth, 404). */
   compact?: boolean;
+  /**
+   * Te same krawędzie co `AppHeader`: `page` (domyślnie) stawia odstęp poza
+   * `max-w-6xl`, jak treść stron aplikacji; `inset` — w środku, jak sekcje
+   * strony głównej.
+   */
+  align?: "page" | "inset";
 }
 
-const { compact = false } = Astro.props;
+const { compact = false, align = "page" } = Astro.props;
+const PAGE_GUTTER = "px-4 sm:px-6 lg:px-8";
 const support = getSupportContact();
 const copy = getSiteFooterCopy(Astro.locals.locale);
 const year = new Date().getFullYear();
 ---
 
-<footer class:list={["border-line text-ink-muted border-t text-[13px] leading-6", compact ? "py-5" : "py-7"]}>
+<footer
+  class:list={[
+    "border-line text-ink-muted border-t text-[13px] leading-6",
+    compact ? "py-5" : "py-7",
+    align === "page" && PAGE_GUTTER,
+  ]}
+>
   <div
-    class="mx-auto flex max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"
+    class:list={[
+      "mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+      align === "inset" && PAGE_GUTTER,
+    ]}
   >
     <p class="leading-6">
       <span class="text-ink font-semibold">SafeSpace</span>

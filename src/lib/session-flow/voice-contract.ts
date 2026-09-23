@@ -202,8 +202,9 @@ export async function parseVoiceHeartbeatRequest(request: Request): Promise<Voic
 /**
  * Termin rozmowy głosowej, który widzi klient: `expires_at` z bazy albo
  * wcześniejszy termin obserwatora, gdy `connect` przyciął go do reszty puli
- * minut (w bazie `expires_at` jest zamrożone od startu). Timer klienta liczy
- * od tego pola, więc obie trasy — `connect` i heartbeat — oddają ten sam.
+ * minut (w bazie `expires_at` jest zamrożone od pierwszego połączenia). Timer
+ * klienta liczy od tego pola, więc obie trasy — `connect` i heartbeat — oddają
+ * ten sam.
  */
 export function withVoiceDeadline<T extends { expiresAt: string | null }>(
   session: T,
@@ -220,6 +221,48 @@ export function withVoiceDeadline<T extends { expiresAt: string | null }>(
   }
 
   return { ...session, expiresAt: new Date(effectiveExpiresAtMs).toISOString() };
+}
+
+/**
+ * Okno rozmowy głosowej po pierwszym połączeniu audio — to samo, co zapisuje
+ * trigger metadanych w bazie: start przesunięty na chwilę połączenia, termin o
+ * tyle samo (długość bez zmian), start nigdy się nie cofa. Tylko do
+ * przewidzenia okna przed zapisem połączenia (faza powitania); obowiązuje
+ * wiersz z bazy po zapisie.
+ */
+export function shiftVoiceWindowToConnection<T extends { startedAt: string | null; expiresAt: string | null }>(
+  session: T,
+  connectedAtMs: number,
+): T {
+  const startedAtMs = session.startedAt ? Date.parse(session.startedAt) : Number.NaN;
+  const expiresAtMs = session.expiresAt ? Date.parse(session.expiresAt) : Number.NaN;
+
+  if (!Number.isFinite(startedAtMs) || !Number.isFinite(expiresAtMs) || !Number.isFinite(connectedAtMs)) {
+    return session;
+  }
+
+  const shiftMs = Math.max(0, connectedAtMs - startedAtMs);
+
+  if (shiftMs === 0) {
+    return session;
+  }
+
+  return {
+    ...session,
+    startedAt: new Date(startedAtMs + shiftMs).toISOString(),
+    expiresAt: new Date(expiresAtMs + shiftMs).toISOString(),
+  };
+}
+
+/**
+ * Rozmowa głosowa, która jeszcze nie miała połączenia audio: jej zegar nie
+ * ruszył, a jednorazowa próba (albo minuty puli) nie zostały zużyte. Brak pola
+ * (starszy widok) to nie „niepołączona” — nie obiecujemy, że nic nie przepadło.
+ */
+export function isVoiceAwaitingFirstConnection(
+  session: Pick<SessionView, "mode" | "voiceConnected"> | null | undefined,
+) {
+  return session?.mode === "voice" && session.voiceConnected === false;
 }
 
 export function isVoiceSession(session: Pick<SessionView, "mode"> | null | undefined) {

@@ -35,10 +35,10 @@ function SignUpFormView({ locale, serverError }: Props) {
   const { formRef, focusFirstError } = useFormValidationFocus();
   const { isSubmitting, markSubmitting } = useNativeSubmitPending();
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  // Jedno pole hasła: literówkę łapie przełącznik „Pokaż hasło”, a drugie pole
+  // „Powtórz hasło” tylko wydłużało formularz na telefonie.
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   function validate() {
     const next: typeof errors = {};
@@ -53,12 +53,6 @@ function SignUpFormView({ locale, serverError }: Props) {
       next.password = copy.errors.passwordRequired;
     } else if (password.length < MIN_PASSWORD_LENGTH) {
       next.password = copy.errors.passwordTooShort(MIN_PASSWORD_LENGTH);
-    }
-
-    if (!confirmPassword) {
-      next.confirmPassword = copy.errors.confirmRequired;
-    } else if (password !== confirmPassword) {
-      next.confirmPassword = copy.errors.passwordsMismatch;
     }
 
     setErrors(next);
@@ -137,30 +131,6 @@ function SignUpFormView({ locale, serverError }: Props) {
             visible={showPassword}
             onToggle={() => {
               setShowPassword(!showPassword);
-            }}
-          />
-        }
-      />
-
-      <FormField
-        id="confirmPassword"
-        name="confirmPassword"
-        label={copy.repeatPasswordLabel}
-        autoComplete="new-password"
-        type={showConfirmPassword ? "text" : "password"}
-        value={confirmPassword}
-        onChange={(v) => {
-          setConfirmPassword(v);
-          clearError("confirmPassword");
-        }}
-        placeholder={copy.repeatPasswordPlaceholder}
-        error={errors.confirmPassword}
-        icon={<Lock className="size-4" />}
-        endContent={
-          <PasswordToggle
-            visible={showConfirmPassword}
-            onToggle={() => {
-              setShowConfirmPassword(!showConfirmPassword);
             }}
           />
         }

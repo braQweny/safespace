@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { listOwnedVoiceObserverSessionIds, readOwnedVoiceUsage } from "../sessions";
+import {
+  countOwnedVoiceSessions,
+  listOwnedVoiceObserverSessionIds,
+  markVoiceSessionConnected,
+  readOwnedVoiceUsage,
+} from "../sessions";
 import type { SessionDataContext } from "../types";
 
 function createRpcContext(result: { data: unknown; error: unknown }) {
@@ -95,5 +100,126 @@ describe("listOwnedVoiceObserverSessionIds", () => {
       ok: false,
       error: { code: "read_failed" },
     });
+  });
+});
+
+describe("countOwnedVoiceSessions", () => {
+  function createCountContext(result: { count: number | null; error: unknown }) {
+    const calls: [string, ...unknown[]][] = [];
+    const query = {
+      select: (...args: unknown[]) => (calls.push(["select", ...args]), query),
+      eq: (...args: unknown[]) => (calls.push(["eq", ...args]), query),
+      or: (...args: unknown[]) => (calls.push(["or", ...args]), Promise.resolve(result)),
+    };
+    const from = vi.fn(() => query);
+    return { context: { supabase: { from }, user: { id: "user-1" } } as unknown as SessionDataContext, calls, from };
+  }
+
+  it("counts only the voice rows that hold the trial, the same rule as the P0016 trigger", async () => {
+    const { context, calls, from } = createCountContext({ count: 1, error: null });
+
+    await expect(countOwnedVoiceSessions(context, new Date("2026-09-23T18:35:50.000Z"))).resolves.toEqual({
+      ok: true,
+      data: 1,
+    });
+    expect(from).toHaveBeenCalledWith("therapy_sessions");
+    // Connected at any time (tombstones too), or still running before its own deadline.
+    expect(calls).toEqual([
+      ["select", "id", { count: "exact", head: true }],
+      ["eq", "user_id", "user-1"],
+      ["eq", "mode", "voice"],
+      [
+        "or",
+        "voice_connected_at.not.is.null,and(status.in.(created,active),or(expires_at.is.null,expires_at.gt.2026-09-23T18:35:50.000Z))",
+      ],
+    ]);
+  });
+
+  it("maps a read error to a stable code and never reports a negative count", async () => {
+    await expect(
+      countOwnedVoiceSessions(
+        createCountContext({ count: null, error: { code: "42501", message: "private" } }).context,
+      ),
+    ).resolves.toEqual({ ok: false, error: { code: "read_failed" } });
+    await expect(countOwnedVoiceSessions(createCountContext({ count: -2, error: null }).context)).resolves.toEqual({
+      ok: true,
+      data: 0,
+    });
+  });
+});
+
+describe("markVoiceSessionConnected", () => {
+  function createUpdateContext(result: { data: unknown; error: unknown }) {
+    const calls: [string, ...unknown[]][] = [];
+    const query = {
+      update: (...args: unknown[]) => (calls.push(["update", ...args]), query),
+      eq: (...args: unknown[]) => (calls.push(["eq", ...args]), query),
+      is: (...args: unknown[]) => (calls.push(["is", ...args]), query),
+      select: (...args: unknown[]) => (calls.push(["select", ...args]), query),
+      maybeSingle: () => Promise.resolve(result),
+    };
+    const from = vi.fn(() => query);
+    return { context: { supabase: { from }, user: { id: "user-1" } } as unknown as SessionDataContext, calls };
+  }
+
+  const shiftedRow = {
+    id: "session-1",
+    user_id: "user-1",
+    modality_id: "cbt",
+    avatar_id: "cbt-guide",
+    status: "active",
+    // The metadata trigger moved the clock to the connection: same ten minutes, later.
+    started_at: "2026-09-23T18:41:12.000Z",
+    ended_at: null,
+    expires_at: "2026-09-23T18:51:12.000Z",
+    deleted_at: null,
+    deletion_reason_code: null,
+    is_trial: false,
+    trial_claim_id: null,
+    duration_bucket_seconds: 600,
+    uses_approved_context: true,
+    mode: "voice",
+    voice_connected_at: "2026-09-23T18:41:12.000Z",
+    created_at: "2026-09-23T18:35:50.000Z",
+    updated_at: "2026-09-23T18:41:12.000Z",
+  };
+
+  it("writes only an empty connection column of the owner's voice row and returns the row with the moved clock", async () => {
+    const { context, calls } = createUpdateContext({ data: shiftedRow, error: null });
+
+    const result = await markVoiceSessionConnected(context, "session-1", "2026-09-23T18:41:11.000Z");
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        id: "session-1",
+        mode: "voice",
+        startedAt: "2026-09-23T18:41:12.000Z",
+        expiresAt: "2026-09-23T18:51:12.000Z",
+        voiceConnectedAt: "2026-09-23T18:41:12.000Z",
+      },
+    });
+    expect(calls.slice(0, 6)).toEqual([
+      ["update", { voice_connected_at: "2026-09-23T18:41:11.000Z" }],
+      ["eq", "id", "session-1"],
+      ["eq", "user_id", "user-1"],
+      ["eq", "mode", "voice"],
+      ["is", "voice_connected_at", null],
+      ["select", expect.stringContaining("started_at")],
+    ]);
+    expect(calls[5]?.[1]).toEqual(expect.stringContaining("expires_at"));
+  });
+
+  it("returns null when another connection was recorded first and a stable code on a write error", async () => {
+    await expect(
+      markVoiceSessionConnected(createUpdateContext({ data: null, error: null }).context, "session-1", "x"),
+    ).resolves.toEqual({ ok: true, data: null });
+    await expect(
+      markVoiceSessionConnected(
+        createUpdateContext({ data: null, error: { code: "42501", message: "private" } }).context,
+        "session-1",
+        "x",
+      ),
+    ).resolves.toMatchObject({ ok: false });
   });
 });

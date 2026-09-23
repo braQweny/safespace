@@ -124,6 +124,13 @@ const SERVER_OWNED_VOICE_TIMESTAMPS_MIGRATION_PATH = resolve(
   "../../../../supabase/migrations/20260922120000_server_owned_voice_timestamps.sql",
 );
 
+const VOICE_TRIAL_ON_CONNECT_MIGRATION_PATH = resolve(
+  __dirname,
+  "../../../../supabase/migrations/20260923120000_voice_trial_starts_on_connect.sql",
+);
+
+const SESSIONS_REPOSITORY_PATH = resolve(__dirname, "../sessions.ts");
+
 // Every table the app touches through PostgREST with a user JWT, mapped to
 // the migration that carries its table-level revoke. Supabase's default
 // privileges grant `anon`/`authenticated` ALL on new tables, so a
@@ -610,6 +617,68 @@ describe("server-owned voice timestamps migration", () => {
     );
     expect(sql).toContain("grant execute on function public.get_owned_voice_usage(timestamptz, uuid) to authenticated");
     // Pool seconds are the owner's conversation metadata: never an admin surface.
+    expect(sql).not.toMatch(/admin/i);
+  });
+});
+
+describe("voice trial starts on the first connection migration", () => {
+  const sql = readFileSync(VOICE_TRIAL_ON_CONNECT_MIGRATION_PATH, "utf8");
+  const limitFn = sql.slice(sql.indexOf("create or replace function public.enforce_free_plan_session_limit()"));
+  const metadataFn = sql.slice(
+    sql.indexOf("create or replace function public.set_therapy_sessions_metadata()"),
+    sql.indexOf("create or replace function public.enforce_free_plan_session_limit()"),
+  );
+
+  it("lets only a connected or still running voice row hold the free trial, raising the code the mapper knows", () => {
+    expect(limitFn).toMatch(
+      /and sessions\.mode = 'voice'\s+and \(\s+sessions\.voice_connected_at is not null\s+or \(\s+sessions\.status in \('created', 'active'\)\s+and \(sessions\.expires_at is null or sessions\.expires_at > now\(\)\)\s+\)\s+\);/,
+    );
+    expect(/errcode = '([A-Z0-9]{5})',\s*message = 'voice_trial_already_used'/.exec(limitFn)?.[1]).toBe(
+      VOICE_TRIAL_USED_SQLSTATE,
+    );
+    expect(limitFn).toContain(`v_voice_trial_bucket constant integer := ${VOICE_TRIAL_DURATION_SECONDS};`);
+    // The text cap is carried over unchanged.
+    expect(limitFn).toContain(`v_limit constant integer := ${FREE_PLAN_SESSION_LIMIT};`);
+    expect(/errcode = '([A-Z0-9]{5})',\s*message = 'free_plan_session_limit_reached'/.exec(limitFn)?.[1]).toBe(
+      FREE_PLAN_SESSION_LIMIT_SQLSTATE,
+    );
+    expect(limitFn).toMatch(/and sessions\.mode = 'text';/);
+    expect(limitFn).toContain("security definer");
+    expect(limitFn).toContain("set search_path = ''");
+  });
+
+  it("keeps the repository pre-flight on the same rule as the trigger", () => {
+    const repository = readFileSync(SESSIONS_REPOSITORY_PATH, "utf8");
+    const count = repository.slice(repository.indexOf("export async function countOwnedVoiceSessions("));
+
+    expect(count).toContain('.eq("mode", "voice")');
+    expect(count).toContain(
+      "voice_connected_at.not.is.null,and(status.in.(created,active),or(expires_at.is.null,expires_at.gt.${now.toISOString()}))",
+    );
+  });
+
+  it("starts the voice clock at the first connection from server values only, preserving the length", () => {
+    // Only on the first `null → value`, for an active voice row that stays active.
+    expect(metadataFn).toMatch(
+      /elsif new\.voice_connected_at is not null then\s+new\.voice_connected_at = now\(\);[\s\S]*?if old\.mode = 'voice'\s+and old\.status = 'active'\s+and new\.status = 'active'\s+and old\.started_at is not null\s+and old\.expires_at is not null\s+then\s+new\.started_at = old\.started_at \+ greatest\(now\(\) - old\.started_at, interval '0'\);\s+new\.expires_at = old\.expires_at \+ greatest\(now\(\) - old\.started_at, interval '0'\);/,
+    );
+    // The frozen budget is restored first, so nothing sent in the request can move the window.
+    expect(metadataFn.indexOf("new.started_at = old.started_at;")).toBeLessThan(
+      metadataFn.indexOf("new.started_at = old.started_at + greatest("),
+    );
+    // A reconnect keeps both the connection time and the window.
+    expect(metadataFn).toMatch(
+      /if old\.voice_connected_at is not null then\s+new\.voice_connected_at = old\.voice_connected_at;\s+elsif/,
+    );
+    // Everything the previous definition froze stays frozen.
+    expect(metadataFn).toContain("new.mode = old.mode;");
+    expect(metadataFn).toMatch(/if old\.status <> 'created' then\s+new\.started_at = old\.started_at;/);
+    expect(metadataFn).toMatch(/if old\.ended_at is not null then\s+new\.ended_at = old\.ended_at;/);
+    expect(metadataFn).toContain(
+      "new.ended_at = greatest(now(), least(coalesce(new.started_at, now()), now() + interval '5 seconds'));",
+    );
+    expect(metadataFn).toContain("set search_path = ''");
+    // Pool seconds and connection times are the owner's metadata: never an admin surface.
     expect(sql).not.toMatch(/admin/i);
   });
 });

@@ -1,6 +1,8 @@
 ---
 import LocaleSwitch from "@/components/LocaleSwitch.astro";
+import ThemeSwitch from "@/components/ThemeSwitch.astro";
 import { getAppHeaderCopy } from "@/components/app-header-copy";
+import { isBillingEnabled } from "@/lib/billing/config";
 import { getBillingCopy } from "@/lib/billing/copy";
 import type { ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
 
@@ -10,19 +12,37 @@ interface Props {
    * pojawia się w nagłówku tylko wtedy, gdy naprawdę jest dokąd wracać.
    */
   activeSession?: ActiveSessionBadge | null;
+  /**
+   * Do której krawędzi równać logo i menu. `page` (domyślnie) = kontener
+   * treści aplikacji: odstęp poza `max-w-6xl`, jak w panelu, pamięci i wyborze
+   * perspektywy. `inset` = odstęp wewnątrz `max-w-6xl`, jak sekcje strony
+   * głównej i stopka. Różnica jest widoczna dopiero powyżej ~1200 px.
+   */
+  align?: "page" | "inset";
 }
 
-const { activeSession = null } = Astro.props;
+const { activeSession = null, align = "page" } = Astro.props;
 const { user } = Astro.locals;
 const copy = getAppHeaderCopy(Astro.locals.locale);
 const billingCopy = getBillingCopy(Astro.locals.locale);
+// Przy wyłączonych płatnościach strona abonamentu nie sprzeda ani nie otworzy
+// portalu — pozycja w menu na każdej stronie prowadziłaby w ślepy zaułek.
+// Sprawdzenie to odczyt zmiennej, bez zapytania do bazy przy każdym renderze;
+// istniejący abonament przy wyłączonych płatnościach pokazuje strona konta.
+const billingEnabled = isBillingEnabled();
 const activeSessionHref = activeSession
   ? `/dashboard/session?sessionId=${encodeURIComponent(activeSession.sessionId)}`
   : null;
+const PAGE_GUTTER = "px-4 sm:px-6 lg:px-8";
 ---
 
-<header class="border-line bg-surface/85 sticky top-0 z-30 shrink-0 border-b backdrop-blur">
-  <div class="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+<header
+  class:list={[
+    "border-line bg-surface/85 sticky top-0 z-30 shrink-0 border-b backdrop-blur",
+    align === "page" && PAGE_GUTTER,
+  ]}
+>
+  <div class:list={["mx-auto flex h-16 max-w-6xl items-center gap-3", align === "inset" && PAGE_GUTTER]}>
     <a
       href={user ? "/dashboard" : "/"}
       class="text-ink hover:text-brand-deep focus-visible:ring-brand-ring flex shrink-0 items-center gap-2.5 rounded-md transition-colors focus:outline-none focus-visible:ring-2"
@@ -78,12 +98,14 @@ const activeSessionHref = activeSession
               >
                 {copy.planSettings}
               </a>
-              <a
-                href="/account/billing"
-                class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-11 items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2"
-              >
-                {billingCopy.link}
-              </a>
+              {billingEnabled ? (
+                <a
+                  href="/account/billing"
+                  class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring flex min-h-11 items-center gap-2 rounded-xl px-2.5 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2"
+                >
+                  {billingCopy.link}
+                </a>
+              ) : null}
 
               {/*
                 Po tę aplikację sięga się najczęściej wieczorem, przy zgaszonym
@@ -92,37 +114,7 @@ const activeSessionHref = activeSession
                 globalny, więc obejmuje też stronę rozmowy, która nie ma nagłówka.
               */}
               <div class="border-line mt-1 border-t px-2.5 pt-2 pb-1">
-                <p class="text-ink-muted text-xs" id="theme-switch-label">
-                  {copy.appearance}
-                </p>
-                <div
-                  role="group"
-                  aria-labelledby="theme-switch-label"
-                  class="border-line-strong mt-1.5 flex gap-0.5 rounded-xl border p-0.5"
-                  data-theme-switch
-                >
-                  <button
-                    type="button"
-                    data-theme-option="system"
-                    class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep aria-pressed:inset-ring-brand h-11 flex-1 rounded-[10px] text-xs transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold aria-pressed:inset-ring"
-                  >
-                    {copy.themeSystem}
-                  </button>
-                  <button
-                    type="button"
-                    data-theme-option="light"
-                    class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep aria-pressed:inset-ring-brand h-11 flex-1 rounded-[10px] text-xs transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold aria-pressed:inset-ring"
-                  >
-                    {copy.themeLight}
-                  </button>
-                  <button
-                    type="button"
-                    data-theme-option="dark"
-                    class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep aria-pressed:inset-ring-brand h-11 flex-1 rounded-[10px] text-xs transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold aria-pressed:inset-ring"
-                  >
-                    {copy.themeDark}
-                  </button>
-                </div>
+                <ThemeSwitch labelId="theme-switch-label" />
               </div>
               {/* Język: ten sam kształt co przełącznik wyglądu, ale natywny formularz — wybór idzie do cookie i na konto. */}
               <div class="border-line mt-1 border-t px-2.5 pt-2 pb-1">
@@ -185,58 +177,4 @@ const activeSessionHref = activeSession
       menu.querySelector<HTMLElement>("summary")?.focus();
     }
   });
-
-  // Przełącznik wyglądu. „System” usuwa zapisany wybór i oddaje decyzję
-  // ustawieniu urządzenia — dlatego trzy stany, nie dwa: bez tego nie da się
-  // wrócić do trybu nocnego sterowanego telefonem.
-  const THEME_STORAGE_KEY = "safespace-theme";
-
-  function readStoredTheme() {
-    try {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-
-      return stored === "dark" || stored === "light" ? stored : "system";
-    } catch {
-      return "system";
-    }
-  }
-
-  function applyTheme(theme: string) {
-    if (theme === "dark" || theme === "light") {
-      document.documentElement.dataset.theme = theme;
-    } else {
-      delete document.documentElement.dataset.theme;
-    }
-  }
-
-  for (const group of document.querySelectorAll<HTMLElement>("[data-theme-switch]")) {
-    const options = group.querySelectorAll<HTMLButtonElement>("[data-theme-option]");
-
-    function markActive(theme: string) {
-      for (const option of options) {
-        option.setAttribute("aria-pressed", String(option.dataset.themeOption === theme));
-      }
-    }
-
-    markActive(readStoredTheme());
-
-    for (const option of options) {
-      option.addEventListener("click", () => {
-        const theme = option.dataset.themeOption ?? "system";
-
-        try {
-          if (theme === "system") {
-            localStorage.removeItem(THEME_STORAGE_KEY);
-          } else {
-            localStorage.setItem(THEME_STORAGE_KEY, theme);
-          }
-        } catch {
-          // Zapis może być niedostępny; motyw i tak zadziała do końca wizyty.
-        }
-
-        applyTheme(theme);
-        markActive(theme);
-      });
-    }
-  }
 </script>

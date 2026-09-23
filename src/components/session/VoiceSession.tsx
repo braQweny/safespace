@@ -9,19 +9,26 @@ import { useSessionSummary } from "@/components/hooks/useSessionSummary";
 import { useVoiceSession } from "@/components/hooks/useVoiceSession";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { PILL_BRAND } from "@/components/ui/button-styles";
-import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
+import SessionSummaryPanel, { SessionSummaryButton } from "@/components/modality/SessionSummaryPanel";
 import type { Locale } from "@/lib/i18n/locale";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import { getSessionCopy } from "@/lib/session-copy";
 import { formatRemainingFreeSessions, getPlanCopy } from "@/lib/session-flow/plan-copy";
-import type { SessionStartPageState } from "@/lib/session-flow/session-state";
-import { isVoiceConnected, type VoiceSessionUiState } from "@/lib/session-flow/voice-session-state";
+import { VOICE_TRIAL_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
+import type { SessionStartPageState, SessionView } from "@/lib/session-flow/session-state";
+import {
+  hasVoiceEndedUnconnected,
+  isAwaitingFirstVoiceConnection,
+  isVoiceConnected,
+  type VoiceSessionUiState,
+} from "@/lib/session-flow/voice-session-state";
 import { cn } from "@/lib/utils";
 import SessionBoundariesToggle from "./SessionBoundariesToggle";
 import SessionClosingCard, { shouldClosingCardTakeFocus } from "./SessionClosingCard";
 import SessionMessages from "./SessionMessages";
 import SessionSafetyNotice from "./SessionSafetyNotice";
 import SessionScreenHeader from "./SessionScreenHeader";
+import { PRIMARY_BUTTON } from "./start-card-styles";
 import { getTimedSessionCopy } from "./timed-session-copy";
 import { getVoiceSessionCopy } from "./voice-session-copy";
 
@@ -39,6 +46,26 @@ const noop = () => undefined;
 
 const PILL_CLASS =
   "border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60";
+
+/**
+ * Zamknięcie rozmowy, która nie miała połączenia audio: zamiast „czas minął”
+ * albo „rozmowa zakończona” — że nic nie przepadło. Bucket próby (600 s) mówi
+ * o jednorazowej rozmowie, każdy dłuższy o puli minut (ta sama granica co w
+ * `readVoiceConnectAllowance`).
+ */
+function withUnconnectedEndCopy(
+  states: ReturnType<typeof getTimedSessionCopy>["states"],
+  copy: ReturnType<typeof getVoiceSessionCopy>,
+  session: SessionView | null,
+): ReturnType<typeof getTimedSessionCopy>["states"] {
+  const bucketSeconds = session?.durationBucketSeconds ?? 0;
+  const unconnected = {
+    title: copy.unconnectedEndTitle,
+    body: bucketSeconds > VOICE_TRIAL_DURATION_SECONDS ? copy.unconnectedEndPoolBody : copy.unconnectedEndTrialBody,
+  };
+
+  return { ...states, expired: unconnected, completed: unconnected };
+}
 
 function getStatusLabel(
   state: VoiceSessionUiState,
@@ -95,7 +122,6 @@ function VoiceSessionView({
   const chromeCopy = getTimedSessionCopy(locale);
   // Te same zdania o puli, co w karcie startu na panelu.
   const planCopy = getPlanCopy(locale);
-  const stateCopy = chromeCopy.states;
   const { boundaries } = getSessionCopy(locale);
   const isHydrated = useIsHydrated();
   const {
@@ -111,6 +137,12 @@ function VoiceSessionView({
     endSession,
   } = useVoiceSession(initialState, { locale, voiceAvailable });
   const { kind, session, status, notice, isEnding, isMuted, persistedMessages } = state;
+  // Przed pierwszym połączeniem audio zegar stoi (licznik pokazuje pełną
+  // długość), a rozmowa zamknięta bez połączenia niczego nie zużyła.
+  const awaitingFirstConnection = isAwaitingFirstVoiceConnection(state);
+  const stateCopy = hasVoiceEndedUnconnected(state)
+    ? withUnconnectedEndCopy(chromeCopy.states, copy, session)
+    : chromeCopy.states;
   const isFinished = session !== null && (kind === "completed" || kind === "expired" || kind === "interrupted");
   useAvatarMemoryPreparation(initialState.avatar.selected, isFinished);
   usePeopleMemoryPreparation(initialState.avatar.selected, prepareCards && isFinished, noop);
@@ -151,13 +183,14 @@ function VoiceSessionView({
   const canEndSession = kind === "active" && session?.status === "active";
   const showHistoryCta = kind === "completed" || kind === "expired" || kind === "interrupted";
   const canSummarizeSession = showHistoryCta && persistedMessages.length > 0;
+  // Panel podsumowania dopiero wtedy, gdy ma co pokazać (tekst albo błąd).
+  const showsSummaryPanel = summaryState.kind !== "none" || summaryErrorCode !== null;
   const connected = isVoiceConnected(status);
   const showsTranscript = connected || status === "reconnecting";
   // Odmowa puli w trakcie rozmowy: komunikat mówi, że wszystko jest zapisane, więc zapis zostaje widoczny.
   const showsSavedTranscript = status === "refused" && persistedMessages.length > 0;
   const showsIntro = kind === "active" && session !== null && !showsTranscript;
   const canConnect = status === "idle" || status === "reconnecting";
-  const historyHref = session ? `/dashboard?session=${encodeURIComponent(session.id)}` : "/dashboard";
   const avatar = initialState.avatar.selected;
   const avatarFirstName = avatar.avatarFirstName;
   const remainingSessionsCopy = formatRemainingFreeSessions(locale, initialState.sessionQuota);
@@ -208,6 +241,7 @@ function VoiceSessionView({
         isCrisisHelpOpen={chrome.isCrisisHelpOpen}
         onToggleCrisisHelp={chrome.toggleCrisisHelp}
         onCloseCrisisHelp={chrome.closeCrisisHelp}
+        timerWaitingLabel={awaitingFirstConnection ? copy.timerWaiting : null}
       />
 
       <div
@@ -251,7 +285,7 @@ function VoiceSessionView({
                   <h2 className="text-ink font-serif text-2xl leading-tight font-medium sm:text-[28px]">
                     {copy.introTitle(avatarFirstName)}
                   </h2>
-                  <p className="text-ink-soft mt-2 text-base leading-7">{copy.introBody(avatarFirstName)}</p>
+                  <p className="text-ink-soft mt-2 text-base leading-7">{copy.introBody}</p>
                 </div>
               </div>
 
@@ -290,25 +324,33 @@ function VoiceSessionView({
                   />
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleEnableMicrophone}
-                  disabled={!isHydrated || !canConnect}
-                  className="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring disabled:border-brand-disabled disabled:bg-brand-soft disabled:text-brand-deep mt-5 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
-                >
-                  {status === "requesting_mic" || status === "connecting" ? (
-                    <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />
-                  ) : (
-                    <Mic aria-hidden="true" className="h-4 w-4 shrink-0" />
-                  )}
-                  {status === "requesting_mic"
-                    ? copy.requestingMicrophone
-                    : status === "connecting"
-                      ? copy.connecting
-                      : copy.enableMicrophone}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleEnableMicrophone}
+                    disabled={!isHydrated || !canConnect}
+                    className={cn(PRIMARY_BUTTON, "mt-5")}
+                    data-voice-connect
+                  >
+                    {status === "requesting_mic" || status === "connecting" ? (
+                      <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />
+                    ) : (
+                      <Mic aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    )}
+                    {status === "requesting_mic"
+                      ? copy.requestingMicrophone
+                      : status === "connecting"
+                        ? copy.connecting
+                        : awaitingFirstConnection
+                          ? copy.startMicrophone
+                          : copy.enableMicrophone}
+                  </button>
+                  {/* Przed pierwszym połączeniem: czas i próba czekają na mikrofon. */}
+                  <p className="text-ink-muted mt-3 text-sm leading-6" data-voice-intro-note>
+                    {awaitingFirstConnection ? copy.introNoteFirst : copy.introNoteResumed}
+                  </p>
+                </>
               )}
-              <p className="text-ink-muted mt-3 text-sm leading-6">{copy.introHint}</p>
             </div>
           </div>
         ) : null}
@@ -318,34 +360,44 @@ function VoiceSessionView({
             <SessionClosingCard
               title={stateCopy[kind].title}
               body={stateCopy[kind].body}
-              historyHref={historyHref}
               remainingSessionsCopy={remainingSessionsCopy}
               takesFocus={shouldClosingCardTakeFocus(initialState.kind, notice?.variant)}
+              actions={
+                <>
+                  {canSummarizeSession && !showsSummaryPanel ? (
+                    <SessionSummaryButton summaryStatus={summaryStatus} onGenerate={handleGenerateSummary} />
+                  ) : null}
+                  <a
+                    href="/dashboard/avatar"
+                    className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 transition-colors focus:outline-none focus-visible:ring-2"
+                  >
+                    {chromeCopy.changePerspective}
+                  </a>
+                </>
+              }
             />
 
-            <SessionSummaryPanel
-              summaryState={summaryState}
-              summaryStatus={summaryStatus}
-              summaryErrorCode={summaryErrorCode}
-              canSummarize={canSummarizeSession}
-              onGenerate={handleGenerateSummary}
-              onApprove={handleApproveSummary}
-            />
+            {showsSummaryPanel ? (
+              <SessionSummaryPanel
+                summaryState={summaryState}
+                summaryStatus={summaryStatus}
+                summaryErrorCode={summaryErrorCode}
+                canSummarize={canSummarizeSession}
+                onGenerate={handleGenerateSummary}
+                onApprove={handleApproveSummary}
+              />
+            ) : null}
 
             {/* Jedno zastrzeżenie na ekran, pod kartą, a nie w niej. */}
             <p className="text-ink-muted text-xs leading-5">
-              <span className="text-ink-soft font-medium">{chromeCopy.boundariesLabel}</span> {boundaries}{" "}
-              <a
-                href="/dashboard/avatar"
-                className="text-brand focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-              >
-                {chromeCopy.changePerspective}
-              </a>
+              <span className="text-ink-soft font-medium">{chromeCopy.boundariesLabel}</span> {boundaries}
             </p>
           </div>
         ) : null}
 
-        {session && (showsTranscript || showHistoryCta || showsSavedTranscript) ? (
+        {/* Zakończona rozmowa bez jednej wypowiedzi nie ma czego pokazać: pusty zapis
+            mówiłby „rozmowa zacznie się, gdy awatar się przywita” pod kartą końca. */}
+        {session && (showsTranscript || ((showHistoryCta || showsSavedTranscript) && persistedMessages.length > 0)) ? (
           <SessionMessages
             variant={showHistoryCta || showsSavedTranscript ? "finished" : "live"}
             messages={persistedMessages}

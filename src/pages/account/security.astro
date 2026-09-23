@@ -1,9 +1,9 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
 import LocaleSwitch from "@/components/LocaleSwitch.astro";
+import ThemeSwitch from "@/components/ThemeSwitch.astro";
 import PeopleMemoryToggle from "@/components/account/PeopleMemoryToggle.astro";
 import TopicMapToggle from "@/components/account/TopicMapToggle.astro";
-import { getLocaleSwitchCopy } from "@/components/locale-switch-copy";
 import {
   hasOwnedDifficultyRows,
   hasOwnedPeopleRows,
@@ -21,23 +21,20 @@ import SetPasswordForm from "@/components/auth/SetPasswordForm";
 import { getAdminContext } from "@/lib/admin/auth";
 import { getBillingCopy } from "@/lib/billing/copy";
 import { isBillingEnabled } from "@/lib/billing/config";
+import { getOwnBillingStatus } from "@/lib/billing/status";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
+import { PASSWORD_FORM_PARAM, PASSWORD_RECOVERY_VALUE } from "@/lib/auth-redirect";
 import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
 import { readVoiceQuota } from "@/lib/session-data/voice-quota";
 import type { SessionQuota, VoiceQuota } from "@/lib/session-data/types";
 import { readActiveSessionBadge, type ActiveSessionBadge } from "@/lib/session-flow/active-session-badge";
+import { readCurrentAvatarChoice } from "@/lib/session-flow/avatar-choice";
 import { getAccountPagesCopy } from "@/lib/page-copy/account-pages-copy";
-import {
-  formatPlanName,
-  formatSessionAllowance,
-  formatVoiceAllowance,
-  getPlanCopy,
-  getPremiumSupportMailtoHref,
-} from "@/lib/session-flow/plan-copy";
+import { formatAccountPlanRows } from "@/lib/page-copy/account-plan-summary";
+import { formatPlanName, getPremiumSupportMailtoHref } from "@/lib/session-flow/plan-copy";
 import { getVoiceMonthlyMinutes } from "@/lib/session-flow/voice-session-mode";
 import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
-import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { getSupportContact } from "@/lib/support-contact";
 
 const locale = Astro.locals.locale;
@@ -47,6 +44,12 @@ const billingEnabled = isBillingEnabled();
 const error = getAuthErrorMessageFromSearchParam(locale, Astro.url.searchParams.get("error"));
 const status = Astro.url.searchParams.get("status");
 const successMessage = status === "password_updated" ? copy.passwordUpdated : null;
+// Formularz hasła jest zwinięty; otwiera go wynik zapisu (błąd lub sukces
+// z `/api/auth/password`) i link odzyskiwania hasła (`auth/callback`).
+const passwordFormOpen =
+  error !== null ||
+  successMessage !== null ||
+  Astro.url.searchParams.get(PASSWORD_FORM_PARAM) === PASSWORD_RECOVERY_VALUE;
 const { user } = Astro.locals;
 
 // Administracja miała własną powłokę, ale żaden widok aplikacji do niej nie
@@ -59,7 +62,7 @@ const isAdmin = adminContext.ok;
 const sessionContext = getSessionDataContext(Astro);
 let quota: SessionQuota | null = null;
 // Pula głosowa (próba free / minuty premium) tylko przy włączonej funkcji;
-// odczyt pada → akapit po prostu znika, plan i pula tekstowa zostają.
+// odczyt pada → wiersz głosowy po prostu znika, plan i pula tekstowa zostają.
 const voiceStartAvailable = isVoiceStartAvailable();
 let voiceQuota: VoiceQuota | null = null;
 let activeSession: ActiveSessionBadge | null = null;
@@ -72,9 +75,25 @@ let hasPeopleRows = false;
 const topicMapMode = isTopicMapEnabled();
 let topicMapEnabled: boolean | null = null;
 let hasDifficultyRows = false;
+// Link do pamięci mówi imieniem zapisanej perspektywy („Zobacz, co pamięta Lena”).
+let avatarFirstName: string | null = null;
+// Przy wyłączonych płatnościach „Zarządzaj abonamentem” ma sens tylko dla
+// kogoś, kto ma już rekord rozliczeniowy — strona abonamentu pokaże mu jego stan.
+// Przy włączonych link jest zawsze, więc odczytu nie ma.
+let hasBillingRecord = false;
 
 if (sessionContext.ok) {
-  const [quotaResult, badge, preference, rows, topicPreference, difficultyRows, voiceQuotaResult] = await Promise.all([
+  const [
+    quotaResult,
+    badge,
+    preference,
+    rows,
+    topicPreference,
+    difficultyRows,
+    voiceQuotaResult,
+    avatarChoice,
+    billingStatus,
+  ] = await Promise.all([
     readSessionQuota(sessionContext.data),
     readActiveSessionBadge(sessionContext.data),
     peopleMemoryMode ? readOwnedPeopleMemoryEnabled(sessionContext.data) : null,
@@ -82,6 +101,8 @@ if (sessionContext.ok) {
     topicMapMode ? readOwnedTopicMapEnabled(sessionContext.data) : null,
     hasOwnedDifficultyRows(sessionContext.data),
     voiceStartAvailable ? readVoiceQuota(sessionContext.data, { limitMinutes: getVoiceMonthlyMinutes() }) : null,
+    readCurrentAvatarChoice(sessionContext.data),
+    billingEnabled ? null : getOwnBillingStatus(Astro),
   ]);
   quota = quotaResult.ok ? quotaResult.data : null;
   voiceQuota = voiceQuotaResult?.ok ? voiceQuotaResult.data : null;
@@ -90,11 +111,32 @@ if (sessionContext.ok) {
   hasPeopleRows = rows.ok ? rows.data : false;
   topicMapEnabled = topicPreference?.ok ? topicPreference.data : null;
   hasDifficultyRows = difficultyRows.ok ? difficultyRows.data : false;
+  avatarFirstName = avatarChoice.ok ? avatarChoice.data.selected.avatarFirstName : null;
+  hasBillingRecord = billingStatus?.ok ? billingStatus.data.canManage : false;
 }
 
 const support = getSupportContact();
-const localeCopy = getLocaleSwitchCopy(locale);
-const sessionBudgetMinutes = formatSessionBudgetMinutes(locale, resolveSessionDurationSeconds(quota?.plan));
+const planRows = quota ? formatAccountPlanRows(locale, quota, voiceQuota) : [];
+const isFreePlan = quota?.plan === "free";
+// Jedno zdanie o premium i jedno wezwanie: przy włączonych płatnościach strona
+// abonamentu, przy wyłączonych — list w sprawie ręcznego nadania.
+const premiumSentence = isFreePlan
+  ? billingEnabled
+    ? copy.premiumMore
+    : `${copy.premiumMore} ${copy.premiumManual}`
+  : null;
+const premiumCta = !isFreePlan
+  ? null
+  : billingEnabled
+    ? { href: "/account/billing", label: billingCopy.discover }
+    : support.mailtoHref
+      ? { href: getPremiumSupportMailtoHref(locale, support.mailtoHref), label: copy.writeAboutPremium }
+      : null;
+// „Zarządzaj abonamentem” tylko wtedy, gdy strona abonamentu coś zrobi albo
+// pokaże: płatności włączone (konto bez planu bezpłatnego — bezpłatne ma wyżej
+// „Zobacz abonament premium”) albo istniejący rekord rozliczeniowy.
+const showsManageBilling = billingEnabled ? !isFreePlan : hasBillingRecord;
+
 const memoryCopy = copy.memory;
 const peopleCopy = copy.peopleMemory;
 const topicCopy = copy.topicMap;
@@ -103,6 +145,8 @@ const topicCopy = copy.topicMap;
 const showsPeopleRow = peopleMemoryMode || hasPeopleRows;
 const showsTopicRow = topicMapMode || hasDifficultyRows;
 const showsMemoryCard = showsPeopleRow || showsTopicRow;
+const showsPeopleToggle = peopleMemoryMode && peopleMemoryEnabled !== null;
+const showsTopicToggle = topicMapMode && topicMapEnabled !== null;
 const peopleStatus = Astro.url.searchParams.get("people");
 const peopleStatusMessage = isPeopleSettingsStatusCode(peopleStatus) ? peopleCopy.status[peopleStatus] : null;
 const peopleStatusIsError = peopleStatus !== "saved";
@@ -117,13 +161,32 @@ const deleteScopes = [
   { value: MEMORY_DELETE_SCOPES[1], label: memoryCopy.scopeTopics, shown: showsTopicRow },
   { value: MEMORY_DELETE_SCOPES[2], label: memoryCopy.scopeAll, shown: showsPeopleRow && showsTopicRow },
 ].filter((scope) => scope.shown);
+
+// `scroll-mt-20`: kotwice (`#memory`, `#change-password`) nie chowają się pod przyklejonym nagłówkiem.
+const CARD = "border-line-strong bg-surface shadow-card mt-4 scroll-mt-20 rounded-[20px] border p-5 sm:p-8";
+const CARD_TITLE = "text-ink text-lg font-semibold";
+const BODY = "text-ink-muted text-sm leading-6 text-pretty";
+// Pigułka z obrysem w kolorze marki: wezwanie w karcie planu i wejście do administracji.
+const PILL_CTA =
+  "border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring inline-flex min-h-11 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2";
+const TEXT_LINK =
+  "text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2";
+const STATUS = "mt-2 rounded-xl p-3 text-sm leading-6";
+const STATUS_ERROR = "border-danger-line bg-danger-soft text-danger border";
+const STATUS_OK = "bg-brand-tint text-brand-deep";
+// Wiersz części pamięci: etykieta i przełącznik w jednej linii także na telefonie
+// (przełącznik we własnej szerokości), opis i komunikaty pod spodem; od `sm`
+// przełącznik stoi obok etykiety i opisu naraz.
+const MEMORY_ROW = "border-line grid scroll-mt-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-t py-3.5";
+const MEMORY_TOGGLE = "sm:row-span-2 sm:w-56";
+const MEMORY_DETAIL = "col-span-2 sm:col-span-1";
 ---
 
 <Layout title={copy.pageTitle}>
   <div class="bg-paper text-ink flex min-h-screen flex-col">
     <AppHeader activeSession={activeSession} />
 
-    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main class="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <section class="mx-auto max-w-2xl">
         <a
           href="/dashboard"
@@ -143,189 +206,141 @@ const deleteScopes = [
           </svg>
           {copy.back}
         </a>
-        <h1 class="text-ink mt-3 text-4xl leading-tight">{copy.title}</h1>
-        <p class="text-ink-muted mt-3 text-sm leading-6">
-          {copy.signedInAs}
-          <span class="text-ink font-semibold">{user?.email}</span>.
+        <h1 class="text-ink mt-2 text-4xl leading-tight">{copy.title}</h1>
+        {/* Spacja jawnie: Astro gubi biały znak z nową linią między wyrażeniem a elementem („jakoadres”). */}
+        <p class="text-ink-muted mt-2 text-sm leading-6 break-words" data-account-signed-in>
+          {copy.signedInAs}{" "}<span class="text-ink font-semibold">{user?.email}</span>.
         </p>
 
-        <div class="border-line-strong bg-surface shadow-card mt-6 rounded-[20px] border p-6 sm:p-8" data-account-plan>
-          <h2 class="text-ink text-lg font-semibold">{copy.planTitle}</h2>
+        <div class:list={CARD} data-account-plan>
           {
             quota ? (
               <>
-                <p class="text-brand mt-2 text-base font-semibold">{formatPlanName(locale, quota.plan)}</p>
-                <p class="text-ink-muted mt-1 text-sm leading-6">
-                  {formatSessionAllowance(locale, quota)} {copy.eachLasts(sessionBudgetMinutes)}
-                  {quota.plan === "free" ? ` ${copy.deletingNote}` : null}
-                </p>
-                {voiceQuota ? (
-                  <p class="text-ink-muted mt-2 text-sm leading-6" data-account-voice>
-                    <span class="text-ink-soft font-medium">{copy.voiceHeading}</span>{" "}
-                    {formatVoiceAllowance(locale, voiceQuota)}
-                  </p>
-                ) : null}
-                {quota.plan === "free" && !billingEnabled ? (
-                  <p class="text-ink-muted mt-3 text-sm leading-6">{getPlanCopy(locale).premiumHowTo}</p>
-                ) : null}
-                {quota.plan === "free" && !billingEnabled && support.mailtoHref ? (
-                  <a
-                    href={getPremiumSupportMailtoHref(locale, support.mailtoHref)}
-                    class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-                  >
-                    {copy.writeAboutPremium}
+                <h2 class:list={CARD_TITLE}>{formatPlanName(locale, quota.plan)}</h2>
+                <dl class="border-line mt-3 border-t">
+                  {planRows.map((row) => (
+                    <div
+                      class="border-line flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b py-2.5"
+                      data-account-plan-row={row.kind}
+                    >
+                      <dt class="text-ink-muted text-sm">{row.label}</dt>
+                      <dd class="text-ink text-sm font-medium">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {isFreePlan ? <p class="text-ink-muted mt-2 text-xs leading-5">{copy.deletingNote}</p> : null}
+                {premiumSentence ? <p class:list={[BODY, "mt-3"]}>{premiumSentence}</p> : null}
+                {premiumCta ? (
+                  <a href={premiumCta.href} class:list={[PILL_CTA, "mt-3"]} data-account-premium-cta>
+                    {premiumCta.label}
                   </a>
                 ) : null}
               </>
             ) : (
-              <p class="text-ink-muted mt-2 text-sm leading-6">{copy.planReadFailed}</p>
+              <>
+                <h2 class:list={CARD_TITLE}>{copy.planTitle}</h2>
+                <p class:list={[BODY, "mt-2"]}>{copy.planReadFailed}</p>
+              </>
             )
           }
-          <a
-            href="/account/billing"
-            class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-          >
-            {quota?.plan === "free" && billingEnabled ? billingCopy.discover : billingCopy.link}
-          </a>
-        </div>
-
-        <div class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8">
-          <h2 class="text-ink text-lg font-semibold">{copy.passwordTitle}</h2>
-          <p class="text-ink-muted mt-2 text-sm leading-6">{copy.passwordIntro}</p>
-
-          <div class="mt-6">
-            <SetPasswordForm locale={locale} serverError={error} serverSuccess={successMessage} client:idle />
-          </div>
-        </div>
-
-        <div
-          class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8"
-          data-account-locale
-        >
-          <h2 class="text-ink text-lg font-semibold">{localeCopy.label}</h2>
-          <p class="text-ink-muted mt-2 text-sm leading-6">{localeCopy.description}</p>
-          <div class="mt-4 max-w-xs">
-            <LocaleSwitch variant="segmented" />
-          </div>
+          {
+            showsManageBilling ? (
+              <a href="/account/billing" class:list={[PILL_CTA, "mt-3"]} data-account-billing>
+                {billingCopy.link}
+              </a>
+            ) : null
+          }
         </div>
 
         {
           showsMemoryCard ? (
-            <div
-              class="border-line-strong bg-surface shadow-card mt-5 rounded-[20px] border p-6 sm:p-8"
-              id="memory"
-              data-account-memory
-            >
-              <h2 class="text-ink text-lg font-semibold">{memoryCopy.title}</h2>
-              <p class="text-ink-muted mt-2 text-sm leading-6">{memoryCopy.intro}</p>
+            <div class:list={CARD} id="memory" data-account-memory>
+              <h2 class:list={CARD_TITLE}>{memoryCopy.title}</h2>
+              <p class:list={[BODY, "mt-1.5"]}>{memoryCopy.intro}</p>
               {memoryStatusMessage ? (
                 <p
                   role={memoryStatusIsError ? "alert" : "status"}
-                  class:list={[
-                    "mt-3 rounded-xl p-3.5 text-sm leading-6",
-                    memoryStatusIsError
-                      ? "border-danger-line bg-danger-soft text-danger border"
-                      : "bg-brand-tint text-brand-deep",
-                  ]}
+                  class:list={[STATUS, "mt-3", memoryStatusIsError ? STATUS_ERROR : STATUS_OK]}
                 >
                   {memoryStatusMessage}
                 </p>
               ) : null}
 
-              <div class="mt-5 flex flex-col">
-                {/* Jeden wiersz na część: etykieta i jedno zdanie po lewej, przełącznik po prawej. */}
+              <div class="border-line mt-4 border-b">
+                {/* Jeden wiersz na część: etykieta i przełącznik obok siebie, jedno zdanie pod spodem. */}
                 {showsPeopleRow ? (
-                  <div
-                    class="border-line flex flex-col gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between"
-                    id="people-memory"
-                    data-account-people
-                  >
-                    <div class="min-w-0">
-                      <p class="text-ink text-[15px] leading-6 font-semibold">{memoryCopy.peopleLabel}</p>
+                  <div class:list={MEMORY_ROW} id="people-memory" data-account-people>
+                    <p class="text-ink text-[15px] leading-6 font-semibold">{memoryCopy.peopleLabel}</p>
+                    {showsPeopleToggle ? (
+                      <div class:list={MEMORY_TOGGLE}>
+                        <PeopleMemoryToggle enabled={peopleMemoryEnabled === true} hideLegend />
+                      </div>
+                    ) : null}
+                    <div class:list={MEMORY_DETAIL}>
                       <p class="text-ink-muted text-[13px] leading-5">{memoryCopy.peopleHint}</p>
                       {peopleStatusMessage ? (
                         <p
                           role={peopleStatusIsError ? "alert" : "status"}
-                          class:list={[
-                            "mt-2 rounded-xl p-3 text-sm leading-6",
-                            peopleStatusIsError
-                              ? "border-danger-line bg-danger-soft text-danger border"
-                              : "bg-brand-tint text-brand-deep",
-                          ]}
+                          class:list={[STATUS, peopleStatusIsError ? STATUS_ERROR : STATUS_OK]}
                         >
                           {peopleStatusMessage}
                         </p>
                       ) : null}
                       {!peopleMemoryMode ? (
-                        <p class="text-ink-muted mt-2 text-sm leading-6">{memoryCopy.modeOffIntro}</p>
+                        <p class="text-ink-muted mt-1 text-[13px] leading-5">{memoryCopy.modeOffIntro}</p>
                       ) : peopleMemoryEnabled === null ? (
-                        <p class="text-ink-muted mt-2 text-sm leading-6">{peopleCopy.readFailed}</p>
-                      ) : (
-                        <p class="text-ink-muted mt-2 text-sm leading-6">{peopleCopy.effects}</p>
-                      )}
+                        <p class="text-ink-muted mt-1 text-[13px] leading-5">{peopleCopy.readFailed}</p>
+                      ) : null}
                     </div>
-                    {peopleMemoryMode && peopleMemoryEnabled !== null ? (
-                      <div class="w-full shrink-0 sm:w-56">
-                        <PeopleMemoryToggle enabled={peopleMemoryEnabled} hideLegend />
-                      </div>
-                    ) : null}
                   </div>
                 ) : null}
 
                 {showsTopicRow ? (
-                  <div
-                    class="border-line flex flex-col gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between"
-                    id="topic-map"
-                    data-account-topics
-                  >
-                    <div class="min-w-0">
-                      <p class="text-ink text-[15px] leading-6 font-semibold">{memoryCopy.topicsLabel}</p>
+                  <div class:list={MEMORY_ROW} id="topic-map" data-account-topics>
+                    <p class="text-ink text-[15px] leading-6 font-semibold">{memoryCopy.topicsLabel}</p>
+                    {showsTopicToggle ? (
+                      <div class:list={MEMORY_TOGGLE}>
+                        <TopicMapToggle enabled={topicMapEnabled === true} hideLegend />
+                      </div>
+                    ) : null}
+                    <div class:list={MEMORY_DETAIL}>
                       <p class="text-ink-muted text-[13px] leading-5">{memoryCopy.topicsHint}</p>
                       {topicStatusMessage ? (
                         <p
                           role={topicStatusIsError ? "alert" : "status"}
-                          class:list={[
-                            "mt-2 rounded-xl p-3 text-sm leading-6",
-                            topicStatusIsError
-                              ? "border-danger-line bg-danger-soft text-danger border"
-                              : "bg-brand-tint text-brand-deep",
-                          ]}
+                          class:list={[STATUS, topicStatusIsError ? STATUS_ERROR : STATUS_OK]}
                         >
                           {topicStatusMessage}
                         </p>
                       ) : null}
                       {!topicMapMode ? (
-                        <p class="text-ink-muted mt-2 text-sm leading-6">{memoryCopy.modeOffIntro}</p>
+                        <p class="text-ink-muted mt-1 text-[13px] leading-5">{memoryCopy.modeOffIntro}</p>
                       ) : topicMapEnabled === null ? (
-                        <p class="text-ink-muted mt-2 text-sm leading-6">{topicCopy.readFailed}</p>
-                      ) : (
-                        <p class="text-ink-muted mt-2 text-sm leading-6">{topicCopy.effects}</p>
-                      )}
+                        <p class="text-ink-muted mt-1 text-[13px] leading-5">{topicCopy.readFailed}</p>
+                      ) : null}
                     </div>
-                    {topicMapMode && topicMapEnabled !== null ? (
-                      <div class="w-full shrink-0 sm:w-56">
-                        <TopicMapToggle enabled={topicMapEnabled} hideLegend />
-                      </div>
-                    ) : null}
                   </div>
                 ) : null}
-                <div class="border-line border-t" />
               </div>
 
-              <a
-                href="/dashboard/memory"
-                class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring mt-3 inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-              >
-                {memoryCopy.viewLink}
+              {/* Jedno zdanie o skutkach wyłączenia dla obu części — tylko gdy jest co przełączać. */}
+              {showsPeopleToggle || showsTopicToggle ? (
+                <p class="text-ink-muted mt-3 text-[13px] leading-5" data-account-memory-switch-note>
+                  {memoryCopy.switchNote}
+                </p>
+              ) : null}
+
+              <a href="/dashboard/memory" class:list={[TEXT_LINK, "mt-1"]}>
+                {memoryCopy.viewLink(avatarFirstName)}
               </a>
 
               {/* Jedno usuwanie z wyborem zakresu; potwierdzenie bez JS jako wymagane pole wyboru. */}
-              <details class="mt-3">
-                <summary class="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong inline-flex h-11 cursor-pointer items-center rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
+              <details>
+                <summary class="text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:ring-danger-strong -ml-3.5 inline-flex h-11 cursor-pointer items-center rounded-full px-3.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2">
                   {memoryCopy.deleteSummary}
                 </summary>
-                <form method="POST" action="/api/session/memory/delete-all" class="mt-3" data-memory-delete-all>
-                  <p class="text-ink-muted text-sm leading-6">{memoryCopy.deleteBody}</p>
+                <form method="POST" action="/api/session/memory/delete-all" class="mt-2" data-memory-delete-all>
+                  <p class:list={BODY}>{memoryCopy.deleteBody}</p>
                   <fieldset class="m-0 mt-3 min-w-0 border-0 p-0">
                     <legend class="text-ink text-sm font-medium">{memoryCopy.scopeLegend}</legend>
                     <div class="mt-2 flex flex-col gap-2">
@@ -360,34 +375,62 @@ const deleteScopes = [
           ) : null
         }
 
-        <div class="border-line bg-surface-soft mt-5 rounded-2xl border p-5">
-          <h2 class="text-brand-deep text-base font-semibold">{copy.dataTitle}</h2>
-          <p class="text-ink-muted mt-2 text-sm leading-6">
-            {copy.dataIntro}
-            <a
-              href="/privacy"
-              class="text-brand hover:text-brand-strong focus:ring-brand-ring ml-1 rounded font-medium underline underline-offset-4 focus:ring-2 focus:outline-none"
-            >
-              {copy.privacyLink}
-            </a>
-          </p>
-          <a
-            href="/account/delete"
-            class="border-danger-line text-danger hover:bg-danger-soft focus-visible:ring-brand-ring mt-4 inline-flex min-h-11 items-center rounded-full border px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2"
-            >{copy.deleteAccount}</a
+        <div class:list={CARD} data-account-locale>
+          <h2 class:list={CARD_TITLE}>{copy.appearanceTitle}</h2>
+          {/* Na telefonie w jednym rzędzie: dwie flagi wąsko, trzy słowa wyglądu w reszcie szerokości. */}
+          <div class="mt-3 grid grid-cols-[6rem_minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4">
+            <LocaleSwitch variant="segmented" />
+            <ThemeSwitch labelId="account-theme-label" />
+          </div>
+          <p class="text-ink-muted mt-3 text-[13px] leading-5">{copy.appearanceNote}</p>
+        </div>
+
+        {/* Hasło zmienia się rzadko, więc formularz jest zwinięty; wynik zapisu i odzyskiwanie hasła go otwierają. */}
+        <details class:list={[CARD, "group"]} id="change-password" data-account-password open={passwordFormOpen}>
+          <summary
+            class="focus-visible:ring-brand-ring -m-2 flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl p-2 focus:outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden"
           >
-          <p class="text-ink-muted mt-2 text-sm leading-6">{copy.deleteNote}</p>
+            <span>
+              <span class:list={[CARD_TITLE, "block"]}>{copy.passwordSummary}</span>
+              <span class="text-ink-muted mt-0.5 block text-[13px] leading-5">{copy.passwordHint}</span>
+            </span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-ink-muted h-5 w-5 shrink-0 transition-transform group-open:rotate-180"
+            >
+              <path d="m6 9 6 6 6-6"></path>
+            </svg>
+          </summary>
+          <div class="mt-4">
+            <SetPasswordForm locale={locale} serverError={error} serverSuccess={successMessage} client:idle />
+          </div>
+        </details>
+
+        <div class:list={CARD} data-account-data>
+          <h2 class:list={CARD_TITLE}>{copy.dataTitle}</h2>
+          <p class:list={[BODY, "mt-1.5"]}>{copy.dataIntro}</p>
+          <div class="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <a href="/privacy" class:list={TEXT_LINK}>{copy.privacyLink}</a>
+            <a
+              href="/account/delete"
+              class="border-danger-line text-danger hover:bg-danger-soft focus-visible:ring-brand-ring inline-flex h-11 items-center rounded-full border px-4 text-sm font-medium focus:outline-none focus-visible:ring-2"
+              >{copy.deleteAccount}</a
+            >
+          </div>
         </div>
 
         {
           isAdmin ? (
-            <div class="border-line bg-surface-soft mt-5 rounded-2xl border p-5">
+            <div class="border-line bg-surface-soft mt-4 rounded-2xl border p-5">
               <h2 class="text-brand-deep text-base font-semibold">{copy.adminTitle}</h2>
-              <p class="text-ink-muted mt-2 text-sm leading-6">{copy.adminIntro}</p>
-              <a
-                href="/admin"
-                class="border-line-accent bg-surface text-brand hover:bg-surface-hover focus-visible:ring-brand-ring mt-4 inline-flex h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-              >
+              <p class:list={[BODY, "mt-2"]}>{copy.adminIntro}</p>
+              <a href="/admin" class:list={[PILL_CTA, "mt-4"]}>
                 {copy.openAdmin}
               </a>
             </div>

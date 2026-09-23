@@ -57,7 +57,7 @@ describe("islands rendered in English", () => {
 
     expect(html).toContain("Conversation in progress");
     expect(html).toContain("End the conversation");
-    expect(html).toContain("Marek, practical guide");
+    expect(html).toContain("One situation, step by step");
     expect(html).toContain("Help now");
     expect(html).toContain("Conversation boundaries:");
     expect(html).toContain("SafeSpace is an educational conversation simulation");
@@ -92,10 +92,11 @@ describe("islands rendered in English", () => {
 
     expect(history).toContain("Conversation history");
     expect(history).toContain("Conversations with:");
-    expect(history).toContain("Marek, practical guide");
+    expect(history).toContain(">Marek</p>");
     expect(picker).toContain("One situation, step by step");
     expect(picker).toContain("About the approach");
-    expect(picker).toContain("separate fact from interpretation for a moment…”");
+    // Próbka głosu zaczyna się wielką literą, jak zdanie (React zamienia apostrof na encję).
+    expect(picker).toContain("“Let&#x27;s separate fact from interpretation for a moment…”");
   });
 
   it("renders the memory view in English", () => {
@@ -196,11 +197,39 @@ describe("voice island rendered in English", () => {
     const html = renderToStaticMarkup(<VoiceSession locale="en" initialState={voiceState} voiceAvailable />);
 
     expect(html).toContain("Turn on the microphone");
-    expect(html).toContain("Marek is listening once the microphone is on");
+    expect(html).toContain("Marek will hear you once the microphone is on");
+    expect(html).toContain("The conversation clock has been running since the first connection.");
     expect(html).toContain("Conversation in progress");
     expect(html).toContain("End the conversation");
     expect(html).toContain("Conversation boundaries:");
     expect(html).not.toContain("Włącz mikrofon");
+
+    // Before the first audio connection the clock stands still and says why.
+    const waiting = renderToStaticMarkup(
+      <VoiceSession
+        locale="en"
+        initialState={{ ...voiceState, session: { ...voiceSession, voiceConnected: false } }}
+        voiceAvailable
+      />,
+    );
+    expect(waiting).toContain("Turn on the microphone and start");
+    expect(waiting).toContain("10 min</span> · waiting for the microphone");
+    expect(waiting).toContain("The clock starts only then.");
+    expect(waiting).not.toContain("czeka na mikrofon");
+
+    const unconnected = renderToStaticMarkup(
+      <VoiceSession
+        locale="en"
+        initialState={{
+          ...voiceState,
+          kind: "expired",
+          session: { ...voiceSession, status: "expired", voiceConnected: false },
+        }}
+        voiceAvailable
+      />,
+    );
+    expect(unconnected).toContain("The voice conversation didn&#x27;t start");
+    expect(unconnected).toContain("The microphone wasn&#x27;t turned on, so nothing was used.");
 
     const finished = renderToStaticMarkup(
       <VoiceSession

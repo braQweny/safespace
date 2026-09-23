@@ -113,7 +113,10 @@ function AvatarChoiceFormView({
                   name="modalityId"
                   value={modality.modalityId}
                   checked={isSelected}
-                  required
+                  // Bez `required`: niezaznaczona grupa była ogłaszana czytnikowi
+                  // jako „nieprawidłowa”, zanim ktokolwiek cokolwiek wybrał. Pasek
+                  // zapisu pojawia się dopiero po wyborze, a pusty formularz (bez
+                  // JS) odrzuca serwer kodem `invalid_choice`.
                   aria-labelledby={`${id}-name ${id}-focus`}
                   aria-describedby={`${id}-voice`}
                   onChange={() => {

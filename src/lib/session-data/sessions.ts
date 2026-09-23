@@ -103,15 +103,26 @@ export async function countOwnedSessions(context: SessionDataContext): Promise<S
 }
 
 /**
- * Ile rozmów głosowych właściciel ma w ogóle — każdy status, tombstone też —
- * dokładnie to, co liczy bramka próby głosowej konta free (`P0016`).
+ * Ile rozmów głosowych właściciela trzyma jednorazową próbę konta free —
+ * dokładnie to, co liczy bramka próby (`P0016`): połączone kiedykolwiek
+ * (każdy status, tombstone też; `voice_connected_at` jest zamrożone, więc
+ * usunięcie użytej próby jej nie przywraca) albo wciąż trwające przed swoim
+ * terminem. Rozmowa zakończona, wygasła albo usunięta bez połączenia audio
+ * się nie liczy. Termin porównujemy z zegarem Workera (`now`), baza ze swoim —
+ * różnica sekund dotyczy tylko pre-flightu, bramką zostaje trigger.
  */
-export async function countOwnedVoiceSessions(context: SessionDataContext): Promise<SessionDataResult<number>> {
+export async function countOwnedVoiceSessions(
+  context: SessionDataContext,
+  now: Date = new Date(),
+): Promise<SessionDataResult<number>> {
   const { count, error } = await context.supabase
     .from("therapy_sessions")
     .select("id", { count: "exact", head: true })
     .eq("user_id", context.user.id)
-    .eq("mode", "voice");
+    .eq("mode", "voice")
+    .or(
+      `voice_connected_at.not.is.null,and(status.in.(created,active),or(expires_at.is.null,expires_at.gt.${now.toISOString()}))`,
+    );
 
   if (error) {
     return sessionDataError(mapSupabaseReadError(error));
@@ -193,13 +204,18 @@ export async function listOwnedVoiceObserverSessionIds(
  * głosowa i tylko pusta kolumna, więc reconnect nigdy nie przesuwa startu
  * puli. Czas nadaje baza (`now()` w triggerze metadanych), nie ten argument —
  * wartość z żądania właściciela nie może przesunąć zużycia puli.
- * `true` = zapisano teraz, `false` = już było albo warunek nie zaszedł.
+ *
+ * Ten sam trigger przesuwa wtedy zegar aktywnej rozmowy: `started_at` na
+ * chwilę połączenia, `expires_at` o tyle samo (czas trwania bez zmian), więc
+ * zwracamy wiersz po zapisie — termin obserwatora i timer klienta liczą się z
+ * niego, nie z odczytu sprzed połączenia. `null` = kolumna była już ustawiona
+ * (inna karta połączyła się pierwsza) albo warunek nie zaszedł.
  */
 export async function markVoiceSessionConnected(
   context: SessionDataContext,
   sessionId: SessionId,
   connectedAtIso: string,
-): Promise<SessionDataResult<boolean>> {
+): Promise<SessionDataResult<SessionMetadata | null>> {
   const { data, error } = await context.supabase
     .from("therapy_sessions")
     .update({ voice_connected_at: connectedAtIso })
@@ -207,14 +223,19 @@ export async function markVoiceSessionConnected(
     .eq("user_id", context.user.id)
     .eq("mode", "voice")
     .is("voice_connected_at", null)
-    .select("id")
+    .select(SESSION_SELECT)
     .maybeSingle();
 
   if (error) {
     return sessionDataError(mapSupabaseWriteError(error));
   }
 
-  return ok(data !== null);
+  if (data === null) {
+    return ok(null);
+  }
+
+  const row = coerceSessionRow(data);
+  return row ? ok(mapSession(row)) : sessionDataError("write_failed");
 }
 
 /**

@@ -61,6 +61,8 @@ export const POST: APIRoute = async (context) => {
   // Rozmowa głosowa ma własne pule (jedna próba free, minuty premium), więc
   // limit trzech rozmów tekstowych jej nie dotyczy; bramką próby jest trigger
   // `P0016` przy insercie, tu tylko pre-flight jak dla limitu tekstowego.
+  // Próbę i zegar rozmowy głosowej uruchamia dopiero pierwsze połączenie audio
+  // (`connect`): okno zapisane tutaj to długość rozmowy, którą baza przesunie.
   let voiceStart: VoiceStartResolution | null = null;
 
   if (startRequest.mode === "voice") {

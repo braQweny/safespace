@@ -1,0 +1,100 @@
+---
+import { getAppHeaderCopy } from "@/components/app-header-copy";
+
+/**
+ * Przełącznik wyglądu „System | Jasny | Wieczorny” — ten sam w menu konta
+ * i w karcie „Język i wygląd” na stronie konta. Wybór żyje w `localStorage`
+ * (pre-paint skrypt w `Layout.astro` stosuje go przed pierwszym malowaniem),
+ * więc dotyczy tylko tego urządzenia. Skrypt komponentu Astro dołącza raz na
+ * stronę, nawet gdy przełącznik jest na niej dwa razy, i trzyma oba w zgodzie.
+ */
+interface Props {
+  /** Id etykiety grupy — każdy egzemplarz na stronie potrzebuje własnego. */
+  labelId: string;
+}
+
+const { labelId } = Astro.props;
+const copy = getAppHeaderCopy(Astro.locals.locale);
+const options = [
+  { value: "system", label: copy.themeSystem },
+  { value: "light", label: copy.themeLight },
+  { value: "dark", label: copy.themeDark },
+] as const;
+---
+
+<div>
+  <p class="text-ink-muted text-xs" id={labelId}>{copy.appearance}</p>
+  <div
+    role="group"
+    aria-labelledby={labelId}
+    class="border-line-strong mt-1.5 flex gap-0.5 rounded-xl border p-0.5"
+    data-theme-switch
+  >
+    {
+      options.map((option) => (
+        <button
+          type="button"
+          data-theme-option={option.value}
+          class="text-ink-soft hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:text-brand-deep aria-pressed:inset-ring-brand h-11 flex-1 rounded-[10px] text-xs transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:font-semibold aria-pressed:inset-ring"
+        >
+          {option.label}
+        </button>
+      ))
+    }
+  </div>
+</div>
+
+<script>
+  // Przełącznik wyglądu. „System” usuwa zapisany wybór i oddaje decyzję
+  // ustawieniu urządzenia — dlatego trzy stany, nie dwa: bez tego nie da się
+  // wrócić do trybu nocnego sterowanego telefonem.
+  const THEME_STORAGE_KEY = "safespace-theme";
+
+  function readStoredTheme() {
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+
+      return stored === "dark" || stored === "light" ? stored : "system";
+    } catch {
+      return "system";
+    }
+  }
+
+  function applyTheme(theme: string) {
+    if (theme === "dark" || theme === "light") {
+      document.documentElement.dataset.theme = theme;
+    } else {
+      delete document.documentElement.dataset.theme;
+    }
+  }
+
+  // Wszystkie egzemplarze naraz: wybór w karcie konta od razu widać też w menu.
+  const options = document.querySelectorAll<HTMLButtonElement>("[data-theme-switch] [data-theme-option]");
+
+  function markActive(theme: string) {
+    for (const option of options) {
+      option.setAttribute("aria-pressed", String(option.dataset.themeOption === theme));
+    }
+  }
+
+  markActive(readStoredTheme());
+
+  for (const option of options) {
+    option.addEventListener("click", () => {
+      const theme = option.dataset.themeOption ?? "system";
+
+      try {
+        if (theme === "system") {
+          localStorage.removeItem(THEME_STORAGE_KEY);
+        } else {
+          localStorage.setItem(THEME_STORAGE_KEY, theme);
+        }
+      } catch {
+        // Zapis może być niedostępny; motyw i tak zadziała do końca wizyty.
+      }
+
+      applyTheme(theme);
+      markActive(theme);
+    });
+  }
+</script>

@@ -1,5 +1,9 @@
 import { defineCopy } from "@/lib/i18n/copy";
 import type { Locale } from "@/lib/i18n/locale";
+import { plural, type PluralForms } from "@/lib/i18n/plural";
+
+/** „Została” / „zostały” / „zostało” po liczbie pozostałych rozmów lub minut. */
+const REMAINING_VERB_PL: PluralForms = { one: "została", few: "zostały", many: "zostało" };
 
 const ACCOUNT_PAGES_COPY = defineCopy(
   {
@@ -9,40 +13,54 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       back: "Back to the dashboard",
       title: "Account",
       signedInAs: "Signed in as",
-      planTitle: "Plan and conversation allowance",
-      eachLasts: (minutes: string) => `Each conversation lasts up to ${minutes}.`,
-      voiceHeading: "Voice conversations:",
-      deletingNote: "Deleting a conversation from the history does not return it to the allowance.",
-      writeAboutPremium: "Write to us about premium",
+      /** Nagłówek karty, gdy nie da się odczytać planu; zwykle kartę tytułuje nazwa planu. */
+      planTitle: "Plan",
       planReadFailed:
         "We couldn't read the account plan. Refresh the page in a moment — the allowance details are also on the dashboard.",
-      passwordTitle: "Password",
-      passwordIntro:
-        "If the account was created with Google, setting a password adds e-mail sign-in without creating a second account.",
-      dataTitle: "Your data and account deletion",
-      dataIntro: "You delete a conversation after opening its transcript in the history. More about data processing:",
+      plan: {
+        writtenLabel: "Written conversations",
+        voiceTrialLabel: "Voice conversation",
+        voicePoolLabel: "Voice conversations",
+        upTo: (duration: string) => `up to ${duration}`,
+        writtenRemaining: (remaining: number, limit: number) => `${remaining} of ${limit} left`,
+        writtenUsedUp: (limit: number) => `${limit} of ${limit} used`,
+        writtenUnlimited: "unlimited",
+        voiceTrialAvailable: "1 trial",
+        voiceTrialUsed: "trial used",
+        voicePoolRemaining: (remaining: number, limit: number) => `${remaining} of ${limit} min left this month`,
+        voicePoolReserved: (reserved: number) => `${reserved} min held by a conversation in progress`,
+        voicePoolUsedUp: "this month's minutes are used up",
+      },
+      deletingNote: "Deleting a conversation doesn't return it to the allowance.",
+      premiumMore: "The premium plan gives you more conversations.",
+      premiumManual: "For now we grant it by hand — write to us.",
+      writeAboutPremium: "Write to us about premium",
+      passwordSummary: "Change password",
+      passwordHint: "With a Google account, a password adds e‑mail sign-in.",
+      appearanceTitle: "Language and appearance",
+      appearanceNote: "The language applies on all your devices, the appearance only on this one.",
+      dataTitle: "Your data",
+      dataIntro: "You delete a conversation from its preview in the history.",
       privacyLink: "Privacy and terms",
-      deleteAccount: "Delete account",
-      deleteNote:
-        "You'll delete the account together with the conversation history and avatar memory. We'll ask you to confirm in the next step.",
+      deleteAccount: "Delete account…",
       adminTitle: "Administration",
       adminIntro:
         "This account has access to aggregate statistics. The admin panel does not show conversation content.",
       openAdmin: "Open the admin panel",
       memory: {
         title: "Conversation memory",
-        intro:
-          "The avatar notes people and topics from your own words. Everything stays private to your account; switching a part off stops the recording, and after switching it back on the avatar notes only new conversations.",
-        modeOffIntro:
-          "This part is currently switched off. Cards saved earlier are still stored — you can delete them here.",
+        intro: "From your own words we note people and topics, separately for each perspective. Only you can see them.",
+        modeOffIntro: "Currently unavailable. Cards saved earlier stay stored — you can delete them below.",
         peopleLabel: "People from conversations",
         peopleHint: "Who the people you mention are to you.",
         topicsLabel: "Topics from conversations",
         topicsHint: "What you struggle with, who it comes up with and how you cope.",
-        viewLink: "See what the avatar remembers",
+        switchNote:
+          "Switching off stops saving and detaches the cards from conversations. Saved cards stay until you delete them; after switching back on, we note only new conversations.",
+        viewLink: (firstName: string | null) => (firstName ? `See what ${firstName} remembers` : "See the saved cards"),
         deleteSummary: "Delete saved cards",
         deleteBody:
-          "Conversation transcripts, their summaries and the avatar memory stay. Deleting also switches off the recording of what you delete. This cannot be undone.",
+          "We delete the cards of every perspective and switch off saving what you delete. Conversation transcripts and summaries stay. This cannot be undone.",
         scopeLegend: "What to delete",
         scopePeople: "only people",
         scopeTopics: "only topics",
@@ -63,8 +81,6 @@ const ACCOUNT_PAGES_COPY = defineCopy(
         toggleLegend: "Remember people from conversations",
         on: "On",
         off: "Off",
-        effects:
-          "Switching off stops the recording and detaches the cards from an ongoing conversation. After switching back on, the avatar records people only from new conversations.",
         status: {
           saved: "The setting has been saved.",
           save_failed: "The setting couldn't be saved. Please try again in a moment.",
@@ -79,8 +95,6 @@ const ACCOUNT_PAGES_COPY = defineCopy(
         toggleLegend: "Note topics from conversations",
         on: "On",
         off: "Off",
-        effects:
-          "Switching off stops the recording; saved topics stay until you delete them. After switching back on, the avatar notes topics only from new conversations.",
         status: {
           saved: "The setting has been saved.",
           save_failed: "The setting couldn't be saved. Please try again in a moment.",
@@ -128,39 +142,54 @@ const ACCOUNT_PAGES_COPY = defineCopy(
       back: "Wróć do panelu",
       title: "Konto",
       signedInAs: "Zalogowano jako",
-      planTitle: "Plan i pula rozmów",
-      eachLasts: (minutes) => `Każda rozmowa trwa do ${minutes}.`,
-      voiceHeading: "Rozmowy głosowe:",
-      deletingNote: "Usunięcie rozmowy z historii nie przywraca jej do puli.",
-      writeAboutPremium: "Napisz w sprawie premium",
+      planTitle: "Plan",
       planReadFailed:
         "Nie udało się odczytać planu konta. Odśwież stronę za chwilę — szczegóły puli rozmów zobaczysz też w panelu.",
-      passwordTitle: "Hasło",
-      passwordIntro:
-        "Jeśli konto powstało przez Google, ustawienie hasła dodaje logowanie e-mailem bez tworzenia drugiego konta.",
-      dataTitle: "Twoje dane i usunięcie konta",
-      dataIntro: "Rozmowę usuniesz po otwarciu jej zapisu w historii. Więcej o przetwarzaniu danych:",
+      plan: {
+        writtenLabel: "Rozmowy pisane",
+        voiceTrialLabel: "Rozmowa głosowa",
+        voicePoolLabel: "Rozmowy głosowe",
+        upTo: (duration) => `do ${duration}`,
+        // Czasownik zgadza się z liczbą: „1 z 3 została”, „2 z 3 zostały”, „5 z 8 zostało”.
+        writtenRemaining: (remaining, limit) => `${remaining} z ${limit} ${plural("pl", remaining, REMAINING_VERB_PL)}`,
+        writtenUsedUp: (limit) => `wykorzystano ${limit} z ${limit}`,
+        writtenUnlimited: "bez limitu",
+        voiceTrialAvailable: "1 próba",
+        voiceTrialUsed: "próba wykorzystana",
+        voicePoolRemaining: (remaining, limit) =>
+          `${remaining} z ${limit} min ${plural("pl", remaining, REMAINING_VERB_PL)} w tym miesiącu`,
+        voicePoolReserved: (reserved) => `${reserved} min rezerwuje trwająca rozmowa`,
+        voicePoolUsedUp: "pula na ten miesiąc wykorzystana",
+      },
+      deletingNote: "Usunięcie rozmowy nie zwraca jej do puli.",
+      premiumMore: "Więcej rozmów daje plan premium.",
+      premiumManual: "Na razie przyznajemy go ręcznie — napisz do nas.",
+      writeAboutPremium: "Napisz w sprawie premium",
+      passwordSummary: "Zmień hasło",
+      passwordHint: "Przy koncie z Google hasło doda logowanie e‑mailem.",
+      appearanceTitle: "Język i wygląd",
+      appearanceNote: "Język obowiązuje na wszystkich Twoich urządzeniach, wygląd — tylko na tym.",
+      dataTitle: "Twoje dane",
+      dataIntro: "Rozmowę usuniesz z jej podglądu w historii.",
       privacyLink: "Prywatność i zasady",
-      deleteAccount: "Usuń konto",
-      deleteNote:
-        "Usuniesz konto razem z historią rozmów i pamięcią awatarów. W następnym kroku poprosimy o potwierdzenie.",
+      deleteAccount: "Usuń konto…",
       adminTitle: "Administracja",
       adminIntro: "To konto ma dostęp do statystyk zbiorczych. Panel administracyjny nie pokazuje treści rozmów.",
       openAdmin: "Otwórz panel administracyjny",
       memory: {
         title: "Pamięć rozmów",
-        intro:
-          "Awatar zapisuje z Twoich słów osoby i tematy z rozmów. Wszystko zostaje prywatne dla Twojego konta; wyłączenie części zatrzymuje zapisywanie, a po ponownym włączeniu awatar zapisuje tylko z nowych rozmów.",
-        modeOffIntro:
-          "Ta część jest obecnie wyłączona. Zapisane wcześniej karty wciąż są przechowywane — możesz je tu usunąć.",
+        intro: "Z Twoich słów zapisujemy osoby i tematy, osobno dla każdej perspektywy. Widzisz je tylko Ty.",
+        modeOffIntro: "Teraz niedostępne. Zapisane wcześniej karty wciąż są przechowywane — możesz je usunąć poniżej.",
         peopleLabel: "Osoby z rozmów",
         peopleHint: "Kim są dla Ciebie ludzie, o których mówisz.",
         topicsLabel: "Tematy z rozmów",
         topicsHint: "Z czym się mierzysz, przy kim to wraca i jak sobie radzisz.",
-        viewLink: "Zobacz, co pamięta awatar",
+        switchNote:
+          "Wyłączenie zatrzymuje zapisywanie i odłącza karty od rozmów. Zapisane karty zostają, dopóki ich nie usuniesz; po ponownym włączeniu zapisujemy tylko nowe rozmowy.",
+        viewLink: (firstName) => (firstName ? `Zobacz, co pamięta ${firstName}` : "Zobacz zapisane karty"),
         deleteSummary: "Usuń zapisane karty",
         deleteBody:
-          "Zapisy rozmów, ich podsumowania i pamięć awatara zostają. Usunięcie wyłącza też zapisywanie tego, co usuwasz. Tej operacji nie można cofnąć.",
+          "Usuwamy karty wszystkich perspektyw i wyłączamy zapisywanie tego, co usuwasz. Zapisy rozmów i podsumowania zostają. Tej operacji nie można cofnąć.",
         scopeLegend: "Co usunąć",
         scopePeople: "tylko osoby",
         scopeTopics: "tylko tematy",
@@ -181,8 +210,6 @@ const ACCOUNT_PAGES_COPY = defineCopy(
         toggleLegend: "Zapamiętuj osoby z rozmów",
         on: "Włączone",
         off: "Wyłączone",
-        effects:
-          "Wyłączenie zatrzymuje zapisywanie i odłącza karty od trwającej rozmowy. Po ponownym włączeniu awatar zapisuje osoby tylko z nowych rozmów.",
         status: {
           saved: "Ustawienie zostało zapisane.",
           save_failed: "Nie udało się zapisać ustawienia. Spróbuj ponownie za chwilę.",
@@ -197,8 +224,6 @@ const ACCOUNT_PAGES_COPY = defineCopy(
         toggleLegend: "Zapisuj tematy z rozmów",
         on: "Włączone",
         off: "Wyłączone",
-        effects:
-          "Wyłączenie zatrzymuje zapisywanie; zapisane tematy zostają, dopóki ich nie usuniesz. Po ponownym włączeniu awatar zapisuje tematy tylko z nowych rozmów.",
         status: {
           saved: "Ustawienie zostało zapisane.",
           save_failed: "Nie udało się zapisać ustawienia. Spróbuj ponownie za chwilę.",

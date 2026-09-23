@@ -39,8 +39,8 @@ export const POST: APIRoute = async (context) => {
   }
 
   const form = await readFormData(context.request);
+  // Jedno pole hasła; `confirmPassword` ze starego formularza jest pomijane.
   const password = getFormString(form, "password", false);
-  const confirmPassword = getFormString(form, "confirmPassword", false);
 
   if (!password) {
     return route.failureRedirect(SECURITY_PATH, "missing_password");
@@ -48,10 +48,6 @@ export const POST: APIRoute = async (context) => {
 
   if (password.length < MIN_PASSWORD_LENGTH) {
     return route.failureRedirect(SECURITY_PATH, "password_too_short");
-  }
-
-  if (password !== confirmPassword) {
-    return route.failureRedirect(SECURITY_PATH, "passwords_do_not_match");
   }
 
   const { error } = await route.supabase.auth.updateUser({ password });

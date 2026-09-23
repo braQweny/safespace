@@ -21,7 +21,7 @@ export const FREE_TRIAL_DURATION_SECONDS = 900;
 /** Plan premium: 60 minut na rozmowę. */
 export const PREMIUM_SESSION_DURATION_SECONDS = 3600;
 
-/** Jednorazowa próba głosowa konta free: 10 minut (bucket 600 w bazie). */
+/** Jednorazowa próba głosowa konta free: 10 minut od pierwszego połączenia audio (bucket 600 w bazie). */
 export const VOICE_TRIAL_DURATION_SECONDS = 600;
 
 /**

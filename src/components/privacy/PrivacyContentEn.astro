@@ -148,11 +148,11 @@ const DAYS = { one: "day", many: "days" };
       <h2 class="text-ink text-xl font-semibold">Voice conversations</h2>
       <p class="text-ink-soft mt-3">
         A voice conversation starts on the dashboard like a written one, but the avatar listens and speaks instead of
-        writing. After you tap “Enable microphone”, the browser asks for permission to use it and opens a direct audio
-        connection (WebRTC) between your device and OpenAI, the provider of the voice model. SafeSpace does not receive,
-        record or store the audio — the sound travels only between your device and the provider. The avatar listens and
-        speaks at the same time, so everything the microphone picks up reaches the provider, including other people in
-        the room: choose a quiet place and use the mute button whenever you need it.
+        writing. When you turn on the microphone on the conversation screen, the browser asks for permission to use it
+        and opens a direct audio connection (WebRTC) between your device and OpenAI, the provider of the voice model.
+        SafeSpace does not receive, record or store the audio — the sound travels only between your device and the
+        provider. The avatar listens and speaks at the same time, so everything the microphone picks up reaches the
+        provider, including other people in the room: choose a quiet place and use the mute button whenever you need it.
       </p>
       <p class="text-ink-soft mt-3">
         The transcript is produced on SafeSpace's side from the text the provider sends back during the conversation and
@@ -173,10 +173,14 @@ const DAYS = { one: "day", many: "days" };
         account, as with written conversations.
       </p>
       <p class="text-ink-soft mt-3">
-        A free account has one voice trial of up to {voiceTrialMinutes} {plural("en", voiceTrialMinutes, MINUTES)}; a
-        premium account has a monthly allowance of {voiceMonthlyMinutes} {plural("en", voiceMonthlyMinutes, MINUTES)},
-        counted from the moment the audio connects. The allowance is shown on the dashboard and in the account settings.
-        Deleting a voice conversation restores neither the trial nor the minutes.
+        A free account includes one voice conversation of up to {voiceTrialMinutes}{" "}
+        {plural("en", voiceTrialMinutes, MINUTES)}; a premium account has a monthly allowance of {voiceMonthlyMinutes}{" "}
+        {plural("en", voiceMonthlyMinutes, MINUTES)}. A voice conversation's clock starts only when the audio connects,
+        not when you start the conversation on the dashboard — and only then does it use the free conversation or
+        minutes from the allowance. A conversation that ends before the microphone connects (the browser did not give
+        permission, there was no microphone or the waiting time ran out) uses nothing. The allowance is shown on the
+        dashboard and in the account settings. Deleting a voice conversation that has already connected restores neither
+        the free conversation nor the minutes.
       </p>
     </section>
   ) : null

@@ -272,15 +272,22 @@ describe("SessionStartCard voice start", () => {
     expect(written).toContain("Rozpocznij rozmowę");
     expect(written).toContain("Do 15 min rozmowy");
     expect(written).not.toContain("data-voice-start");
-    expect(written).not.toContain("Wypróbuj rozmowę głosową");
+    expect(written).not.toContain("Zacznij rozmowę głosową");
 
     const voice = renderVoice(trial);
     expect(voice).toContain('data-start-mode="voice"');
     expect(voice).toContain('data-voice-start="trial"');
-    expect(voice).toContain("Jedna próba, do 10 min");
-    expect(voice).toContain("Usunięcie rozmowy jej nie przywraca.");
-    expect(voice).toContain("Wypróbuj rozmowę głosową (10 min)");
-    expect(voice).toContain("Mówisz na głos, a Marek odpowiada głosem.");
+    expect(voice).toContain("Jedna bezpłatna rozmowa głosowa, do 10 min");
+    // Próbę i czas zużywa dopiero włączony mikrofon, nie sam start.
+    expect(voice).toContain("Czas liczy się od włączenia mikrofonu.");
+    expect(voice).not.toContain("Usunięcie rozmowy jej nie przywraca.");
+    expect(voice).toContain("Zacznij rozmowę głosową");
+    expect(voice).not.toContain("Wypróbuj rozmowę głosową");
+    expect(voice).toContain(
+      "Mówisz na głos, Marek odpowiada głosem. Zapis zostaje w historii, jak po rozmowie pisanej.",
+    );
+    // Techniczny opis toru dźwięku został na stronie prywatności.
+    expect(voice).not.toContain("dostawcy modelu");
     expect(voice).toContain('href="/privacy#voice"');
     expect(voice).toContain("Jak działa rozmowa głosowa");
     // Jeden start naraz: w trybie głosowym nie ma przycisku pisanego ani jego puli.
@@ -294,7 +301,7 @@ describe("SessionStartCard voice start", () => {
     expect(html).toContain('data-voice-start="trial_used"');
     expect(html).toContain("Bezpłatna rozmowa głosowa została wykorzystana");
     expect(html).toContain('href="/account/security"');
-    expect(html).not.toContain("Wypróbuj rozmowę głosową");
+    expect(html).not.toContain("Zacznij rozmowę głosową");
   });
 
   it("shows the premium pool with a meter, the remaining minutes and the budget clipped to the pool", () => {
@@ -347,10 +354,10 @@ describe("SessionStartCard voice start", () => {
     expect(written).toContain("data-session-limit-reached");
     expect(written).toContain("Pula bezpłatnych rozmów została wykorzystana");
     expect(written).toContain("Rozmowa głosowa ma osobną pulę: przełącz wyżej na „Głosowa”.");
-    expect(written).not.toContain("Wypróbuj rozmowę głosową");
+    expect(written).not.toContain("Zacznij rozmowę głosową");
     const voice = renderVoice(trial, limitState);
     expect(voice).toContain("data-session-limit-reached");
-    expect(voice).toContain("Wypróbuj rozmowę głosową (10 min)");
+    expect(voice).toContain("Zacznij rozmowę głosową");
     expect(voice).not.toContain("Pula bezpłatnych rozmów została wykorzystana");
     // Bez puli głosowej stan limitu nie wspomina o trybie, którego nie ma.
     expect(renderVoice(null, limitState, null)).not.toContain("przełącz wyżej");

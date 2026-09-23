@@ -6,6 +6,8 @@ import { getTimedSessionCopy } from "./timed-session-copy";
 interface SessionEndConfirmDialogProps {
   dialogRef: RefObject<HTMLDivElement | null>;
   isEnding: boolean;
+  /** Dodatkowe zdanie pod treścią, np. o puli bezpłatnych rozmów. */
+  note?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -18,6 +20,7 @@ interface SessionEndConfirmDialogProps {
 export default function SessionEndConfirmDialog({
   dialogRef,
   isEnding,
+  note = null,
   onConfirm,
   onCancel,
 }: SessionEndConfirmDialogProps) {
@@ -46,6 +49,7 @@ export default function SessionEndConfirmDialog({
       >
         <p className="text-ink font-serif text-lg leading-snug font-medium">{copy.confirmEndTitle}</p>
         <p className="mt-1">{copy.confirmEndBody}</p>
+        {note ? <p className="mt-1">{note}</p> : null}
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"

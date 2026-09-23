@@ -6,6 +6,7 @@ import { getMicrophoneErrorCopy } from "@/lib/session-flow/microphone-error-copy
 import { buildInfoNotice } from "@/lib/session-flow/session-notice";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import {
+  isVoiceAwaitingFirstConnection,
   isVoiceConnectResponse,
   isVoiceHeartbeatResponse,
   type VoiceHeartbeatSuccessResponse,
@@ -58,6 +59,14 @@ export interface VoiceConnectInput {
   sessionId: string;
   offerSdp: string;
   locale: Locale;
+  /** Rozmowa jeszcze bez połączenia audio: zegar stoi, więc powiadomienie o porażce nie mówi, że biegnie. */
+  awaitingFirstConnection?: boolean;
+}
+
+/** Treść powiadomienia o nieudanym połączeniu: przed pierwszym połączeniem zegar jeszcze nie ruszył. */
+export function getConnectFailedBody(locale: Locale, awaitingFirstConnection: boolean) {
+  const { notices } = getVoiceSessionCopy(locale);
+  return awaitingFirstConnection ? notices.connectFailedFirstBody : notices.connectFailedBody;
 }
 
 /**
@@ -72,6 +81,7 @@ export async function connectVoiceSession(
 ): Promise<{ answerSdp: string; epoch: number } | null> {
   const { notices } = getVoiceSessionCopy(input.locale);
   const { turn } = getSessionCopy(input.locale);
+  const connectFailedBody = getConnectFailedBody(input.locale, input.awaitingFirstConnection === true);
   const connectFailed = (body: string, retryable: boolean) => {
     dispatch({ type: "connect_failed", notice: buildInfoNotice(notices.connectFailedTitle, body), retryable });
     return null;
@@ -96,7 +106,7 @@ export async function connectVoiceSession(
   const body = result.body;
 
   if (!isVoiceConnectResponse(body)) {
-    return connectFailed(notices.connectFailedBody, true);
+    return connectFailed(connectFailedBody, true);
   }
 
   if (body.ok) {
@@ -114,7 +124,7 @@ export async function connectVoiceSession(
   }
 
   if (body.type === "validation_failed") {
-    return connectFailed(notices.connectFailedBody, false);
+    return connectFailed(connectFailedBody, false);
   }
 
   const redirectHref = getSessionAccessRedirectHref(body.code);
@@ -155,7 +165,7 @@ export async function connectVoiceSession(
   }
 
   // Dostawca, obserwator albo dane chwilowo niedostępne: warto spróbować znów.
-  return connectFailed(notices.connectFailedBody, true);
+  return connectFailed(connectFailedBody, true);
 }
 
 export interface VoiceHeartbeatInput {
@@ -265,8 +275,21 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
   // Zrzut zamówiony w trakcie pulsu w locie (odmowa puli): wykona się zaraz po nim.
   const drainRequestedRef = useRef(false);
   const autoReconnectedRef = useRef(false);
+  // Połączenie w toku (mikrofon, oferta, `connect`): termin sprzed pierwszego
+  // połączenia nie kończy wtedy rozmowy — rozstrzyga odpowiedź `connect`
+  // (przesunięty zegar albo 409 po terminie).
+  const connectingRef = useRef(false);
   const sessionId = state.session?.id ?? null;
+  const awaitingFirstConnection = isVoiceAwaitingFirstConnection(state.session);
+  // Czytane w chwili łączenia, nie jako zależność: zmiana po pierwszym
+  // połączeniu nie może podmienić `enableMicrophone` i zgubić zaplanowanego
+  // automatycznego wznowienia.
+  const awaitingFirstConnectionRef = useRef(awaitingFirstConnection);
   const copy = getVoiceSessionCopy(locale);
+
+  useEffect(() => {
+    awaitingFirstConnectionRef.current = awaitingFirstConnection;
+  }, [awaitingFirstConnection]);
 
   // Wsparcie przeglądarki dopiero po hydratacji: SSR nie wie, czy jest mikrofon.
   useEffect(() => {
@@ -336,6 +359,7 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
       return;
     }
 
+    connectingRef.current = true;
     dispatch({ type: "mic_requested" });
     closePeer();
 
@@ -367,7 +391,10 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
       const outcome = { connected: false };
 
       await peer.connect(async (offerSdp) => {
-        const answer = await connectVoiceSession({ sessionId, offerSdp, locale }, dispatch);
+        const answer = await connectVoiceSession(
+          { sessionId, offerSdp, locale, awaitingFirstConnection: awaitingFirstConnectionRef.current },
+          dispatch,
+        );
 
         if (!answer) {
           throw new VoicePeerError("answer", null);
@@ -399,9 +426,14 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
 
       dispatch({
         type: "connect_failed",
-        notice: buildInfoNotice(copy.notices.connectFailedTitle, copy.notices.connectFailedBody),
+        notice: buildInfoNotice(
+          copy.notices.connectFailedTitle,
+          getConnectFailedBody(locale, awaitingFirstConnectionRef.current),
+        ),
         retryable: true,
       });
+    } finally {
+      connectingRef.current = false;
     }
   }, [closePeer, copy, handleEvent, heartbeatNow, locale, sessionId]);
 
@@ -492,6 +524,13 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
   }, [closePeer]);
 
   const handleExpired = useCallback(() => {
+    // Termin minął w trakcie łączenia (np. przed pierwszym połączeniem, gdy
+    // zgoda na mikrofon przyszła w ostatniej chwili): wynik `connect`
+    // rozstrzyga — przesunięty zegar albo odpowiedź „po terminie”.
+    if (connectingRef.current) {
+      return;
+    }
+
     closePeer();
     dispatch({ type: "client_expired" });
     // Serwer przenosi wiersz w `expired` i zrzuca resztę bufora.

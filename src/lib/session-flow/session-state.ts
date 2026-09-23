@@ -50,6 +50,12 @@ export interface SessionView {
   durationBucketSeconds: number | null;
   /** Tryb rozmowy; obecny tylko dla rozmowy głosowej (brak = tekst). */
   mode?: SessionMode;
+  /**
+   * Tylko rozmowa głosowa: czy miała już połączenie audio. Przed pierwszym
+   * zegar nie biegnie (baza przesuwa start i termin przy połączeniu), a próba
+   * ani minuty puli nie są zużyte. Sam znacznik, bez czasu połączenia.
+   */
+  voiceConnected?: boolean;
 }
 
 export interface SessionMessageView {
@@ -147,7 +153,9 @@ export function toSessionView(session: SessionMetadata, now: Date = new Date()):
     remainingSeconds: computeRemainingSeconds(session.expiresAt, now),
     isTrial: session.isTrial,
     durationBucketSeconds: session.durationBucketSeconds,
-    ...(session.mode === "voice" ? { mode: "voice" as const } : {}),
+    ...(session.mode === "voice"
+      ? { mode: "voice" as const, voiceConnected: typeof session.voiceConnectedAt === "string" }
+      : {}),
   };
 }
 

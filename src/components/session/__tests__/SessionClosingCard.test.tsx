@@ -7,15 +7,27 @@ describe("SessionClosingCard", () => {
     // Pole pisania znika razem z końcem rozmowy; bez celu fokus spadał na
     // `<body>`, a czytnik ekranu nie mówił nic.
     const html = renderToStaticMarkup(
-      <SessionClosingCard
-        title="Rozmowa zakończona"
-        body="Dziękuję."
-        historyHref="/dashboard"
-        remainingSessionsCopy={null}
-      />,
+      <SessionClosingCard title="Rozmowa zakończona" body="Dziękuję." remainingSessionsCopy={null} />,
     );
 
     expect(html).toMatch(/<h2 tabindex="-1" class="[^"]*focus:outline-none[^"]*">Rozmowa zakończona<\/h2>/);
+  });
+
+  it("offers one step back to the dashboard and no link to a transcript that is already on screen", () => {
+    // Zapis stoi tuż pod kartą; osobny link „Otwórz zapis” był trzecim wyjściem
+    // z tego samego ekranu.
+    const html = renderToStaticMarkup(
+      <SessionClosingCard
+        title="Rozmowa zakończona"
+        body="Dziękuję."
+        remainingSessionsCopy={null}
+        actions={<a href="/dashboard/avatar">Zmień perspektywę</a>}
+      />,
+    );
+
+    expect(html.match(/href="\/dashboard"/g)).toHaveLength(1);
+    expect(html).not.toContain("?session=");
+    expect(html).toContain('href="/dashboard/avatar"');
   });
 });
 

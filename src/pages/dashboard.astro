@@ -47,6 +47,7 @@ import type { SessionHistoryListResponse } from "@/lib/session-flow/session-hist
 import { formatSessionBudgetMinutes, resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
 import { readSessionStartPageState, type SessionStartPageState } from "@/lib/session-flow/session-state";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
+import type { ModalityId } from "@/lib/modality-catalog";
 import { getSupportContact } from "@/lib/support-contact";
 import { isBillingEnabled } from "@/lib/billing/config";
 
@@ -259,6 +260,31 @@ const firstStepsAllowanceCopy = formatRemainingFreeSessions(locale, firstStepsQu
 const currentTint = currentSelection ? getPerspectiveTint(currentSelection.modalityId) : null;
 const currentFirstName = currentSelection?.avatarFirstName ?? null;
 const currentCopy = currentSelection ? getModalityCopy(locale, currentSelection.modalityId) : null;
+// Pierwsza rozmowa z jednej karty: twarze są zwykłym formularzem wyboru
+// (`POST /api/profile/avatar` z intencją `save_and_start` → `/dashboard?start=now`),
+// więc działa bez JS. Który opis i które imię w przycisku widać, rozstrzyga CSS
+// (`:has(:checked)`); klasy stoją w całości, bo Tailwind musi je zobaczyć w
+// źródle. Domyślnie Iga — jej opis sam mówi, że jest dobrym pierwszym wyborem.
+const FIRST_PICK_DEFAULT: ModalityId = "integrative";
+const FIRST_PICK_SHOW_BLOCK: Record<ModalityId, string> = {
+  psychodynamic: "group-has-[#first-pick-psychodynamic:checked]:block",
+  cbt: "group-has-[#first-pick-cbt:checked]:block",
+  humanistic_experiential: "group-has-[#first-pick-humanistic_experiential:checked]:block",
+  systemic: "group-has-[#first-pick-systemic:checked]:block",
+  integrative: "group-has-[#first-pick-integrative:checked]:block",
+};
+const FIRST_PICK_SHOW_INLINE: Record<ModalityId, string> = {
+  psychodynamic: "group-has-[#first-pick-psychodynamic:checked]:inline",
+  cbt: "group-has-[#first-pick-cbt:checked]:inline",
+  humanistic_experiential: "group-has-[#first-pick-humanistic_experiential:checked]:inline",
+  systemic: "group-has-[#first-pick-systemic:checked]:inline",
+  integrative: "group-has-[#first-pick-integrative:checked]:inline",
+};
+const firstPicks = MODALITY_CHOICES.map((modality) => ({
+  modality,
+  modalityCopy: getModalityCopy(locale, modality.modalityId),
+  tint: getPerspectiveTint(modality.modalityId),
+}));
 // Zdanie „po co jest panel” tylko przed pierwszą rozmową: osoba po dwudziestu
 // rozmowach nie potrzebuje go czytać za każdym razem.
 const showsIntro = currentSelection === null || (startPageState?.sessionQuota?.usedSessions ?? 0) === 0;
@@ -458,59 +484,99 @@ const historyProps = currentSelection
                   </a>
                 </div>
               ) : (
-                <div data-first-steps>
-                  <p class="text-brand text-xs font-semibold tracking-[0.08em] uppercase">{copy.firstStepsEyebrow}</p>
-                  <h2 class="text-ink mt-1.5 font-serif text-[28px] leading-tight font-medium">
-                    {copy.firstStepsTitle}
-                  </h2>
+                <form method="post" action="/api/profile/avatar" class="group" data-first-steps>
+                  <input type="hidden" name="intent" value="save_and_start" />
+                  <h2 class="text-ink font-serif text-[28px] leading-tight font-medium">{copy.firstStepsTitle}</h2>
                   <p class="text-ink-muted mt-2 text-sm leading-6">{copy.firstStepsBody}</p>
-                  {/* Twarze przed krokami: pierwszy krok przestaje być abstrakcją. */}
-                  <ul class="mt-5 flex flex-wrap gap-3">
-                    {MODALITY_CHOICES.map((modality) => (
-                      <li class="flex w-11 flex-col items-center gap-1.5">
-                        <img
-                          src={modality.assetPath}
-                          alt=""
-                          width="256"
-                          height="256"
-                          loading="lazy"
-                          decoding="async"
-                          class="h-11 w-11 rounded-full object-cover"
-                        />
-                        <span class="text-ink-muted text-[13px] leading-4">{modality.avatarFirstName}</span>
-                      </li>
+                  <fieldset class="mt-5 min-w-0 border-0 p-0">
+                    <legend class="sr-only">{copy.firstStepsLegend}</legend>
+                    <div class="flex justify-between gap-y-3 sm:justify-start sm:gap-x-5">
+                      {firstPicks.map(({ modality }) => (
+                        <label class="flex w-14 cursor-pointer flex-col items-center gap-1.5">
+                          <input
+                            type="radio"
+                            name="modalityId"
+                            value={modality.modalityId}
+                            id={`first-pick-${modality.modalityId}`}
+                            checked={modality.modalityId === FIRST_PICK_DEFAULT}
+                            class="peer sr-only"
+                          />
+                          <img
+                            src={modality.assetPath}
+                            alt=""
+                            width="256"
+                            height="256"
+                            loading="eager"
+                            decoding="async"
+                            class="ring-offset-surface peer-checked:ring-brand peer-focus-visible:ring-brand-ring h-12 w-12 rounded-full object-cover opacity-80 ring-offset-2 transition peer-checked:opacity-100 peer-checked:ring-2 peer-focus-visible:ring-2"
+                          />
+                          <span class="text-ink-muted peer-checked:text-brand-deep text-[13px] leading-4 peer-checked:font-semibold">
+                            {modality.avatarFirstName}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <div class="bg-surface-soft mt-4 rounded-2xl px-4 pt-4 pb-1">
+                    {firstPicks.map(({ modality, modalityCopy, tint }) => (
+                      <div
+                        class:list={["hidden", FIRST_PICK_SHOW_BLOCK[modality.modalityId]]}
+                        data-first-pick-detail={modality.modalityId}
+                      >
+                        <p class="text-[15px] leading-6">
+                          <span class="text-ink font-semibold">{modality.avatarFirstName}</span>
+                          {" · "}
+                          <span class:list={["font-medium", tint.text]}>{modalityCopy.perspectiveFocus}</span>
+                        </p>
+                        <p class="text-ink mt-1 font-serif text-lg leading-snug italic">
+                          {copy.quote(modalityCopy.voiceSample)}
+                        </p>
+                        {modality.modalityId === FIRST_PICK_DEFAULT ? (
+                          <p class="text-ink-muted mt-1 text-sm leading-6">{copy.firstStepsDefaultHint}</p>
+                        ) : null}
+                      </div>
                     ))}
-                  </ul>
-                  <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                     <a
                       href="/dashboard/avatar"
-                      class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-[14px] px-6 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2"
+                      class="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 transition-colors focus:outline-none focus-visible:ring-2"
                     >
-                      {copy.choosePerspective}
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.75"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="h-4 w-4"
-                      >
-                        <path d="M5 12h14M13 6l6 6-6 6" />
-                      </svg>
+                      {copy.comparePerspectives}
                     </a>
-                    {firstStepsAllowanceCopy ? (
-                      <div class="flex items-center gap-3">
-                        <AllowanceMeter quota={firstStepsQuota} />
-                        <p class="text-ink-soft text-sm leading-6" data-first-steps-quota>
-                          {firstStepsAllowanceCopy}
-                        </p>
-                      </div>
-                    ) : null}
                   </div>
-                  <p class="text-ink-muted mt-4 text-sm leading-6">{copy.budgetNote(sessionBudgetMinutes)}</p>
-                </div>
+                  <button
+                    type="submit"
+                    class="bg-brand text-surface hover:bg-brand-strong focus-visible:ring-brand-ring mt-5 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] px-6 py-3 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 sm:w-auto"
+                  >
+                    {/* Bez `:has` (stara przeglądarka) zostaje ogólny napis. */}
+                    <span class="group-has-[:checked]:hidden">{copy.startGeneric}</span>
+                    {firstPicks.map(({ modality, modalityCopy }) => (
+                      <span class:list={["hidden", FIRST_PICK_SHOW_INLINE[modality.modalityId]]}>
+                        {copy.startWith(modalityCopy.withAvatar)}
+                      </span>
+                    ))}
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="h-4 w-4"
+                    >
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
+                  </button>
+                  {firstStepsAllowanceCopy ? (
+                    <div class="mt-4 flex items-center gap-3">
+                      <AllowanceMeter quota={firstStepsQuota} />
+                      <p class="text-ink-soft text-sm leading-6" data-first-steps-quota>
+                        {firstStepsAllowanceCopy}
+                      </p>
+                    </div>
+                  ) : null}
+                  <p class="text-ink-muted mt-3 text-sm leading-6">{copy.budgetNote(sessionBudgetMinutes)}</p>
+                </form>
               )
             }
           </section>

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
-import { getModalityCopy } from "@/lib/modality-copy";
 import type { SessionHistoryListResponse } from "@/lib/session-flow/session-history-contract";
 import {
   DialogEscapeLayersContext,
@@ -50,11 +49,7 @@ export default function AvatarSessionHistory(props: AvatarSessionHistoryProps) {
           <h2 id="history-title" tabIndex={-1} className="text-ink font-serif text-2xl leading-tight font-medium">
             {copy.title}
           </h2>
-          {selectedAvatar ? (
-            <p className="text-ink-muted mt-1 text-sm">
-              {getModalityCopy(locale, selectedAvatar.modalityId).avatarName}
-            </p>
-          ) : null}
+          {selectedAvatar ? <p className="text-ink-muted mt-1 text-sm">{selectedAvatar.avatarFirstName}</p> : null}
         </div>
         {controls}
       </div>

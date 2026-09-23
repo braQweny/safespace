@@ -94,11 +94,20 @@ describe("GET /auth/callback", () => {
     // wchodzi do cookie tego urządzenia w jednym miejscu.
     expect(syncLocaleAfterSignIn).toHaveBeenCalledWith(expect.anything(), expect.anything(), { id: "user-1" });
 
+    // Odzyskiwanie hasła: strona konta z otwartym formularzem hasła i przewinięciem do niego.
     const security = await GET(createContext({ code: "abc", next: "/account/security" }));
-    expect(location(security)).toBe("/account/security");
+    expect(location(security)).toBe("/account/security?password=recovery#change-password");
 
     const unsafe = await GET(createContext({ code: "abc", next: "https://evil.example/phish" }));
     expect(location(unsafe)).toBe("/dashboard");
+
+    // Tylko dokładne dopasowanie: ani pusta wartość, ani sama docelowa ścieżka z zapytaniem.
+    const empty = await GET(createContext({ code: "abc", next: "" }));
+    expect(location(empty)).toBe("/dashboard");
+    const landing = await GET(
+      createContext({ code: "abc", next: "/account/security?password=recovery#change-password" }),
+    );
+    expect(location(landing)).toBe("/dashboard");
 
     expect(exchangeCodeForSession).toHaveBeenCalledWith("abc");
   });

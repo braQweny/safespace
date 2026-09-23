@@ -1,4 +1,4 @@
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, FileText, Loader2, RefreshCw } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import type { SessionSummaryFailureCode } from "@/lib/session-flow/session-summary-contract";
@@ -139,5 +139,37 @@ export default function SessionSummaryPanel({
         )}
       </div>
     </div>
+  );
+}
+
+interface SessionSummaryButtonProps {
+  summaryStatus: SessionSummaryStatus;
+  onGenerate: () => void;
+}
+
+/**
+ * Karta zakończenia nie niesie całego panelu, dopóki nie ma czego w nim
+ * pokazać: jeden cichy przycisk obok powrotu do panelu. Gdy podsumowanie
+ * powstanie (albo się nie uda), rodzic pokazuje `SessionSummaryPanel`.
+ */
+export function SessionSummaryButton({ summaryStatus, onGenerate }: SessionSummaryButtonProps) {
+  const copy = getSessionSummaryPanelCopy(useLocale());
+  const isGenerating = summaryStatus === "generating";
+
+  return (
+    <button
+      type="button"
+      disabled={summaryStatus !== "idle"}
+      aria-busy={isGenerating || undefined}
+      onClick={onGenerate}
+      className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isGenerating ? (
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+      ) : (
+        <FileText aria-hidden="true" className="text-brand h-4 w-4" />
+      )}
+      {copy.summarize}
+    </button>
   );
 }

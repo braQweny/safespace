@@ -5,6 +5,18 @@ export type TopicMapView = "list" | "graph";
 /** Ciasteczko z wyborem; serwer czyta je i podaje widokowi jako `initialView`. */
 export const TOPIC_MAP_VIEW_COOKIE = "safespace-topic-view";
 
+/**
+ * Od ilu kart (osoby + tematy, tyle wierszy pokazałaby lista) widok pamięci
+ * proponuje mapę. Przy jednej osobie i jednym temacie mapa to trzy kółka na
+ * pustym polu, więc poniżej progu stoi sama lista, bez przełącznika i bez
+ * patrzenia na ciasteczko.
+ */
+export const TOPIC_MAP_MIN_CARDS = 4;
+
+export function isTopicMapOffered(cardCount: number) {
+  return cardCount >= TOPIC_MAP_MIN_CARDS;
+}
+
 const LEGACY_STORAGE_KEY = "safespace:topic-map-view";
 /**
  * Dokładnie próg `md:` z Tailwinda 4 (`48rem`), nie 768 px: rem idzie za

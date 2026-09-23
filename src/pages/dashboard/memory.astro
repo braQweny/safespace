@@ -60,6 +60,8 @@ const topicMapEnabled = topicPreference?.ok ? topicPreference.data : true;
 const resumeSessionId = activeSession?.avatarId === selection.avatarId ? activeSession.sessionId : null;
 const firstName = selection.avatarFirstName;
 // Wybór „Mapa | Lista” z ciasteczka; bez niego widok rozstrzyga szerokość ekranu (CSS).
+// Poniżej `TOPIC_MAP_MIN_CARDS` kart wyspa i tak pokazuje samą listę, bez przełącznika
+// — rozstrzyga to z kart w propsach, więc serwer i hydratacja rysują to samo.
 const initialTopicView = parseTopicMapView(Astro.cookies.get(TOPIC_MAP_VIEW_COOKIE)?.value);
 ---
 

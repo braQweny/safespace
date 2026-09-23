@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { mapResetPasswordError } from "@/lib/auth-errors";
 import { createAuthRoute, readFormData } from "@/lib/auth-route";
-import { getAuthCallbackUrl } from "@/lib/auth-redirect";
+import { ACCOUNT_SECURITY_PATH, getAuthCallbackUrl } from "@/lib/auth-redirect";
 import { EMAIL_PATTERN, getFormString } from "@/lib/auth-validation";
 
 export const prerender = false;
@@ -9,8 +9,9 @@ export const prerender = false;
 const FORGOT_PASSWORD_PATH = "/auth/forgot-password";
 
 // After the recovery link signs the user in, the auth callback sends them
-// straight to the password form instead of the dashboard.
-const RECOVERY_NEXT_PATH = "/account/security";
+// straight to the password form instead of the dashboard. The callback maps
+// this allowlisted `next` to the account page with that form open.
+const RECOVERY_NEXT_PATH = ACCOUNT_SECURITY_PATH;
 
 export const POST: APIRoute = async (context) => {
   const route = await createAuthRoute(context, "auth.reset_password");

@@ -56,8 +56,21 @@ describe("account page: conversation memory settings", () => {
     }
     expect(peopleToggle).toContain('action="/api/profile/people-memory"');
     expect(topicToggle).toContain('action="/api/profile/topic-map"');
-    expect(page).toContain("<PeopleMemoryToggle enabled={peopleMemoryEnabled} hideLegend />");
-    expect(page).toContain("<TopicMapToggle enabled={topicMapEnabled} hideLegend />");
+    expect(page).toContain("<PeopleMemoryToggle enabled={peopleMemoryEnabled === true} hideLegend />");
+    expect(page).toContain("<TopicMapToggle enabled={topicMapEnabled === true} hideLegend />");
+    // Przełącznik tylko przy włączonej fladze i udanym odczycie preferencji.
+    expect(page).toContain("const showsPeopleToggle = peopleMemoryMode && peopleMemoryEnabled !== null");
+    expect(page).toContain("const showsTopicToggle = topicMapMode && topicMapEnabled !== null");
+  });
+
+  it("says once what switching off does and names the saved perspective in the memory link", () => {
+    // Jedno zdanie o skutkach wyłączenia dla obu części, a nie trzy powtórzenia.
+    expect(page.match(/memoryCopy\.switchNote/g)).toHaveLength(1);
+    expect(page).toContain("showsPeopleToggle || showsTopicToggle ? (");
+    expect(page).not.toContain("peopleCopy.effects");
+    expect(page).not.toContain("topicCopy.effects");
+    expect(page).toContain("readCurrentAvatarChoice(sessionContext.data)");
+    expect(page).toContain("{memoryCopy.viewLink(avatarFirstName)}");
   });
 
   it("reports every redirect status without trusting arbitrary query values", () => {

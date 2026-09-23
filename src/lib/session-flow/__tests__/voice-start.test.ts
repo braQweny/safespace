@@ -168,12 +168,15 @@ describe("resolveVoiceConnectAllowance", () => {
     };
   }
 
-  it("asks the quota module with the session, its deadline and the configured pool, and returns its deadline", async () => {
+  it("asks the quota module with the session, its deadline and the configured pool, and returns its deadline and remainder", async () => {
     const dependencies = connectDependencies();
 
+    // The remainder travels with the deadline: the first connection moves the
+    // conversation's clock, so `connect` recomputes the deadline from the shifted `expires_at`.
     await expect(resolveVoiceConnectAllowance(context, session, { expiresAtMs, now }, dependencies)).resolves.toEqual({
       ok: true,
       deadlineAtMs: expiresAtMs - 60_000,
+      remainingSeconds: 3540,
     });
     expect(dependencies.readVoiceConnectAllowance).toHaveBeenCalledWith(context, {
       sessionId: session.id,

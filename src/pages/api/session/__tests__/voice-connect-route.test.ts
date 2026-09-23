@@ -74,6 +74,20 @@ interface TransitionInput {
   nextStatus: SessionMetadata["status"];
   endedAt?: string | null;
 }
+
+/**
+ * What the metadata trigger does on the first connection: start at the
+ * connection, deadline moved by the same span, length unchanged.
+ */
+function shiftedRow(session: SessionMetadata, connectedAtIso: string): SessionMetadata {
+  const shiftMs = Math.max(0, Date.parse(connectedAtIso) - Date.parse(session.startedAt ?? connectedAtIso));
+  return {
+    ...session,
+    voiceConnectedAt: connectedAtIso,
+    startedAt: new Date(Date.parse(session.startedAt ?? connectedAtIso) + shiftMs).toISOString(),
+    expiresAt: new Date(Date.parse(session.expiresAt ?? connectedAtIso) + shiftMs).toISOString(),
+  };
+}
 const SESSION_ID = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
 const OFFER = "v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n";
 const LIVE_SESSION_ID = "live_u2_secret";
@@ -184,13 +198,19 @@ describe("POST /api/session/voice/connect", () => {
     getOwnedSessionMetadata.mockResolvedValue(ok(voiceSession));
     listRecentOwnedSessionMessages.mockResolvedValue(ok([]));
     loadOwnedSessionContinuity.mockResolvedValue({ ok: true, data: [], avatarMemory: "Pamięć z poprzednich rozmów." });
-    markVoiceSessionConnected.mockResolvedValue(ok(true));
+    markVoiceSessionConnected.mockImplementation((_context: SessionDataContext, _id: string, connectedAtIso: string) =>
+      Promise.resolve(ok(shiftedRow(voiceSession, connectedAtIso))),
+    );
     transitionSessionLifecycle.mockImplementation((_context: SessionDataContext, input: TransitionInput) =>
       Promise.resolve(ok({ ...voiceSession, status: input.nextStatus, endedAt: input.endedAt ?? null })),
     );
     appendVoiceSessionUtterances.mockResolvedValue(ok({ inserted: 0, skipped: 0, messages: [] }));
     isVoiceStartAvailable.mockReturnValue(true);
-    resolveVoiceConnectAllowance.mockResolvedValue({ ok: true, deadlineAtMs: Date.parse("2026-09-12T10:10:00.000Z") });
+    resolveVoiceConnectAllowance.mockResolvedValue({
+      ok: true,
+      deadlineAtMs: Date.parse("2026-09-12T10:10:00.000Z"),
+      remainingSeconds: 600,
+    });
     getVoiceObserver.mockReturnValue(stub);
     createLiveSession.mockResolvedValue({ liveSessionId: LIVE_SESSION_ID, answerSdp: "v=0\r\na=answer" });
     hangupLiveSession.mockResolvedValue("closed");
@@ -201,15 +221,23 @@ describe("POST /api/session/voice/connect", () => {
     const body = await readJson(response);
 
     expect(response.status).toBe(200);
+    // The minute spent before the microphone is not lost: the clock starts at the connection.
     expect(body).toMatchObject({
       ok: true,
       type: "voice_connected",
       sdp: "v=0\r\na=answer",
-      expiresAt: "2026-09-12T10:10:00.000Z",
+      expiresAt: "2026-09-12T10:11:00.000Z",
       serverNow: "2026-09-12T10:01:00.000Z",
       epoch: 7,
       reconnected: false,
-      session: { id: SESSION_ID, status: "active", mode: "voice", remainingSeconds: 540 },
+      session: {
+        id: SESSION_ID,
+        status: "active",
+        mode: "voice",
+        voiceConnected: true,
+        startedAt: "2026-09-12T10:01:00.000Z",
+        remainingSeconds: 600,
+      },
     });
     expect(JSON.stringify(body)).not.toContain(LIVE_SESSION_ID);
 
@@ -233,8 +261,8 @@ describe("POST /api/session/voice/connect", () => {
     expect(markVoiceSessionConnected).toHaveBeenCalledWith(contextData, SESSION_ID, "2026-09-12T10:01:00.000Z");
     expect(stub.arm).toHaveBeenCalledWith({
       liveSessionId: LIVE_SESSION_ID,
-      startedAtMs: Date.parse("2026-09-12T10:00:00.000Z"),
-      expiresAtMs: Date.parse("2026-09-12T10:10:00.000Z"),
+      startedAtMs: Date.parse("2026-09-12T10:01:00.000Z"),
+      expiresAtMs: Date.parse("2026-09-12T10:11:00.000Z"),
       locale: "pl",
       avatarName: "Marek",
     });
@@ -259,8 +287,19 @@ describe("POST /api/session/voice/connect", () => {
     const response = await POST(createContext(undefined, "en") as never);
 
     expect(response.status).toBe(200);
-    await expect(readJson(response)).resolves.toMatchObject({ reconnected: true });
+    await expect(readJson(response)).resolves.toMatchObject({
+      reconnected: true,
+      expiresAt: "2026-09-12T10:10:00.000Z",
+      session: { startedAt: "2026-09-12T10:00:00.000Z", remainingSeconds: 540, voiceConnected: true },
+    });
     expect(markVoiceSessionConnected).not.toHaveBeenCalled();
+    // A reconnect never moves the clock: the observer keeps the window the first connection set.
+    expect(stub.arm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startedAtMs: Date.parse("2026-09-12T10:00:00.000Z"),
+        expiresAtMs: Date.parse("2026-09-12T10:10:00.000Z"),
+      }),
+    );
     const config = lastLiveConfig();
     expect(config.instructions.startsWith("You are Marek")).toBe(true);
     expect(config.instructions).toContain("the connection was just restored");
@@ -319,10 +358,101 @@ describe("POST /api/session/voice/connect", () => {
     );
   });
 
+  it("restarts the clock at the first connection, so time spent before the microphone is not lost", async () => {
+    // The user sat on the page for eight and a half minutes: without the shift
+    // the conversation would open in its closing phase with 90 s left.
+    vi.setSystemTime(new Date("2026-09-12T10:08:30.000Z"));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    expect(markVoiceSessionConnected).toHaveBeenCalledWith(contextData, SESSION_ID, "2026-09-12T10:08:30.000Z");
+    expect(stub.arm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startedAtMs: Date.parse("2026-09-12T10:08:30.000Z"),
+        expiresAtMs: Date.parse("2026-09-12T10:18:30.000Z"),
+      }),
+    );
+    await expect(readJson(response)).resolves.toMatchObject({
+      expiresAt: "2026-09-12T10:18:30.000Z",
+      session: {
+        startedAt: "2026-09-12T10:08:30.000Z",
+        expiresAt: "2026-09-12T10:18:30.000Z",
+        remainingSeconds: 600,
+        voiceConnected: true,
+      },
+    });
+    // The greeting is steered as an opening, not as the last minute of the conversation.
+    expect(buildVoiceBackendInstructions).toHaveBeenCalledWith(expect.objectContaining({ sessionPhase: "opening" }));
+  });
+
+  it("clips the restarted clock to what is left of the premium pool", async () => {
+    const premiumSession: SessionMetadata = {
+      ...voiceSession,
+      durationBucketSeconds: 3600,
+      expiresAt: "2026-09-12T11:00:00.000Z",
+    };
+    getOwnedSessionMetadata.mockResolvedValue(ok(premiumSession));
+    markVoiceSessionConnected.mockImplementationOnce((_context: SessionDataContext, _id: string, iso: string) =>
+      Promise.resolve(ok(shiftedRow(premiumSession, iso))),
+    );
+    // Another running conversation holds all but thirty minutes of the pool.
+    resolveVoiceConnectAllowance.mockResolvedValueOnce({
+      ok: true,
+      deadlineAtMs: Date.parse("2026-09-12T10:31:00.000Z"),
+      remainingSeconds: 1800,
+    });
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    expect(stub.arm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startedAtMs: Date.parse("2026-09-12T10:01:00.000Z"),
+        expiresAtMs: Date.parse("2026-09-12T10:31:00.000Z"),
+      }),
+    );
+    await expect(readJson(response)).resolves.toMatchObject({
+      expiresAt: "2026-09-12T10:31:00.000Z",
+      session: { remainingSeconds: 1800 },
+    });
+  });
+
+  it("re-reads the shifted row when another tab recorded the first connection a moment earlier", async () => {
+    markVoiceSessionConnected.mockResolvedValueOnce(ok(null));
+    getOwnedSessionMetadata
+      .mockResolvedValueOnce(ok(voiceSession))
+      .mockResolvedValueOnce(ok(shiftedRow(voiceSession, "2026-09-12T10:00:58.000Z")));
+
+    const response = await POST(createContext() as never);
+
+    expect(response.status).toBe(200);
+    expect(stub.arm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startedAtMs: Date.parse("2026-09-12T10:00:58.000Z"),
+        expiresAtMs: Date.parse("2026-09-12T10:10:58.000Z"),
+      }),
+    );
+
+    // Without a readable row the deadline is unknown: the paid live session is hung up.
+    markVoiceSessionConnected.mockResolvedValueOnce(ok(null));
+    getOwnedSessionMetadata
+      .mockResolvedValueOnce(ok(voiceSession))
+      .mockResolvedValueOnce(sessionDataError("read_failed"));
+
+    const unreadable = await POST(createContext() as never);
+
+    expect(unreadable.status).toBe(503);
+    await expect(readJson(unreadable)).resolves.toMatchObject({ code: "voice_connect_failed" });
+    expect(hangupLiveSession).toHaveBeenCalledWith({ apiKey: "sk-test-key", liveSessionId: LIVE_SESSION_ID });
+    expect(stub.arm).toHaveBeenCalledTimes(1);
+  });
+
   it("arms the observer with the pool's shorter deadline when other conversations hold the rest", async () => {
     resolveVoiceConnectAllowance.mockResolvedValueOnce({
       ok: true,
       deadlineAtMs: Date.parse("2026-09-12T10:05:00.000Z"),
+      remainingSeconds: 240,
     });
 
     const response = await POST(createContext() as never);
@@ -450,7 +580,11 @@ describe("POST /api/session/voice/connect", () => {
     // One second more and the connection is worth making.
     vi.clearAllMocks();
     getVoiceObserver.mockReturnValue(stub);
-    resolveVoiceConnectAllowance.mockResolvedValue({ ok: true, deadlineAtMs: Date.parse("2026-09-12T10:01:16.000Z") });
+    resolveVoiceConnectAllowance.mockResolvedValue({
+      ok: true,
+      deadlineAtMs: Date.parse("2026-09-12T10:01:16.000Z"),
+      remainingSeconds: 600,
+    });
     getOwnedSessionMetadata.mockResolvedValueOnce(ok({ ...voiceSession, expiresAt: "2026-09-12T10:01:16.000Z" }));
 
     const allowed = await POST(createContext() as never);

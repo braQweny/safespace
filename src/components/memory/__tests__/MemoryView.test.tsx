@@ -75,6 +75,7 @@ const SESSION_B = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
 const PERSON_MARTA = "7a1b2c3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d";
 const PERSON_OLA = "8b2c3d4e-5f6a-4b7c-9d0e-1f2a3b4c5d6e";
 const PERSON_KUBA = "9c3d4e5f-6a7b-4c8d-0e1f-2a3b4c5d6e7f";
+const PERSON_ZOFIA = "ad4e5f6a-7b8c-4d9e-8f0a-3b4c5d6e7f80";
 
 const sourceA = { sessionId: SESSION_A, conversationAt: "2026-09-01T09:00:00.000Z" };
 const sourceB = { sessionId: SESSION_B, conversationAt: "2026-09-05T09:00:00.000Z" };
@@ -350,8 +351,16 @@ describe("MemoryView list", () => {
     expect(topicsOff).toContain("Osoby · 3");
     expect(topicsOff).not.toContain("Tematy · ");
     expect(topicsOff).not.toContain("Nie udało się odczytać tematów.");
-    // Same osoby też mają mapę: „Ty” w środku, osoby na obwodzie.
-    expect(topicsOff).toContain(">Mapa</button>");
+    // Trzy osoby to za mało na mapę: sama lista i zdanie o mapie mówiące tylko o osobach.
+    expect(topicsOff).not.toContain(">Mapa</button>");
+    expect(topicsOff).toContain("Mapa pojawi się, gdy Marek zapamięta więcej osób.");
+    // Od czterech osób same osoby też mają mapę: „Ty” w środku, osoby na obwodzie.
+    const fourPeople = render({
+      topicMapMode: false,
+      initialPersonCards: [...PEOPLE, { ...kuba, id: PERSON_ZOFIA, name: "Zofia" }],
+    });
+    expect(fourPeople).toContain(">Mapa</button>");
+    expect(fourPeople).not.toContain("data-topic-map-hint");
   });
 
   it("offers the map/list switch only with cards", () => {
@@ -394,6 +403,42 @@ describe("MemoryView list", () => {
   });
 });
 
+describe("MemoryView with few cards", () => {
+  const FEW = { initialPersonCards: [marta], initialDifficultyCards: [spanie] };
+
+  it("shows only the list below four cards, whatever the view cookie says, with one line about the map", () => {
+    for (const initialView of [null, "graph", "list"] as const) {
+      const html = render({ ...FEW, initialView });
+      expect(html).toContain('data-topic-view="list"');
+      expect(html).not.toContain('data-topic-view="graph"');
+      expect(html).not.toContain("<svg role=");
+      expect(html).not.toContain(">Mapa</button>");
+      expect(html).not.toContain("<legend");
+      // Bez przełącznika nie ma też reguły `md:` — serwer i hydratacja rysują to samo na każdej szerokości.
+      expect(html).not.toContain("md:hidden");
+      expect(html).toContain("Mapa pojawi się, gdy Marek zapamięta więcej osób i tematów.");
+      expect(html.indexOf('data-memory-group="topics"')).toBeLessThan(html.indexOf("data-topic-map-hint"));
+      expect(html.indexOf("data-topic-map-hint")).toBeLessThan(html.indexOf("data-memory-summary"));
+    }
+  });
+
+  it("offers the map from four cards and keeps the list line away", () => {
+    const html = render({ initialPersonCards: [marta, ola], initialDifficultyCards: [odmawianie, spanie] });
+    expect(html).toContain(">Mapa</button>");
+    expect(html).not.toContain("data-topic-map-hint");
+  });
+
+  it("names only the part that still grows, and says nothing when neither does", () => {
+    expect(render({ ...FEW, peopleMemoryEnabled: false })).toContain(
+      "Mapa pojawi się, gdy Marek zapamięta więcej tematów.",
+    );
+    expect(render({ ...FEW, topicMapEnabled: false })).toContain("Mapa pojawi się, gdy Marek zapamięta więcej osób.");
+    const frozen = render({ ...FEW, peopleMemoryEnabled: false, topicMapEnabled: false });
+    expect(frozen).toContain('data-topic-view="list"');
+    expect(frozen).not.toContain("data-topic-map-hint");
+  });
+});
+
 describe("MemoryView map", () => {
   it("renders you in the middle, topics and every person as nodes, edges by state and a legend", () => {
     const html = render({ initialView: "graph" });
@@ -420,6 +465,38 @@ describe("MemoryView map", () => {
     expect(html).toContain("bez linii: osoba jeszcze bez tematów");
     expect(html).toContain('tabindex="-1"');
     expect(html).not.toContain("Zgadzam się na wszystko");
+  });
+
+  it("keeps the legend to what the map shows, and drops it when solid lines are all there is", () => {
+    const confirmedOnly = { ...odmawianie, persons: [odmawianie.persons[0]] };
+    const plain = renderToStaticMarkup(
+      <TopicGraph cards={[confirmedOnly, spanie]} unlinkedPeople={[]} isInteractive onOpen={vi.fn()} />,
+    );
+    expect(plain).not.toContain("data-topic-graph-legend");
+    expect(plain).not.toContain("Jak czytać mapę");
+
+    const withUnlinked = renderToStaticMarkup(
+      <TopicGraph
+        cards={[confirmedOnly, spanie]}
+        unlinkedPeople={[{ id: PERSON_KUBA, name: "Kuba", relation: "brat" }]}
+        isInteractive
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(withUnlinked).toContain(
+      "Jak czytać mapę: linia ciągła: potwierdzone powiązanie · bez linii: osoba jeszcze bez tematów</p>",
+    );
+    expect(withUnlinked).not.toContain("linia kreskowana");
+    expect(withUnlinked).not.toContain("wyblakłe");
+  });
+
+  it("wraps a long topic label onto two lines instead of cutting it after twenty characters", () => {
+    const long = { ...spanie, id: "difficulty-long", label: "nie mogę zasnąć po krytyce" };
+    const html = renderToStaticMarkup(<TopicGraph cards={[long]} unlinkedPeople={[]} isInteractive onOpen={vi.fn()} />);
+    expect(html).toMatch(/<tspan[^>]*>nie mogę zasnąć po<\/tspan><tspan[^>]*>krytyce<\/tspan>/);
+    expect(html).not.toContain("…");
+    expect(html).toContain("<title>nie mogę zasnąć po krytyce</title>");
+    expect(html).toContain('aria-label="Otwórz temat: nie mogę zasnąć po krytyce."');
   });
 
   it("lists people without topics for the map only from the people part", () => {

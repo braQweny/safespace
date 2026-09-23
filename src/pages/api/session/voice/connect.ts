@@ -20,7 +20,7 @@ import {
   listRecentOwnedSessionMessages,
   markVoiceSessionConnected,
 } from "@/lib/session-data/repository";
-import type { SessionMessageRecord } from "@/lib/session-data/types";
+import type { SessionDataContext, SessionMessageRecord, SessionMetadata } from "@/lib/session-data/types";
 import { resolveRecentMessageContextLimit } from "@/lib/session-flow/context-window";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
 import { loadOwnedSessionContinuity, toSessionPromptContext } from "@/lib/session-flow/session-continuity";
@@ -30,6 +30,7 @@ import { expireOwnedSession, isSessionExpired } from "@/lib/session-flow/time-li
 import {
   getVoiceRouteFailureStatus,
   parseVoiceConnectRequest,
+  shiftVoiceWindowToConnection,
   voiceRouteExpired,
   voiceRouteFailure,
   voiceRouteValidationFailure,
@@ -78,6 +79,32 @@ function toRecap(messages: readonly SessionMessageRecord[]) {
 function isWithinVoiceDeadlineReserve(session: { expiresAt: string | null }, now: Date) {
   const expiresAtMs = parseTimestampMs(session.expiresAt);
   return expiresAtMs !== null && expiresAtMs - now.getTime() <= VOICE_DEADLINE_RESERVE_MS;
+}
+
+/**
+ * Zapis pierwszego połączenia i wiersz po nim: trigger metadanych przesuwa
+ * wtedy start i termin rozmowy na chwilę połączenia. Gdy inna karta zapisała
+ * połączenie chwilę wcześniej, jej zapis przesunął już zegar — czytamy wiersz
+ * jeszcze raz. `null` = nie wiadomo, jaki termin obowiązuje (sesja live do
+ * rozłączenia).
+ */
+async function markFirstVoiceConnection(
+  context: SessionDataContext,
+  session: SessionMetadata,
+  now: Date,
+): Promise<SessionMetadata | null> {
+  const marked = await markVoiceSessionConnected(context, session.id, now.toISOString());
+
+  if (!marked.ok) {
+    return null;
+  }
+
+  if (marked.data) {
+    return marked.data;
+  }
+
+  const current = await getOwnedSessionMetadata(context, session.id);
+  return current.ok && current.data.status === "active" ? current.data : null;
 }
 
 async function hangupQuietly(apiKey: string, liveSessionId: string) {
@@ -183,7 +210,7 @@ export const POST: APIRoute = async (context) => {
   // Pula przed płatną sesją, także przy wznowieniu: rozmowę da się założyć
   // z pominięciem `start-next` albo zacząć kilka naraz. Mniejsza reszta puli
   // niż termin rozmowy przycina termin obserwatora (`expires_at` w bazie jest
-  // zamrożone od startu).
+  // zamrożone od pierwszego połączenia).
   const allowance = await resolveVoiceConnectAllowance(sessionContext.data, session, { expiresAtMs, now });
 
   if (!allowance.ok) {
@@ -213,7 +240,19 @@ export const POST: APIRoute = async (context) => {
   // Pusty zapis = pierwsze połączenie tej rozmowy (powitanie); wznowienie
   // dostaje ogrodzony zapis dotychczasowych wypowiedzi zamiast powitania.
   const opening = recentMessages.data.length === 0;
-  const sessionPhase = resolveSessionPhase(session, { now, priorMessageCount: recentMessages.data.length });
+  // Pula minut i próba liczą się od pierwszego udanego połączenia; wznowienie
+  // tej samej rozmowy nie przesuwa go (`null → wartość` tylko raz).
+  const reconnected = typeof session.voiceConnectedAt === "string";
+  // Przy pierwszym połączeniu zegar rozmowy dopiero rusza (baza przesunie start
+  // i termin przy zapisie połączenia), więc faza liczy się z okna od teraz, a
+  // nie z czasu, który upłynął przed włączeniem mikrofonu.
+  const sessionPhase = resolveSessionPhase(
+    reconnected ? session : shiftVoiceWindowToConnection(session, now.getTime()),
+    {
+      now,
+      priorMessageCount: recentMessages.data.length,
+    },
+  );
   const providerEnv = getAiProviderEnv();
   const apiKey = providerEnv.apiKey ?? "";
 
@@ -247,26 +286,33 @@ export const POST: APIRoute = async (context) => {
     return jsonResponse(voiceRouteFailure("voice_provider_unavailable", category));
   }
 
-  // Pula minut liczy się od pierwszego udanego połączenia; wznowienie tej
-  // samej rozmowy nie przesuwa go (`null → wartość` tylko raz).
-  const reconnected = typeof session.voiceConnectedAt === "string";
-  const marked = reconnected
-    ? { ok: true as const }
-    : await markVoiceSessionConnected(sessionContext.data, session.id, now.toISOString());
+  // Pierwsze połączenie przesuwa w bazie start i termin rozmowy na tę chwilę
+  // (długość bez zmian), więc termin obserwatora i timer klienta liczą się z
+  // wiersza po zapisie: `min(nowy expires_at, teraz + reszta puli)`.
+  // Wznowienie zostaje przy terminie policzonym przed sesją live.
+  const connectedSession = reconnected ? session : await markFirstVoiceConnection(sessionContext.data, session, now);
 
-  if (!marked.ok) {
+  if (!connectedSession) {
     await hangupQuietly(apiKey, liveSessionId);
     logConnect("failure", undefined, 503);
     return jsonResponse(voiceRouteFailure("voice_connect_failed"));
   }
+
+  const respondedAt = new Date();
+  const deadlineAtMs = reconnected
+    ? allowance.deadlineAtMs
+    : Math.min(
+        parseTimestampMs(connectedSession.expiresAt) ?? allowance.deadlineAtMs,
+        respondedAt.getTime() + allowance.remainingSeconds * 1000,
+      );
 
   let epoch: number;
 
   try {
     const armed = await observer.arm({
       liveSessionId,
-      startedAtMs: parseTimestampMs(session.startedAt) ?? now.getTime(),
-      expiresAtMs: allowance.deadlineAtMs,
+      startedAtMs: parseTimestampMs(connectedSession.startedAt) ?? respondedAt.getTime(),
+      expiresAtMs: deadlineAtMs,
       locale,
       avatarName: modality.avatarFirstName,
     });
@@ -279,17 +325,18 @@ export const POST: APIRoute = async (context) => {
   }
 
   logConnect("success", reconnected ? "reconnected" : undefined, 200);
-  // Timer klienta idzie za terminem obserwatora, nie za zamrożonym `expires_at`.
-  const connectedSession = withVoiceDeadline(session, allowance.deadlineAtMs);
+  // Timer klienta idzie za terminem obserwatora, nie za zamrożonym `expires_at`;
+  // po pierwszym połączeniu rusza od pełnej długości rozmowy.
+  const viewedSession = withVoiceDeadline(connectedSession, deadlineAtMs);
 
   return jsonResponse({
     ok: true,
     type: "voice_connected",
     sdp: answerSdp,
-    expiresAt: connectedSession.expiresAt,
-    serverNow: now.toISOString(),
+    expiresAt: viewedSession.expiresAt,
+    serverNow: respondedAt.toISOString(),
     epoch,
     reconnected,
-    session: toSessionView(connectedSession, now),
+    session: toSessionView(viewedSession, respondedAt),
   });
 };

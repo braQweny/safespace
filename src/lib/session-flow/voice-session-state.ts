@@ -4,7 +4,7 @@ import { isTerminalSessionKind, type UiSessionMessage } from "./message-state";
 import type { SessionNoticeState } from "./session-notice";
 import type { SessionStartPageState, SessionView } from "./session-state";
 import { toSessionStartPageStateKind, type SessionStartPageStateKind } from "./session-state-kind";
-import type { VoiceHeartbeatSuccessResponse } from "./voice-contract";
+import { isVoiceAwaitingFirstConnection, type VoiceHeartbeatSuccessResponse } from "./voice-contract";
 import {
   createVoiceTranscriptState,
   flushAllVoiceUtterances,
@@ -112,6 +112,33 @@ const CONNECTED_STATUSES: readonly VoiceConnectionStatus[] = ["live", "paused_sa
 
 export function isVoiceConnected(status: VoiceConnectionStatus) {
   return CONNECTED_STATUSES.includes(status);
+}
+
+/**
+ * Trwająca rozmowa głosowa bez ani jednego połączenia audio: zegar jeszcze nie
+ * ruszył (baza przesunie start i termin przy pierwszym połączeniu), więc
+ * nagłówek pokazuje pełną długość zamiast odliczania.
+ */
+export function isAwaitingFirstVoiceConnection(state: Pick<VoiceSessionUiState, "kind" | "session">) {
+  return state.kind === "active" && isVoiceAwaitingFirstConnection(state.session);
+}
+
+/**
+ * Rozmowa głosowa zakończona (termin, „Zakończ”) bez połączenia audio: ani
+ * próba, ani minuty puli nie zostały zużyte, a ekran mówi to zamiast „czas
+ * minął”. Kryzys wymaga połączenia, więc `interrupted` tu nie trafia.
+ */
+export function hasVoiceEndedUnconnected(state: Pick<VoiceSessionUiState, "kind" | "session">) {
+  return (state.kind === "expired" || state.kind === "completed") && isVoiceAwaitingFirstConnection(state.session);
+}
+
+/**
+ * Powiadomienie „czas rozmowy minął” nie pasuje do rozmowy, która się nie
+ * zaczęła: wtedy mówi karta zamknięcia (nic nie przepadło), bez drugiego
+ * komunikatu nad nią.
+ */
+function expiredNotice(session: SessionView | null, notice: SessionNoticeState | null) {
+  return isVoiceAwaitingFirstConnection(session) ? null : notice;
 }
 
 /** Heartbeat biegnie, dopóki po naszej stronie połączenie ma sens (także podczas ponownego łączenia). */
@@ -262,7 +289,12 @@ function resolveHeartbeatState(
         notice: response.notice?.variant === "hard_stop" ? response.notice : state.notice,
       });
     case "time_limit_reached":
-      return endedState(base, { status: "ended", kind: "expired", isClientExpired: true, notice: notices.expired });
+      return endedState(base, {
+        status: "ended",
+        kind: "expired",
+        isClientExpired: true,
+        notice: expiredNotice(base.session, notices.expired),
+      });
     case "voice_disabled":
       return endedState(base, { status: "ended", kind: "completed", notice: notices.disabled });
     case "reconnected":
@@ -368,7 +400,12 @@ export function voiceSessionReducer(state: VoiceSessionUiState, action: VoiceSes
         notice: action.notice ?? state.notice,
       });
     case "client_expired":
-      return endedState(state, { status: "ended", kind: "expired", isClientExpired: true });
+      return endedState(state, {
+        status: "ended",
+        kind: "expired",
+        isClientExpired: true,
+        notice: expiredNotice(state.session, state.notice),
+      });
     case "end_requested":
       return { ...state, isEnding: true, notice: null };
     case "end_succeeded":
@@ -389,7 +426,7 @@ export function voiceSessionReducer(state: VoiceSessionUiState, action: VoiceSes
         kind: "expired",
         session: action.session,
         isClientExpired: true,
-        notice: action.notice,
+        notice: expiredNotice(action.session, action.notice),
       });
     case "hard_stopped":
       return endedState(state, { status: "hard_stop", kind: "interrupted", notice: action.notice });

@@ -485,7 +485,16 @@ describe("voice sessions in the start page state", () => {
 
   it("marks the view with the voice mode only for voice sessions", () => {
     expect(toSessionView(activeSession, now)).not.toHaveProperty("mode");
+    expect(toSessionView(activeSession, now)).not.toHaveProperty("voiceConnected");
     expect(toSessionView(voiceActive, now)).toMatchObject({ mode: "voice", status: "active" });
+  });
+
+  it("tells the client whether a voice session has connected yet, never when", () => {
+    // Before the first connection its clock stands still and nothing of the trial is used.
+    expect(toSessionView({ ...voiceActive, voiceConnectedAt: null }, now)).toMatchObject({ voiceConnected: false });
+    const connected = toSessionView({ ...voiceActive, voiceConnectedAt: "2026-06-07T09:59:00.000Z" }, now);
+    expect(connected).toMatchObject({ voiceConnected: true });
+    expect(JSON.stringify(connected)).not.toContain("09:59:00");
   });
 
   it("reconciles an active voice session with its observer before showing it, on both read paths", async () => {

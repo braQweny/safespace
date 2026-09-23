@@ -6,7 +6,10 @@ import { VOICE_DEADLINE_RESERVE_MS } from "@/lib/voice/constants";
 
 /**
  * Pula rozmów głosowych. Konto free: jedna próba (bucket 600 s), której
- * bramką jest trigger limitu (`P0016`); tu tylko odczyt pre-flight. Konto
+ * bramką jest trigger limitu (`P0016`); tu tylko odczyt pre-flight. Próbę
+ * zużywa pierwsze udane połączenie audio, nie start: rozmowa zakończona bez
+ * mikrofonu jej nie zabiera, a trwająca trzyma ją do połączenia albo terminu
+ * (`countOwnedVoiceSessions` liczy tak jak trigger). Konto
  * premium: miesięczna pula sekund liczona od `voice_connected_at` każdej
  * rozmowy głosowej w bieżącym miesiącu UTC. Sekundy liczy baza
  * (`get_owned_voice_usage`, bez limitu wierszy, znaczniki czasu nadaje
@@ -93,8 +96,9 @@ export interface ReadVoiceQuotaOptions {
 
 /**
  * Pre-flight widoku puli głosowej dla panelu, konta i startu. Konto free
- * czyta tylko licznik rozmów głosowych; premium — zużycie z bieżącego miesiąca
- * razem z rezerwą trwających rozmów.
+ * czyta tylko licznik rozmów głosowych, które trzymają próbę (połączone albo
+ * trwające); premium — zużycie z bieżącego miesiąca razem z rezerwą
+ * trwających rozmów.
  */
 export async function readVoiceQuota(
   context: SessionDataContext,
@@ -129,7 +133,7 @@ export async function readVoiceQuota(
     };
   }
 
-  const owned = await repository.countOwnedVoiceSessions(context);
+  const owned = await repository.countOwnedVoiceSessions(context, now);
 
   if (!owned.ok) {
     return owned;
@@ -172,8 +176,11 @@ export interface VoiceConnectAllowanceInput {
  * niż rezerwa terminu obserwatora (15 s) to odmowa: obserwator rozłącza tyle
  * przed terminem, więc płatna sesja live zostałaby rozłączona od razu.
  * Mniejsza reszta niż termin rozmowy przycina termin obserwatora, bo
- * `expires_at` w bazie jest zamrożone od startu. Dla pojedynczej rozmowy
- * zaczętej przez `start-next` reszta nigdy nie jest krótsza niż jej termin.
+ * `expires_at` w bazie jest zamrożone (od pierwszego połączenia, które
+ * przesuwa zegar rozmowy). Dla pojedynczej rozmowy zaczętej przez
+ * `start-next` reszta nigdy nie jest krótsza niż jej termin. `remainingSeconds`
+ * zostaje w wyniku: przy pierwszym połączeniu `connect` liczy termin
+ * obserwatora ponownie, z przesuniętego `expires_at`.
  */
 export function toVoiceConnectAllowance(input: VoiceConnectAllowanceInput): VoiceConnectAllowance {
   const limitSeconds = Math.max(0, Math.trunc(input.limitSeconds));
@@ -205,8 +212,10 @@ export interface ReadVoiceConnectAllowanceOptions {
  * Konto premium i każda rozmowa z bucketem premium (aktywować ją mogło tylko
  * konto premium, więc odebranie planu w trakcie nie wyłącza jej z puli) liczą
  * się do miesięcznej puli. Rozmowa konta free z bucketem próby dostaje łącznie
- * 600 s w całej historii konta: wiersz założony bezpośrednio przez PostgREST
- * albo zapas wierszy z czasów premium nie otwiera kolejnych minut.
+ * 600 s w całej historii konta: wiersz założony bezpośrednio przez PostgREST,
+ * kilka niepołączonych wierszy (próbę zużywa dopiero połączenie, więc trigger
+ * ich nie blokuje, gdy poprzedni skończył się bez mikrofonu) albo zapas
+ * wierszy z czasów premium nie otwiera kolejnych minut.
  */
 export async function readVoiceConnectAllowance(
   context: SessionDataContext,
