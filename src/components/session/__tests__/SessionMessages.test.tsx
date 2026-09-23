@@ -170,4 +170,20 @@ describe("SessionMessages with live voice fragments", () => {
     expect(onlyPreview).toContain("Cześć");
     expect(onlyPreview).not.toContain("Pusto");
   });
+
+  it("keeps the log role but stays silent over the avatar's voice", () => {
+    // Heartbeat co 20 s zamienia podgląd w zapisane wiersze; odczytane na głos
+    // nakładałyby się na mowę awatara.
+    const html = renderToStaticMarkup(
+      <SessionMessages
+        variant="live"
+        announcesMessages={false}
+        assistantAvatar={assistantAvatar}
+        messages={[assistantMessage]}
+      />,
+    );
+
+    expect(html).toMatch(/role="log" aria-live="off" aria-label="Przebieg rozmowy"/);
+    expect(html).not.toContain('aria-live="polite"');
+  });
 });

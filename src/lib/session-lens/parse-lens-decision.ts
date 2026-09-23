@@ -1,4 +1,4 @@
-import { isRecord } from "@/lib/type-guards";
+import { parseStrictJsonObject, readCompleteChoiceContent, readUsage } from "@/lib/ai-provider/chat-response";
 import { SESSION_LENS_LABELS } from "./classifier-prompt";
 import { SessionLensProviderError, type ProviderLensDecision, type ProviderLensLabel } from "./types";
 
@@ -10,8 +10,10 @@ const DECISION_KEYS = new Set(["lens"]);
  * `detectSessionLens` zamienia każdy błąd na brak soczewki, nigdy na blokadę.
  */
 export function parseProviderLensDecision(response: unknown): ProviderLensDecision {
-  const content = extractFirstChoiceContent(response);
-  const decision = parseDecisionContent(content);
+  // Ucięta lub odfiltrowana odpowiedź nie niesie etykiety, na której można
+  // polegać — `readCompleteChoiceContent` ją odrzuca.
+  const content = readCompleteChoiceContent(response, throwInvalidProviderResponse);
+  const decision = parseStrictJsonObject(content, throwInvalidProviderResponse);
 
   return { lens: parseProviderLensDecisionObject(decision), ...pickUsage(response) };
 }
@@ -29,54 +31,9 @@ export function parseProviderLensDecisionObject(decision: Record<string, unknown
   throwInvalidProviderResponse();
 }
 
-function extractFirstChoiceContent(response: unknown) {
-  if (!isRecord(response) || !Array.isArray(response.choices) || response.choices.length === 0) {
-    throwInvalidProviderResponse();
-  }
-
-  const firstChoice: unknown = response.choices[0];
-  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
-    throwInvalidProviderResponse();
-  }
-
-  // Ucięta lub odfiltrowana odpowiedź nie niesie etykiety, na której można
-  // polegać. SDK normalizuje pole do `finishReason`; surowy kształt też odpada.
-  for (const finishReason of [firstChoice.finishReason, firstChoice.finish_reason]) {
-    if (finishReason === "length" || finishReason === "content_filter" || finishReason === "tool_calls") {
-      throwInvalidProviderResponse();
-    }
-  }
-
-  const { content } = firstChoice.message;
-  if (typeof content !== "string" || content.trim().length === 0) {
-    throwInvalidProviderResponse();
-  }
-
-  return content;
-}
-
-function parseDecisionContent(content: string) {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throwInvalidProviderResponse();
-  }
-
-  if (!isRecord(parsed)) {
-    throwInvalidProviderResponse();
-  }
-
-  return parsed;
-}
-
 function pickUsage(response: unknown): Pick<ProviderLensDecision, "usage"> {
-  if (!isRecord(response) || !isRecord(response.usage)) {
-    return {};
-  }
-
-  const promptTokens = toUnitCount(response.usage.promptTokens ?? response.usage.prompt_tokens);
-  const completionTokens = toUnitCount(response.usage.completionTokens ?? response.usage.completion_tokens);
+  // Soczewka loguje tylko jednostki wejścia i wyjścia, bez sumy.
+  const { promptTokens, completionTokens } = readUsage(response) ?? {};
   if (promptTokens === undefined && completionTokens === undefined) {
     return {};
   }
@@ -87,10 +44,6 @@ function pickUsage(response: unknown): Pick<ProviderLensDecision, "usage"> {
       ...(completionTokens !== undefined ? { completionTokens } : {}),
     },
   };
-}
-
-function toUnitCount(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
 }
 
 function throwInvalidProviderResponse(): never {

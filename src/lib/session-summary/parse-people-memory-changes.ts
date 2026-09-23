@@ -1,7 +1,7 @@
 import type { ChatResult } from "@openrouter/sdk/models";
+import { parseStrictJsonObject, readCompleteChoiceContent } from "@/lib/ai-provider/chat-response";
 import { isRecord } from "@/lib/type-guards";
 import { SessionSummaryError } from "./errors";
-import { assertCompleteSummaryResponse } from "./provider-response";
 import {
   PEOPLE_FACT_MAX_CHARS,
   PEOPLE_NAME_MAX_CHARS,
@@ -79,10 +79,9 @@ const DIFFICULTY_ENTRY_KEYS = new Set([
 const DIFFICULTY_REPLACEMENT_KEYS = new Set(["entryRef", "kind", "text", "effect", "conversationIndex"]);
 
 export function parsePeopleMemoryChanges(response: ChatResult, index: PeopleMemoryRefIndex): PeopleMemoryChanges {
-  assertCompleteSummaryResponse(response);
-  const content = extractFirstChoiceContent(response);
+  const content = readCompleteChoiceContent(response, throwInvalidProviderResponse);
 
-  return parsePeopleMemoryChangesObject(parseJsonObject(content), index);
+  return parsePeopleMemoryChangesObject(parseStrictJsonObject(content, throwInvalidProviderResponse), index);
 }
 
 export function parsePeopleMemoryChangesObject(
@@ -507,26 +506,6 @@ function parseConversationIndexes(value: unknown, index: PeopleMemoryRefIndex) {
 
 function isKnownConversation(conversationIndex: number, index: PeopleMemoryRefIndex) {
   return conversationIndex >= 1 && conversationIndex <= index.conversationCount;
-}
-
-function extractFirstChoiceContent(response: ChatResult) {
-  if (response.choices.length === 0) throwInvalidProviderResponse();
-  const content: unknown = response.choices[0].message.content;
-  if (typeof content !== "string" || content.trim().length === 0) throwInvalidProviderResponse();
-
-  return content;
-}
-
-function parseJsonObject(content: string) {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throwInvalidProviderResponse();
-  }
-  if (!isRecord(parsed)) throwInvalidProviderResponse();
-
-  return parsed;
 }
 
 function rejectUnknownKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>) {

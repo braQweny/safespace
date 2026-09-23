@@ -1,117 +1,34 @@
 import type { APIRoute } from "astro";
-import { getRequestLocale } from "@/lib/i18n/request-locale";
-import { readCurrentAvatarChoice, type CurrentAvatarChoiceErrorCode } from "@/lib/session-flow/avatar-choice";
-import { requireSessionRouteAccess, type SessionRouteAccessFailureCode } from "@/lib/session-flow/route-access";
-import { toSessionView } from "@/lib/session-flow/session-state";
 import { resolveSessionDurationSeconds } from "@/lib/session-flow/session-budget";
-import { claimFreeTrialSession, readSessionQuota, readTrialAvailability } from "@/lib/session-data/quota";
-import { transitionSessionLifecycle } from "@/lib/session-data/repository";
+import { claimFreeTrialSession, readTrialAvailability } from "@/lib/session-data/quota";
 import type { SessionDataErrorCode } from "@/lib/session-data/errors";
-import { logOperationalEvent } from "@/lib/operational-visibility/logger";
-import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
+import { readSessionStartRequestBody } from "@/lib/session-flow/session-start-request";
 import {
-  buildSessionOpeningFailedEvent,
-  buildSessionStartAttemptedEvent,
-  type SessionStartReasonCode,
-} from "@/lib/operational-visibility/session-events";
-import { createSessionOpeningMessage } from "@/lib/session-flow/session-opening";
-import type { SessionMessageViewModel } from "@/lib/session-flow/message-contract";
-import {
-  readSessionStartRequestBody,
-  resolveAboutDifficultyForStart,
-  resolveAboutPersonForStart,
-} from "@/lib/session-flow/session-start-request";
+  beginSessionStart,
+  completeSessionStart,
+  failSessionLimitReached,
+  openSessionStartWindow,
+  readSessionStartQuota,
+  resolveSessionStartTopics,
+  START_FAILED_REDIRECT,
+  START_UNAVAILABLE_REDIRECT,
+} from "@/lib/session-flow/session-start-route";
 
 export const prerender = false;
 
-type StartFailureCode =
-  | SessionDataErrorCode
-  | "account_blocked"
-  | "account_access_unavailable"
-  | CurrentAvatarChoiceErrorCode
-  | "trial_unavailable"
-  | "session_quota_unavailable"
-  | "validation_failed"
-  | "session_start_failed";
+type StartFailureCode = SessionDataErrorCode | "trial_unavailable";
 
-const SESSION_LIMIT_REDIRECT = "/dashboard?start=limit_reached";
-
-function wantsJson(request: Request) {
-  return request.headers.get("Accept")?.toLowerCase().includes("application/json") ?? false;
-}
-
-function jsonResponse(body: Record<string, unknown>, status: number) {
-  return Response.json(body, { status });
-}
-
-function redirectResponse(context: Parameters<APIRoute>[0], path: string) {
-  return context.redirect(path, 303);
-}
-
-function addSeconds(date: Date, seconds: number) {
-  return new Date(date.getTime() + seconds * 1000);
-}
-
-function logStartAttempt(
-  outcome: "success" | "failure" | "blocked",
-  status: number,
-  startedAtMs: number,
-  operationalContext: Awaited<ReturnType<typeof buildOperationalRequestContext>>,
-  reasonCode: SessionStartReasonCode = "session_start_failed",
-) {
-  logOperationalEvent(
-    {
-      ...buildSessionStartAttemptedEvent({
-        outcome,
-        reasonCode: outcome === "success" ? undefined : reasonCode,
-        durationMs: getOperationalDurationMs(startedAtMs),
-      }),
-      status,
-    },
-    operationalContext,
-  );
-}
-
-function failureResponse(context: Parameters<APIRoute>[0], code: StartFailureCode, status: number, redirectTo: string) {
-  if (!wantsJson(context.request)) {
-    return redirectResponse(context, redirectTo);
-  }
-
-  return jsonResponse(
-    {
-      ok: false,
-      code,
-      redirectTo,
-    },
-    status,
-  );
-}
-
-function getAccountAccessRedirect(code: SessionRouteAccessFailureCode) {
-  return code === "account_blocked" ? "/account/blocked" : "/account/blocked?state=unavailable";
-}
+const TRIAL_USED_REDIRECT = "/dashboard/session?trial=used";
 
 export const POST: APIRoute = async (context) => {
-  const startedAtMs = performance.now();
-  const operationalContext = await buildOperationalRequestContext(context);
-  const sessionContext = await requireSessionRouteAccess(context);
+  const start = await beginSessionStart<StartFailureCode>(context);
 
-  if (!sessionContext.ok) {
-    const { code, status, source } = sessionContext.error;
-    const fromSessionContext = source === "session_context";
-    logStartAttempt(fromSessionContext ? "failure" : "blocked", status, startedAtMs, operationalContext);
-
-    return failureResponse(context, code, status, fromSessionContext ? "/auth/signin" : getAccountAccessRedirect(code));
+  if (!start.ok) {
+    return start.response;
   }
 
-  const avatarChoice = await readCurrentAvatarChoice(sessionContext.data);
-
-  if (!avatarChoice.ok) {
-    const status = avatarChoice.error.code === "missing_avatar" ? 409 : 503;
-    logStartAttempt("blocked", status, startedAtMs, operationalContext);
-
-    return failureResponse(context, avatarChoice.error.code, status, "/dashboard/avatar");
-  }
+  const scope = start.data;
+  const { respond } = scope;
 
   // Pierwsza rozmowa nie ma jeszcze kart ani mapy, więc `aboutPersonId` i
   // `aboutDifficultyId` mogą tu tylko przejść walidację (cudza albo
@@ -120,84 +37,45 @@ export const POST: APIRoute = async (context) => {
 
   // Rozmowa głosowa nigdy nie jest próbą tekstową: start głosowy idzie
   // wyłącznie przez `start-next` (własne pule, bez `claim_free_trial_session`).
-  if (startRequest.ok && startRequest.mode === "voice") {
-    logStartAttempt("failure", 400, startedAtMs, operationalContext);
-
-    return failureResponse(context, "validation_failed", 400, "/dashboard");
+  if (!startRequest.ok || startRequest.mode === "voice") {
+    return respond.fail("failure", "validation_failed", 400, "/dashboard");
   }
 
-  const aboutPerson = startRequest.ok
-    ? await resolveAboutPersonForStart(
-        sessionContext.data,
-        startRequest.aboutPersonId,
-        avatarChoice.data.modality.avatarId,
-      )
-    : { ok: false as const, code: "validation_failed" as const };
+  const topics = await resolveSessionStartTopics(scope, startRequest);
 
-  if (!aboutPerson.ok) {
-    const status = aboutPerson.code === "validation_failed" ? 400 : 503;
-    logStartAttempt("failure", status, startedAtMs, operationalContext);
-
-    return failureResponse(context, aboutPerson.code, status, "/dashboard");
+  if (!topics.ok) {
+    return topics.response;
   }
 
-  const aboutDifficulty = startRequest.ok
-    ? await resolveAboutDifficultyForStart(
-        sessionContext.data,
-        startRequest.aboutDifficultyId,
-        avatarChoice.data.modality.avatarId,
-      )
-    : { ok: false as const, code: "validation_failed" as const };
-
-  if (!aboutDifficulty.ok) {
-    const status = aboutDifficulty.code === "validation_failed" ? 400 : 503;
-    logStartAttempt("failure", status, startedAtMs, operationalContext);
-
-    return failureResponse(context, aboutDifficulty.code, status, "/dashboard");
-  }
-
-  // Pre-flight only: the insert trigger on therapy_sessions is the real gate,
-  // this keeps the response honest without a round trip that is bound to fail.
-  const quota = await readSessionQuota(sessionContext.data);
+  const quota = await readSessionStartQuota(scope);
 
   if (!quota.ok) {
-    logStartAttempt("failure", 503, startedAtMs, operationalContext);
-
-    return failureResponse(context, "session_quota_unavailable", 503, "/dashboard/session?start=unavailable");
+    return quota.response;
   }
 
   if (!quota.data.canStartSession) {
-    logStartAttempt("blocked", 403, startedAtMs, operationalContext, "session_limit_reached");
-
-    return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
+    return failSessionLimitReached(respond);
   }
 
-  const availability = await readTrialAvailability(sessionContext.data);
+  const availability = await readTrialAvailability(scope.sessionData);
 
   if (!availability.ok) {
-    logStartAttempt("failure", 503, startedAtMs, operationalContext);
-
-    return failureResponse(context, "trial_unavailable", 503, "/dashboard/session?start=unavailable");
+    return respond.fail("failure", "trial_unavailable", 503, START_UNAVAILABLE_REDIRECT);
   }
 
   if (!availability.data.isAvailable) {
-    logStartAttempt("blocked", 409, startedAtMs, operationalContext);
-
-    return failureResponse(context, "trial_already_claimed", 409, "/dashboard/session?trial=used");
+    return respond.fail("blocked", "trial_already_claimed", 409, TRIAL_USED_REDIRECT);
   }
 
   // Pinned at start from the plan read above, so a grant or revoke mid-session
   // never stretches or cuts a conversation already under way.
   const durationSeconds = resolveSessionDurationSeconds(quota.data.plan);
-  const startedAt = new Date();
-  const expiresAt = addSeconds(startedAt, durationSeconds);
-  const startedAtIso = startedAt.toISOString();
-  const expiresAtIso = expiresAt.toISOString();
-  const claim = await claimFreeTrialSession(sessionContext.data, {
-    startedAt: startedAtIso,
-    expiresAt: expiresAtIso,
-    modalityId: avatarChoice.data.modality.modalityId,
-    avatarId: avatarChoice.data.modality.avatarId,
+  const window = openSessionStartWindow(durationSeconds);
+  const claim = await claimFreeTrialSession(scope.sessionData, {
+    startedAt: window.startedAtIso,
+    expiresAt: window.expiresAtIso,
+    modalityId: scope.avatarChoice.modality.modalityId,
+    avatarId: scope.avatarChoice.modality.avatarId,
     durationBucketSeconds: durationSeconds,
   });
 
@@ -205,67 +83,19 @@ export const POST: APIRoute = async (context) => {
     // Race-time outcome of the database gate: another request of the same
     // owner used the last free slot between the pre-flight and the claim.
     if (claim.error.code === "session_limit_reached") {
-      logStartAttempt("blocked", 403, startedAtMs, operationalContext, "session_limit_reached");
-
-      return failureResponse(context, "session_limit_reached", 403, SESSION_LIMIT_REDIRECT);
+      return failSessionLimitReached(respond);
     }
 
-    const status = claim.error.code === "trial_already_claimed" ? 409 : 500;
-    logStartAttempt(status === 409 ? "blocked" : "failure", status, startedAtMs, operationalContext);
-
-    return failureResponse(
-      context,
-      claim.error.code,
-      status,
-      status === 409 ? "/dashboard/session?trial=used" : "/dashboard/session?start=failed",
-    );
+    return claim.error.code === "trial_already_claimed"
+      ? respond.fail("blocked", claim.error.code, 409, TRIAL_USED_REDIRECT)
+      : respond.fail("failure", claim.error.code, 500, START_FAILED_REDIRECT);
   }
 
-  const activeSession = await transitionSessionLifecycle(sessionContext.data, {
+  return completeSessionStart(scope, {
     sessionId: claim.data.session.id,
-    nextStatus: "active",
-    startedAt: startedAtIso,
-    expiresAt: expiresAtIso,
+    window,
     durationBucketSeconds: durationSeconds,
+    withOpening: true,
+    successRedirect: "/dashboard/session?started=1",
   });
-
-  if (!activeSession.ok) {
-    logStartAttempt("failure", 500, startedAtMs, operationalContext);
-
-    return failureResponse(context, "session_start_failed", 500, "/dashboard/session?start=failed");
-  }
-
-  logStartAttempt("success", 201, startedAtMs, operationalContext);
-
-  // Generated and persisted before the response so the composer cannot race the
-  // opening message; any failure here degrades to a session without an opening.
-  const opening = await createSessionOpeningMessage(sessionContext.data, activeSession.data, {
-    locale: getRequestLocale(context.locals),
-  });
-
-  if (!opening.ok) {
-    logOperationalEvent(
-      buildSessionOpeningFailedEvent({
-        reasonCode: opening.failure,
-        durationMs: getOperationalDurationMs(startedAtMs),
-      }),
-      operationalContext,
-    );
-  }
-
-  const openingMessage: SessionMessageViewModel | undefined =
-    opening.ok && opening.message ? opening.message : undefined;
-
-  if (!wantsJson(context.request)) {
-    return redirectResponse(context, "/dashboard/session?started=1");
-  }
-
-  return jsonResponse(
-    {
-      ok: true,
-      session: toSessionView(activeSession.data, startedAt),
-      ...(openingMessage ? { openingMessage } : {}),
-    },
-    201,
-  );
 };

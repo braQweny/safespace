@@ -29,6 +29,7 @@ Astro.response.headers.set("Cache-Control", "no-store");
         <h1 class="text-ink mt-3 text-4xl leading-tight">{copy.title}</h1>
         <BillingPanel
           locale={locale}
+          timeZone={Astro.locals.timeZone}
           initialStatus={status}
           checkoutReturn={checkoutReturn}
           errorCode={Astro.url.searchParams.get("error")}

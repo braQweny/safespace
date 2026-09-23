@@ -6,6 +6,7 @@ import type { SessionDataContext, SessionId, SessionMessageRecord, SessionMetada
 import { SessionSummaryError } from "@/lib/session-summary/errors";
 import type { SessionSummaryProvider } from "@/lib/session-summary/provider";
 import type { GenerateSessionSummaryInput, SessionSummaryResponse } from "@/lib/session-summary/types";
+import { isPastDeadline } from "./session-clock";
 
 const SUMMARY_SOURCE_MESSAGE_LIMIT = 40;
 const SUMMARY_SOURCE_MESSAGE_CHARS = 1_200;
@@ -67,13 +68,7 @@ function compareMessagesBySequence(left: SessionMessageRecord, right: SessionMes
 }
 
 function isActiveSessionPastExpiry(session: Pick<SessionMetadata, "status" | "expiresAt">, now: Date) {
-  if (session.status !== "active" || !session.expiresAt) {
-    return false;
-  }
-
-  const expiresAt = Date.parse(session.expiresAt);
-
-  return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
+  return session.status === "active" && isPastDeadline(session.expiresAt, now.getTime());
 }
 
 function isSessionSummarizable(session: SessionMetadata, now: Date) {

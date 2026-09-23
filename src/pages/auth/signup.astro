@@ -2,6 +2,7 @@
 import AppHeader from "@/components/AppHeader.astro";
 import Layout from "@/layouts/Layout.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import { BLOCK_OUTLINE_AUTH } from "@/components/ui/button-styles";
 import SignUpForm from "@/components/auth/SignUpForm";
 import { getAuthErrorMessageFromSearchParam } from "@/lib/auth-errors";
 import { SOCIAL_AUTH_PROVIDERS } from "@/lib/auth-providers";
@@ -34,10 +35,7 @@ if (shouldRedirectToDashboard) {
             <div class="space-y-3">
               {SOCIAL_AUTH_PROVIDERS.map(({ provider }) => (
                 <form method="POST" action="/api/auth/google" data-provider={provider}>
-                  <button
-                    type="submit"
-                    class="border-line-accent text-brand-deep hover:bg-surface-soft focus-visible:ring-brand-ring bg-surface flex h-12 w-full items-center justify-center gap-3 rounded-[14px] border px-4 text-[15px] font-medium transition-colors focus:outline-none focus-visible:ring-2"
-                  >
+                  <button type="submit" class:list={BLOCK_OUTLINE_AUTH}>
                     <span class="text-brand border-line-strong flex size-6 items-center justify-center rounded-full border text-sm font-semibold">
                       G
                     </span>

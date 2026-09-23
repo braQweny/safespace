@@ -345,6 +345,59 @@ describe("VoiceObserverCore", () => {
     expect(second.mocks.classify).not.toHaveBeenCalled();
   });
 
+  it("drops the drained tail after a terminal close but keeps it for a conversation that can resume", async () => {
+    const harness = createHarness();
+    await harness.arm();
+    harness.speak("user", "Pierwsze", 1000);
+    harness.speak("assistant", "Mhm", 3000);
+    await harness.advance(1300);
+    const first = await harness.core.drain();
+    await harness.core.ack(first.utterances.map((row) => row.ordinal));
+    expect(harness.store.rows).toHaveLength(2);
+
+    // Heartbeat loss can be followed by a reconnect: the tail stays as classifier context.
+    await harness.advance(VOICE_HEARTBEAT_GRACE_MS);
+    await harness.core.alarm();
+    await expect(harness.core.getState()).resolves.toMatchObject({ closeReason: "heartbeat_lost" });
+    expect(harness.store.rows).toHaveLength(2);
+
+    const ended = createHarness();
+    await ended.arm();
+    ended.speak("user", "Zapisane", 1000);
+    await ended.advance(1300);
+    const saved = await ended.core.drain();
+    await ended.core.ack(saved.utterances.map((row) => row.ordinal));
+    ended.speak("assistant", "Jeszcze niezapisane", 5000);
+    await ended.core.hangupNow("completed");
+
+    // Saved rows leave the object; the last unsaved one waits for the drain window.
+    expect(ended.store.rows.map((row) => row.content)).toEqual(["Jeszcze niezapisane"]);
+    const late = await ended.core.drain();
+    await ended.core.ack(late.utterances.map((row) => row.ordinal));
+    expect(ended.store.rows).toEqual([]);
+  });
+
+  it("erases on account deletion: hangs the live session up, then purges state, buffer and alarm", async () => {
+    const harness = createHarness();
+    await harness.arm();
+    harness.speak("user", "Coś prywatnego", 1000);
+    await harness.advance(1300);
+
+    await harness.core.erase();
+
+    expect(harness.mocks.hangup).toHaveBeenCalledWith(LIVE_ID);
+    expect(harness.store.rows).toEqual([]);
+    expect(harness.store.loadState()).toBeNull();
+    expect(harness.lastAlarm()).toBeNull();
+    await expect(harness.core.getState()).resolves.toMatchObject({ live: false, epoch: 0, pendingUtterances: 0 });
+
+    // An observer that was never armed only cleans up.
+    const idle = createHarness();
+    await idle.core.erase();
+    expect(idle.mocks.hangup).not.toHaveBeenCalled();
+    expect(idle.lastAlarm()).toBeNull();
+  });
+
   it("never logs transcript text or the live session id", async () => {
     const harness = createHarness();
     harness.decisions.push({ risk: "crisis", action: "hard_stop", reasonCode: "self_harm_signal" });

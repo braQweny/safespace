@@ -1,3 +1,5 @@
+import { readResponseModel } from "@/lib/ai-provider/chat-response";
+import { isRecord } from "@/lib/type-guards";
 import { SessionTranscriptionError, type SessionTranscriptionErrorCategory } from "./errors";
 import { getOpenRouterTranscriptionConfig, resolveTranscriptionModel } from "./env";
 import type { Locale } from "@/lib/i18n/locale";
@@ -52,7 +54,7 @@ export async function transcribeSessionAudioWithOpenRouter(
     text: extractTranscriptionText(responseBody),
     providerMetadata: {
       provider: "openrouter",
-      model: parseResponseModel(responseBody) ?? model,
+      model: readResponseModel(responseBody) ?? model,
     },
   };
 }
@@ -149,19 +151,6 @@ function extractTranscriptionText(responseBody: unknown) {
   return text;
 }
 
-function parseResponseModel(responseBody: unknown) {
-  if (!isRecord(responseBody)) {
-    return undefined;
-  }
-
-  if (typeof responseBody.model !== "string") {
-    return undefined;
-  }
-
-  const model = responseBody.model.trim();
-  return model.length > 0 ? model : undefined;
-}
-
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
@@ -180,8 +169,4 @@ function mapOpenRouterStatus(status: number): SessionTranscriptionErrorCategory 
   }
 
   return "provider_unavailable";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

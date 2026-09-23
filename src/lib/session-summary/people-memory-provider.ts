@@ -1,4 +1,4 @@
-import { generatePeopleMemoryWithOpenRouter, generatePeopleMemoryWithAiProvider } from "./openrouter-people-memory";
+import { generatePeopleMemoryWithAiProvider } from "./openrouter-people-memory";
 import type { GeneratePeopleMemoryInput, PeopleMemoryResponse } from "./people-memory-types";
 
 export interface GeneratePeopleMemoryOptions {
@@ -15,14 +15,6 @@ export interface PeopleMemoryProvider {
 export const configuredPeopleMemoryProvider = {
   generatePeopleMemory(input, options) {
     return generatePeopleMemoryWithAiProvider(input, { timeoutMs: options?.timeoutMs });
-  },
-} satisfies PeopleMemoryProvider;
-
-export const openRouterPeopleMemoryProvider = {
-  generatePeopleMemory(input, options) {
-    return generatePeopleMemoryWithOpenRouter(input, {
-      timeoutMs: options?.timeoutMs,
-    });
   },
 } satisfies PeopleMemoryProvider;
 

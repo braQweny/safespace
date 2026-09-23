@@ -3,11 +3,11 @@ import AppHeader from "@/components/AppHeader.astro";
 import CrisisRegionList from "@/components/CrisisRegionList.astro";
 import DashboardSessionHistory from "@/components/modality/DashboardSessionHistory";
 import SessionStartCard, { AllowanceMeter } from "@/components/session/SessionStartCard";
-import { listPendingLinks } from "@/components/topics/PendingLinks";
+import { parseStartMode, START_MODE_COOKIE } from "@/components/session/start-mode";
 import {
+  countOwnedDifficultyCards,
+  countOwnedPersonCards,
   countOwnedSessionsByAvatar,
-  listOwnedDifficultyCards,
-  listOwnedPersonCards,
   readOwnedTopicMapEnabled,
 } from "@/lib/session-data/repository";
 import { isPeopleMemoryEnabled } from "@/lib/session-flow/people-memory-mode";
@@ -28,9 +28,8 @@ import { getSessionDataContext } from "@/lib/session-data/auth";
 import { readSessionQuota } from "@/lib/session-data/quota";
 import { readVoiceQuota } from "@/lib/session-data/voice-quota";
 import type {
-  DifficultyCard,
+  DifficultyCardCounts,
   OwnedSessionCountsByAvatar,
-  PersonCard,
   SessionQuota,
   VoiceQuota,
 } from "@/lib/session-data/types";
@@ -143,18 +142,21 @@ let firstStepsQuota: SessionQuota | null = null;
 let anyOwnedActiveSession: ActiveSessionBadge | null = null;
 // Ile rozmów stoi za każdą twarzą: filtr historii pokazuje tylko te z zapisami.
 let sessionCountsByAvatar: OwnedSessionCountsByAvatar | null = null;
-// Karty osób i tematy zapisanej perspektywy: panel liczy je tylko do wiersza-
-// skrótu „Co Lena pamięta”; same karty żyją w `/dashboard/memory`.
+// Liczby kart osób i tematów zapisanej perspektywy dla wiersza-skrótu „Co Lena
+// pamięta”: same liczby, bez kart — karty żyją w `/dashboard/memory`.
 // `null` = odczyt padł, nie „brak kart”.
 const peopleMemoryMode = isPeopleMemoryEnabled();
-let personCards: PersonCard[] | null = null;
+let personCardCount: number | null = null;
 const topicMapMode = isTopicMapEnabled();
-let difficultyCards: DifficultyCard[] | null = null;
+let difficultyCounts: DifficultyCardCounts | null = null;
 let topicMapEnabled = true;
 // Pula rozmów głosowych (próba free / minuty premium) tylko przy włączonej
 // fladze i bezpośrednim OpenAI; `null` = brak przycisku głosowego na karcie.
 const voiceStartAvailable = isVoiceStartAvailable();
 let voiceQuota: VoiceQuota | null = null;
+// Ostatni wybór „Pisana | Głosowa” z ciasteczka: karta renderuje go od razu,
+// zamiast przeskakiwać na niego po hydratacji. Wartość nie trafia do logów.
+const initialStartMode = parseStartMode(Astro.cookies.get(START_MODE_COOKIE)?.value);
 
 if (sessionContext.ok) {
   // Po poznaniu perspektywy żaden z tych odczytów nie zależy od pozostałych,
@@ -167,8 +169,8 @@ if (sessionContext.ok) {
     startStateResult,
     activeBadge,
     avatarCounts,
-    peopleCardsResult,
-    difficultyCardsResult,
+    personCountResult,
+    difficultyCountsResult,
     topicPreference,
     voiceQuotaResult,
   ] = await Promise.all([
@@ -188,10 +190,10 @@ if (sessionContext.ok) {
     readActiveSessionBadge(sessionContext.data),
     currentAvatarChoice ? countOwnedSessionsByAvatar(sessionContext.data) : null,
     currentAvatarChoice && peopleMemoryMode
-      ? listOwnedPersonCards(sessionContext.data, currentAvatarChoice.selected.avatarId)
+      ? countOwnedPersonCards(sessionContext.data, currentAvatarChoice.selected.avatarId)
       : null,
     currentAvatarChoice && topicMapMode
-      ? listOwnedDifficultyCards(sessionContext.data, currentAvatarChoice.selected.avatarId)
+      ? countOwnedDifficultyCards(sessionContext.data, currentAvatarChoice.selected.avatarId)
       : null,
     currentAvatarChoice && topicMapMode ? readOwnedTopicMapEnabled(sessionContext.data) : null,
     currentAvatarChoice && voiceStartAvailable
@@ -206,12 +208,12 @@ if (sessionContext.ok) {
     initialHistory = historyResult;
   }
 
-  if (peopleCardsResult) {
-    personCards = peopleCardsResult.ok ? peopleCardsResult.data : null;
+  if (personCountResult) {
+    personCardCount = personCountResult.ok ? personCountResult.data : null;
   }
 
-  if (difficultyCardsResult) {
-    difficultyCards = difficultyCardsResult.ok ? difficultyCardsResult.data : null;
+  if (difficultyCountsResult) {
+    difficultyCounts = difficultyCountsResult.ok ? difficultyCountsResult.data : null;
   }
 
   // Nieudany odczyt preferencji nie chowa licznika „do potwierdzenia”: domyślnie włączona.
@@ -263,10 +265,9 @@ const showsIntro = currentSelection === null || (startPageState?.sessionQuota?.u
 // Wiersz-skrót „Co Lena pamięta”: liczby zamiast dwóch sekcji z wstępami; same
 // karty, mapa i podsumowanie stoją w `/dashboard/memory`. Bez flag zostaje
 // podsumowanie, więc skrót jest zawsze przy zapisanej perspektywie.
-const memoryPeopleCount = peopleMemoryMode ? (personCards?.length ?? 0) : null;
-const memoryTopicCount = topicMapMode ? (difficultyCards?.length ?? 0) : null;
-const memoryPendingCount =
-  topicMapMode && topicMapEnabled && difficultyCards ? listPendingLinks(difficultyCards).length : 0;
+const memoryPeopleCount = peopleMemoryMode ? (personCardCount ?? 0) : null;
+const memoryTopicCount = topicMapMode ? (difficultyCounts?.cards ?? 0) : null;
+const memoryPendingCount = topicMapMode && topicMapEnabled && difficultyCounts ? difficultyCounts.pendingLinks : 0;
 const memoryCounts = [
   memoryPeopleCount !== null ? copy.memoryPeopleCount(memoryPeopleCount) : null,
   memoryTopicCount !== null ? copy.memoryTopicCount(memoryTopicCount) : null,
@@ -291,6 +292,7 @@ const panelGridClass = currentSelection
 const historyProps = currentSelection
   ? {
       locale,
+      timeZone: Astro.locals.timeZone,
       className: "mt-0 lg:col-start-2 lg:row-start-1 lg:row-end-3",
       selectedAvatar: currentSelection,
       initialViewedAvatarId: viewedAvatar?.avatarId ?? null,
@@ -395,6 +397,7 @@ const historyProps = currentSelection
                       supportEmail={support.email}
                       billingEnabled={isBillingEnabled()}
                       voiceQuota={voiceQuota}
+                      initialMode={initialStartMode}
                     />
                   ) : (
                     <p class="text-ink-muted mt-6 text-sm leading-6">

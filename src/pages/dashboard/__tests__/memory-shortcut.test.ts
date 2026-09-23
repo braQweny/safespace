@@ -1,16 +1,22 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { listPendingLinks } from "@/components/topics/PendingLinks";
+import type { DifficultyCard } from "@/lib/session-data/types";
 
 /**
  * Strony Astro nie renderują się w vitest, więc pilnujemy tekstu źródła: panel
  * to start i historia, a osoby, tematy i podsumowanie mają własny widok pod
- * `/dashboard/memory`. Na panelu zostaje wiersz-skrót z liczbami, liczonymi z
- * tych samych odczytów, którymi wcześniej karmione były dwie sekcje.
+ * `/dashboard/memory`. Na panelu zostaje wiersz-skrót z liczbami z odczytów
+ * bez treści (head count osób, `count_difficulty_cards`), nie z pełnych kart —
+ * równoważność z listami pilnuje `tests/database/memory-shortcut-counts.test.mjs`.
  */
 const DASHBOARD_PATH = fileURLToPath(new URL("../../dashboard.astro", import.meta.url));
 const MEMORY_PAGE_PATH = fileURLToPath(new URL("../memory.astro", import.meta.url));
 const SESSION_PAGE_PATH = fileURLToPath(new URL("../session.astro", import.meta.url));
+const COUNT_MIGRATION_PATH = fileURLToPath(
+  new URL("../../../../supabase/migrations/20260922130000_count_difficulty_cards.sql", import.meta.url),
+);
 
 describe("dashboard memory shortcut", () => {
   const page = readFileSync(DASHBOARD_PATH, "utf8");
@@ -36,14 +42,40 @@ describe("dashboard memory shortcut", () => {
     expect(page).toContain("data-memory-shortcut");
     expect(page).toContain("const peopleMemoryMode = isPeopleMemoryEnabled()");
     expect(page).toContain("const topicMapMode = isTopicMapEnabled()");
-    expect(page).toContain("listOwnedPersonCards(sessionContext.data, currentAvatarChoice.selected.avatarId)");
-    expect(page).toContain("listOwnedDifficultyCards(sessionContext.data, currentAvatarChoice.selected.avatarId)");
+    expect(page).toContain("countOwnedPersonCards(sessionContext.data, currentAvatarChoice.selected.avatarId)");
+    expect(page).toContain("countOwnedDifficultyCards(sessionContext.data, currentAvatarChoice.selected.avatarId)");
     expect(page).toContain("readOwnedTopicMapEnabled(sessionContext.data)");
-    expect(page).toContain("const memoryPeopleCount = peopleMemoryMode ? (personCards?.length ?? 0) : null");
-    expect(page).toContain("const memoryTopicCount = topicMapMode ? (difficultyCards?.length ?? 0) : null");
-    expect(page).toContain("listPendingLinks(difficultyCards).length");
+    expect(page).toContain("const memoryPeopleCount = peopleMemoryMode ? (personCardCount ?? 0) : null");
+    expect(page).toContain("const memoryTopicCount = topicMapMode ? (difficultyCounts?.cards ?? 0) : null");
+    expect(page).toContain(
+      "const memoryPendingCount = topicMapMode && topicMapEnabled && difficultyCounts ? difficultyCounts.pendingLinks : 0",
+    );
     expect(page).toContain("copy.memoryPendingCount(memoryPendingCount)");
     expect(page).toContain("copy.memorySummaryOnly");
+  });
+
+  it("never loads the full cards or reaches into a component module for the counts", () => {
+    expect(page).not.toContain("listOwnedPersonCards");
+    expect(page).not.toContain("listOwnedDifficultyCards");
+    expect(page).not.toContain("listPendingLinks");
+    expect(page).not.toContain("@/components/topics/");
+  });
+
+  it("counts pending links in SQL with the same rule the memory view's bar uses", () => {
+    // `/dashboard/memory` still derives the bar from the cards; the dashboard
+    // number comes from SQL. Change one rule and this fails for both.
+    expect(readFileSync(COUNT_MIGRATION_PATH, "utf8")).toContain("dp.state = 'suggested' and not dp.user_decided");
+    const persons = (["suggested", "confirmed", "rejected"] as const).flatMap((state) =>
+      [false, true].map((userDecided) => ({
+        personId: `${state}-${userDecided}`,
+        name: "x",
+        relation: null,
+        state,
+        userDecided,
+      })),
+    );
+    const card = { persons } as unknown as DifficultyCard;
+    expect(listPendingLinks([card]).map((link) => link.person.personId)).toEqual(["suggested-false"]);
   });
 
   it("shows the dashboard intro only before the first conversation", () => {

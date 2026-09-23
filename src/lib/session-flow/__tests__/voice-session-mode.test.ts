@@ -8,25 +8,12 @@ const env = vi.hoisted((): { VOICE_SESSION_MODE: string | undefined; VOICE_MONTH
 }));
 vi.mock("astro:env/server", () => env);
 
-import {
-  getVoiceMonthlyMinutes,
-  isVoiceSessionEnabled,
-  parseVoiceMonthlyMinutes,
-  parseVoiceSessionMode,
-} from "../voice-session-mode";
+import { getVoiceMonthlyMinutes, isVoiceSessionEnabled, parseVoiceMonthlyMinutes } from "../voice-session-mode";
 import { DEFAULT_VOICE_MONTHLY_MINUTES } from "@/lib/session-data/voice-quota";
 
 const ROOT = resolve(__dirname, "../../../..");
 
 describe("voice session mode", () => {
-  it("treats only a literal `on` as enabled", () => {
-    expect(parseVoiceSessionMode("on")).toBe("on");
-    expect(parseVoiceSessionMode(" ON ")).toBe("on");
-    for (const value of ["off", "", undefined, null, "true", "1", "yes"]) {
-      expect(parseVoiceSessionMode(value)).toBe("off");
-    }
-  });
-
   it("reads the flag from the server environment and defaults to off when it cannot", () => {
     expect(isVoiceSessionEnabled()).toBe(true);
     env.VOICE_SESSION_MODE = "off";

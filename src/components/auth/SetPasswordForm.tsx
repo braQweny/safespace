@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useFormValidationFocus } from "@/components/hooks/useFormValidationFocus";
+import { useNativeSubmitPending } from "@/components/hooks/useNativeSubmitPending";
 import { CheckCircle2, KeyRound, Lock } from "lucide-react";
 import { FormField } from "@/components/auth/FormField";
 import { PasswordToggle } from "@/components/auth/PasswordToggle";
@@ -27,6 +28,7 @@ export default function SetPasswordForm({ locale, serverError, serverSuccess }: 
 function SetPasswordFormView({ locale, serverError, serverSuccess }: Props) {
   const copy = getAuthFormCopy(locale);
   const { formRef, focusFirstError } = useFormValidationFocus();
+  const { isSubmitting, markSubmitting } = useNativeSubmitPending();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -58,9 +60,18 @@ function SetPasswordFormView({ locale, serverError, serverSuccess }: Props) {
   }
 
   function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
+    // Drugie kliknięcie albo Enter w trakcie wysyłki nie wyśle drugiego POST-a.
+    if (isSubmitting) {
+      e.preventDefault();
+      return;
+    }
+
     if (!validate()) {
       e.preventDefault();
+      return;
     }
+
+    markSubmitting();
   }
 
   const passwordHint = (
@@ -140,7 +151,7 @@ function SetPasswordFormView({ locale, serverError, serverSuccess }: Props) {
         </p>
       ) : null}
 
-      <SubmitButton pendingText={copy.savePending} icon={<KeyRound className="size-4" />}>
+      <SubmitButton pending={isSubmitting} pendingText={copy.savePending} icon={<KeyRound className="size-4" />}>
         {copy.savePassword}
       </SubmitButton>
     </form>

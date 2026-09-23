@@ -4,7 +4,7 @@ import { getModalityCopy } from "@/lib/modality-copy";
 import { getSessionCopy } from "@/lib/session-copy";
 import type { UiSessionMessage } from "@/lib/session-flow/message-state";
 import { parseMessageMarkdown, type MessageMarkdownInline } from "@/lib/session-flow/message-markdown";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 import { cn } from "@/lib/utils";
 import { getSessionMessagesCopy } from "./session-messages-copy";
 
@@ -37,6 +37,12 @@ interface SessionMessagesProps {
    * `static` — podgląd historii w panelu: rośnie razem ze stroną.
    */
   variant?: "live" | "static" | "finished";
+  /**
+   * Czy dziennik `live` czyta nowe wiersze na głos. Rozmowa głosowa podaje
+   * `false`: heartbeat co 20 s zamienia podgląd w zapisane wiersze, a czytnik
+   * ekranu odczytywałby je na tle głosu awatara. Rola `log` zostaje.
+   */
+  announcesMessages?: boolean;
 }
 
 const PIN_TO_BOTTOM_TOLERANCE_PX = 80;
@@ -191,6 +197,7 @@ export default function SessionMessages({
   assistantAvatar,
   emptyCopy,
   variant = "static",
+  announcesMessages = true,
 }: SessionMessagesProps) {
   const copy = getSessionMessagesCopy(useLocale());
   const emptyText = emptyCopy ?? copy.emptyDefault;
@@ -222,7 +229,7 @@ export default function SessionMessages({
     <div
       ref={scrollRef}
       role={isLive ? "log" : undefined}
-      aria-live={isLive ? "polite" : undefined}
+      aria-live={isLive ? (announcesMessages ? "polite" : "off") : undefined}
       aria-label={isLive ? copy.transcriptAria : undefined}
       onScroll={
         isLive

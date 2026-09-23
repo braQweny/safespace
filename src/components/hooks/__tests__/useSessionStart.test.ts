@@ -52,7 +52,6 @@ describe("automatic memory preparation during start", () => {
 describe("resolveFailedStartKind", () => {
   it("returns to the follow-up screen when the trial is simply already used", () => {
     expect(resolveFailedStartKind("trial_already_claimed")).toBe("followup_ready");
-    expect(resolveFailedStartKind("no_context_not_confirmed")).toBe("followup_ready");
   });
 
   it("shows the exhausted free-plan allowance instead of an unknown state", () => {

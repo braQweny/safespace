@@ -1,17 +1,9 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowUp, Loader2, Mic, Square } from "lucide-react";
+import { useClientCapability } from "@/components/hooks/useClientCapability";
+import { formatRecordingProgress, useDictation } from "@/components/hooks/useDictation";
 import { useLocale } from "@/components/hooks/useLocale";
-import { requestApiJson } from "@/lib/api-client";
-import type { Locale } from "@/lib/i18n/locale";
-import { getSessionCopy } from "@/lib/session-copy";
-import { getMicrophoneErrorCopy } from "@/lib/session-flow/microphone-error-copy";
 import { SESSION_MESSAGE_MAX_CHARS } from "@/lib/session-flow/message-contract";
-import {
-  isSessionTranscriptionFailure,
-  isSessionTranscriptionSuccess,
-  SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES,
-  SESSION_TRANSCRIPTION_MAX_RECORDING_MS,
-} from "@/lib/session-flow/session-transcription-contract";
 import { cn } from "@/lib/utils";
 import { getSessionComposerCopy } from "./session-composer-copy";
 
@@ -37,10 +29,7 @@ type SessionComposerKeyboardEvent = Pick<
   "altKey" | "ctrlKey" | "key" | "metaKey" | "shiftKey"
 >;
 
-type DictationStatus = "idle" | "recording" | "transcribing";
-
 const COARSE_POINTER_QUERY = "(pointer: coarse)";
-const RECORDING_TICK_MS = 1_000;
 
 export function shouldSubmitSessionComposerFromKeyboard(
   event: SessionComposerKeyboardEvent,
@@ -67,96 +56,12 @@ export function shouldHintSubmitShortcut(event: SessionComposerKeyboardEvent, ha
   return hasText && event.key === "Enter" && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey;
 }
 
-export function appendTranscriptionToDraft(draft: string, transcription: string, maxChars = SESSION_MESSAGE_MAX_CHARS) {
-  const text = transcription.trim();
-
-  if (!text) {
-    return {
-      value: draft,
-      didAppend: false,
-      wasTruncated: false,
-    };
-  }
-
-  const separator = draft.length > 0 && !/\s$/.test(draft) ? " " : "";
-  const combinedValue = `${draft}${separator}${text}`;
-  const value = combinedValue.slice(0, maxChars);
-
-  return {
-    value,
-    didAppend: value.length > draft.length,
-    wasTruncated: combinedValue.length > maxChars,
-  };
-}
-
-export function getSupportedWebmMimeType(mediaRecorder: Pick<typeof MediaRecorder, "isTypeSupported"> | undefined) {
-  if (typeof mediaRecorder?.isTypeSupported !== "function") {
-    return null;
-  }
-
-  return ["audio/webm;codecs=opus", "audio/webm"].find((mimeType) => mediaRecorder.isTypeSupported(mimeType)) ?? null;
-}
-
-/**
- * Dyktowanie wymaga i nagrywarki, i mikrofonu, i formatu, który serwer
- * przyjmuje. Safari na iOS ma nagrywarkę, ale nie WebM — tam przycisk po
- * prostu nie istnieje, zamiast obiecywać i kończyć ogólnym błędem.
- */
-export function getDictationSupport(input: {
-  mediaRecorder: Pick<typeof MediaRecorder, "isTypeSupported"> | undefined;
-  mediaDevices: Pick<MediaDevices, "getUserMedia"> | undefined;
-}) {
-  return (
-    typeof input.mediaDevices?.getUserMedia === "function" && getSupportedWebmMimeType(input.mediaRecorder) !== null
-  );
-}
-
-/**
- * Nazwa wyjątku z `getUserMedia` mówi, co poszło nie tak; ogólne „nie udało
- * się przepisać” było fałszywe, bo nic jeszcze nie zostało nagrane.
- */
-export function getDictationErrorCopy(locale: Locale, error: unknown) {
-  return getMicrophoneErrorCopy(locale, error);
-}
-
-export function formatRecordingProgress(
-  locale: Locale,
-  elapsedSeconds: number,
-  maxRecordingMs = SESSION_TRANSCRIPTION_MAX_RECORDING_MS,
-) {
-  const maxSeconds = Math.round(maxRecordingMs / 1000);
-  const shownSeconds = Math.min(maxSeconds, Math.max(0, Math.floor(elapsedSeconds)));
-
-  return getSessionComposerCopy(locale).recordingProgress(shownSeconds, maxSeconds);
-}
-
 /**
  * „Cmd/Ctrl + Enter wysyła” nie ma sensu na ekranowej klawiaturze, a sam
  * rozmiar okna tego nie rozstrzyga: tablet w poziomie jest szeroki jak laptop.
  */
 export function readCoarsePointerPreference(matchMedia: ((query: string) => { matches: boolean }) | undefined) {
   return typeof matchMedia === "function" && matchMedia(COARSE_POINTER_QUERY).matches;
-}
-
-const subscribeNever = () => () => {
-  // Wsparcie dyktowania nie zmienia się po hydratacji.
-};
-
-function readClientDictationSupport() {
-  return getDictationSupport({
-    mediaRecorder: typeof MediaRecorder === "undefined" ? undefined : MediaRecorder,
-    mediaDevices: getMediaDevices(),
-  });
-}
-
-const readServerFalse = () => false;
-
-/**
- * `false` w SSR i podczas hydratacji, prawdziwa odpowiedź od pierwszego
- * renderu klienta — bez rozjazdu znaczników i bez `setState` w efekcie.
- */
-function useDictationSupport() {
-  return useSyncExternalStore(subscribeNever, readClientDictationSupport, readServerFalse);
 }
 
 function subscribeToCoarsePointer(onChange: () => void) {
@@ -177,7 +82,7 @@ function readClientCoarsePointer() {
 }
 
 function useIsCoarsePointer() {
-  return useSyncExternalStore(subscribeToCoarsePointer, readClientCoarsePointer, readServerFalse);
+  return useClientCapability(readClientCoarsePointer, false, subscribeToCoarsePointer);
 }
 
 export default function SessionComposer({
@@ -191,29 +96,24 @@ export default function SessionComposer({
 }: SessionComposerProps) {
   const locale = useLocale();
   const copy = getSessionComposerCopy(locale);
-  const { dictation } = getSessionCopy(locale);
-  const [dictationStatus, setDictationStatus] = useState<DictationStatus>("idle");
-  const [dictationError, setDictationError] = useState<string | null>(null);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isShortcutHintVisible, setIsShortcutHintVisible] = useState(false);
-  const isDictationSupported = useDictationSupport();
   const isCoarsePointer = useIsCoarsePointer();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const latestValueRef = useRef(value);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recordingTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Nagrywanie, przepisanie i komunikaty błędów żyją w `useDictation`; nazwy
+  // zostają te same, więc znaczniki poniżej się nie zmieniają.
+  const {
+    isSupported: isDictationSupported,
+    status: dictationStatus,
+    error: dictationError,
+    recordingSeconds,
+    canUse: canUseDictation,
+    start: startRecording,
+    stop: stopRecording,
+  } = useDictation({ sessionId, locale, value, isBlocked: isDisabled || isPending, onChange });
   const trimmedValue = value.trim();
   const isNearCharLimit = trimmedValue.length > SESSION_MESSAGE_MAX_CHARS * 0.8;
   const canSubmit = !isDisabled && !isPending && dictationStatus === "idle" && trimmedValue.length > 0;
-  const canUseDictation = !isDisabled && !isPending && dictationStatus !== "transcribing";
   const showsShortcutHint = !isCoarsePointer;
-
-  useEffect(() => {
-    latestValueRef.current = value;
-  }, [value]);
 
   // Prefill z karty osoby: kursor na końcu zdania, żeby dało się je od razu
   // dopisać albo skasować — bez przewijania strony do pola.
@@ -239,186 +139,6 @@ export default function SessionComposer({
       clearTimeout(timeoutId);
     };
   }, [isShortcutHintVisible]);
-
-  const clearRecordingTimers = useCallback(() => {
-    if (recordingTimeoutRef.current !== null) {
-      clearTimeout(recordingTimeoutRef.current);
-      recordingTimeoutRef.current = null;
-    }
-
-    if (recordingTickRef.current !== null) {
-      clearInterval(recordingTickRef.current);
-      recordingTickRef.current = null;
-    }
-  }, []);
-
-  const cleanupRecordingStream = useCallback(() => {
-    streamRef.current?.getTracks().forEach((track) => {
-      track.stop();
-    });
-    streamRef.current = null;
-  }, []);
-
-  const stopRecording = useCallback(() => {
-    const recorder = recorderRef.current;
-
-    if (!recorder || recorder.state === "inactive") {
-      return;
-    }
-
-    recorder.stop();
-  }, []);
-
-  const handleRecordingStop = useCallback(async () => {
-    clearRecordingTimers();
-    cleanupRecordingStream();
-
-    const chunks = chunksRef.current;
-    chunksRef.current = [];
-    recorderRef.current = null;
-
-    const audio = new Blob(chunks, { type: "audio/webm" });
-
-    if (audio.size <= 0) {
-      setDictationStatus("idle");
-      setDictationError(dictation.transcriptionFailed);
-      return;
-    }
-
-    if (audio.size > SESSION_TRANSCRIPTION_MAX_AUDIO_BYTES) {
-      setDictationStatus("idle");
-      setDictationError(dictation.recordingTooLarge);
-      return;
-    }
-
-    setDictationStatus("transcribing");
-    setDictationError(null);
-
-    try {
-      const audioBase64 = await blobToBase64(audio);
-      const result = await requestApiJson("/api/session/transcribe", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId,
-          audioBase64,
-          format: "webm",
-        }),
-      });
-
-      if (result.kind === "json" && (result.status === 413 || isAudioTooLargeFailure(result.body))) {
-        setDictationError(dictation.recordingTooLarge);
-        return;
-      }
-
-      if (result.kind !== "json" || result.status !== 200 || !isSessionTranscriptionSuccess(result.body)) {
-        setDictationError(dictation.transcriptionFailed);
-        return;
-      }
-
-      const appendedDraft = appendTranscriptionToDraft(latestValueRef.current, result.body.text);
-
-      if (!appendedDraft.didAppend) {
-        setDictationError(dictation.transcriptionTooLong);
-        return;
-      }
-
-      onChange(appendedDraft.value);
-      setDictationError(appendedDraft.wasTruncated ? dictation.transcriptionTooLong : null);
-    } catch {
-      setDictationError(dictation.transcriptionFailed);
-    } finally {
-      setDictationStatus("idle");
-    }
-  }, [cleanupRecordingStream, clearRecordingTimers, dictation, onChange, sessionId]);
-
-  const startRecording = useCallback(async () => {
-    if (!canUseDictation) {
-      return;
-    }
-
-    setDictationError(null);
-
-    const mediaDevices = getMediaDevices();
-
-    if (typeof MediaRecorder === "undefined" || typeof mediaDevices?.getUserMedia !== "function") {
-      setDictationError(dictation.microphoneUnavailable);
-      return;
-    }
-
-    const mimeType = getSupportedWebmMimeType(MediaRecorder);
-
-    if (!mimeType) {
-      setDictationError(dictation.microphoneUnavailable);
-      return;
-    }
-
-    try {
-      const stream = await mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType });
-      chunksRef.current = [];
-      streamRef.current = stream;
-      recorderRef.current = recorder;
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-      recorder.onerror = () => {
-        clearRecordingTimers();
-        cleanupRecordingStream();
-        chunksRef.current = [];
-        recorderRef.current = null;
-        setDictationStatus("idle");
-        setDictationError(dictation.transcriptionFailed);
-      };
-      recorder.onstop = () => {
-        void handleRecordingStop();
-      };
-
-      recorder.start();
-      const startedAtMs = Date.now();
-      setRecordingSeconds(0);
-      setDictationStatus("recording");
-      recordingTickRef.current = setInterval(() => {
-        setRecordingSeconds(Math.floor((Date.now() - startedAtMs) / 1000));
-      }, RECORDING_TICK_MS);
-      recordingTimeoutRef.current = setTimeout(() => {
-        stopRecording();
-      }, SESSION_TRANSCRIPTION_MAX_RECORDING_MS);
-    } catch (error) {
-      cleanupRecordingStream();
-      chunksRef.current = [];
-      recorderRef.current = null;
-      setDictationStatus("idle");
-      setDictationError(getDictationErrorCopy(locale, error));
-    }
-  }, [
-    canUseDictation,
-    cleanupRecordingStream,
-    clearRecordingTimers,
-    dictation,
-    handleRecordingStop,
-    locale,
-    stopRecording,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      clearRecordingTimers();
-
-      const recorder = recorderRef.current;
-
-      if (recorder && recorder.state !== "inactive") {
-        recorder.onstop = null;
-        recorder.stop();
-      }
-
-      cleanupRecordingStream();
-      chunksRef.current = [];
-      recorderRef.current = null;
-    };
-  }, [cleanupRecordingStream, clearRecordingTimers]);
 
   function submitAndKeepFocus() {
     setIsShortcutHintVisible(false);
@@ -455,7 +175,7 @@ export default function SessionComposer({
           rzędzie — jak kartka, nie formularz. */}
       <div
         className={cn(
-          "border-line-strong bg-surface shadow-card focus-within:border-brand-ring focus-within:ring-brand-ring/20 rounded-[18px] border transition-colors focus-within:ring-2",
+          "border-line-control bg-surface shadow-card focus-within:border-brand-ring focus-within:ring-brand-ring/20 rounded-[18px] border transition-colors focus-within:ring-2",
           isDisabled && "bg-surface-soft",
         )}
       >
@@ -564,48 +284,6 @@ export default function SessionComposer({
       )}
     </form>
   );
-}
-
-function isAudioTooLargeFailure(body: unknown) {
-  return isSessionTranscriptionFailure(body) && body.code === "audio_too_large";
-}
-
-/**
- * `navigator.mediaDevices` nie istnieje w niezabezpieczonym kontekście ani w
- * starszych WebView, choć typy DOM deklarują je jako zawsze obecne.
- */
-function getMediaDevices(): MediaDevices | undefined {
-  if (typeof navigator === "undefined") {
-    return undefined;
-  }
-
-  const browserNavigator: Partial<Pick<Navigator, "mediaDevices">> = navigator;
-
-  return browserNavigator.mediaDevices;
-}
-
-async function blobToBase64(blob: Blob) {
-  if (typeof FileReader === "undefined") {
-    throw new Error("file_reader_unavailable");
-  }
-
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onerror = () => {
-      reject(new Error("file_reader_failed"));
-    };
-    reader.onloadend = () => {
-      if (typeof reader.result !== "string") {
-        reject(new Error("file_reader_failed"));
-        return;
-      }
-
-      const [, base64 = ""] = reader.result.split(",", 2);
-      resolve(base64);
-    };
-    reader.readAsDataURL(blob);
-  });
 }
 
 function getClientPlatform() {

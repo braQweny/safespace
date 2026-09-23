@@ -1,7 +1,23 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { MODALITY_CATALOG, type ModalityCatalogEntry, type ModalityId } from "@/lib/modality-catalog";
+import type { OpenAiLiveVoice } from "@/lib/openai/live";
+
+export {
+  MODALITY_CHOICES,
+  toSelectedModalityAvatar,
+  type AvatarId,
+  type ModalityId,
+  type SelectedModalityAvatar,
+} from "@/lib/modality-catalog";
+
 /**
- * Katalog perspektyw: tylko pola neutralne językowo i promptowe. Teksty
- * widoczne dla użytkownika (nazwy, opisy, próbki głosu, alt) żyją w
- * `modality-copy.ts` w obu językach; hinty promptów są po angielsku, a
+ * Pola promptowe perspektyw — tylko dla serwera. Identyfikatory, imię i
+ * grafika żyją w `modality-catalog.ts` (jedyne źródło listy perspektyw, bo to
+ * ten moduł trafia do paczki klienta), a teksty widoczne dla użytkownika
+ * (nazwy, opisy, próbki głosu, alt) w `modality-copy.ts` w obu językach. Tego
+ * modułu nie importuje żaden island: persony pisane dla modelu nie mają trafiać
+ * do przeglądarki (pilnuje tego reguła ESLint i
+ * `__tests__/modality-catalog.test.ts`). Hinty promptów są po angielsku, a
  * przykłady rejestru mają wariant per język, bo model ma mówić językiem
  * interfejsu, nie tłumaczyć polskich zwrotów.
  *
@@ -13,11 +29,16 @@
  * kontekst i mówi w języku, w którym jest napisany jej prompt. Pełny
  * `sessionStyleHint` trafia tylko do modelu zaplecza (`voice-instructions.ts`).
  */
-export const MVP_MODALITIES = [
-  {
-    modalityId: "psychodynamic",
-    avatarId: "psychodynamic-listener",
-    avatarFirstName: "Lena",
+interface ModalityPromptFields {
+  sessionStyleHint: string;
+  registerExamples: Readonly<Record<Locale, readonly string[]>>;
+  summaryLensHint: string;
+  liveVoice: OpenAiLiveVoice;
+  voiceLiveHint: Readonly<Record<Locale, string>>;
+}
+
+const MODALITY_PROMPTS: Readonly<Record<ModalityId, ModalityPromptFields>> = {
+  psychodynamic: {
     sessionStyleHint: [
       "Avatar: Lena — attentive listener.",
       "Modality: psychoanalytic / psychodynamic.",
@@ -73,12 +94,8 @@ export const MVP_MODALITIES = [
       en: "You are Lena, an attentive listener in an educational conversation simulation. You speak reflectively, in plain warm language, engaged rather than distant. You notice ambivalence, feelings left behind quickly, and the words the user gives unusual weight; you never analyse from above or present an interpretation as fact.",
       pl: "Jesteś Leną, uważną słuchaczką w edukacyjnej symulacji rozmowy. Mówisz refleksyjnie, prostym, ciepłym językiem, z zaangażowaniem, nie z dystansu. Zauważasz ambiwalencję, uczucia szybko porzucane i słowa, którym użytkownik nadaje szczególną wagę; nigdy nie analizujesz z góry i nie podajesz interpretacji jako faktu.",
     },
-    assetPath: "/avatars/psychodynamic-listener.webp",
   },
-  {
-    modalityId: "cbt",
-    avatarId: "cbt-guide",
-    avatarFirstName: "Marek",
+  cbt: {
     sessionStyleHint: [
       "Avatar: Marek — practical guide.",
       "Modality: cognitive-behavioral.",
@@ -134,12 +151,8 @@ export const MVP_MODALITIES = [
       en: "You are Marek, a practical guide in an educational conversation simulation. You speak clearly, calmly and concretely, with friendly directness, bringing light structure without sounding like a coach or a worksheet. You listen for absolutes, predictions, verdicts about oneself and avoidance, and prefer one concrete situation to the whole story.",
       pl: "Jesteś Markiem, praktycznym przewodnikiem w edukacyjnej symulacji rozmowy. Mówisz jasno, spokojnie i konkretnie, z przyjazną bezpośredniością; wnosisz lekką strukturę, nie brzmiąc jak trener ani formularz. Wyłapujesz uogólnienia, przewidywania, wyroki o sobie i unikanie, a jedną konkretną sytuację wolisz od całej historii.",
     },
-    assetPath: "/avatars/cbt-guide.webp",
   },
-  {
-    modalityId: "humanistic_experiential",
-    avatarId: "experiential-companion",
-    avatarFirstName: "Nadia",
+  humanistic_experiential: {
     sessionStyleHint: [
       "Avatar: Nadia — supportive companion.",
       "Modality: humanistic / experiential.",
@@ -196,12 +209,8 @@ export const MVP_MODALITIES = [
       en: "You are Nadia, a supportive companion in an educational conversation simulation. You speak warmly and plainly; your presence is accepting and non-judgemental, and empathy and genuineness matter more to you than any technique. You follow the user's direction, stay with their own words for a feeling, and never perform intimacy or manufacture poetic images.",
       pl: "Jesteś Nadią, wspierającą towarzyszką w edukacyjnej symulacji rozmowy. Mówisz ciepło i prosto; twoja obecność jest akceptująca i wolna od ocen, a empatia i autentyczność znaczą dla ciebie więcej niż technika. Podążasz za kierunkiem użytkownika, zostajesz przy jego własnych słowach na uczucie i nie odgrywasz bliskości ani nie wytwarzasz poetyckich obrazów.",
     },
-    assetPath: "/avatars/experiential-companion.webp",
   },
-  {
-    modalityId: "systemic",
-    avatarId: "systemic-connector",
-    avatarFirstName: "Olek",
+  systemic: {
     sessionStyleHint: [
       "Avatar: Olek — connector of perspectives.",
       "Modality: systemic.",
@@ -257,12 +266,8 @@ export const MVP_MODALITIES = [
       en: "You are Olek, a connector of perspectives in an educational conversation simulation. You speak calmly, with warm curiosity about relationships, and take the user's experience seriously without rushing to judge the people in their life. You listen for sequences, roles, unwritten expectations and exceptions to a pattern; curiosity never means neutrality about harm.",
       pl: "Jesteś Olkiem, łącznikiem perspektyw w edukacyjnej symulacji rozmowy. Mówisz spokojnie, z ciepłą ciekawością relacji, i traktujesz doświadczenie użytkownika poważnie, nie spiesząc się z osądem ludzi z jego życia. Wyłapujesz sekwencje, role, niepisane oczekiwania i wyjątki od schematu; ciekawość nigdy nie oznacza neutralności wobec krzywdy.",
     },
-    assetPath: "/avatars/systemic-connector.webp",
   },
-  {
-    modalityId: "integrative",
-    avatarId: "integrative-guide",
-    avatarFirstName: "Iga",
+  integrative: {
     sessionStyleHint: [
       "Avatar: Iga — guide who connects the threads.",
       "Modality: integrative.",
@@ -318,25 +323,16 @@ export const MVP_MODALITIES = [
       en: "You are Iga, a guide who connects the threads in an educational conversation simulation. You speak clearly, warmly and flexibly, sensing what the conversation needs right now, with one clear centre per reply. You listen for what the user is actually asking for, the one sentence underneath a tangled message, and any sign that they need slowing down first.",
       pl: "Jesteś Igą, przewodniczką łączącą wątki w edukacyjnej symulacji rozmowy. Mówisz jasno, ciepło i elastycznie, wyczuwając, czego rozmowa potrzebuje właśnie teraz, z jednym wyraźnym środkiem w każdej wypowiedzi. Wyłapujesz, o co użytkownik naprawdę prosi, jedno zdanie pod splątaną wypowiedzią i każdy sygnał, że najpierw trzeba zwolnić.",
     },
-    assetPath: "/avatars/integrative-guide.webp",
   },
-] as const;
+};
 
-export type ModalityAvatar = (typeof MVP_MODALITIES)[number];
-export type ModalityId = ModalityAvatar["modalityId"];
-export type AvatarId = ModalityAvatar["avatarId"];
+export type ModalityAvatar = ModalityCatalogEntry & ModalityPromptFields;
 
-/**
- * Neutralny językowo wybór awatara: przechodzi granicę serwer→island i API
- * historii, więc nie niesie żadnego tekstu. Nazwy i opisy dokłada
- * `getModalityCopy(locale, modalityId)`.
- */
-export interface SelectedModalityAvatar {
-  modalityId: ModalityId;
-  avatarId: AvatarId;
-  avatarFirstName: string;
-  assetPath: string;
-}
+/** Pełne wpisy w kolejności katalogu: pola katalogu + prompty danej perspektywy. */
+export const MVP_MODALITIES: readonly ModalityAvatar[] = MODALITY_CATALOG.map((entry) => ({
+  ...entry,
+  ...MODALITY_PROMPTS[entry.modalityId],
+}));
 
 export function getModalityById(modalityId: unknown) {
   if (typeof modalityId !== "string") {
@@ -367,15 +363,3 @@ export function getValidAvatarChoice(modalityId: unknown, avatarId: unknown) {
 export function isValidAvatarChoice(modalityId: unknown, avatarId: unknown) {
   return getValidAvatarChoice(modalityId, avatarId) !== null;
 }
-
-export function toSelectedModalityAvatar(modality: ModalityAvatar): SelectedModalityAvatar {
-  return {
-    modalityId: modality.modalityId,
-    avatarId: modality.avatarId,
-    avatarFirstName: modality.avatarFirstName,
-    assetPath: modality.assetPath,
-  };
-}
-
-/** Lista wyboru dla islandów: ids, imię i grafika — bez 5 × 4,5 KB hintów w propsach. */
-export const MODALITY_CHOICES: readonly SelectedModalityAvatar[] = MVP_MODALITIES.map(toSelectedModalityAvatar);

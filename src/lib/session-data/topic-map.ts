@@ -14,6 +14,7 @@ import {
 import {
   isSessionAvatarId,
   type DifficultyCard,
+  type DifficultyCardCounts,
   type DifficultyEntry,
   type SessionAvatarId,
   type SessionDataContext,
@@ -121,6 +122,23 @@ export async function listOwnedDifficultyCards(
   const value: unknown = result.data;
   if (result.error || !Array.isArray(value) || !value.every(isDifficultyCard)) return sessionDataError("read_failed");
   return ok(value);
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+/** Jeden odczyt na obie liczby, jak wcześniej jedna lista kart karmiła obie. */
+export async function countOwnedDifficultyCards(
+  context: SessionDataContext,
+  avatarId: SessionAvatarId,
+): Promise<SessionDataResult<DifficultyCardCounts>> {
+  const result = await context.supabase.rpc("count_difficulty_cards", { p_avatar_id: avatarId });
+  const value: unknown = result.data;
+  if (result.error || !isRecord(value) || !isCount(value.cards) || !isCount(value.pendingLinks)) {
+    return sessionDataError("read_failed");
+  }
+  return ok({ cards: value.cards, pendingLinks: value.pendingLinks });
 }
 
 /** `null` = brak karty właściciela o tym id (nigdy cudza). */

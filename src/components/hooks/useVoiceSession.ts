@@ -23,7 +23,8 @@ import {
 import { getBrowserMediaDevices, readClientVoiceSupport } from "@/lib/session-flow/voice-support";
 import { VOICE_HEARTBEAT_INTERVAL_MS } from "@/lib/voice/constants";
 import { getVoiceSessionCopy } from "@/components/session/voice-session-copy";
-import { endTimedSession, getSessionAccessRedirectHref, type TimedSessionTransport } from "./useTimedSession";
+import { getSessionAccessRedirectHref } from "@/lib/session-flow/timed-session-state";
+import { endTimedSession, type TimedSessionTransport } from "./timed-session-transport";
 import { createVoicePeer, VoicePeerError, type VoicePeer } from "./voice-peer";
 
 /** Połączenie z dostawcą i uzbrojenie obserwatora mieszczą się w kilku sekundach; dalej to awaria. */
@@ -147,6 +148,12 @@ export async function connectVoiceSession(
     return null;
   }
 
+  // Pula minut albo zużyta próba: ponowienie nic nie zmieni, ekran mówi, co dalej.
+  if (body.code === "voice_minutes_exhausted" || body.code === "voice_trial_used") {
+    dispatch({ type: "connect_refused", refusal: body.code });
+    return null;
+  }
+
   // Dostawca, obserwator albo dane chwilowo niedostępne: warto spróbować znów.
   return connectFailed(notices.connectFailedBody, true);
 }
@@ -255,6 +262,8 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
   const peerRef = useRef<VoicePeer | null>(null);
   const epochRef = useRef(0);
   const heartbeatInFlightRef = useRef(false);
+  // Zrzut zamówiony w trakcie pulsu w locie (odmowa puli): wykona się zaraz po nim.
+  const drainRequestedRef = useRef(false);
   const autoReconnectedRef = useRef(false);
   const sessionId = state.session?.id ?? null;
   const copy = getVoiceSessionCopy(locale);
@@ -271,10 +280,22 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
       return;
     }
 
+    function takeDrainRequest() {
+      const requested = drainRequestedRef.current;
+      drainRequestedRef.current = false;
+      return requested;
+    }
+
     heartbeatInFlightRef.current = true;
 
     try {
+      takeDrainRequest();
       await runVoiceHeartbeat({ sessionId, epoch: epochRef.current, locale }, dispatch);
+
+      // Zrzut zamówiony w trakcie tego pulsu (odmowa puli) idzie od razu po nim.
+      while (takeDrainRequest()) {
+        await runVoiceHeartbeat({ sessionId, epoch: epochRef.current, locale }, dispatch);
+      }
     } finally {
       heartbeatInFlightRef.current = false;
     }
@@ -399,6 +420,20 @@ export function useVoiceSession(initialState: SessionStartPageState, options: Us
       clearInterval(intervalId);
     };
   }, [heartbeatEnabled, heartbeatNow]);
+
+  // Odmowa puli przy wznawianiu: jeden ostatni puls zrzuca ogon bufora, żeby
+  // zapis pod komunikatem był pełny bez przeładowania strony (reduktor trzyma
+  // odmowę). Puls z zerwanego połączenia może być jeszcze w locie — wtedy ten
+  // idzie zaraz po nim. Przy odmowie pierwszego połączenia (epoka 0) nie ma
+  // czego zrzucać.
+  const isRefused = state.status === "refused";
+
+  useEffect(() => {
+    if (isRefused && epochRef.current > 0) {
+      drainRequestedRef.current = true;
+      void heartbeatNow();
+    }
+  }, [heartbeatNow, isRefused]);
 
   const connected = isVoiceConnected(state.status);
 

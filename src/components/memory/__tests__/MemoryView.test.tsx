@@ -9,6 +9,7 @@ import {
   findDifficultyByLabel,
 } from "@/components/topics/DifficultyDialog";
 import { listPendingLinks } from "@/components/topics/PendingLinks";
+import TopicGraph from "@/components/topics/TopicGraph";
 import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
 import MemoryView, { listUnlinkedPeople } from "../MemoryView";
 
@@ -270,7 +271,7 @@ function render(props: Partial<Parameters<typeof MemoryView>[0]> = {}) {
       peopleMemoryEnabled
       topicMapEnabled
       memoryPreview="Rozmawialiśmy o pracy i o tym, jak trudno odmawiać."
-      forcedView="list"
+      initialView="list"
       {...props}
     />,
   );
@@ -353,27 +354,56 @@ describe("MemoryView list", () => {
     expect(topicsOff).toContain(">Mapa</button>");
   });
 
-  it("offers the map/list switch only with cards and renders the list before hydration", () => {
-    const html = render({ forcedView: null });
-    expect(html).toContain("Widok");
-    expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>Lista<\/button>/);
-    expect(html).toContain("<ol");
-    expect(html).not.toContain("data-topic-graph");
+  it("offers the map/list switch only with cards", () => {
+    expect(render()).toContain("Widok");
+    expect(render()).toMatch(/<button[^>]*aria-pressed="true"[^>]*>Lista<\/button>/);
     expect(render({ initialPersonCards: [], initialDifficultyCards: [] })).not.toContain(">Mapa</button>");
+  });
+
+  it("renders the remembered view on the server, so hydration never flips it", () => {
+    const list = render({ initialView: "list" });
+    expect(list).toContain('data-topic-view="list"');
+    expect(list).not.toContain('data-topic-view="graph"');
+    expect(list).not.toContain("md:hidden");
+
+    const graph = render({ initialView: "graph" });
+    expect(graph).toContain('data-topic-view="graph"');
+    expect(graph).not.toContain('data-topic-view="list"');
+    expect(graph).toMatch(/<button[^>]*aria-pressed="true"[^>]*>Mapa<\/button>/);
+  });
+
+  it("lets the width decide through CSS until someone chooses, without a flip after hydration", () => {
+    // Bez ciasteczka serwer nie zna szerokości ekranu: stoją oba widoki i oba
+    // przełączniki, a `md:` (48rem) pokazuje mapę na szerokim ekranie i listę poniżej.
+    const html = render({ initialView: null });
+    expect(html).toMatch(/<div class="hidden md:block" data-topic-view="graph">/);
+    expect(html).toMatch(/<div class="flex flex-col gap-5 md:hidden" data-topic-view="list">/);
+    expect(html).toMatch(/<fieldset class="[^"]*md:hidden"[\s\S]*?aria-pressed="true"[^>]*>Lista<\/button>/);
+    expect(html).toMatch(/<fieldset class="[^"]*hidden md:block"[\s\S]*?aria-pressed="true"[^>]*>Mapa<\/button>/);
+  });
+
+  it("keeps every id unique while both views stand before hydration or without JS", () => {
+    const html = render({ initialView: null });
+    const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
+
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size).toBe(ids.length);
+    // Cel powrotu fokusu stoi raz — na przycisku listy.
+    expect(ids.filter((id) => id === "topic-card-open-difficulty-odmawianie")).toHaveLength(1);
+    expect(html).toMatch(/<button[^>]*id="topic-card-open-difficulty-odmawianie"/);
   });
 });
 
 describe("MemoryView map", () => {
   it("renders you in the middle, topics and every person as nodes, edges by state and a legend", () => {
-    const html = render({ forcedView: "graph" });
+    const html = render({ initialView: "graph" });
     expect(html).toContain(
       'role="group" aria-label="Mapa tematów: Ty w środku, Twoje tematy wokół, osoby na obwodzie."',
     );
     expect(html).toContain(">Ty</text>");
     expect(html).not.toContain("<ol");
-    expect(html).toMatch(
-      /<g id="topic-card-open-difficulty-odmawianie"[^>]*role="button"[^>]*aria-label="Otwórz temat: Odmawianie\."/,
-    );
+    // Przed hydratacją węzeł nie niesie id (nosi je lista); patrz test grafu po hydratacji niżej.
+    expect(html).toMatch(/<g role="button"[^>]*aria-label="Otwórz temat: Odmawianie\."/);
     expect(html).toContain("6 wpisów · 2 osoby · lepiej");
     expect(html).toContain("0 wpisów · 0 osób · rozwiązane");
     expect(html).toContain('aria-label="Wyróżnij tematy przy tej osobie: Marta"');
@@ -480,5 +510,21 @@ describe("MemoryView topic card", () => {
       1,
     );
     expect(findDifficultyByLabel("Nie umiem powiedzieć NIE", [odmawianie, spanie], spanie.id)?.id).toBe(odmawianie.id);
+  });
+});
+
+describe("TopicGraph after hydration", () => {
+  it("gives each topic node the id focus returns to once it is the only view", () => {
+    const interactive = renderToStaticMarkup(
+      <TopicGraph cards={TOPICS} unlinkedPeople={[]} isInteractive onOpen={vi.fn()} />,
+    );
+    const inert = renderToStaticMarkup(
+      <TopicGraph cards={TOPICS} unlinkedPeople={[]} isInteractive={false} onOpen={vi.fn()} />,
+    );
+
+    expect(interactive).toMatch(
+      /<g id="topic-card-open-difficulty-odmawianie"[^>]*role="button"[^>]*aria-label="Otwórz temat: Odmawianie\."/,
+    );
+    expect(inert).not.toContain('id="topic-card-open-difficulty-');
   });
 });

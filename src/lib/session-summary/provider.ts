@@ -1,4 +1,4 @@
-import { generateSessionSummaryWithOpenRouter, generateSessionSummaryWithAiProvider } from "./openrouter-summary";
+import { generateSessionSummaryWithAiProvider } from "./openrouter-summary";
 import type { GenerateSessionSummaryInput, SessionSummaryResponse } from "./types";
 
 export interface GenerateSessionSummaryOptions {
@@ -15,14 +15,6 @@ export interface SessionSummaryProvider {
 export const configuredSessionSummaryProvider = {
   generateSessionSummary(input, options) {
     return generateSessionSummaryWithAiProvider(input, { timeoutMs: options?.timeoutMs });
-  },
-} satisfies SessionSummaryProvider;
-
-export const openRouterSessionSummaryProvider = {
-  generateSessionSummary(input, options) {
-    return generateSessionSummaryWithOpenRouter(input, {
-      timeoutMs: options?.timeoutMs,
-    });
   },
 } satisfies SessionSummaryProvider;
 

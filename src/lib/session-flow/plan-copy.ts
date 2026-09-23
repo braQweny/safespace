@@ -27,6 +27,8 @@ const PLAN_COPY = defineCopy(
       `${remaining} ${unit} of ${limit} voice minutes left this month.`,
     voiceMinutesUsed: (used: number, unit: string, limit: number) =>
       `Used ${used} ${unit} of ${limit} voice minutes this month.`,
+    voiceMinutesReserved: (reserved: number, unit: string) =>
+      `A conversation in progress holds another ${reserved} ${unit} until it ends.`,
     voiceMinutesExhausted:
       "The monthly pool of voice minutes has been used up. It renews at the start of the next month.",
   },
@@ -46,6 +48,8 @@ const PLAN_COPY = defineCopy(
     voiceMinutesRemaining: (remaining, unit, limit) =>
       `${plural("pl", remaining, { one: "Została", few: "Zostały", many: "Zostało" })} ${remaining} ${unit} z ${limit} minut głosowych w tym miesiącu.`,
     voiceMinutesUsed: (used, unit, limit) => `Wykorzystano ${used} ${unit} z ${limit} minut głosowych w tym miesiącu.`,
+    voiceMinutesReserved: (reserved, unit) =>
+      `Trwająca rozmowa rezerwuje jeszcze ${reserved} ${unit}, dopóki się nie skończy.`,
     voiceMinutesExhausted:
       "Miesięczna pula minut głosowych została wykorzystana. Odnowi się na początku następnego miesiąca.",
   },
@@ -107,6 +111,12 @@ const MINUTES_UNIT: Readonly<Record<Locale, PluralForms>> = {
   pl: { one: "minuta", few: "minuty", many: "minut" },
 };
 
+/** Biernik po „rezerwuje”: „1 minutę”, „2 minuty”, „5 minut”. */
+const MINUTES_UNIT_ACCUSATIVE: Readonly<Record<Locale, PluralForms>> = {
+  en: { one: "minute", many: "minutes" },
+  pl: { one: "minutę", few: "minuty", many: "minut" },
+};
+
 /** Dopełniacz po „do”: „do 1 minuty”, „do 10 minut”. */
 const MINUTES_UNIT_AFTER_UP_TO: Readonly<Record<Locale, PluralForms>> = {
   en: { one: "minute", many: "minutes" },
@@ -128,7 +138,13 @@ export function formatVoiceAllowance(locale: Locale, quota: VoiceQuota) {
 
   const limit = toWholeMinutes(quota.limitSeconds);
   const used = Math.min(limit, toWholeMinutes(quota.usedSeconds));
-  return copy.voiceMinutesUsed(used, plural(locale, used, MINUTES_UNIT[locale]), limit);
+  const usedSentence = copy.voiceMinutesUsed(used, plural(locale, used, MINUTES_UNIT[locale]), limit);
+  // Rezerwa trwającej rozmowy nie jest „wykorzystana”, ale znika z reszty puli — mówimy to wprost.
+  const reserved = Math.min(limit - used, toWholeMinutes(quota.reservedSeconds ?? 0));
+
+  return reserved > 0
+    ? `${usedSentence} ${copy.voiceMinutesReserved(reserved, plural(locale, reserved, MINUTES_UNIT_ACCUSATIVE[locale]))}`
+    : usedSentence;
 }
 
 /** Ile minut premium zostało w tym miesiącu; `null` dla próby free i wyczerpanej puli. */

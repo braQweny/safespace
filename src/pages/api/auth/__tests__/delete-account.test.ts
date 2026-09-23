@@ -22,6 +22,9 @@ vi.mock("@/lib/operational-visibility/request-context", () => ({
   buildOperationalRequestContext: vi.fn().mockResolvedValue({ requestId: "test-delete" }),
 }));
 vi.mock("@/lib/operational-visibility/logger", () => ({ logOperationalEvent }));
+const listVoiceObserversToErase = vi.fn();
+const eraseVoiceObservers = vi.fn();
+vi.mock("@/lib/session-flow/voice-account-erasure", () => ({ listVoiceObserversToErase, eraseVoiceObservers }));
 const { POST } = await import("@/pages/api/auth/delete-account");
 
 const sandboxConfig: BillingConfig = {
@@ -61,6 +64,8 @@ beforeEach(() => {
   createClient.mockReturnValue({ rpc, auth: { signOut } });
   rpc.mockResolvedValue({ data: true, error: null });
   signOut.mockResolvedValue({ error: null });
+  listVoiceObserversToErase.mockResolvedValue([]);
+  eraseVoiceObservers.mockResolvedValue(true);
 });
 
 describe("self-service account deletion", () => {
@@ -110,6 +115,59 @@ describe("self-service account deletion", () => {
     expect((await POST(context())).headers.get("Location")).toBe("/auth/signin?status=account_deleted");
     expect(clearAuthCookies).toHaveBeenCalledOnce();
   });
+});
+
+describe("voice observers on account deletion", () => {
+  const VOICE_SESSION_ID = "6f0c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
+
+  it("lists the owner's voice conversations before the RPC and erases their observers only after it", async () => {
+    listVoiceObserversToErase.mockResolvedValue([VOICE_SESSION_ID]);
+
+    const response = await POST(context());
+
+    expect(response.headers.get("Location")).toBe("/auth/signin?status=account_deleted");
+    expect(listVoiceObserversToErase).toHaveBeenCalledWith(expect.objectContaining({ user: { id: "owner" } }));
+    expect(eraseVoiceObservers).toHaveBeenCalledWith([VOICE_SESSION_ID]);
+    expect(listVoiceObserversToErase.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[0]);
+    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(eraseVoiceObservers.mock.invocationCallOrder[0]);
+    expect(logOperationalEvent.mock.calls.map(([event]) => event as unknown)).not.toContainEqual(
+      expect.objectContaining({ event: "session.voice_observer" }),
+    );
+  });
+
+  it("leaves live conversations and buffers alone when the account deletion fails", async () => {
+    listVoiceObserversToErase.mockResolvedValue([VOICE_SESSION_ID]);
+    rpc.mockResolvedValue({ data: null, error: { message: "private database details" } });
+
+    const response = await POST(context());
+
+    expect(response.headers.get("Location")).toBe("/account/delete?error=account_deletion_failed");
+    expect(eraseVoiceObservers).not.toHaveBeenCalled();
+  });
+
+  it.each(["erase", "list"] as const)(
+    "never blocks the deletion when the observers cannot be %sed and logs it without ids",
+    async (failure) => {
+      listVoiceObserversToErase.mockResolvedValue(failure === "list" ? null : [VOICE_SESSION_ID]);
+      eraseVoiceObservers.mockResolvedValue(failure !== "erase");
+
+      const response = await POST(context());
+
+      expect(response.headers.get("Location")).toBe("/auth/signin?status=account_deleted");
+      expect(clearAuthCookies).toHaveBeenCalledOnce();
+      if (failure === "list") expect(eraseVoiceObservers).not.toHaveBeenCalled();
+      expect(logOperationalEvent.mock.calls.map(([event]) => event as unknown)).toContainEqual(
+        expect.objectContaining({
+          event: "session.voice_observer",
+          outcome: "failure",
+          reasonCode: "observer_hangup_failed",
+        }),
+      );
+      const logs = JSON.stringify(logOperationalEvent.mock.calls);
+      expect(logs).not.toContain(VOICE_SESSION_ID);
+      expect(logs).not.toContain("owner");
+    },
+  );
 });
 
 describe("billing cancellation before account deletion", () => {

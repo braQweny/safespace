@@ -3,7 +3,7 @@ import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { useLocale } from "@/components/hooks/useLocale";
 import type { Locale } from "@/lib/i18n/locale";
-import type { ModalityId, SelectedModalityAvatar } from "@/lib/modalities";
+import type { ModalityId, SelectedModalityAvatar } from "@/lib/modality-catalog";
 import { getModalityCopy } from "@/lib/modality-copy";
 import { getPerspectiveTint } from "@/lib/perspective-tint";
 import { cn } from "@/lib/utils";

@@ -181,6 +181,24 @@ describe("POST /api/session/voice/heartbeat", () => {
     expect(logOperationalEvent).not.toHaveBeenCalled();
   });
 
+  it("reports the observer's shortened deadline to the client timer instead of the frozen expires_at", async () => {
+    // `connect` armed the observer until 10:06 (pool remainder); the row still says 10:10.
+    const shortened = createStub();
+    const clipped = { ...(await shortened.getState()), deadlineAtMs: Date.parse("2026-09-12T10:05:45.000Z") };
+    shortened.beat.mockResolvedValue(clipped);
+    shortened.drain.mockResolvedValue({ ...clipped, utterances: [] });
+    getVoiceObserver.mockReturnValue(shortened);
+
+    const response = await POST(createContext() as never);
+
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: true,
+      remainingSeconds: 180,
+      session: { status: "active", expiresAt: "2026-09-12T10:06:00.000Z", remainingSeconds: 180 },
+    });
+    expect(transitionSessionLifecycle).not.toHaveBeenCalled();
+  });
+
   it("keeps the buffer (no ack) when the write fails and still answers with the state", async () => {
     appendVoiceSessionUtterances.mockResolvedValueOnce(sessionDataError("write_failed"));
 

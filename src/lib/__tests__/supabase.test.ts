@@ -60,13 +60,14 @@ describe("createClient", () => {
     createServerClient.mockReturnValue({ auth: {} });
   });
 
-  it("marks the auth cookies Secure in production builds only", () => {
+  it("marks the auth cookies Secure in production builds only and always HttpOnly", () => {
     createClient(new Headers(), { set: vi.fn() } as never);
 
     // Vitest runs in development mode, so the flag mirrors `import.meta.env.PROD`
     // (false here) — the point is that it is derived from the build mode, not
-    // hard-coded either way.
-    expect(capturedOptions().cookieOptions).toEqual({ secure: import.meta.env.PROD });
+    // hard-coded either way. No browser code reads the tokens, so JavaScript
+    // never gets access to them.
+    expect(capturedOptions().cookieOptions).toEqual({ secure: import.meta.env.PROD, httpOnly: true });
     expect(typeof capturedOptions().cookieOptions?.secure).toBe("boolean");
   });
 

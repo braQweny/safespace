@@ -1,36 +1,35 @@
 import { localeTag, type Locale } from "./locale";
 
 /**
- * Historia liczy dni w jednej strefie po obu stronach hydratacji — kiedyś
- * różnica stref serwer/przeglądarka rozjeżdżała etykiety dni. Formattery
- * powstają wewnątrz funkcji, nigdy jako stałe modułu, bo język jest znany
- * dopiero z żądania.
+ * Każda funkcja dostaje strefę jawnie (`context.locals.timeZone` na serwerze,
+ * `useTimeZone()` w wyspie — ta sama wartość po obu stronach hydratacji; patrz
+ * `time-zone.ts`). Nigdy strefa przeglądarki w czasie renderu, bo znaczniki by
+ * się rozjechały. Formattery powstają wewnątrz funkcji, nigdy jako stałe
+ * modułu, bo język i strefa są znane dopiero z żądania.
  */
-export const SESSION_TIME_ZONE = "Europe/Warsaw";
-
-function dateTimeFormat(locale: Locale, options: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat(localeTag(locale), { ...options, timeZone: SESSION_TIME_ZONE });
+function dateTimeFormat(locale: Locale, timeZone: string, options: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat(localeTag(locale), { ...options, timeZone });
 }
 
-export function formatDay(locale: Locale, date: Date): string {
-  return dateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+export function formatDay(locale: Locale, timeZone: string, date: Date): string {
+  return dateTimeFormat(locale, timeZone, { dateStyle: "medium" }).format(date);
 }
 
-export function formatTimeOfDay(locale: Locale, date: Date): string {
-  return dateTimeFormat(locale, { timeStyle: "short" }).format(date);
+export function formatTimeOfDay(locale: Locale, timeZone: string, date: Date): string {
+  return dateTimeFormat(locale, timeZone, { timeStyle: "short" }).format(date);
 }
 
-export function formatDateTime(locale: Locale, date: Date): string {
-  return dateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
+export function formatDateTime(locale: Locale, timeZone: string, date: Date): string {
+  return dateTimeFormat(locale, timeZone, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 /**
- * Klucz dnia `RRRR-MM-DD` w strefie sesji, niezależny od języka — do
+ * Klucz dnia `RRRR-MM-DD` w podanej strefie, niezależny od języka — do
  * grupowania i porównań „dziś/wczoraj”, nigdy do wyświetlania.
  */
-export function getDayKey(date: Date): string {
+export function getDayKey(timeZone: string, date: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: SESSION_TIME_ZONE,
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

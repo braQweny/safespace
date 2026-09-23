@@ -46,7 +46,7 @@ const WELCOME_COPY = defineCopy<WelcomeCopy>(
     ctaSignup: "Create an account",
     ctaSignin: "I already have an account",
     previewAria: (firstName) =>
-      `Preview of a conversation with the avatar ${firstName}: the session time is visible, replies read as calm prose, and there is a box for your message.`,
+      `Preview of a conversation with the avatar ${firstName}: the conversation time is visible, replies read as calm prose, and there is a box for your message.`,
     eyebrow: "Educational conversation simulation · not therapy",
     heroTitle: "A calm place for a first conversation.",
     heroBody:
@@ -102,7 +102,7 @@ const WELCOME_COPY = defineCopy<WelcomeCopy>(
     ctaSignup: "Utwórz konto",
     ctaSignin: "Mam już konto",
     previewAria: (firstName) =>
-      `Podgląd rozmowy z awatarem ${firstName}: widoczny czas sesji, odpowiedzi jako spokojna proza i pole na Twoją wiadomość.`,
+      `Podgląd rozmowy z awatarem ${firstName}: widoczny czas rozmowy, odpowiedzi jako spokojna proza i pole na Twoją wiadomość.`,
     eyebrow: "Edukacyjna symulacja rozmowy · nie terapia",
     heroTitle: "Spokojne miejsce na pierwszą rozmowę.",
     heroBody:

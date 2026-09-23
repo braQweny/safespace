@@ -12,7 +12,7 @@
 
 ## Transport i prywatność
 
-Wspólne generatory używają dotychczasowych promptów i parserów. Eksporty `WithOpenRouter` nadal jawnie wybierają OpenRouter; główne fabryki używają wybranego dostawcy. Typy żądań i walidacja odpowiedzi pozostają zgodne z istniejącym SDK, lecz transport OpenAI wysyła żądania wyłącznie do `api.openai.com`.
+Wspólne generatory używają dotychczasowych promptów i parserów. Odpowiedź Chat Completions czyta jeden moduł, `chat-response.ts`. Każdy potok (rozmowa, podsumowania, karty osób i mapa tematów, bezpieczeństwo, soczewki) przekazuje mu własną fabrykę błędu, więc zachowuje swoją klasę i kategorię. Finisz `length`, `content_filter` lub `tool_calls` oznacza odpowiedź niepełną i jest odrzucany we wszystkich potokach, także w klasyfikatorze bezpieczeństwa: tam kończy się kodem fail-closed `invalid_provider_response`. Eksporty `WithOpenRouter` nadal jawnie wybierają OpenRouter; główne fabryki używają wybranego dostawcy. Typy żądań i walidacja odpowiedzi pozostają zgodne z istniejącym SDK, lecz transport OpenAI wysyła żądania wyłącznie do `api.openai.com`.
 
 Oba transporty OpenAI ustawiają `redirect: "manual"` i odrzucają odpowiedzi 3xx, bez przesyłania klucza lub treści pod adres przekierowania. Używany lokalnie runtime Cloudflare (`workerd`) odrzuca tryb `redirect: "error"`, mimo że działa on w testach Node.
 

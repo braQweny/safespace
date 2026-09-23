@@ -45,12 +45,37 @@ describe("DashboardSessionHistory", () => {
     );
 
     expect(html).toContain('role="radiogroup"');
-    expect(html).toContain(`aria-label="${selectedAvatar.avatarFirstName}"`);
-    expect(html).toContain('aria-label="Marek"');
-    expect(html).not.toContain('aria-label="Lena"');
-    expect(html).not.toContain('aria-label="Nadia"');
+    expect(html).toContain(`value="${selectedAvatar.avatarId}"`);
+    expect(html).toContain('value="cbt-guide"');
+    expect(html).toContain(">Marek</span>");
+    expect(html).not.toContain(">Lena</span>");
+    expect(html).not.toContain(">Nadia</span>");
     expect(html).toContain("rozmów: </span>3");
     expect(html).toContain("rozmów: </span>1");
+  });
+
+  it("lets the whole label, count included, name each radio", () => {
+    // `aria-label` z samym imieniem nadpisywał `<label>`, więc liczba rozmów
+    // (tekst tylko dla czytnika) nigdy nie była czytana.
+    const html = renderToStaticMarkup(
+      <DashboardSessionHistory
+        locale="pl"
+        selectedAvatar={selectedAvatar}
+        modalities={MODALITY_CHOICES}
+        initialHistoryPage={1}
+        initialHistory={null}
+        sessionCountsByAvatar={{ [selectedAvatar.avatarId]: 3, "cbt-guide": 1 }}
+      />,
+    );
+    const radios = html.match(/<input type="radio"[^>]*>/g) ?? [];
+
+    expect(radios).toHaveLength(2);
+    for (const radio of radios) {
+      expect(radio).not.toContain("aria-label");
+    }
+    expect(html).toMatch(
+      /<label [^>]*><input type="radio"[^>]*value="cbt-guide"[^>]*>.*?>Marek<\/span>.*?rozmów: <\/span>1<\/span><\/label>/,
+    );
   });
 
   it("drops the filter when there is only one perspective to show", () => {
@@ -84,10 +109,10 @@ describe("DashboardSessionHistory", () => {
 
     for (const modality of MVP_MODALITIES) {
       const name = modality.avatarFirstName;
-      expect(html).toContain(`aria-label="${name}"`);
+      expect(html).toContain(`value="${modality.avatarId}"`);
       expect(html).toContain(`>${name}</span>`);
     }
-    expect(html).toMatch(new RegExp(`aria-label="${selectedAvatar.avatarFirstName}"[^>]*checked=""`));
+    expect(html).toMatch(new RegExp(`<input [^>]*checked=""[^>]*value="${selectedAvatar.avatarId}"`));
     expect(html).toContain('role="radiogroup"');
     expect(html).not.toContain("<select");
     // Pełna nazwa zostaje w nagłówku sekcji.

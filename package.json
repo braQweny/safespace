@@ -17,17 +17,17 @@
     "format": "prettier --write .",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:db": "node --test tests/database/*.test.mjs",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "dev:billing": "node scripts/start-billing-sandbox.mjs"
+    "dev:billing": "node scripts/start-billing-sandbox.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.10",
     "@astrojs/cloudflare": "14.2.6",
     "@astrojs/react": "6.0.5",
     "@astrojs/sitemap": "3.7.4",
-    "@eslint/config-helpers": "^0.7.0",
     "@fontsource-variable/newsreader": "^5.3.0",
     "@fontsource-variable/source-sans-3": "^5.3.0",
     "@openrouter/sdk": "1.2.92",
@@ -35,8 +35,6 @@
     "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.112.4",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
     "astro": "7.2.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -49,10 +47,19 @@
     "tailwindcss": "^4.2.4"
   },
   "devDependencies": {
-    "@eslint/compat": "^2.0.3",
+    "@astrojs/check": "^0.9.10",
+    "@eslint/config-helpers": "^0.7.0",
     "@eslint/js": "^9.29.0",
     "@playwright/test": "1.62.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/eslint-plugin-jsx-a11y": "^6.10.1",
     "@types/pg": "8.23.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitest/coverage-v8": "^4.1.11",
+    "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-astro": "^1.7.0",
@@ -61,6 +68,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "happy-dom": "^20.14.5",
     "husky": "9.1.7",
     "lint-staged": "^17.4.1",
     "prettier": "^3.9.6",
@@ -73,10 +81,10 @@
     "wrangler": "4.131.1"
   },
   "lint-staged": {
-    "*.{ts,tsx,astro}": [
+    "*.{ts,tsx,astro,js,mjs,cjs}": [
       "eslint --fix"
     ],
-    "*.{json,css,md}": [
+    "*.{json,css,md,yml,yaml}": [
       "prettier --write"
     ]
   }

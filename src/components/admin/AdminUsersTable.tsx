@@ -9,10 +9,13 @@ import type {
 } from "@/lib/admin/types";
 import { formatDay } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/locale";
+import { DEFAULT_TIME_ZONE } from "@/lib/i18n/time-zone";
 import { getAdminCopy } from "./admin-copy";
 
 interface AdminUsersTableProps {
   locale: Locale;
+  /** Strefa admina (`Astro.locals.timeZone`) dla dat w tabeli; domyślnie Europe/Warsaw. */
+  timeZone?: string;
   initialResponse: AdminUsersResponse;
   currentAdminUserId: string;
 }
@@ -20,12 +23,12 @@ interface AdminUsersTableProps {
 const SELECT_CLASS_NAME =
   "border-brand-soft text-ink focus:border-brand-strong focus:ring-line-accent mt-1 h-10 w-full rounded-md border bg-surface px-3 text-sm outline-none focus:ring-2";
 
-function formatDate(locale: Locale, value: string | null) {
+function formatDate(locale: Locale, timeZone: string, value: string | null) {
   if (!value) {
     return getAdminCopy(locale).table.none;
   }
 
-  return formatDay(locale, new Date(value));
+  return formatDay(locale, timeZone, new Date(value));
 }
 
 export function getAdminUsersErrorMessage(locale: Locale, code: AdminApiFailureCode) {
@@ -42,7 +45,12 @@ function ErrorNotice({ locale, code }: { locale: Locale; code: AdminApiFailureCo
   );
 }
 
-export default function AdminUsersTable({ locale, initialResponse, currentAdminUserId }: AdminUsersTableProps) {
+export default function AdminUsersTable({
+  locale,
+  timeZone = DEFAULT_TIME_ZONE,
+  initialResponse,
+  currentAdminUserId,
+}: AdminUsersTableProps) {
   const copy = getAdminCopy(locale).table;
   const {
     result,
@@ -201,8 +209,12 @@ export default function AdminUsersTable({ locale, initialResponse, currentAdminU
                         {isPremium ? copy.planPremium : copy.planFree}
                       </span>
                     </td>
-                    <td className="text-ink-muted px-4 py-3">{formatDate(locale, user.profile.accountCreatedAt)}</td>
-                    <td className="text-ink-muted px-4 py-3">{formatDate(locale, user.profile.lastActivityAt)}</td>
+                    <td className="text-ink-muted px-4 py-3">
+                      {formatDate(locale, timeZone, user.profile.accountCreatedAt)}
+                    </td>
+                    <td className="text-ink-muted px-4 py-3">
+                      {formatDate(locale, timeZone, user.profile.lastActivityAt)}
+                    </td>
                     <td className="text-ink-muted px-4 py-3">
                       {copy.sessionsCell(user.counters.totalSessions, user.counters.activeSessions)}
                     </td>

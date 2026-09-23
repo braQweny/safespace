@@ -1,9 +1,8 @@
 import { getValidAvatarChoice } from "@/lib/modalities";
 import type { Locale } from "@/lib/i18n/locale";
-import { getModalityPromptNames } from "@/lib/modality-copy";
 import { generateSessionResponse } from "@/lib/session-ai/provider";
-import type { ApprovedSessionSummaryContext, SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
-import { loadOwnedSessionContinuity } from "./session-continuity";
+import type { SessionDataContext, SessionMetadata } from "@/lib/session-data/types";
+import { loadOwnedSessionContinuity, toSessionPromptContext } from "./session-continuity";
 import { getProviderTimeoutWithinSessionMs } from "./time-limit";
 import { persistOpeningMessage } from "./message-persistence";
 import type { SessionMessageViewModel } from "./message-contract";
@@ -13,11 +12,6 @@ export type SessionOpeningFailure = "opening_provider_failed" | "opening_persist
 export interface SessionOpeningOptions {
   /** Język otwarcia — język interfejsu w chwili startu. */
   locale: Locale;
-  /**
-   * Optional legacy summaries. Automatic sessions always read their pinned
-   * avatar-memory snapshot, even when this legacy option is supplied.
-   */
-  approvedSummaries?: readonly ApprovedSessionSummaryContext[];
 }
 
 export type SessionOpeningResult =
@@ -43,16 +37,7 @@ export async function createSessionOpeningMessage(
     return { ok: true, message: null };
   }
 
-  const summaries =
-    options.approvedSummaries && !session.usesAvatarMemory && session.usesApprovedContext
-      ? {
-          ok: true as const,
-          data: options.approvedSummaries,
-          avatarMemory: undefined,
-          peopleBrief: undefined,
-          topicBrief: undefined,
-        }
-      : await loadOwnedSessionContinuity(context, session);
+  const summaries = await loadOwnedSessionContinuity(context, session);
 
   if (!summaries.ok) {
     return { ok: false, failure: "opening_unavailable" };
@@ -63,21 +48,8 @@ export async function createSessionOpeningMessage(
   try {
     const response = await generateSessionResponse({
       mode: "opening",
-      modality: {
-        ...getModalityPromptNames(modality.modalityId),
-        sessionStyleHint: modality.sessionStyleHint,
-        registerExamples: modality.registerExamples[options.locale],
-      },
+      ...toSessionPromptContext(modality, summaries, options.locale),
       sessionPhase: "opening",
-      avatarMemory: summaries.avatarMemory,
-      peopleBrief: summaries.peopleBrief,
-      topicBrief: summaries.topicBrief,
-      approvedSummaries: summaries.data.map((summary) => ({
-        summaryText: summary.summaryText,
-        revision: summary.revision,
-        createdAt: summary.createdAt,
-        updatedAt: summary.updatedAt,
-      })),
       locale: options.locale,
     });
 

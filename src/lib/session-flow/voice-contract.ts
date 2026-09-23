@@ -39,6 +39,8 @@ export type VoiceRouteFailureCode =
   | "session_expired"
   | "session_mode_mismatch"
   | "voice_unavailable"
+  | "voice_minutes_exhausted"
+  | "voice_trial_used"
   | "voice_provider_unavailable"
   | "voice_observer_unavailable"
   | "voice_connect_failed"
@@ -60,6 +62,7 @@ export interface VoiceConnectSuccessResponse {
   type: "voice_connected";
   /** Odpowiedź SDP dostawcy dla `setRemoteDescription`. */
   sdp: string;
+  /** Termin tego połączenia: `expires_at` albo wcześniej, gdy pula minut kończy się przed nim. */
   expiresAt: string | null;
   serverNow: string;
   epoch: number;
@@ -98,6 +101,8 @@ export function getVoiceRouteFailureStatus(code: VoiceRouteFailureCode): number 
       return 401;
     case "account_blocked":
     case "voice_unavailable":
+    case "voice_minutes_exhausted":
+    case "voice_trial_used":
       return 403;
     case "session_not_found":
       return 404;
@@ -192,6 +197,29 @@ export async function parseVoiceHeartbeatRequest(request: Request): Promise<Voic
   }
 
   return { sessionId, epoch };
+}
+
+/**
+ * Termin rozmowy głosowej, który widzi klient: `expires_at` z bazy albo
+ * wcześniejszy termin obserwatora, gdy `connect` przyciął go do reszty puli
+ * minut (w bazie `expires_at` jest zamrożone od startu). Timer klienta liczy
+ * od tego pola, więc obie trasy — `connect` i heartbeat — oddają ten sam.
+ */
+export function withVoiceDeadline<T extends { expiresAt: string | null }>(
+  session: T,
+  effectiveExpiresAtMs: number | null,
+): T {
+  if (effectiveExpiresAtMs === null || !Number.isFinite(effectiveExpiresAtMs)) {
+    return session;
+  }
+
+  const storedMs = session.expiresAt ? Date.parse(session.expiresAt) : Number.NaN;
+
+  if (Number.isFinite(storedMs) && effectiveExpiresAtMs >= storedMs) {
+    return session;
+  }
+
+  return { ...session, expiresAt: new Date(effectiveExpiresAtMs).toISOString() };
 }
 
 export function isVoiceSession(session: Pick<SessionView, "mode"> | null | undefined) {

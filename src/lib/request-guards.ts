@@ -17,6 +17,37 @@ const API_BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
 
 export type ApiBodyGuardReasonCode = "length_required" | "payload_too_large";
 
+const MAX_PATHNAME_DECODE_PASSES = 3;
+
+/**
+ * The pathname every path-based guard compares against. Astro routes
+ * `/api/session/message/`, `/api/session//message` and `/api/session/%6Dessage`
+ * to the same handler as `/api/session/message`, so exact-match allowlists
+ * (rate limits, body caps, protected routes) must see them the same way —
+ * otherwise a trailing slash skips the limiter entirely. Guards only ever
+ * widen with this: a variant that no route serves just meets a stricter check.
+ */
+export function normalizeGuardPathname(pathname: string) {
+  let decoded = pathname;
+
+  for (let pass = 0; pass < MAX_PATHNAME_DECODE_PASSES; pass += 1) {
+    let next: string;
+
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      break;
+    }
+
+    if (next === decoded) break;
+    decoded = next;
+  }
+
+  const collapsed = decoded.toLowerCase().replace(/\/{2,}/g, "/");
+  const trimmed = collapsed.replace(/\/+$/, "");
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
 export const BLOCKED_ACCOUNT_PATH = "/account/blocked";
 export const ACCOUNT_ACCESS_UNAVAILABLE_PATH = `${BLOCKED_ACCOUNT_PATH}?state=unavailable`;
 
@@ -40,11 +71,13 @@ const LENGTH_REQUIRED: ApiBodyGuardVerdict = { ok: false, status: 411, reasonCod
 const PAYLOAD_TOO_LARGE: ApiBodyGuardVerdict = { ok: false, status: 413, reasonCode: "payload_too_large" };
 
 export function getApiBodyLimitBytes(pathname: string) {
-  if (pathname === TRANSCRIPTION_API_PATH) {
+  const path = normalizeGuardPathname(pathname);
+
+  if (path === TRANSCRIPTION_API_PATH) {
     return TRANSCRIPTION_API_BODY_LIMIT_BYTES;
   }
 
-  if (pathname === VOICE_CONNECT_API_PATH) {
+  if (path === VOICE_CONNECT_API_PATH) {
     return VOICE_CONNECT_API_BODY_LIMIT_BYTES;
   }
 
@@ -75,13 +108,15 @@ export function evaluateApiBodyGuard(
   request: Pick<Request, "method" | "headers" | "body">,
   pathname: string,
 ): ApiBodyGuardVerdict {
-  if (!pathname.startsWith("/api/") || !API_BODY_METHODS.has(request.method)) {
+  const path = normalizeGuardPathname(pathname);
+
+  if (!path.startsWith("/api/") || !API_BODY_METHODS.has(request.method)) {
     return ALLOWED;
   }
 
   // The webhook reader enforces its separate 256 KiB streaming cap, including
   // absent or dishonest Content-Length. Ordinary API routes still require it.
-  if (pathname === "/api/billing/webhook") return ALLOWED;
+  if (path === "/api/billing/webhook") return ALLOWED;
 
   const header = request.headers.get("content-length");
 
@@ -95,5 +130,5 @@ export function evaluateApiBodyGuard(
     return LENGTH_REQUIRED;
   }
 
-  return contentLength > getApiBodyLimitBytes(pathname) ? PAYLOAD_TOO_LARGE : ALLOWED;
+  return contentLength > getApiBodyLimitBytes(path) ? PAYLOAD_TOO_LARGE : ALLOWED;
 }

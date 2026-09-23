@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { SessionStartPageState, SessionView } from "@/lib/session-flow/session-state";
 import VoiceSession from "../VoiceSession";
-import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import { MODALITY_CATALOG, toSelectedModalityAvatar } from "@/lib/modality-catalog";
 
 vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
@@ -10,13 +10,8 @@ vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
   useLocale: () => "pl",
 }));
 
-const CBT_MODALITY = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
+const CBT_MODALITY = MODALITY_CATALOG.find((entry) => entry.modalityId === "cbt") ?? MODALITY_CATALOG[1];
 const avatar = {
-  modality: {
-    ...CBT_MODALITY,
-    sessionStyleHint: "Uzywa jasnej struktury.",
-    summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-  },
   selected: toSelectedModalityAvatar(CBT_MODALITY),
 } satisfies SessionStartPageState["avatar"];
 
@@ -40,8 +35,6 @@ function createState(overrides: Partial<SessionStartPageState> = {}): SessionSta
     session: activeSession,
     messages: [],
     messageFetchFailed: false,
-    approvedSummaries: [],
-    canStartWithoutContext: false,
     sessionQuota: null,
     ...overrides,
   };

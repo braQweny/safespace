@@ -353,6 +353,23 @@ export async function listOwnedPersonCards(
   return ok(value);
 }
 
+/**
+ * Ile kart osób ma perspektywa — ten sam zbiór co `list_person_cards`
+ * (zapomniana osoba to usunięty wiersz), bez budowania kart i bez treści.
+ */
+export async function countOwnedPersonCards(
+  context: SessionDataContext,
+  avatarId: SessionAvatarId,
+): Promise<SessionDataResult<number>> {
+  const { count, error } = await context.supabase
+    .from("people_persons")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", context.user.id)
+    .eq("avatar_id", avatarId);
+  if (error || typeof count !== "number") return sessionDataError("read_failed");
+  return ok(count);
+}
+
 /** `null` = brak karty właściciela o tym id (nigdy cudza). */
 export async function getOwnedPersonCard(
   context: SessionDataContext,

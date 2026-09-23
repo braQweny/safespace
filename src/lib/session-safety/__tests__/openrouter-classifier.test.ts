@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { evaluateSessionSafety } from "../evaluate-session-safety";
 import { buildOpenRouterSafetyRequest, classifySessionSafetyWithOpenRouter } from "../openrouter-classifier";
 import { ProviderSafetyError } from "../provider";
+import { isFailClosedSessionSafetyReasonCode } from "../reason-codes";
 import type { SessionSafetyInput } from "../types";
 
 vi.mock("astro:env/server", () => ({
@@ -29,7 +30,7 @@ function createJsonResponse(body: unknown, status = 200) {
   });
 }
 
-function createChatCompletionResponse(content: string) {
+function createChatCompletionResponse(content: string, finishReason = "stop") {
   return {
     id: "chatcmpl-safety-test",
     created: 1_735_000_000,
@@ -39,7 +40,7 @@ function createChatCompletionResponse(content: string) {
     choices: [
       {
         index: 0,
-        finish_reason: "stop",
+        finish_reason: finishReason,
         message: {
           role: "assistant",
           content,
@@ -251,6 +252,35 @@ describe("classifySessionSafetyWithOpenRouter", () => {
     ).rejects.toMatchObject({
       category: "invalid_provider_response",
     });
+  });
+
+  it("fails closed on a truncated verdict, with a fail-closed reason code and no second call", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve(
+        createJsonResponse(
+          createChatCompletionResponse(
+            JSON.stringify({ risk: "normal", action: "allow", reasonCode: "none_detected" }),
+            "length",
+          ),
+        ),
+      ),
+    );
+
+    const decision = await evaluateSessionSafety(input, {
+      provider: {
+        classify(value) {
+          return classifySessionSafetyWithOpenRouter(value, {
+            apiKey: "test-openrouter-key",
+            fetcher: fetcher as unknown as Fetcher,
+          });
+        },
+      },
+    });
+
+    expect(decision.action).toBe("hard_stop");
+    expect(decision.reasonCode).toBe("invalid_provider_response");
+    expect(isFailClosedSessionSafetyReasonCode(decision.reasonCode)).toBe(true);
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 
   it("keeps evaluateSessionSafety fail-closed for provider transport failures", async () => {

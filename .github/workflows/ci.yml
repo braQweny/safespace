@@ -12,6 +12,7 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # Kolejny push na tę samą gałąź/PR unieważnia poprzedni przebieg testów.
     concurrency:
       group: ci-${{ github.ref }}
@@ -36,13 +37,42 @@ jobs:
           # i z forków. Job deploy buduje osobno z konfiguracją produkcyjną.
           SUPABASE_URL: https://example.supabase.co
           SUPABASE_KEY: test-public-key
-      - run: npx playwright install --with-deps chromium
+      # Bundluje Workera z `src/worker.ts` bez poświadczeń. Klasa Durable
+      # Object musi się pojawić w bindingach, inaczej deploy by jej nie utworzył.
+      - name: Wrangler dry run
+        run: |
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/wrangler-dry-run" | tee "$RUNNER_TEMP/wrangler-dry-run.log"
+          grep -q "VoiceSessionObserver" "$RUNNER_TEMP/wrangler-dry-run.log"
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npm run test:e2e
+      # `trace: "retain-on-failure"` zapisuje ślady tylko lokalnie w runnerze;
+      # bez tego kroku nieudany E2E w CI nie zostawia niczego do obejrzenia.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: ci
     runs-on: ubuntu-latest
+    # Blokada `deploy-main` ma `queue: max`; zawieszona migracja nie może
+    # trzymać jej przez domyślne 6 godzin i wstrzymać każdego kolejnego wdrożenia.
+    timeout-minutes: 30
     # Jedna blokada obejmuje CAŁE wdrożenie: migrację oraz publikację Workera.
     concurrency:
       group: deploy-main
@@ -109,13 +139,33 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_POOLER_HOST: ${{ secrets.SUPABASE_DB_POOLER_HOST }}
 
+      # Bez `wranglerVersion` akcja używa Wranglera z `npm ci` — tej samej
+      # wersji, którą przechodzi audyt i dry run; przypięta ręcznie wersja
+      # zostawała w tyle za package.json (Dependabot nie aktualizuje inputów).
       - name: Deploy to Cloudflare Workers
+        id: deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.126.0"
           command: deploy --secrets-file .env.production
       - name: Remove production secrets file
         if: always()
         run: rm -f .env.production
+      # Po publikacji sprawdza, że Worker odpowiada, a CSP ma prawdziwy origin
+      # Supabase w `form-action` (CI testuje go tylko z adresem zastępczym;
+      # bez niego logowanie przez Google ginie po cichu).
+      - name: Smoke test the published Worker
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          if [ -z "$DEPLOYMENT_URL" ]; then
+            echo "::warning::wrangler-action returned no deployment URL; smoke test skipped."
+            exit 0
+          fi
+          headers="$(curl --silent --show-error --fail --retry 3 --retry-delay 5 --retry-all-errors --dump-header - --output /dev/null "$DEPLOYMENT_URL/auth/signin")"
+          echo "$headers" | grep -qi "^x-safespace-request-id:" || { echo "Missing request id header" >&2; exit 1; }
+          supabase_origin="$(node -p 'new URL(process.env.SUPABASE_URL).origin')"
+          echo "$headers" | grep -i "^content-security-policy:" | grep -qF "$supabase_origin" \
+            || { echo "CSP form-action does not list the Supabase origin" >&2; exit 1; }

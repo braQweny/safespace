@@ -2,12 +2,8 @@ import type { VoiceCloseReason } from "@/lib/voice/observer-state";
 import type { SessionMessageViewModel } from "./message-contract";
 import { isTerminalSessionKind, type UiSessionMessage } from "./message-state";
 import type { SessionNoticeState } from "./session-notice";
-import {
-  toSessionStartPageStateKind,
-  type SessionStartPageState,
-  type SessionStartPageStateKind,
-  type SessionView,
-} from "./session-state";
+import type { SessionStartPageState, SessionView } from "./session-state";
+import { toSessionStartPageStateKind, type SessionStartPageStateKind } from "./session-state-kind";
 import type { VoiceHeartbeatSuccessResponse } from "./voice-contract";
 import {
   createVoiceTranscriptState,
@@ -40,8 +36,13 @@ export type VoiceConnectionStatus =
   | "paused_safety"
   | "reconnecting"
   | "audio_blocked"
+  /** `connect` odmówił z powodu puli (`refusal`): ponowna próba nic nie zmieni. */
+  | "refused"
   | "ended"
   | "hard_stop";
+
+/** Odmowa `connect` z powodu puli minut — ta sama bramka, co przy starcie rozmowy głosowej. */
+export type VoiceConnectRefusal = "voice_minutes_exhausted" | "voice_trial_used";
 
 export interface VoiceLiveFragment {
   id: string;
@@ -66,6 +67,8 @@ export interface VoiceSessionUiState {
   reconnectAttempt: number;
   closeReason: VoiceCloseReason | null;
   isClientExpired: boolean;
+  /** Dlaczego `connect` odmówił (wyczerpana pula, zużyta próba); ekran mówi, co dalej. */
+  refusal: VoiceConnectRefusal | null;
 }
 
 /** Powiadomienia budowane z copy przez hook; reduktor nie zna języka. */
@@ -83,6 +86,8 @@ export type VoiceSessionAction =
   | { type: "connecting" }
   | { type: "connected"; epoch: number; session: SessionView }
   | { type: "connect_failed"; notice: SessionNoticeState | null; retryable: boolean }
+  /** Pula nie pozwala połączyć: bez automatycznego wznowienia i bez przycisku ponownej próby. */
+  | { type: "connect_refused"; refusal: VoiceConnectRefusal }
   | { type: "audio_blocked" }
   | { type: "audio_unblocked" }
   | { type: "fragment"; fragment: VoiceTranscriptFragment; nowMs: number }
@@ -147,6 +152,7 @@ export function getInitialVoiceSessionState(
     reconnectAttempt: 0,
     closeReason: null,
     isClientExpired: initialState.session?.remainingSeconds === 0,
+    refusal: null,
   };
 }
 
@@ -205,7 +211,28 @@ function endedState(state: VoiceSessionUiState, overrides: Partial<VoiceSessionU
   };
 }
 
+/**
+ * Odmowa puli (`refused`) jest ostateczna dla tego ekranu: puls wysłany przed
+ * odmową (po zerwaniu połączenia albo z interwału w trakcie wznawiania) może
+ * wrócić po niej, a jego „połączenie do wznowienia” wznowiłoby puls i
+ * zapętliło tę samą odmowę. Zapisane wiersze i tak wchodzą, a prawdziwy koniec
+ * z serwera (zakończona, wygasła, przerwana, inna karta) wygrywa.
+ */
 function applyHeartbeat(
+  state: VoiceSessionUiState,
+  response: VoiceHeartbeatSuccessResponse,
+  notices: VoiceHeartbeatNotices,
+): VoiceSessionUiState {
+  const next = resolveHeartbeatState(state, response, notices);
+
+  if (state.status === "refused" && next.status === "reconnecting") {
+    return { ...next, status: "refused", notice: state.notice, reconnectAttempt: state.reconnectAttempt };
+  }
+
+  return next;
+}
+
+function resolveHeartbeatState(
   state: VoiceSessionUiState,
   response: VoiceHeartbeatSuccessResponse,
   notices: VoiceHeartbeatNotices,
@@ -281,6 +308,7 @@ export function voiceSessionReducer(state: VoiceSessionUiState, action: VoiceSes
         transcript: createVoiceTranscriptState(),
         reconnectAttempt: 0,
         closeReason: null,
+        refusal: null,
         notice: null,
       };
     case "connect_failed":
@@ -290,6 +318,9 @@ export function voiceSessionReducer(state: VoiceSessionUiState, action: VoiceSes
         reconnectAttempt: action.retryable ? state.reconnectAttempt + 1 : state.reconnectAttempt,
         notice: action.notice ?? state.notice,
       };
+    case "connect_refused":
+      // Wiersz w bazie zostaje aktywny do terminu; zostaje zakończyć rozmowę albo wrócić do panelu.
+      return endedState(state, { status: "refused", refusal: action.refusal, reconnectAttempt: 0, notice: null });
     case "audio_blocked":
       return state.status === "live" ? { ...state, status: "audio_blocked" } : state;
     case "audio_unblocked":

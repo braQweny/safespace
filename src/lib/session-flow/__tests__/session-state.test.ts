@@ -49,6 +49,7 @@ const context = {
 } as SessionDataContext;
 
 // Katalog jest jedynym źródłem kształtu perspektywy; testy dokładają tylko krótkie hinty.
+// Strony podają pełny wybór (z `modality`), a stan strony niesie z niego tylko `selected`.
 const CBT_MODALITY = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
 const avatar: CurrentAvatarChoice = {
   modality: {
@@ -111,7 +112,6 @@ function createRepository(overrides: Partial<SessionStateRepository> = {}): Sess
     getOwnedSessionMetadata: vi.fn(() => Promise.resolve(ok(activeSession))),
     listOwnedActiveSessionMetadata: vi.fn(() => Promise.resolve(ok([]))),
     listOwnedSessionMessages: vi.fn(() => Promise.resolve(ok([message]))),
-    listNewestApprovedSessionSummaryContexts: vi.fn(() => Promise.resolve(ok([]))),
     ...overrides,
   };
 }
@@ -139,8 +139,6 @@ describe("readSessionStartPageState", () => {
         kind: "ready",
         trialAvailable: true,
         session: null,
-        approvedSummaries: [],
-        canStartWithoutContext: false,
         sessionQuota: freeQuota,
       },
     });
@@ -158,18 +156,15 @@ describe("readSessionStartPageState", () => {
       data: {
         kind: "session_limit_reached",
         trialAvailable: false,
-        avatar,
+        avatar: { selected: avatar.selected },
         session: null,
         messages: [],
         messageFetchFailed: false,
-        approvedSummaries: [],
-        canStartWithoutContext: false,
         sessionQuota: exhaustedQuota,
       },
     });
-    // Nothing to carry context into, so neither the trial nor the summaries are read.
+    // Nothing can start, so the trial claim is not read either.
     expect(repository.readTrialAvailability).not.toHaveBeenCalled();
-    expect(repository.listNewestApprovedSessionSummaryContexts).not.toHaveBeenCalled();
   });
 
   it("keeps offering starts to premium accounts regardless of how many sessions they own", async () => {
@@ -192,7 +187,6 @@ describe("readSessionStartPageState", () => {
       ok: true,
       data: {
         kind: "followup_ready",
-        canStartWithoutContext: false,
         sessionQuota: premiumQuota,
       },
     });
@@ -253,8 +247,6 @@ describe("readSessionStartPageState", () => {
             content: "Chce spokojnie opisac sytuacje.",
           },
         ],
-        approvedSummaries: [],
-        canStartWithoutContext: false,
       },
     });
   });
@@ -434,20 +426,6 @@ describe("readSessionStartPageState", () => {
           }),
         ),
       ),
-      listNewestApprovedSessionSummaryContexts: vi.fn(() =>
-        Promise.resolve(
-          ok([
-            {
-              id: "summary-1",
-              sessionId: "session-1",
-              summaryText: "Zatwierdzone podsumowanie do kolejnej sesji.",
-              revision: 1,
-              createdAt: "2026-06-07T09:58:00.000Z",
-              updatedAt: "2026-06-07T09:58:00.000Z",
-            },
-          ]),
-        ),
-      ),
     });
 
     const result = await readSessionStartPageState(context, { avatar, now }, repository);
@@ -458,15 +436,12 @@ describe("readSessionStartPageState", () => {
         kind: "followup_ready",
         trialAvailable: false,
         session: null,
-        approvedSummaries: [],
-        // Start przygotowuje pamięć automatycznie, bez ręcznego wyboru podsumowań.
-        canStartWithoutContext: false,
         sessionQuota: freeQuota,
       },
     });
   });
 
-  it("returns follow-up no-context fallback when a claim exists but metadata is unavailable", async () => {
+  it("returns the follow-up state when a claim exists but metadata is unavailable", async () => {
     const repository = createRepository({
       readTrialAvailability: vi.fn(() =>
         Promise.resolve(
@@ -487,8 +462,6 @@ describe("readSessionStartPageState", () => {
         kind: "followup_ready",
         trialAvailable: false,
         session: null,
-        approvedSummaries: [],
-        canStartWithoutContext: false,
       },
     });
   });
@@ -560,5 +533,46 @@ describe("voice sessions in the start page state", () => {
     await expect(
       readSessionStartPageState(context, { avatar, resumeSessionId: voiceActive.id, now }, withoutHook),
     ).resolves.toMatchObject({ ok: true, data: { kind: "active", session: { mode: "voice" } } });
+  });
+});
+
+// Stan strony idzie w propsach islandów (`initialState`), czyli do HTML. Pełny
+// wpis perspektywy z personą AI ma zostać na serwerze w każdym wariancie stanu.
+describe("session start page state prompt boundary", () => {
+  const PROMPT_KEYS = ["sessionStyleHint", "summaryLensHint", "registerExamples", "voiceLiveHint", "liveVoice"];
+  const fullChoice: CurrentAvatarChoice = { modality: CBT_MODALITY, selected: toSelectedModalityAvatar(CBT_MODALITY) };
+  const failed = () => Promise.resolve(sessionDataError("read_failed"));
+
+  it.each<[string, Partial<SessionStateRepository>]>([
+    ["ready", {}],
+    ["session_limit_reached", { readSessionQuota: vi.fn(() => Promise.resolve(ok(exhaustedQuota))) }],
+    ["active", { listOwnedActiveSessionMetadata: vi.fn(() => Promise.resolve(ok([activeSession]))) }],
+    [
+      "followup_ready",
+      {
+        readTrialAvailability: vi.fn(() => Promise.resolve(ok({ isAvailable: false, existingClaim: claim }))),
+        getOwnedSessionMetadata: vi.fn(failed),
+      },
+    ],
+    ["unavailable", { readSessionQuota: vi.fn(failed) }],
+  ])("carries only the catalog selection in the %s state", async (kind, overrides) => {
+    const result = await readSessionStartPageState(
+      context,
+      { avatar: fullChoice, includeMessagesForActive: true, now },
+      createRepository(overrides),
+    );
+
+    if (!result.ok) {
+      throw new Error("expected a page state");
+    }
+
+    const serialized = JSON.stringify(result.data);
+
+    expect(result.data.kind).toBe(kind);
+    expect(result.data.avatar).toEqual({ selected: toSelectedModalityAvatar(CBT_MODALITY) });
+    for (const key of PROMPT_KEYS) {
+      expect(serialized).not.toContain(`"${key}"`);
+    }
+    expect(serialized).not.toContain(CBT_MODALITY.sessionStyleHint.split("\n")[0]);
   });
 });

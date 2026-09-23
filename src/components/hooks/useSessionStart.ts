@@ -46,9 +46,7 @@ export function resolveFailedStartKind(failureCode: string | null): SessionStart
     return "session_limit_reached";
   }
 
-  return failureCode === "trial_already_claimed" || failureCode === "no_context_not_confirmed"
-    ? "followup_ready"
-    : "unavailable";
+  return failureCode === "trial_already_claimed" ? "followup_ready" : "unavailable";
 }
 
 export interface UseSessionStartOptions {
@@ -111,7 +109,7 @@ export function useSessionStart({ initialState, onStarted, locale }: UseSessionS
   const startingRef = useRef(false);
   const [notice, setNotice] = useState<SessionStartNotice | null>(null);
   const [voiceFailureCode, setVoiceFailureCode] = useState<VoiceStartFailureCode | null>(null);
-  const stopMemoryPreparation = useAvatarMemoryPreparation(initialState.avatar.modality, kind === "followup_ready");
+  const stopMemoryPreparation = useAvatarMemoryPreparation(initialState.avatar.selected, kind === "followup_ready");
 
   async function startSession(options: SessionStartRequestOptions = {}) {
     if (startingRef.current) {

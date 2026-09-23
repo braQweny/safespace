@@ -5,19 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 const env = vi.hoisted((): { PEOPLE_MEMORY_MODE: string | undefined } => ({ PEOPLE_MEMORY_MODE: "on" }));
 vi.mock("astro:env/server", () => env);
 
-import { isPeopleMemoryEnabled, parsePeopleMemoryMode } from "../people-memory-mode";
+import { isPeopleMemoryEnabled } from "../people-memory-mode";
 
 const ROOT = resolve(__dirname, "../../../..");
 
 describe("people memory mode", () => {
-  it("treats only a literal `on` as enabled", () => {
-    expect(parsePeopleMemoryMode("on")).toBe("on");
-    expect(parsePeopleMemoryMode(" ON ")).toBe("on");
-    for (const value of ["off", "", undefined, null, "true", "1", "yes"]) {
-      expect(parsePeopleMemoryMode(value)).toBe("off");
-    }
-  });
-
   it("reads the flag from the server environment and defaults to off when it cannot", () => {
     expect(isPeopleMemoryEnabled()).toBe(true);
     env.PEOPLE_MEMORY_MODE = "off";

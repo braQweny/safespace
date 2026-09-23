@@ -1,5 +1,11 @@
 import { coerceAuditEventRow, mapAdminAuditEvent } from "./audit";
-import { adminError, adminOk, getStableAdminSupabaseErrorCode, type AdminResult } from "./errors";
+import {
+  ADMIN_SELF_TARGET_SQLSTATE,
+  adminError,
+  adminOk,
+  getStableAdminSupabaseErrorCode,
+  type AdminResult,
+} from "./errors";
 import { isRecord } from "@/lib/type-guards";
 import type {
   AdminBlockReasonCode,
@@ -386,7 +392,13 @@ function mapAtomicAdminUserMutation(value: unknown): AdminUserBlockResult | null
 }
 
 function adminMutationFailure(error: unknown) {
-  return adminError(getStableAdminSupabaseErrorCode(error) === "P0002" ? "target_not_found" : "write_failed");
+  const code = getStableAdminSupabaseErrorCode(error);
+
+  if (code === ADMIN_SELF_TARGET_SQLSTATE) {
+    return adminError("self_target_forbidden");
+  }
+
+  return adminError(code === "P0002" ? "target_not_found" : "write_failed");
 }
 
 async function mutateAdminUserBlockState(

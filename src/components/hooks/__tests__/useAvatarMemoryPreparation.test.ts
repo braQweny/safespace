@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MVP_MODALITIES } from "@/lib/modalities";
 import { startAvatarMemoryPreparation } from "../useAvatarMemoryPreparation";
 
 const avatar = { avatarId: "cbt-guide", modalityId: "cbt" } as const;
@@ -58,6 +59,15 @@ describe("background avatar memory", () => {
     await Promise.all([first.done, second.done]);
     await startAvatarMemoryPreparation(avatar).done;
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("posts only the ids even when handed a full perspective entry with its persona", async () => {
+    const fetch = vi.fn().mockResolvedValue(ready());
+    vi.stubGlobal("fetch", fetch);
+    const cbt = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
+    await startAvatarMemoryPreparation(cbt).done;
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][1]).toMatchObject({ body: JSON.stringify(avatar) });
   });
 
   it("keeps different avatars separate", async () => {

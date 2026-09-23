@@ -5,19 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 const env = vi.hoisted((): { TOPIC_MAP_MODE: string | undefined } => ({ TOPIC_MAP_MODE: "on" }));
 vi.mock("astro:env/server", () => env);
 
-import { isTopicMapEnabled, parseTopicMapMode } from "../topic-map-mode";
+import { isTopicMapEnabled } from "../topic-map-mode";
 
 const ROOT = resolve(__dirname, "../../../..");
 
 describe("topic map mode", () => {
-  it("treats only a literal `on` as enabled", () => {
-    expect(parseTopicMapMode("on")).toBe("on");
-    expect(parseTopicMapMode(" ON ")).toBe("on");
-    for (const value of ["off", "", undefined, null, "true", "1", "yes"]) {
-      expect(parseTopicMapMode(value)).toBe("off");
-    }
-  });
-
   it("reads the flag from the server environment and defaults to off when it cannot", () => {
     expect(isTopicMapEnabled()).toBe(true);
     env.TOPIC_MAP_MODE = "off";

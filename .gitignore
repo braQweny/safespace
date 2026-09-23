@@ -37,3 +37,6 @@ scripts/spike/samples/
 scripts/spike/out/
 scripts/spike/observer-worker/.wrangler/
 scripts/spike/observer-worker/node_modules/
+
+# local scratch output (QA runs, logs); reports worth keeping are added explicitly
+tmp/

@@ -77,7 +77,3 @@ export function getOpenRouterEnv(): OpenRouterEnv {
     sessionReasoningEffort: parseOpenRouterReasoningEffort(OPENROUTER_SESSION_REASONING_EFFORT),
   };
 }
-
-export function isOpenRouterConfigured() {
-  return Boolean(OPENROUTER_API_KEY);
-}

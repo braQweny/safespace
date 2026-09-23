@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { getSessionCopy } from "@/lib/session-copy";
 import type { SessionStartPageState } from "@/lib/session-flow/session-state";
 import TimedSession, { UnsentMessageNotice } from "../TimedSession";
-import { MVP_MODALITIES, toSelectedModalityAvatar } from "@/lib/modalities";
+import { MODALITY_CATALOG, toSelectedModalityAvatar } from "@/lib/modality-catalog";
 
 vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/hooks/useLocale")>()),
@@ -11,14 +11,9 @@ vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
   useLocale: () => "pl",
 }));
 
-// Katalog jest jedynym źródłem kształtu perspektywy; testy dokładają tylko krótkie hinty.
-const CBT_MODALITY = MVP_MODALITIES.find((modality) => modality.modalityId === "cbt") ?? MVP_MODALITIES[1];
+// Stan strony niesie tylko pola katalogu — prompty perspektywy zostają na serwerze.
+const CBT_MODALITY = MODALITY_CATALOG.find((entry) => entry.modalityId === "cbt") ?? MODALITY_CATALOG[1];
 const avatar = {
-  modality: {
-    ...CBT_MODALITY,
-    sessionStyleHint: "Uzywa jasnej struktury.",
-    summaryLensHint: "Podsumuj przez soczewke poznawczo-behawioralna.",
-  },
   selected: toSelectedModalityAvatar(CBT_MODALITY),
 } satisfies SessionStartPageState["avatar"];
 
@@ -37,8 +32,6 @@ describe("TimedSession", () => {
       session: null,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -66,8 +59,6 @@ describe("TimedSession", () => {
       },
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -104,8 +95,6 @@ describe("TimedSession", () => {
       session,
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     };
     const draft = "Dziś chcę porozmawiać o tej osobie: Marta (koleżanka z pracy).";
@@ -149,8 +138,6 @@ describe("TimedSession", () => {
         },
       ],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
     const afterFirstUserMessage = renderSession({
@@ -184,8 +171,6 @@ describe("TimedSession", () => {
         },
       ],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -210,8 +195,6 @@ describe("TimedSession", () => {
       },
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -251,8 +234,6 @@ describe("TimedSession", () => {
       },
       messages: [],
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -311,8 +292,6 @@ describe("TimedSession on a small phone", () => {
       session: completedSession,
       messages,
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 
@@ -330,8 +309,6 @@ describe("TimedSession on a small phone", () => {
       session: { ...completedSession, status: "active", endedAt: null, remainingSeconds: 600 },
       messages,
       messageFetchFailed: false,
-      approvedSummaries: [],
-      canStartWithoutContext: false,
       sessionQuota: null,
     });
 

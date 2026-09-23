@@ -28,6 +28,12 @@ describe("memory voice observer store", () => {
     expect(store.listRecentUserTexts(2)).toEqual(["t9", "t11"]);
     expect(() => store.insertUtterance({ utteranceId: "u4", role: "user", content: "dup", createdAtMs: 0 })).toThrow();
 
+    // After a terminal close the tail goes too; rows not yet saved in the database stay.
+    store.markDrained([4, 5]);
+    store.deleteDrained();
+    expect(store.rows.map((row) => row.ordinal)).toEqual([6, 7, 8, 9, 10, 11, 12]);
+    expect(store.pendingCount()).toBe(7);
+
     store.saveState({ ...createInitialObserverState(), epoch: 3 });
     expect(store.loadState()?.epoch).toBe(3);
     store.deleteAll();
@@ -99,6 +105,9 @@ describe("sql voice observer store", () => {
       expect.stringContaining("delete from utterances where drained = 1 and ordinal <= ?"),
     ]);
     expect(calls.at(-1)?.bindings).toEqual([12]);
+
+    store.deleteDrained();
+    expect(calls.at(-1)?.query).toBe("delete from utterances where drained = 1");
 
     sql.setRows([{ content: "drugi" }, { content: "pierwszy" }]);
     expect(store.listRecentUserTexts(2)).toEqual(["pierwszy", "drugi"]);

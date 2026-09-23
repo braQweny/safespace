@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { requestApiJson, type ApiJsonResult } from "@/lib/api-client";
 import type { SessionAvatarId, SessionModalityId } from "@/lib/session-data/types";
 import { isRecord } from "@/lib/type-guards";
-import { getPendingAvatarMemoryBatch } from "./useAvatarMemoryPreparation";
+import { getPendingAvatarMemoryBatch, toPreparationRequestBody } from "./useAvatarMemoryPreparation";
 
 interface AvatarChoice {
   avatarId: SessionAvatarId;
@@ -32,7 +32,7 @@ function requestPeopleBatch(avatar: AvatarChoice) {
   if (pending) return pending;
   const request = requestApiJson("/api/session/prepare-people", {
     method: "POST",
-    body: JSON.stringify(avatar),
+    body: toPreparationRequestBody(avatar),
     timeoutMs: 80_000,
   }).finally(() => pendingBatches.delete(key));
   pendingBatches.set(key, request);

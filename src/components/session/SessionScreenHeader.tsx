@@ -1,8 +1,9 @@
 import type { RefObject } from "react";
 import { Loader2 } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
-import type { SelectedModalityAvatar } from "@/lib/modalities";
+import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 import { getModalityCopy } from "@/lib/modality-copy";
+import { parseTimestampMs } from "@/lib/session-flow/session-clock";
 import type { SessionView } from "@/lib/session-flow/session-state";
 import { CrisisHelpPanel, CrisisHelpTrigger } from "./CrisisHelpPanel";
 import SessionEndConfirmDialog from "./SessionEndConfirmDialog";
@@ -10,14 +11,10 @@ import SessionTimer from "./SessionTimer";
 import { getTimedSessionCopy } from "./timed-session-copy";
 
 export function getSessionTotalSeconds(session: SessionView | null) {
-  if (!session?.startedAt || !session.expiresAt) {
-    return null;
-  }
+  const startedAtMs = parseTimestampMs(session?.startedAt);
+  const expiresAtMs = parseTimestampMs(session?.expiresAt);
 
-  const startedAtMs = Date.parse(session.startedAt);
-  const expiresAtMs = Date.parse(session.expiresAt);
-
-  if (!Number.isFinite(startedAtMs) || !Number.isFinite(expiresAtMs) || expiresAtMs <= startedAtMs) {
+  if (startedAtMs === null || expiresAtMs === null || expiresAtMs <= startedAtMs) {
     return null;
   }
 

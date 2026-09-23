@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { useLocale } from "@/components/hooks/useLocale";
+import { PILL_OUTLINE_SOFT } from "@/components/ui/button-styles";
 import { getTimedSessionCopy } from "./timed-session-copy";
 
 interface SessionEndConfirmDialogProps {
@@ -24,6 +25,11 @@ export default function SessionEndConfirmDialog({
 
   return (
     <div className="px-4 pb-4 sm:px-6">
+      {/* Escape obsługuje sam kontener `alertdialog`, do którego bąbelkuje z jego
+          przycisków — tak każe wzorzec dialogu WAI-ARIA. jsx-a11y zwalnia z tej
+          reguły tylko natywny `<dialog>`, a ten stoi w pasku rozmowy bez
+          `showModal()`, więc nie dostaje zdarzenia `cancel`. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- alertdialog owns Escape (WAI-ARIA dialog pattern) */}
       <div
         ref={dialogRef}
         role="alertdialog"
@@ -49,11 +55,7 @@ export default function SessionEndConfirmDialog({
           >
             {copy.confirmEndNow}
           </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="border-line-accent bg-surface text-ink hover:bg-surface-soft focus-visible:ring-brand-ring inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2"
-          >
+          <button type="button" onClick={onCancel} className={PILL_OUTLINE_SOFT}>
             {copy.confirmEndCancel}
           </button>
         </div>

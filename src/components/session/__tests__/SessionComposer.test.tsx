@@ -1,12 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { getSessionCopy } from "@/lib/session-copy";
-import SessionComposer, {
+import {
   appendTranscriptionToDraft,
   formatRecordingProgress,
   getDictationErrorCopy,
   getDictationSupport,
   getSupportedWebmMimeType,
+} from "@/components/hooks/useDictation";
+import SessionComposer, {
   readCoarsePointerPreference,
   shouldHintSubmitShortcut,
   shouldSubmitSessionComposerFromKeyboard,

@@ -30,6 +30,7 @@ import {
   closeObserverState,
   createInitialObserverState,
   decideAlarm,
+  isTerminalVoiceCloseReason,
   nextAlarmAt,
   resolveVoiceDeadlineAtMs,
   scheduleCrisisHangup,
@@ -164,6 +165,7 @@ export class VoiceObserverCore {
 
   ack(ordinals: readonly number[]): Promise<void> {
     this.store.markDrained(ordinals.filter((ordinal) => Number.isInteger(ordinal) && ordinal > 0));
+    this.dropTailAfterTerminalClose();
     return Promise.resolve();
   }
 
@@ -187,6 +189,7 @@ export class VoiceObserverCore {
     }
 
     this.detachSideband();
+    this.dropTailAfterTerminalClose();
     await this.rescheduleAlarm();
 
     return this.snapshot();
@@ -199,6 +202,16 @@ export class VoiceObserverCore {
     this.state = createInitialObserverState();
     this.transcript = createVoiceTranscriptState();
     await this.deps.scheduleAlarm(null);
+  }
+
+  /**
+   * Usunięcie konta: rozłącz trwającą sesję live i wyczyść cały bufor jednym
+   * wywołaniem. Idempotentne; obiekt, który nigdy nie był uzbrojony, tylko
+   * sprząta.
+   */
+  async erase(): Promise<void> {
+    await this.hangupNow("deleted");
+    await this.purge();
   }
 
   getState(): Promise<VoiceObserverSnapshot> {
@@ -528,6 +541,17 @@ export class VoiceObserverCore {
   }
 
   // ---------- state ----------
+
+  /**
+   * Po końcowym zamknięciu nic już nie klasyfikujemy, więc zapisane w bazie
+   * wypowiedzi nie muszą czekać w obiekcie na purge po 7 dniach. Niezrzucone
+   * zostają do zrzutu (okno 60 s po `ended_at`) albo do purge.
+   */
+  private dropTailAfterTerminalClose() {
+    if (this.state.closedAtMs !== null && isTerminalVoiceCloseReason(this.state.closeReason)) {
+      this.store.deleteDrained();
+    }
+  }
 
   private persist() {
     this.store.saveState(this.state);

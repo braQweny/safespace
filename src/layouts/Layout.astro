@@ -2,9 +2,10 @@
 import "../styles/global.css";
 // Fonty są deklarowane w CSS (`global.css`), więc przeglądarka odkrywa je
 // dopiero po pobraniu i sparsowaniu arkusza — stąd błysk zapasowego kroju i
-// przesunięcie układu. Te cztery pliki (łacińskie i łacińskie rozszerzone,
-// czyli polskie znaki) obsługują cały widoczny tekst; import `?url` daje ten
-// sam zhashowany adres, do którego odwołuje się arkusz.
+// przesunięcie układu. Pliki łacińskie obsługują cały tekst angielski, a
+// łacińskie rozszerzone (polskie znaki) dochodzą tylko przy polskim
+// interfejsie; import `?url` daje ten sam zhashowany adres, do którego
+// odwołuje się arkusz.
 import newsreaderLatinUrl from "@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2?url";
 import newsreaderLatinExtUrl from "@fontsource-variable/newsreader/files/newsreader-latin-ext-opsz-normal.woff2?url";
 import sourceSansLatinUrl from "@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2?url";
@@ -14,8 +15,6 @@ import { missingConfigs } from "@/lib/config-status";
 import { openGraphLocale } from "@/lib/i18n/locale";
 import { getLayoutCopy } from "@/lib/page-copy/layout-copy";
 
-const preloadedFontUrls = [sourceSansLatinUrl, sourceSansLatinExtUrl, newsreaderLatinUrl, newsreaderLatinExtUrl];
-
 interface Props {
   title?: string;
   description?: string;
@@ -24,6 +23,14 @@ interface Props {
 // Język przychodzi z middleware (cookie), nie z propsa strony — jedna
 // strona nie może twierdzić czego innego niż reszta aplikacji.
 const lang = Astro.locals.locale;
+
+// Angielska strona nie używa znaków spoza zakresu łacińskiego, więc nie ściąga
+// z góry ~147 KB plików rozszerzonych. Gdyby taki znak się pojawił (np. polskie
+// słowa w rozmowie), przeglądarka dociągnie plik sama po `unicode-range`.
+const preloadedFontUrls =
+  lang === "pl"
+    ? [sourceSansLatinUrl, sourceSansLatinExtUrl, newsreaderLatinUrl, newsreaderLatinExtUrl]
+    : [sourceSansLatinUrl, newsreaderLatinUrl];
 const { title = "SafeSpace", description = getLayoutCopy(lang).defaultDescription } = Astro.props;
 
 // Komunikaty o brakującej konfiguracji są przeznaczone dla osoby rozwijającej
@@ -72,6 +79,28 @@ const showConfigBanners = import.meta.env.DEV;
           }
         } catch {
           // Prywatne okno albo zablokowane dane witryny — zostaje ustawienie systemu.
+        }
+
+        /*
+         * Strefa czasowa dla dat renderowanych przez serwer (historia, karty,
+         * rozliczenia): middleware czyta to ciasteczko jako `locals.timeZone`
+         * (`src/lib/i18n/time-zone.ts`). Zapis tylko przy zmianie; pierwsza
+         * wizyta renderuje się jeszcze w strefie zapasowej, kolejne już w tej.
+         */
+        try {
+          const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const encoded = zone ? encodeURIComponent(zone) : "";
+          const current = /(?:^|;\s*)safespace-tz=([^;]*)/.exec(document.cookie);
+
+          if (encoded && (!current || current[1] !== encoded)) {
+            document.cookie =
+              "safespace-tz=" +
+              encoded +
+              "; Path=/; Max-Age=31536000; SameSite=Lax" +
+              (location.protocol === "https:" ? "; Secure" : "");
+          }
+        } catch {
+          // Zablokowane ciasteczka — daty zostają w strefie zapasowej.
         }
       })();
     </script>

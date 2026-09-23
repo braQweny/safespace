@@ -4,8 +4,9 @@ import { isVoiceCloseReason, type VoiceObserverState } from "./observer-state";
  * Trwały bufor obserwatora: stan i wypowiedzi czekające na zrzut do bazy.
  * SQLite Durable Object jest źródłem prawdy (eviction gubi pamięć, nie
  * bufor); atrapa w pamięci służy testom. Treść wypowiedzi istnieje tu tylko
- * do zrzutu i krótkiego kontekstu klasyfikatora, a `deleteAll` czyści wszystko
- * przy usunięciu rozmowy albo po terminie retencji.
+ * do zrzutu i krótkiego kontekstu klasyfikatora (ogon znika po końcowym
+ * zamknięciu, `deleteDrained`), a `deleteAll` czyści wszystko przy usunięciu
+ * rozmowy albo konta i po terminie retencji.
  */
 export interface StoredVoiceUtterance {
   ordinal: number;
@@ -23,6 +24,8 @@ export interface VoiceObserverStore {
   listPending(limit: number): StoredVoiceUtterance[];
   /** Potwierdzenie zapisu w bazie: wiersze znikają, poza krótkim ogonem kontekstu. */
   markDrained(ordinals: readonly number[]): void;
+  /** Usuwa także ogon: wszystkie wiersze już zapisane w bazie (po końcowym zamknięciu). */
+  deleteDrained(): void;
   /** Ostatnie wypowiedzi użytkownika (najnowsza ostatnia) jako kontekst klasyfikatora. */
   listRecentUserTexts(limit: number): string[];
   pendingCount(): number;
@@ -138,6 +141,9 @@ export function createSqlVoiceObserverStore(sql: SqlStorageLike): VoiceObserverS
       const maxOrdinal = tail && typeof tail.max_ordinal === "number" ? tail.max_ordinal : 0;
       sql.exec(`delete from utterances where drained = 1 and ordinal <= ?`, maxOrdinal - DRAINED_TAIL);
     },
+    deleteDrained() {
+      sql.exec(`delete from utterances where drained = 1`);
+    },
     listRecentUserTexts(limit) {
       return sql
         .exec(`select content from utterances where role = 'user' order by ordinal desc limit ?`, Math.max(0, limit))
@@ -194,6 +200,14 @@ export function createMemoryVoiceObserverStore(): VoiceObserverStore & {
 
       for (const row of [...rows]) {
         if (drained.has(row.ordinal) && row.ordinal <= maxOrdinal - DRAINED_TAIL) {
+          rows.splice(rows.indexOf(row), 1);
+          drained.delete(row.ordinal);
+        }
+      }
+    },
+    deleteDrained() {
+      for (const row of [...rows]) {
+        if (drained.has(row.ordinal)) {
           rows.splice(rows.indexOf(row), 1);
           drained.delete(row.ordinal);
         }

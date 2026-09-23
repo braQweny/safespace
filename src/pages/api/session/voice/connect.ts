@@ -2,7 +2,6 @@ import type { APIRoute } from "astro";
 import { getAiProviderEnv } from "@/lib/ai-provider/env";
 import { getRequestLocale } from "@/lib/i18n/request-locale";
 import { getValidAvatarChoice } from "@/lib/modalities";
-import { getModalityPromptNames } from "@/lib/modality-copy";
 import { OpenAiLiveError, createLiveSession, hangupLiveSession } from "@/lib/openai/live";
 import { logOperationalEvent } from "@/lib/operational-visibility/logger";
 import { buildOperationalRequestContext, getOperationalDurationMs } from "@/lib/operational-visibility/request-context";
@@ -24,7 +23,7 @@ import {
 import type { SessionMessageRecord } from "@/lib/session-data/types";
 import { resolveRecentMessageContextLimit } from "@/lib/session-flow/context-window";
 import { requireSessionRouteAccess } from "@/lib/session-flow/route-access";
-import { loadOwnedSessionContinuity } from "@/lib/session-flow/session-continuity";
+import { loadOwnedSessionContinuity, toSessionPromptContext } from "@/lib/session-flow/session-continuity";
 import { resolveSessionPhase } from "@/lib/session-flow/session-phase";
 import { toSessionView } from "@/lib/session-flow/session-state";
 import { expireOwnedSession, isSessionExpired } from "@/lib/session-flow/time-limit";
@@ -34,10 +33,12 @@ import {
   voiceRouteExpired,
   voiceRouteFailure,
   voiceRouteValidationFailure,
+  withVoiceDeadline,
   type VoiceConnectResponse,
 } from "@/lib/session-flow/voice-contract";
 import { closeVoiceSession } from "@/lib/session-flow/voice-reconcile";
-import { isVoiceStartAvailable } from "@/lib/session-flow/voice-start";
+import { isVoiceStartAvailable, resolveVoiceConnectAllowance } from "@/lib/session-flow/voice-start";
+import { VOICE_DEADLINE_RESERVE_MS } from "@/lib/voice/constants";
 import { getVoiceObserver } from "@/lib/voice/coordinator";
 
 export const prerender = false;
@@ -45,8 +46,8 @@ export const prerender = false;
 /**
  * Połączenie audio rozmowy głosowej: oferta SDP przeglądarki → sesja live u
  * dostawcy (klucz tylko tutaj, nigdy w przeglądarce) → uzbrojenie obserwatora
- * (Durable Object) → odpowiedź SDP. Kolejność jest nośna: obserwator jest
- * sprawdzany przed utworzeniem płatnej sesji, a każda porażka po jej
+ * (Durable Object) → odpowiedź SDP. Kolejność jest nośna: obserwator i pula
+ * minut są sprawdzane przed utworzeniem płatnej sesji, a każda porażka po jej
  * utworzeniu kończy się `hangup`, żeby nigdy nie została nieśledzona sesja.
  * Identyfikator sesji live żyje wyłącznie w obserwatorze.
  */
@@ -72,6 +73,11 @@ function toRecap(messages: readonly SessionMessageRecord[]) {
       content: message.content,
       sequenceIndex: message.sequenceIndex,
     }));
+}
+
+function isWithinVoiceDeadlineReserve(session: { expiresAt: string | null }, now: Date) {
+  const expiresAtMs = parseTimestampMs(session.expiresAt);
+  return expiresAtMs !== null && expiresAtMs - now.getTime() <= VOICE_DEADLINE_RESERVE_MS;
 }
 
 async function hangupQuietly(apiKey: string, liveSessionId: string) {
@@ -136,7 +142,11 @@ export const POST: APIRoute = async (context) => {
     return jsonResponse(voiceRouteFailure("session_not_active"));
   }
 
-  if (isSessionExpired(session, now)) {
+  // Obserwator rozłącza sesję live tyle przed `expires_at` (rezerwa terminu),
+  // więc rozmowa w ostatnich 15 s jest dla połączenia już po czasie: płatna
+  // sesja live zostałaby rozłączona od razu. Ta sama odpowiedź i to samo
+  // przejście wiersza co po terminie.
+  if (isSessionExpired(session, now) || isWithinVoiceDeadlineReserve(session, now)) {
     const expired = await expireOwnedSession(sessionContext.data, session, now);
     await closeVoiceSession(sessionContext.data, session, "time_limit_reached");
     logOperationalEvent(
@@ -168,6 +178,22 @@ export const POST: APIRoute = async (context) => {
   if (!observer) {
     logConnect("failure", "voice_observer_unavailable", 503);
     return jsonResponse(voiceRouteFailure("voice_observer_unavailable"));
+  }
+
+  // Pula przed płatną sesją, także przy wznowieniu: rozmowę da się założyć
+  // z pominięciem `start-next` albo zacząć kilka naraz. Mniejsza reszta puli
+  // niż termin rozmowy przycina termin obserwatora (`expires_at` w bazie jest
+  // zamrożone od startu).
+  const allowance = await resolveVoiceConnectAllowance(sessionContext.data, session, { expiresAtMs, now });
+
+  if (!allowance.ok) {
+    if (allowance.status === 503) {
+      logConnect("failure", undefined, 503);
+      return jsonResponse(voiceRouteFailure("session_data_unavailable"));
+    }
+
+    logConnect("blocked", allowance.code, 403);
+    return jsonResponse(voiceRouteFailure(allowance.code));
   }
 
   const [continuity, recentMessages] = await Promise.all([
@@ -204,21 +230,8 @@ export const POST: APIRoute = async (context) => {
       backendInstructions: buildVoiceBackendInstructions({
         locale,
         opening,
-        modality: {
-          ...getModalityPromptNames(modality.modalityId),
-          sessionStyleHint: modality.sessionStyleHint,
-          registerExamples: modality.registerExamples[locale],
-        },
+        ...toSessionPromptContext(modality, continuity, locale),
         ...(sessionPhase ? { sessionPhase } : {}),
-        avatarMemory: continuity.avatarMemory,
-        peopleBrief: continuity.peopleBrief,
-        topicBrief: continuity.topicBrief,
-        approvedSummaries: continuity.data.map((summary) => ({
-          summaryText: summary.summaryText,
-          revision: summary.revision,
-          createdAt: summary.createdAt,
-          updatedAt: summary.updatedAt,
-        })),
         recap: opening ? undefined : toRecap(recentMessages.data),
         avatarFirstName: modality.avatarFirstName,
       }),
@@ -253,7 +266,7 @@ export const POST: APIRoute = async (context) => {
     const armed = await observer.arm({
       liveSessionId,
       startedAtMs: parseTimestampMs(session.startedAt) ?? now.getTime(),
-      expiresAtMs,
+      expiresAtMs: allowance.deadlineAtMs,
       locale,
       avatarName: modality.avatarFirstName,
     });
@@ -266,15 +279,17 @@ export const POST: APIRoute = async (context) => {
   }
 
   logConnect("success", reconnected ? "reconnected" : undefined, 200);
+  // Timer klienta idzie za terminem obserwatora, nie za zamrożonym `expires_at`.
+  const connectedSession = withVoiceDeadline(session, allowance.deadlineAtMs);
 
   return jsonResponse({
     ok: true,
     type: "voice_connected",
     sdp: answerSdp,
-    expiresAt: session.expiresAt,
+    expiresAt: connectedSession.expiresAt,
     serverNow: now.toISOString(),
     epoch,
     reconnected,
-    session: toSessionView(session, now),
+    session: toSessionView(connectedSession, now),
   });
 };

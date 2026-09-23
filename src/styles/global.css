@@ -56,6 +56,13 @@
   --color-line: #e8e2d6;
   --color-line-strong: #e2dccf;
   --color-line-accent: #cfc6b4;
+  /*
+   * Obrys pola formularza (WCAG 1.4.11: ≥3:1 do sąsiednich kolorów). Pole na
+   * `line-strong` miało 1,30:1 i znikało na papierze; ten odcień ma 3,58:1 na
+   * `surface`, 3,34:1 na `canvas` i 3,17:1 na `surface-soft`. Tylko pola —
+   * karty i przegrody zostają przy `line`/`line-strong`.
+   */
+  --color-line-control: #8a8373;
 
   --color-brand: #2d6a5e;
   --color-brand-strong: #245a4f;
@@ -294,6 +301,8 @@
   --evening-line: #2f2b23;
   --evening-line-strong: #3a352c;
   --evening-line-accent: #726957;
+  /* 3,61:1 na `surface`, 3,85:1 na `canvas`, 3,33:1 na `surface-soft`. */
+  --evening-line-control: #7a715f;
 
   --evening-brand: #6bb3a0;
   --evening-brand-strong: #82c3b1;
@@ -354,6 +363,7 @@
     --color-line: var(--evening-line);
     --color-line-strong: var(--evening-line-strong);
     --color-line-accent: var(--evening-line-accent);
+    --color-line-control: var(--evening-line-control);
     --color-brand: var(--evening-brand);
     --color-brand-strong: var(--evening-brand-strong);
     --color-brand-deep: var(--evening-brand-deep);
@@ -406,6 +416,7 @@
   --color-line: var(--evening-line);
   --color-line-strong: var(--evening-line-strong);
   --color-line-accent: var(--evening-line-accent);
+  --color-line-control: var(--evening-line-control);
   --color-brand: var(--evening-brand);
   --color-brand-strong: var(--evening-brand-strong);
   --color-brand-deep: var(--evening-brand-deep);
@@ -448,8 +459,16 @@
 }
 
 @layer base {
+  /*
+   * Zapasowy obrys fokusu dla wszystkiego, co nie ma własnego pierścienia
+   * (numery `tel:` pomocy kryzysowej, linki w rozliczeniach i na stronie
+   * prywatności). Szary `--ring` shadcn przy 50% krycia ledwo odcinał się od
+   * papieru, a przełączał się tylko przy `[data-theme="dark"]`, nie przy
+   * systemowym trybie ciemnym. `brand-ring` ma 3,58:1 na `surface` i 3,34:1 na
+   * `canvas` w dzień, 7,10:1 / 7,58:1 po zmroku, i idzie za obiema ścieżkami.
+   */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-brand-ring;
   }
   body {
     @apply bg-paper text-ink font-sans antialiased;

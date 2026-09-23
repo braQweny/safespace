@@ -7,6 +7,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # Świeżo opublikowana wersja paczki to najczęstsze okno ataku na łańcuch
+    # dostaw; kilka dni zwłoki daje rejestrowi czas na wycofanie złośliwej.
+    cooldown:
+      default-days: 3
     ignore:
       # Astro check i typescript-eslint nie obsługują jeszcze TypeScript 7.
       # Usuń ograniczenie po dodaniu zgodności przez oba narzędzia.
@@ -16,6 +20,11 @@ updates:
       # eslint-plugin-react i eslint-plugin-jsx-a11y. Zachowaj lint i a11y.
       - dependency-name: "eslint-plugin-astro"
         versions: [">=2.0.0"]
+      # Z tego samego powodu: ESLint 10 czeka na eslint-plugin-react i jsx-a11y.
+      - dependency-name: "eslint"
+        versions: [">=10.0.0"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10.0.0"]
     groups:
       npm-minor-and-patch:
         patterns:

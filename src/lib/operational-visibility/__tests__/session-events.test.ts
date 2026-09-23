@@ -11,6 +11,9 @@ import {
   buildSessionStartAttemptedEvent,
   buildSessionTimeLimitReachedEvent,
   buildSessionTranscriptionFailedEvent,
+  buildSessionVoiceClosedEvent,
+  buildSessionVoiceConnectedEvent,
+  buildSessionVoiceObserverEvent,
 } from "../session-events";
 
 describe("session operational event builders", () => {
@@ -25,6 +28,45 @@ describe("session operational event builders", () => {
     } as Parameters<typeof buildSessionAiTurnCompletedEvent>[0] & Record<string, unknown>);
     expect(event.provider).toBe("openai");
     expect(JSON.stringify(event)).not.toContain("PRIVATE");
+  });
+
+  // The routes always pass `getAiProviderName()`; the fallback only covers a
+  // missing or unknown value, and nothing outside the allowlist ever passes.
+  describe.each([undefined, "anthropic", "OPENAI", " openrouter", 42])("with provider %j", (provider) => {
+    const metadata = { provider } as unknown as { provider?: "openai" };
+
+    it("falls back to the configured default, OpenAI, where the field is always present", () => {
+      const events = [
+        buildSessionAiProviderFailedEvent({ ...metadata, reasonCode: "provider_timeout" }),
+        buildSessionAiTurnCompletedEvent(metadata),
+        buildSessionPeopleMemoryUpdatedEvent(metadata),
+        buildSessionLensEvaluatedEvent({ ...metadata, result: "none" }),
+        buildSessionTranscriptionFailedEvent({ ...metadata, reasonCode: "provider_timeout" }),
+      ];
+
+      for (const event of events) expect(event.provider).toBe("openai");
+    });
+
+    it("omits the field where it is optional", () => {
+      const events = [
+        buildSessionSafetyEvaluatedEvent({
+          ...metadata,
+          riskState: "normal",
+          action: "allow",
+          reasonCode: "none_detected",
+        }),
+        buildSessionVoiceClosedEvent({ ...metadata, reasonCode: "completed" }),
+        buildSessionVoiceConnectedEvent({ ...metadata, outcome: "success" }),
+        buildSessionVoiceObserverEvent({ ...metadata, outcome: "success", reasonCode: "observer_attached" }),
+      ];
+
+      for (const event of events) expect(event).not.toHaveProperty("provider");
+    });
+  });
+
+  it("keeps an allowlisted provider as given, including the non-default one", () => {
+    expect(buildSessionAiTurnCompletedEvent({ provider: "openrouter" }).provider).toBe("openrouter");
+    expect(buildSessionVoiceConnectedEvent({ provider: "openai", outcome: "success" }).provider).toBe("openai");
   });
 
   it("reports a saved people-cards batch with unit counters only, and marks a split-and-accepted batch", () => {
@@ -43,7 +85,7 @@ describe("session operational event builders", () => {
       requestId: "req-9",
       outcome: "success",
       durationMs: 4460,
-      provider: "openrouter",
+      provider: "openai",
       inputUnits: 1200,
     });
     expect(event).not.toHaveProperty("names");
@@ -207,7 +249,7 @@ describe("session operational event builders", () => {
       requestId: "req-1",
       outcome: "success",
       durationMs: 4_200,
-      provider: "openrouter",
+      provider: "openai",
       inputUnits: 1_200,
       outputUnits: 340,
     });
@@ -227,7 +269,7 @@ describe("session operational event builders", () => {
       requestId: "req-1",
       outcome: "failure",
       durationMs: 80,
-      provider: "openrouter",
+      provider: "openai",
       reasonCode: "provider_rate_limited",
     });
   });

@@ -27,6 +27,7 @@ import {
   type SessionHistoryFailureCode,
   type SessionHistoryListResponse,
 } from "./session-history-contract";
+import { isPastDeadline } from "./session-clock";
 
 export interface SessionHistoryRepository {
   listOwnedSessionHistoryPage: typeof listOwnedSessionHistoryPage;
@@ -125,13 +126,7 @@ function normalizeSessionHistorySessionId(value: unknown) {
 }
 
 function hasActiveSessionExpired(session: SessionMetadata, now: Date) {
-  if (session.status !== "active" || !session.expiresAt) {
-    return false;
-  }
-
-  const expiresAt = Date.parse(session.expiresAt);
-
-  return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
+  return session.status === "active" && isPastDeadline(session.expiresAt, now.getTime());
 }
 
 function getEffectiveHistoryStatus(session: SessionMetadata, now: Date): SessionHistoryListItem["status"] {

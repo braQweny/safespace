@@ -1,6 +1,7 @@
 ---
 import AppHeader from "@/components/AppHeader.astro";
 import MemoryView from "@/components/memory/MemoryView";
+import { parseTopicMapView, TOPIC_MAP_VIEW_COOKIE } from "@/components/topics/topic-map-view";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Layout from "@/layouts/Layout.astro";
 import { getMemoryPageCopy } from "@/lib/page-copy/memory-page-copy";
@@ -58,6 +59,8 @@ const topicMapEnabled = topicPreference?.ok ? topicPreference.data : true;
 // „Wróć do rozmowy o tej osobie” ma sens tylko dla rozmowy tej samej perspektywy.
 const resumeSessionId = activeSession?.avatarId === selection.avatarId ? activeSession.sessionId : null;
 const firstName = selection.avatarFirstName;
+// Wybór „Mapa | Lista” z ciasteczka; bez niego widok rozstrzyga szerokość ekranu (CSS).
+const initialTopicView = parseTopicMapView(Astro.cookies.get(TOPIC_MAP_VIEW_COOKIE)?.value);
 ---
 
 <Layout title={copy.pageTitle(firstName)}>
@@ -114,6 +117,7 @@ const firstName = selection.avatarFirstName;
           <MemoryView
             client:load
             locale={locale}
+            timeZone={Astro.locals.timeZone}
             avatar={selection}
             peopleMemoryMode={peopleMemoryMode}
             topicMapMode={topicMapMode}
@@ -123,6 +127,7 @@ const firstName = selection.avatarFirstName;
             topicMapEnabled={topicMapEnabled}
             resumeSessionId={resumeSessionId}
             memoryPreview={memoryPreview.ok ? memoryPreview.data : null}
+            initialView={initialTopicView}
           />
         </div>
       </section>

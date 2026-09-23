@@ -3,6 +3,7 @@ import {
   checkAuthRateLimit,
   checkSessionRateLimit,
   getAuthRateLimitRedirect,
+  getClientAddressKey,
   getRateLimitKey,
   isAuthRateLimitedRequest,
   isRateLimitedApiRequest,
@@ -60,12 +61,44 @@ describe("isAuthRateLimitedRequest", () => {
     expect(isAuthRateLimitedRequest("POST", "/api/auth/signout")).toBe(false);
     expect(isAuthRateLimitedRequest("POST", "/api/auth/google")).toBe(false);
     expect(isAuthRateLimitedRequest("GET", "/api/auth/signin")).toBe(false);
-    expect(isAuthRateLimitedRequest("POST", "/api/auth/signin/")).toBe(false);
     expect(isAuthRateLimitedRequest("POST", "/auth/signin")).toBe(false);
     expect(isAuthRateLimitedRequest("POST", "/api/session/message")).toBe(false);
     // Prototype names must not match through the lookup table.
     expect(isAuthRateLimitedRequest("POST", "constructor")).toBe(false);
     expect(isAuthRateLimitedRequest("POST", "__proto__")).toBe(false);
+  });
+});
+
+describe("path variants Astro serves from the same route", () => {
+  // Astro's default `trailingSlash: "ignore"` and its path decoding route all
+  // of these to the real handler, so none of them may skip a limiter.
+  const variants = (path: string) => [`${path}/`, `${path}//`, path.replace(/\/([^/]+)$/, "//$1"), path.toUpperCase()];
+
+  it("throttles the auth forms however the path is spelled", () => {
+    for (const pathname of variants("/api/auth/signin")) {
+      expect(isAuthRateLimitedRequest("POST", pathname)).toBe(true);
+      expect(getAuthRateLimitRedirect(pathname)).toBe("/auth/signin?error=rate_limited");
+    }
+    expect(isAuthRateLimitedRequest("POST", "/api/auth/sign%69n")).toBe(true);
+  });
+
+  it("keeps AI-backed session endpoints under the session limiter", () => {
+    for (const pathname of [
+      ...variants("/api/session/message"),
+      ...variants("/api/session/transcribe"),
+      "/api/session/%6Dessage",
+      "/api/session/%256Dessage",
+    ]) {
+      expect(isRateLimitedApiRequest("POST", pathname)).toBe(true);
+    }
+  });
+
+  it("keeps voice connect on the strict limiter instead of the heartbeat budget", () => {
+    for (const pathname of variants("/api/session/voice/connect")) {
+      expect(isRateLimitedApiRequest("POST", pathname)).toBe(true);
+      expect(isVoiceRateLimitedApiRequest("POST", pathname)).toBe(false);
+    }
+    expect(isVoiceRateLimitedApiRequest("POST", "/api/session/voice/heartbeat/")).toBe(true);
   });
 });
 
@@ -97,6 +130,37 @@ describe("getRateLimitKey", () => {
 
   it("uses a shared anonymous bucket when no ip is available", () => {
     expect(getRateLimitKey(null, requestWithHeaders())).toBe("anonymous");
+  });
+
+  it("keys an IPv6 client by its /64 so rotating inside the prefix keeps one budget", () => {
+    const first = getRateLimitKey(null, requestWithHeaders({ "cf-connecting-ip": "2001:db8:85a3:12::1" }));
+    const rotated = getRateLimitKey(
+      null,
+      requestWithHeaders({ "cf-connecting-ip": "2001:0DB8:85A3:0012:ffff:abcd:0:9" }),
+    );
+    expect(first).toBe("ip:2001:db8:85a3:12::/64");
+    expect(rotated).toBe(first);
+    expect(getRateLimitKey(null, requestWithHeaders({ "cf-connecting-ip": "2001:db8:85a3:13::1" }))).not.toBe(first);
+  });
+});
+
+describe("getClientAddressKey", () => {
+  it("keeps IPv4 per address, including IPv4-mapped IPv6", () => {
+    expect(getClientAddressKey("203.0.113.7")).toBe("203.0.113.7");
+    expect(getClientAddressKey("::ffff:203.0.113.7")).toBe("203.0.113.7");
+  });
+
+  it("expands compressed IPv6 forms before taking the prefix", () => {
+    expect(getClientAddressKey("::1")).toBe("0:0:0:0::/64");
+    expect(getClientAddressKey("fe80::")).toBe("fe80:0:0:0::/64");
+    expect(getClientAddressKey("2001:db8::")).toBe("2001:db8:0:0::/64");
+    expect(getClientAddressKey("2001:db8:1:2:3:4:5:6")).toBe("2001:db8:1:2::/64");
+  });
+
+  it("never widens an unparsable value into a shared bucket", () => {
+    expect(getClientAddressKey("2001:db8::1::2")).toBe("2001:db8::1::2");
+    expect(getClientAddressKey("2001:db8:1")).toBe("2001:db8:1");
+    expect(getClientAddressKey("not-an-ip:zz")).toBe("not-an-ip:zz");
   });
 });
 

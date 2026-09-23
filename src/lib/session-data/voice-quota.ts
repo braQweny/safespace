@@ -1,15 +1,20 @@
 import type { SessionDataResult } from "./errors";
-import { countOwnedVoiceSessions, getOwnedAccountPlan, listOwnedVoiceSessionTimings } from "./repository";
-import type { AccountPlan, SessionDataContext, VoiceQuota, VoiceSessionTiming } from "./types";
+import { countOwnedVoiceSessions, getOwnedAccountPlan, readOwnedVoiceUsage } from "./repository";
+import type { AccountPlan, SessionDataContext, SessionId, VoiceQuota, VoiceUsage } from "./types";
 import { VOICE_TRIAL_DURATION_SECONDS } from "@/lib/session-flow/session-budget";
+import { VOICE_DEADLINE_RESERVE_MS } from "@/lib/voice/constants";
 
 /**
  * Pula rozmów głosowych. Konto free: jedna próba (bucket 600 s), której
  * bramką jest trigger limitu (`P0016`); tu tylko odczyt pre-flight. Konto
- * premium: miesięczna pula sekund liczona w aplikacji od `voice_connected_at`
- * każdej rozmowy głosowej w bieżącym miesiącu UTC — egzekwowana przy starcie
- * (`expires_at` przycięte do reszty puli) i przez termin obserwatora, nie przez
- * bazę: bez Workera nikt nie utworzy płatnej sesji live.
+ * premium: miesięczna pula sekund liczona od `voice_connected_at` każdej
+ * rozmowy głosowej w bieżącym miesiącu UTC. Sekundy liczy baza
+ * (`get_owned_voice_usage`, bez limitu wierszy, znaczniki czasu nadaje
+ * serwer), a ten moduł jest jedynym miejscem, które zamienia je w
+ * uprawnienie: przy starcie (`expires_at` przycięte do reszty puli) i przy
+ * każdym połączeniu audio (`readVoiceConnectAllowance`: odmowa albo termin
+ * obserwatora przycięty do reszty) — bez Workera nikt nie utworzy płatnej
+ * sesji live.
  */
 
 /** Domyślna pula premium, gdy `VOICE_MONTHLY_MINUTES` nie jest ustawione. */
@@ -21,13 +26,13 @@ export const VOICE_MIN_START_SECONDS = 300;
 export interface VoiceQuotaRepository {
   getOwnedAccountPlan: typeof getOwnedAccountPlan;
   countOwnedVoiceSessions: typeof countOwnedVoiceSessions;
-  listOwnedVoiceSessionTimings: typeof listOwnedVoiceSessionTimings;
+  readOwnedVoiceUsage: typeof readOwnedVoiceUsage;
 }
 
 // Odczytywane przy wywołaniu, nie przy ładowaniu modułu: trasy importujące ten
 // moduł są testowane z częściowymi atrapami repozytorium.
 function getDefaultVoiceQuotaRepository(): VoiceQuotaRepository {
-  return { getOwnedAccountPlan, countOwnedVoiceSessions, listOwnedVoiceSessionTimings };
+  return { getOwnedAccountPlan, countOwnedVoiceSessions, readOwnedVoiceUsage };
 }
 
 /** Początek bieżącego miesiąca w UTC — pula nie zna stref czasowych. */
@@ -35,46 +40,20 @@ export function getUtcMonthStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-function parseMs(value: string | null | undefined): number | null {
-  if (!value) {
-    return null;
-  }
-
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : null;
-}
-
 /**
- * Zużyte sekundy: dla każdej rozmowy od `voice_connected_at` do `ended_at`,
- * a gdy rozmowa jeszcze trwa — do `min(now, expires_at)`; nigdy więcej niż
- * bucket. Rozmowa bez sensownego czasu (uszkodzony wiersz) liczy się jako 0.
+ * Sekundy, których nie ma już w puli: przegadane plus zarezerwowane przez
+ * trwające rozmowy do ich terminu (rozmowę można wznowić do `expires_at`,
+ * więc równoległy start nie może liczyć na te same minuty).
  */
-export function computeVoiceUsageSeconds(timings: readonly VoiceSessionTiming[], now: Date): number {
-  const nowMs = now.getTime();
-  let total = 0;
-
-  for (const timing of timings) {
-    const startMs = parseMs(timing.voiceConnectedAt);
-
-    if (startMs === null) {
-      continue;
-    }
-
-    const endedMs = parseMs(timing.endedAt);
-    const expiresMs = parseMs(timing.expiresAt);
-    const endMs = endedMs ?? (expiresMs === null ? nowMs : Math.min(nowMs, expiresMs));
-    const elapsed = Math.max(0, (endMs - startMs) / 1000);
-    const cap = timing.durationBucketSeconds ?? Number.POSITIVE_INFINITY;
-
-    total += Math.min(elapsed, cap);
-  }
-
-  return Math.round(total);
+export function toCommittedVoiceSeconds(usage: VoiceUsage): number {
+  return Math.max(0, Math.trunc(usage.usedSeconds)) + Math.max(0, Math.trunc(usage.reservedSeconds));
 }
 
 export interface VoiceQuotaInput {
   voiceSessionsOwned: number;
   usedSeconds: number;
+  /** Rezerwa trwających rozmów (`get_owned_voice_usage`); odejmowana od reszty, nie doliczana do zużycia. */
+  reservedSeconds?: number;
   limitMinutes: number;
   monthStart: Date;
 }
@@ -83,13 +62,15 @@ export function toVoiceQuota(plan: AccountPlan, input: VoiceQuotaInput): VoiceQu
   if (plan === "premium") {
     const limitSeconds = Math.max(0, Math.trunc(input.limitMinutes)) * 60;
     const usedSeconds = Math.max(0, Math.trunc(input.usedSeconds));
-    const remainingSeconds = Math.max(0, limitSeconds - usedSeconds);
+    const reservedSeconds = Math.max(0, Math.trunc(input.reservedSeconds ?? 0));
+    const remainingSeconds = Math.max(0, limitSeconds - usedSeconds - reservedSeconds);
 
     return {
       kind: "pool",
       plan,
       limitSeconds,
       usedSeconds,
+      reservedSeconds,
       remainingSeconds,
       canStartVoice: remainingSeconds >= VOICE_MIN_START_SECONDS,
       monthStartIso: input.monthStart.toISOString(),
@@ -112,7 +93,8 @@ export interface ReadVoiceQuotaOptions {
 
 /**
  * Pre-flight widoku puli głosowej dla panelu, konta i startu. Konto free
- * czyta tylko licznik rozmów głosowych; premium — czasy z bieżącego miesiąca.
+ * czyta tylko licznik rozmów głosowych; premium — zużycie z bieżącego miesiąca
+ * razem z rezerwą trwających rozmów.
  */
 export async function readVoiceQuota(
   context: SessionDataContext,
@@ -129,17 +111,18 @@ export async function readVoiceQuota(
   const monthStart = getUtcMonthStart(now);
 
   if (plan.data.plan === "premium") {
-    const timings = await repository.listOwnedVoiceSessionTimings(context, monthStart.toISOString());
+    const usage = await repository.readOwnedVoiceUsage(context, monthStart.toISOString());
 
-    if (!timings.ok) {
-      return timings;
+    if (!usage.ok) {
+      return usage;
     }
 
     return {
       ok: true,
       data: toVoiceQuota("premium", {
-        voiceSessionsOwned: timings.data.length,
-        usedSeconds: computeVoiceUsageSeconds(timings.data, now),
+        voiceSessionsOwned: 0,
+        usedSeconds: usage.data.usedSeconds,
+        reservedSeconds: usage.data.reservedSeconds,
         limitMinutes: options.limitMinutes,
         monthStart,
       }),
@@ -159,6 +142,101 @@ export async function readVoiceQuota(
       usedSeconds: 0,
       limitMinutes: options.limitMinutes,
       monthStart,
+    }),
+  };
+}
+
+export type VoiceConnectRefusalCode = "voice_minutes_exhausted" | "voice_trial_used";
+
+export type VoiceConnectAllowance =
+  | {
+      ok: true;
+      /** Termin dla obserwatora: `expires_at` rozmowy albo wcześniej, gdy w puli zostało mniej. */
+      deadlineAtMs: number;
+      remainingSeconds: number;
+    }
+  | { ok: false; code: VoiceConnectRefusalCode };
+
+export interface VoiceConnectAllowanceInput {
+  /** `pool` = miesięczna pula premium, `trial` = jednorazowe 600 s konta free. */
+  kind: "pool" | "trial";
+  limitSeconds: number;
+  usage: VoiceUsage;
+  sessionExpiresAtMs: number;
+  nowMs: number;
+}
+
+/**
+ * Połączenie audio (także wznowienie) dostaje resztę puli po odjęciu
+ * przegadanego czasu i rezerwy innych trwających rozmów. Reszta nie dłuższa
+ * niż rezerwa terminu obserwatora (15 s) to odmowa: obserwator rozłącza tyle
+ * przed terminem, więc płatna sesja live zostałaby rozłączona od razu.
+ * Mniejsza reszta niż termin rozmowy przycina termin obserwatora, bo
+ * `expires_at` w bazie jest zamrożone od startu. Dla pojedynczej rozmowy
+ * zaczętej przez `start-next` reszta nigdy nie jest krótsza niż jej termin.
+ */
+export function toVoiceConnectAllowance(input: VoiceConnectAllowanceInput): VoiceConnectAllowance {
+  const limitSeconds = Math.max(0, Math.trunc(input.limitSeconds));
+  const remainingSeconds = Math.max(0, limitSeconds - toCommittedVoiceSeconds(input.usage));
+
+  if (remainingSeconds * 1000 <= VOICE_DEADLINE_RESERVE_MS) {
+    return { ok: false, code: input.kind === "pool" ? "voice_minutes_exhausted" : "voice_trial_used" };
+  }
+
+  return {
+    ok: true,
+    deadlineAtMs: Math.min(input.sessionExpiresAtMs, input.nowMs + remainingSeconds * 1000),
+    remainingSeconds,
+  };
+}
+
+export interface ReadVoiceConnectAllowanceOptions {
+  sessionId: SessionId;
+  sessionDurationBucketSeconds: number | null;
+  sessionExpiresAtMs: number;
+  /** `VOICE_MONTHLY_MINUTES` odczytane przez wywołującego (ten moduł nie zna env). */
+  limitMinutes: number;
+  now?: Date;
+}
+
+/**
+ * Bramka puli przed każdą płatną sesją live (`POST /api/session/voice/connect`).
+ *
+ * Konto premium i każda rozmowa z bucketem premium (aktywować ją mogło tylko
+ * konto premium, więc odebranie planu w trakcie nie wyłącza jej z puli) liczą
+ * się do miesięcznej puli. Rozmowa konta free z bucketem próby dostaje łącznie
+ * 600 s w całej historii konta: wiersz założony bezpośrednio przez PostgREST
+ * albo zapas wierszy z czasów premium nie otwiera kolejnych minut.
+ */
+export async function readVoiceConnectAllowance(
+  context: SessionDataContext,
+  options: ReadVoiceConnectAllowanceOptions,
+  repository: VoiceQuotaRepository = getDefaultVoiceQuotaRepository(),
+): Promise<SessionDataResult<VoiceConnectAllowance>> {
+  const now = options.now ?? new Date();
+  const plan = await repository.getOwnedAccountPlan(context);
+
+  if (!plan.ok) {
+    return plan;
+  }
+
+  const pool =
+    plan.data.plan === "premium" || (options.sessionDurationBucketSeconds ?? 0) > VOICE_TRIAL_DURATION_SECONDS;
+  const since = pool ? getUtcMonthStart(now) : new Date(0);
+  const usage = await repository.readOwnedVoiceUsage(context, since.toISOString(), options.sessionId);
+
+  if (!usage.ok) {
+    return usage;
+  }
+
+  return {
+    ok: true,
+    data: toVoiceConnectAllowance({
+      kind: pool ? "pool" : "trial",
+      limitSeconds: pool ? Math.max(0, Math.trunc(options.limitMinutes)) * 60 : VOICE_TRIAL_DURATION_SECONDS,
+      usage: usage.data,
+      sessionExpiresAtMs: options.sessionExpiresAtMs,
+      nowMs: now.getTime(),
     }),
   };
 }

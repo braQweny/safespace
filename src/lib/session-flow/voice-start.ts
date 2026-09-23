@@ -1,7 +1,13 @@
 import { getAiProviderName } from "@/lib/ai-provider/env";
 import type { SessionDataResult } from "@/lib/session-data/errors";
-import type { AccountPlan, SessionDataContext, VoiceQuota } from "@/lib/session-data/types";
-import { readVoiceQuota } from "@/lib/session-data/voice-quota";
+import type { AccountPlan, SessionDataContext, SessionMetadata, VoiceQuota } from "@/lib/session-data/types";
+import {
+  readVoiceConnectAllowance,
+  readVoiceQuota,
+  type ReadVoiceConnectAllowanceOptions,
+  type VoiceConnectAllowance,
+  type VoiceConnectRefusalCode,
+} from "@/lib/session-data/voice-quota";
 import { PREMIUM_SESSION_DURATION_SECONDS, resolveVoiceSessionDurationSeconds } from "./session-budget";
 import { getVoiceMonthlyMinutes, isVoiceSessionEnabled } from "./voice-session-mode";
 
@@ -9,8 +15,9 @@ import { getVoiceMonthlyMinutes, isVoiceSessionEnabled } from "./voice-session-m
  * Bramka startu rozmowy głosowej (pre-flight w `start-next`): flaga i
  * dostawca (tylko bezpośrednie OpenAI ma GPT-Live), potem pula — jedna próba
  * konta free albo miesięczna pula minut premium. Trigger `P0016` w bazie jest
- * prawdziwą bramką próby; pula premium jest egzekwowana tylko tutaj i przez
- * termin obserwatora, bo bez Workera nikt nie utworzy płatnej sesji live.
+ * prawdziwą bramką próby; pula premium jest egzekwowana tutaj, przy każdym
+ * połączeniu audio (`resolveVoiceConnectAllowance`) i przez termin
+ * obserwatora, bo bez Workera nikt nie utworzy płatnej sesji live.
  */
 export type VoiceStartFailureCode =
   "voice_unavailable" | "voice_trial_used" | "voice_minutes_exhausted" | "session_quota_unavailable";
@@ -111,4 +118,54 @@ export async function resolveVoiceStart(
     expiresAt: new Date(now.getTime() + durationSeconds * 1000),
     quota: quota.data,
   };
+}
+
+export type VoiceConnectResolution =
+  | { ok: true; deadlineAtMs: number }
+  | { ok: false; code: VoiceConnectRefusalCode; status: 403 }
+  | { ok: false; code: "session_quota_unavailable"; status: 503 };
+
+export interface VoiceConnectDependencies {
+  getVoiceMonthlyMinutes: () => number;
+  readVoiceConnectAllowance: (
+    context: SessionDataContext,
+    options: ReadVoiceConnectAllowanceOptions,
+  ) => Promise<SessionDataResult<VoiceConnectAllowance>>;
+}
+
+const defaultConnectDependencies: VoiceConnectDependencies = {
+  getVoiceMonthlyMinutes,
+  readVoiceConnectAllowance: (context, options) => readVoiceConnectAllowance(context, options),
+};
+
+/**
+ * Bramka puli w `POST /api/session/voice/connect`, przed utworzeniem płatnej
+ * sesji live — także przy wznowieniu. Rozmowę można założyć z pominięciem
+ * `start-next` (bezpośredni insert pod RLS właściciela) albo zacząć kilka
+ * równolegle, więc sam pre-flight startu nie wystarcza. Nieczytelna pula to
+ * odmowa (503), nigdy darmowe połączenie.
+ */
+export async function resolveVoiceConnectAllowance(
+  context: SessionDataContext,
+  session: Pick<SessionMetadata, "id" | "durationBucketSeconds">,
+  options: { expiresAtMs: number; now: Date },
+  dependencies: VoiceConnectDependencies = defaultConnectDependencies,
+): Promise<VoiceConnectResolution> {
+  const allowance = await dependencies.readVoiceConnectAllowance(context, {
+    sessionId: session.id,
+    sessionDurationBucketSeconds: session.durationBucketSeconds,
+    sessionExpiresAtMs: options.expiresAtMs,
+    limitMinutes: dependencies.getVoiceMonthlyMinutes(),
+    now: options.now,
+  });
+
+  if (!allowance.ok) {
+    return { ok: false, code: "session_quota_unavailable", status: 503 };
+  }
+
+  if (!allowance.data.ok) {
+    return { ok: false, code: allowance.data.code, status: 403 };
+  }
+
+  return { ok: true, deadlineAtMs: allowance.data.deadlineAtMs };
 }

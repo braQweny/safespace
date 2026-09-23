@@ -1,4 +1,5 @@
 import type { SessionMessageViewModel } from "./message-contract";
+import { parseTimestampMs, remainingSeconds } from "./session-clock";
 import type { SessionMessageView, SessionStartPageStateKind, SessionView } from "./session-state";
 
 export type UiSessionMessage = SessionMessageView | SessionMessageViewModel;
@@ -9,23 +10,9 @@ export interface ComposerAvailabilityInput {
   isClientExpired: boolean;
 }
 
-function parseTimestampMs(timestamp: string | null) {
-  if (!timestamp) {
-    return null;
-  }
-
-  const parsed = Date.parse(timestamp);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
+/** Ta sama arytmetyka co `SessionView.remainingSeconds` na serwerze: sekundy w górę, od zegara klienta. */
 export function computeClientRemainingSeconds(expiresAt: string | null, nowMs = Date.now()) {
-  const expiresAtMs = parseTimestampMs(expiresAt);
-
-  if (expiresAtMs === null) {
-    return null;
-  }
-
-  return Math.max(0, Math.ceil((expiresAtMs - nowMs) / 1000));
+  return remainingSeconds(expiresAt, nowMs);
 }
 
 /**

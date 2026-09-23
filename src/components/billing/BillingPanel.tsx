@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { useLocale } from "@/components/hooks/useLocale";
+import { useTimeZone } from "@/components/hooks/useTimeZone";
 import { requestApiJson } from "@/lib/api-client";
 import { formatBillingDate, getBillingCopy, getBillingErrorCopy } from "@/lib/billing/copy";
 import { parseBillingStatusResponse, type BillingStatus } from "@/lib/billing/status-contract";
@@ -8,6 +9,8 @@ import type { Locale } from "@/lib/i18n/locale";
 
 interface Props {
   locale: Locale;
+  /** Strefa osoby (`Astro.locals.timeZone`) dla daty końca okresu; domyślnie Europe/Warsaw. */
+  timeZone?: string;
   initialStatus: BillingStatus | null;
   checkoutReturn?: "success" | "canceled" | null;
   errorCode?: string | null;
@@ -15,7 +18,7 @@ interface Props {
 
 export default function BillingPanel(props: Props) {
   return (
-    <LocaleProvider locale={props.locale}>
+    <LocaleProvider locale={props.locale} timeZone={props.timeZone}>
       <BillingPanelView {...props} />
     </LocaleProvider>
   );
@@ -23,6 +26,7 @@ export default function BillingPanel(props: Props) {
 
 function BillingPanelView({ initialStatus, checkoutReturn = null, errorCode = null }: Props) {
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const copy = getBillingCopy(locale);
   const [status, setStatus] = useState(initialStatus);
   const [pollingEnded, setPollingEnded] = useState(false);
@@ -141,7 +145,7 @@ function BillingPanelView({ initialStatus, checkoutReturn = null, errorCode = nu
         ) : null}
         {status.paidUntil ? (
           <p className="text-ink-muted mt-2 text-sm leading-6">
-            {copy.validUntil(formatBillingDate(locale, status.paidUntil))}
+            {copy.validUntil(formatBillingDate(locale, timeZone, status.paidUntil))}
           </p>
         ) : null}
         {status.cancelAtPeriodEnd ? <p className="text-ink-muted mt-2 text-sm leading-6">{copy.canceled}</p> : null}

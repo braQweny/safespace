@@ -38,7 +38,7 @@ const other = otherLocale(locale);
               lang={option}
               title={LOCALE_ENDONYM[option]}
               aria-pressed={locale === option}
-              class="hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint flex h-11 flex-1 items-center justify-center rounded-[10px] transition-colors focus:outline-none focus-visible:ring-2"
+              class="hover:bg-surface-soft focus-visible:ring-brand-ring aria-pressed:bg-brand-tint aria-pressed:inset-ring-brand flex h-11 flex-1 items-center justify-center rounded-[10px] transition-colors focus:outline-none focus-visible:ring-2 aria-pressed:inset-ring"
             >
               <LocaleFlag locale={option} />
               <span class="sr-only">{LOCALE_ENDONYM[option]}</span>

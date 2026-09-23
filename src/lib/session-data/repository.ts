@@ -1,9 +1,16 @@
 /**
- * Public entry point of the owner-bound session-data repository. The
- * implementation lives in per-entity modules (`sessions.ts`, `messages.ts`,
- * `summaries.ts`, `trial-claims.ts`); this barrel is the only import path the
- * rest of the codebase should use, so the public privacy surface stays in one
- * place.
+ * Public entry point for owner-bound reads and writes of private rows
+ * (sessions, messages, summaries, avatar memory, people cards, topic map,
+ * message turns, plans). The implementation lives in per-entity modules; code
+ * outside `session-data/` imports these functions from this barrel, never from
+ * those modules, so the public privacy surface stays in one place.
+ *
+ * Deliberately imported directly instead: `auth.ts` (`getSessionDataContext`,
+ * which creates the context every function here takes), the contracts
+ * `types.ts` and `errors.ts`, the plan and allowance reads `quota.ts` and
+ * `voice-quota.ts` (limits, the free-trial claim), `deletion.ts`
+ * (`deleteOwnedSession`) and the work types session-flow's memory pipelines
+ * take from `avatar-memory.ts` / `people-memory.ts`.
  */
 export { toDeletedSessionTombstone } from "./rows";
 export {
@@ -14,6 +21,7 @@ export {
   getOwnedAvatarMemoryPreview,
 } from "./avatar-memory";
 export {
+  countOwnedPersonCards,
   deleteOwnedPersonFact,
   disableAndDeleteOwnedPeopleMemory,
   forgetOwnedPerson,
@@ -28,6 +36,7 @@ export {
   updateOwnedPersonFact,
 } from "./people-memory";
 export {
+  countOwnedDifficultyCards,
   decideOwnedDifficultyPerson,
   deleteOwnedDifficulty,
   deleteOwnedDifficultyEntry,
@@ -53,9 +62,10 @@ export {
   listOwnedActiveSessionMetadata,
   listOwnedSessionHistoryPage,
   listOwnedSessionMetadata,
-  listOwnedVoiceSessionTimings,
+  listOwnedVoiceObserverSessionIds,
   markVoiceSessionConnected,
   purgeAndTombstoneOwnedSession,
+  readOwnedVoiceUsage,
   readSafeSessionTombstone,
   setOwnedSessionLens,
   transitionSessionLifecycle,

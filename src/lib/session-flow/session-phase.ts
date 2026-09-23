@@ -1,4 +1,5 @@
 import type { SessionMetadata } from "@/lib/session-data/types";
+import { parseTimestampMs } from "./session-clock";
 
 /**
  * Where the conversation sits in the session's arc. Resolved from the session's
@@ -30,15 +31,6 @@ export interface ResolveSessionPhaseOptions {
 }
 
 type SessionPhaseSource = Pick<SessionMetadata, "startedAt" | "expiresAt" | "durationBucketSeconds" | "createdAt">;
-
-function parseTimestampMs(timestamp: string | null | undefined) {
-  if (!timestamp) {
-    return null;
-  }
-
-  const parsed = Date.parse(timestamp);
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 function resolveSessionStartMs(session: SessionPhaseSource, expiresAtMs: number) {
   const startedAtMs = parseTimestampMs(session.startedAt);

@@ -6,6 +6,7 @@ import {
   evaluateApiBodyGuard,
   getAccountAccessRedirectPath,
   getApiBodyLimitBytes,
+  normalizeGuardPathname,
 } from "../request-guards";
 
 function request(
@@ -141,6 +142,30 @@ describe("voice connect body cap", () => {
         request("POST", { contentLength: String(API_BODY_LIMIT_BYTES + 1) }),
         "/api/session/voice/heartbeat",
       ),
+    ).toEqual({ ok: false, status: 413, reasonCode: "payload_too_large" });
+  });
+});
+
+describe("normalizeGuardPathname", () => {
+  it("folds the spellings Astro routes to one handler into the canonical path", () => {
+    expect(normalizeGuardPathname("/api/session/message")).toBe("/api/session/message");
+    expect(normalizeGuardPathname("/api/session/message/")).toBe("/api/session/message");
+    expect(normalizeGuardPathname("/api/session//message//")).toBe("/api/session/message");
+    expect(normalizeGuardPathname("/api/session/%6Dessage")).toBe("/api/session/message");
+    expect(normalizeGuardPathname("/api/session/%256Dessage")).toBe("/api/session/message");
+    expect(normalizeGuardPathname("/API/Session/Message")).toBe("/api/session/message");
+  });
+
+  it("keeps the root and survives malformed escapes", () => {
+    expect(normalizeGuardPathname("/")).toBe("/");
+    expect(normalizeGuardPathname("//")).toBe("/");
+    expect(normalizeGuardPathname("/api/%E0%A4%A")).toBe("/api/%e0%a4%a");
+  });
+
+  it("applies the transcription cap to a trailing-slash spelling too", () => {
+    expect(getApiBodyLimitBytes("/api/session/transcribe/")).toBe(TRANSCRIPTION_API_BODY_LIMIT_BYTES);
+    expect(
+      evaluateApiBodyGuard(request("POST", { contentLength: String(API_BODY_LIMIT_BYTES + 1) }), "/api/x/"),
     ).toEqual({ ok: false, status: 413, reasonCode: "payload_too_large" });
   });
 });
