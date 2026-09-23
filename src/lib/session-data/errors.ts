@@ -42,8 +42,10 @@ export const SESSION_MODE_MISMATCH_SQLSTATE = "P0015";
 
 /**
  * SQLSTATE raised by the free-plan limit trigger when a free account already
- * owns a voice conversation (any status, tombstones included): the voice trial
- * is one per account and deleting never restores it.
+ * has a voice conversation holding the trial: one that ever connected (any
+ * status, tombstones included — deleting never restores it) or one still
+ * running before its deadline. A conversation that ended without connecting
+ * does not hold it (`20260923120000`).
  */
 export const VOICE_TRIAL_USED_SQLSTATE = "P0016";
 

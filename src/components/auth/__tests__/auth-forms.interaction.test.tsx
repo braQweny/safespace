@@ -161,7 +161,6 @@ describe("SignUpForm", () => {
 
     await user.type(field("email"), "ala@example.com");
     await user.type(field("password"), PASSWORD);
-    await user.type(field("confirmPassword"), PASSWORD);
     await user.dblClick(screen.getByRole("button", { name: copy.signUp }));
 
     expect(sent).toEqual(["/api/auth/signup"]);
@@ -169,18 +168,29 @@ describe("SignUpForm", () => {
     expect(submitButton().textContent).toContain(copy.signUpPending);
   });
 
+  it("has one password field guarded by the show-password toggle, not a repeat field", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<SignUpForm locale="en" />);
+
+    expect(document.getElementById("confirmPassword")).toBeNull();
+    expect(document.querySelectorAll('input[type="password"]')).toHaveLength(1);
+
+    await user.type(field("password"), PASSWORD);
+    await user.click(screen.getByRole("button", { name: copy.showPassword }));
+    expect(field("password").type).toBe("text");
+  });
+
   it("focuses the first invalid field in form order and never goes pending", async () => {
     const user = userEvent.setup({ delay: null });
     render(<SignUpForm locale="en" />);
 
     await user.type(field("email"), "ala@example.com");
-    await user.type(field("password"), PASSWORD);
-    await user.type(field("confirmPassword"), `${PASSWORD}-different`);
+    await user.type(field("password"), "abc");
     await user.click(screen.getByRole("button", { name: copy.signUp }));
 
     expect(sent).toEqual([]);
-    expect(document.activeElement).toBe(field("confirmPassword"));
-    expect(screen.getByText(copy.errors.passwordsMismatch)).toBeTruthy();
+    expect(document.activeElement).toBe(field("password"));
+    expect(screen.getByText(copy.errors.passwordTooShort(MIN_PASSWORD_LENGTH))).toBeTruthy();
     expect(submitButton().disabled).toBe(false);
   });
 });
@@ -191,8 +201,9 @@ describe("SetPasswordForm", () => {
     render(<SetPasswordForm locale="en" />);
     const button = screen.getByRole("button", { name: copy.savePassword });
 
+    expect(document.getElementById("confirmPassword")).toBeNull();
+
     await user.type(field("password"), "abc");
-    await user.type(field("confirmPassword"), "abc");
     await user.click(button);
 
     expect(sent).toEqual([]);
@@ -201,8 +212,6 @@ describe("SetPasswordForm", () => {
 
     await user.clear(field("password"));
     await user.type(field("password"), PASSWORD);
-    await user.clear(field("confirmPassword"));
-    await user.type(field("confirmPassword"), PASSWORD);
     await user.dblClick(button);
 
     expect(sent).toEqual(["/api/auth/password"]);

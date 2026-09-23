@@ -34,3 +34,15 @@ export function getSafeAuthRedirect(target: unknown = null) {
 export function getAuthCallbackUrl(origin: string) {
   return new URL(AUTH_CALLBACK_PATH, origin).toString();
 }
+
+/** Strona konta z formularzem hasła; tu wraca też trasa zmiany hasła. */
+export const ACCOUNT_SECURITY_PATH = "/account/security";
+
+/**
+ * `?password=recovery` renderuje zwinięty formularz „Zmień hasło” jako
+ * otwarty, a `#change-password` przewija do niego. Link odzyskiwania hasła kończy
+ * się tutaj — osoba, która nie pamięta hasła, nie szuka formularza na stronie.
+ */
+export const PASSWORD_FORM_PARAM = "password";
+export const PASSWORD_RECOVERY_VALUE = "recovery";
+export const PASSWORD_RECOVERY_LANDING_PATH = `${ACCOUNT_SECURITY_PATH}?${PASSWORD_FORM_PARAM}=${PASSWORD_RECOVERY_VALUE}#change-password`;

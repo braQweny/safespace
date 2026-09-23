@@ -45,7 +45,7 @@ describe("toCommittedVoiceSeconds", () => {
 });
 
 describe("toVoiceQuota", () => {
-  it("gives a free account exactly one trial that any owned voice row consumes", () => {
+  it("gives a free account exactly one trial that any voice row holding it consumes", () => {
     const monthStart = getUtcMonthStart(now);
     expect(toVoiceQuota("free", { voiceSessionsOwned: 0, usedSeconds: 0, limitMinutes: 120, monthStart })).toEqual({
       kind: "trial",
@@ -94,7 +94,7 @@ describe("toVoiceQuota", () => {
 });
 
 describe("readVoiceQuota", () => {
-  it("reads only the voice row count for a free account", async () => {
+  it("reads only the count of voice rows holding the trial for a free account, at the caller's clock", async () => {
     const repository = createRepository({
       getOwnedAccountPlan: vi.fn(() => Promise.resolve(ok({ plan: "free" as const, premiumGrantedAt: null }))),
       countOwnedVoiceSessions: vi.fn(() => Promise.resolve(ok(1))),
@@ -104,6 +104,8 @@ describe("readVoiceQuota", () => {
       ok: true,
       data: { kind: "trial", plan: "free", available: false, durationSeconds: VOICE_TRIAL_DURATION_SECONDS },
     });
+    // A running row holds the trial only until its own deadline, so the count needs the clock.
+    expect(repository.countOwnedVoiceSessions).toHaveBeenCalledWith(context, now);
     expect(repository.readOwnedVoiceUsage).not.toHaveBeenCalled();
   });
 

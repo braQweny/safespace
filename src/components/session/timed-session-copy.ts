@@ -21,10 +21,11 @@ interface TimedSessionCopy {
   confirmEndAria: string;
   confirmEndTitle: string;
   confirmEndBody: string;
+  /** Plan bezpłatny: wcześniejszy koniec nie oddaje rozmowy do puli. */
+  confirmEndFreeNote: (limit: number) => string;
   confirmEndNow: string;
   confirmEndCancel: string;
   boundariesLabel: string;
-  openTranscript: string;
   changePerspective: string;
 }
 
@@ -75,10 +76,11 @@ const TIMED_SESSION_COPY = defineCopy<TimedSessionCopy>(
     confirmEndAria: "Confirm ending the conversation",
     confirmEndTitle: "End the conversation now?",
     confirmEndBody: "An ended conversation can't be resumed, but its transcript stays in your history.",
+    confirmEndFreeNote: (limit) =>
+      `It still counts as one of your ${limit} free conversations, even if you end it early.`,
     confirmEndNow: "End now",
     confirmEndCancel: "Back to the conversation",
     boundariesLabel: "Conversation boundaries:",
-    openTranscript: "Open the transcript",
     changePerspective: "Change perspective",
   },
   {
@@ -127,10 +129,11 @@ const TIMED_SESSION_COPY = defineCopy<TimedSessionCopy>(
     confirmEndAria: "Potwierdź zakończenie rozmowy",
     confirmEndTitle: "Na pewno zakończyć rozmowę?",
     confirmEndBody: "Zakończonej rozmowy nie da się wznowić, ale jej zapis pozostanie w historii.",
+    confirmEndFreeNote: (limit) =>
+      `Liczy się jako jedna z ${limit} bezpłatnych rozmów, także gdy kończysz ją wcześniej.`,
     confirmEndNow: "Zakończ teraz",
     confirmEndCancel: "Wróć do rozmowy",
     boundariesLabel: "Granice rozmowy:",
-    openTranscript: "Otwórz zapis",
     changePerspective: "Zmień perspektywę",
   },
 );

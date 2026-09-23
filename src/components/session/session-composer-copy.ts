@@ -5,6 +5,7 @@ const SESSION_COMPOSER_COPY = defineCopy(
   {
     label: "Message text",
     placeholder: "Write what you'd like to start with…",
+    replyPlaceholder: "Write your reply…",
     shortcutHint: "Enter adds a new line, Cmd/Ctrl + Enter sends.",
     send: "Send",
     dictate: "Dictate",
@@ -15,6 +16,7 @@ const SESSION_COMPOSER_COPY = defineCopy(
   {
     label: "Treść wiadomości",
     placeholder: "Napisz, od czego chcesz zacząć…",
+    replyPlaceholder: "Napisz odpowiedź…",
     shortcutHint: "Enter dodaje nową linię, Cmd/Ctrl + Enter wysyła.",
     send: "Wyślij",
     dictate: "Dyktuj",

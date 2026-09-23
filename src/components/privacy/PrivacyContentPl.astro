@@ -148,12 +148,12 @@ const DAYS = { one: "dzień", few: "dni", many: "dni" };
     <section id="voice" class="scroll-mt-20" data-voice-session>
       <h2 class="text-ink text-xl font-semibold">Rozmowy głosowe</h2>
       <p class="text-ink-soft mt-3">
-        Rozmowę głosową zaczynasz w panelu tak jak pisaną, ale awatar słucha i mówi zamiast pisać. Po dotknięciu „Włącz
-        mikrofon” przeglądarka prosi o zgodę na jego użycie i otwiera bezpośrednie połączenie audio (WebRTC) między
-        Twoim urządzeniem a OpenAI, dostawcą modelu głosowego. SafeSpace nie odbiera, nie nagrywa ani nie przechowuje
-        dźwięku — głos wędruje wyłącznie między Twoim urządzeniem a dostawcą. Awatar słucha i mówi jednocześnie, więc do
-        dostawcy trafia wszystko, co zbierze mikrofon, także głosy innych osób w pomieszczeniu: wybierz ustronne miejsce
-        i korzystaj z wyciszenia, kiedy tego potrzebujesz.
+        Rozmowę głosową zaczynasz w panelu tak jak pisaną, ale awatar słucha i mówi zamiast pisać. Gdy na ekranie
+        rozmowy włączysz mikrofon, przeglądarka prosi o zgodę na jego użycie i otwiera bezpośrednie połączenie audio
+        (WebRTC) między Twoim urządzeniem a OpenAI, dostawcą modelu głosowego. SafeSpace nie odbiera, nie nagrywa ani
+        nie przechowuje dźwięku — głos wędruje wyłącznie między Twoim urządzeniem a dostawcą. Awatar słucha i mówi
+        jednocześnie, więc do dostawcy trafia wszystko, co zbierze mikrofon, także głosy innych osób w pomieszczeniu:
+        wybierz ustronne miejsce i korzystaj z wyciszenia, kiedy tego potrzebujesz.
       </p>
       <p class="text-ink-soft mt-3">
         Zapis rozmowy powstaje po stronie SafeSpace z tekstu, który dostawca odsyła w trakcie rozmowy, i jest
@@ -172,11 +172,14 @@ const DAYS = { one: "dzień", few: "dni", many: "dni" };
         region przetwarzania są ustawieniami konta dostawcy, tak jak przy rozmowach pisanych.
       </p>
       <p class="text-ink-soft mt-3">
-        Konto bezpłatne ma jedną próbę rozmowy głosowej do {voiceTrialMinutes}{" "}
+        Konto bezpłatne obejmuje jedną rozmowę głosową do {voiceTrialMinutes}{" "}
         {plural("pl", voiceTrialMinutes, MINUTES_AFTER_UP_TO)}; na koncie premium miesięczna pula wynosi{" "}
-        {voiceMonthlyMinutes} {plural("pl", voiceMonthlyMinutes, MINUTES_AMOUNT)} i jest liczona od chwili połączenia
-        audio. Pulę widać w panelu i w ustawieniach konta. Usunięcie rozmowy głosowej nie przywraca ani próby, ani
-        minut.
+        {voiceMonthlyMinutes} {plural("pl", voiceMonthlyMinutes, MINUTES_AMOUNT)}. Czas rozmowy głosowej zaczyna biec
+        dopiero w chwili połączenia audio, nie przy rozpoczęciu rozmowy w panelu — i dopiero wtedy rozmowa wykorzystuje
+        bezpłatną rozmowę albo minuty z puli. Rozmowa, która skończy się, zanim mikrofon się połączy (przeglądarka nie
+        dała zgody, zabrakło mikrofonu albo minął czas oczekiwania), niczego nie zużywa. Pulę widać w panelu i w
+        ustawieniach konta. Usunięcie rozmowy głosowej, która już się połączyła, nie przywraca ani bezpłatnej rozmowy,
+        ani minut.
       </p>
     </section>
   ) : null

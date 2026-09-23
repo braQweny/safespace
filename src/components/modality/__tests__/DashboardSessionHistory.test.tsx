@@ -11,7 +11,9 @@ vi.mock("@/components/hooks/useLocale", async (importOriginal) => ({
 }));
 
 const selectedAvatar = toSelectedModalityAvatar(MVP_MODALITIES[3]);
-const selectedAvatarName = getModalityCopy("pl", selectedAvatar.modalityId).avatarName;
+// Historia nazywa perspektywę tak jak panel: samym imieniem, bez dopisku roli.
+const selectedAvatarName = selectedAvatar.avatarFirstName;
+const selectedAvatarRole = getModalityCopy("pl", selectedAvatar.modalityId).avatarRole;
 
 describe("selectHistoryFilterModalities", () => {
   it("shows every perspective when the counts could not be read", () => {
@@ -94,6 +96,7 @@ describe("DashboardSessionHistory", () => {
     expect(html).not.toContain("Rozmowy z:");
     // Nazwa perspektywy zostaje w nagłówku sekcji.
     expect(html).toContain(selectedAvatarName);
+    expect(html).not.toContain(selectedAvatarRole);
   });
 
   it("names each filter visibly and accessibly and checks the saved perspective", () => {
@@ -117,6 +120,7 @@ describe("DashboardSessionHistory", () => {
     expect(html).not.toContain("<select");
     // Pełna nazwa zostaje w nagłówku sekcji.
     expect(html).toContain(selectedAvatarName);
+    expect(html).not.toContain(selectedAvatarRole);
   });
 
   it("lets the dashboard place the section in its own grid column", () => {

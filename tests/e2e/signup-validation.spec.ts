@@ -7,7 +7,6 @@ test("signup directs focus to the first invalid field without stealing it during
 
   const email = page.getByRole("textbox", { name: "E-mail", exact: true });
   const password = page.getByLabel("Password", { exact: true });
-  const confirmation = page.getByLabel("Repeat password", { exact: true });
   const submit = page.getByRole("button", { name: "Create an account", exact: true });
 
   await submit.click();
@@ -20,17 +19,17 @@ test("signup directs focus to the first invalid field without stealing it during
   await expect(password).toBeFocused();
   await expect(password).toHaveAccessibleDescription("Enter a password");
 
-  await password.fill("Local test password 123");
-  await confirmation.fill("Different test password 456");
+  // Jedno pole hasła: bez „Powtórz hasło”, literówkę łapie przełącznik „Pokaż hasło”.
+  await expect(page.getByLabel("Repeat password", { exact: true })).toHaveCount(0);
+  await password.fill("abc");
   await submit.click();
-  await expect(confirmation).toBeFocused();
-  await expect(confirmation).toHaveAccessibleDescription("The passwords must match");
+  await expect(password).toBeFocused();
+  await expect(password).toHaveAccessibleDescription(/The password must be at least 6 characters long/);
 
   // Zmiana wartości przy widocznym błędzie nie uruchamia ponownie transferu fokusu.
   await email.fill(`corrected-${Date.now()}@example.com`);
   await expect(email).toBeFocused();
   await expect(email).toHaveAttribute("autocomplete", "email");
   await expect(password).toHaveAttribute("autocomplete", "new-password");
-  await expect(confirmation).toHaveAttribute("autocomplete", "new-password");
   await expect(page).toHaveURL(/\/auth\/signup$/);
 });

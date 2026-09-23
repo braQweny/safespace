@@ -62,10 +62,11 @@ export interface SessionQuota {
 }
 
 /**
- * Co właściciel może zacząć głosem. Konto free ma jedną próbę (bucket 600 s;
- * każdy własny wiersz `mode = 'voice'` ją zużywa, także tombstone). Konto
- * premium ma miesięczną pulę sekund liczoną od `voice_connected_at` każdej
- * rozmowy głosowej w bieżącym miesiącu UTC.
+ * Co właściciel może zacząć głosem. Konto free ma jedną próbę (bucket 600 s):
+ * zużywa ją pierwsze połączenie audio (wiersz połączony, także tombstone), a
+ * trzyma trwająca rozmowa do swojego terminu; rozmowa zakończona bez
+ * połączenia jej nie zabiera. Konto premium ma miesięczną pulę sekund liczoną
+ * od `voice_connected_at` każdej rozmowy głosowej w bieżącym miesiącu UTC.
  */
 export type VoiceQuota =
   | { kind: "trial"; plan: "free"; available: boolean; durationSeconds: 600 }

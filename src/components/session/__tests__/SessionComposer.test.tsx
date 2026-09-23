@@ -87,6 +87,12 @@ describe("SessionComposer keyboard submit shortcut", () => {
  * ogłasza zajętość; wyłączone zostaje wyłącznie wtedy, gdy rozmowa się skończyła.
  */
 describe("SessionComposer field state", () => {
+  it("stops inviting a start once the user has written their first message", () => {
+    // Po pierwszej wiadomości „od czego chcesz zacząć” było już nie na miejscu.
+    expect(getTextareaTag(renderComposer())).toContain('placeholder="Napisz, od czego chcesz zacząć…"');
+    expect(getTextareaTag(renderComposer({ hasStarted: true }))).toContain('placeholder="Napisz odpowiedź…"');
+  });
+
   it("keeps the field focusable while a turn is pending", () => {
     const textarea = getTextareaTag(renderComposer({ isPending: true }));
 

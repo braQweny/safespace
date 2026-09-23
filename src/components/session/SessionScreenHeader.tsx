@@ -3,7 +3,9 @@ import { Loader2 } from "lucide-react";
 import { useLocale } from "@/components/hooks/useLocale";
 import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
 import { getModalityCopy } from "@/lib/modality-copy";
+import { getPerspectiveTint } from "@/lib/perspective-tint";
 import { parseTimestampMs } from "@/lib/session-flow/session-clock";
+import { cn } from "@/lib/utils";
 import type { SessionView } from "@/lib/session-flow/session-state";
 import { CrisisHelpPanel, CrisisHelpTrigger } from "./CrisisHelpPanel";
 import SessionEndConfirmDialog from "./SessionEndConfirmDialog";
@@ -29,6 +31,8 @@ interface SessionScreenHeaderProps {
   canEndSession: boolean;
   isEnding: boolean;
   isConfirmingEnd: boolean;
+  /** Zdanie dopisywane do potwierdzenia końca (np. o puli bezpłatnych rozmów). */
+  confirmEndNote?: string | null;
   onExpired: () => void;
   onRequestEnd: () => void;
   onConfirmEnd: () => void;
@@ -39,6 +43,8 @@ interface SessionScreenHeaderProps {
   isCrisisHelpOpen: boolean;
   onToggleCrisisHelp: () => void;
   onCloseCrisisHelp: () => void;
+  /** Rozmowa głosowa przed pierwszym połączeniem: licznik stoi i mówi, na co czeka. */
+  timerWaitingLabel?: string | null;
 }
 
 /**
@@ -54,6 +60,7 @@ export default function SessionScreenHeader({
   canEndSession,
   isEnding,
   isConfirmingEnd,
+  confirmEndNote = null,
   onExpired,
   onRequestEnd,
   onConfirmEnd,
@@ -64,6 +71,7 @@ export default function SessionScreenHeader({
   isCrisisHelpOpen,
   onToggleCrisisHelp,
   onCloseCrisisHelp,
+  timerWaitingLabel = null,
 }: SessionScreenHeaderProps) {
   const locale = useLocale();
   const copy = getTimedSessionCopy(locale);
@@ -107,12 +115,18 @@ export default function SessionScreenHeader({
           <div className="min-w-0 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-x-4">
             {/* Licznik pod imieniem na telefonie zostawia miejsce na pełne imię
                 i przyciski. Na większym ekranie stoi obok nazwy perspektywy. */}
+            {/* Ta sama para co na panelu i przy wyborze: imię i to, na czym
+                perspektywa się skupia. Nazwa nurtu zostaje w „O podejściu”. */}
             <h1 className="text-ink truncate font-sans text-[15px] leading-tight font-semibold tracking-normal md:col-start-1 md:row-start-1">
-              <span className="md:hidden">{avatarFirstName}</span>
-              <span className="hidden md:inline">{avatarCopy.avatarName}</span>
+              {avatarFirstName}
             </h1>
-            <p className="text-ink-muted hidden truncate text-xs leading-tight md:col-start-1 md:row-start-2 md:block">
-              {avatarCopy.modalityName}
+            <p
+              className={cn(
+                "hidden truncate text-xs leading-tight font-medium md:col-start-1 md:row-start-2 md:block",
+                getPerspectiveTint(avatar.modalityId).text,
+              )}
+            >
+              {avatarCopy.perspectiveFocus}
             </p>
             {canEndSession && session ? (
               <div className="mt-0.5 md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0">
@@ -123,6 +137,7 @@ export default function SessionScreenHeader({
                   initialRemainingSeconds={session.remainingSeconds}
                   totalSeconds={getSessionTotalSeconds(session)}
                   onExpired={onExpired}
+                  waitingLabel={timerWaitingLabel}
                 />
               </div>
             ) : (
@@ -186,6 +201,7 @@ export default function SessionScreenHeader({
         <SessionEndConfirmDialog
           dialogRef={confirmEndRef}
           isEnding={isEnding}
+          note={confirmEndNote}
           onConfirm={onConfirmEnd}
           onCancel={onCancelEnd}
         />

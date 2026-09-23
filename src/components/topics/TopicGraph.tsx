@@ -1,7 +1,12 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { useLocale } from "@/components/hooks/useLocale";
 import type { DifficultyCard } from "@/lib/session-data/types";
-import { buildTopicGraphLayout, TOPIC_GRAPH, type TopicGraphUnlinkedPerson } from "@/lib/topic-map/layout";
+import {
+  buildTopicGraphLayout,
+  listTopicGraphLegend,
+  TOPIC_GRAPH,
+  type TopicGraphUnlinkedPerson,
+} from "@/lib/topic-map/layout";
 import { cn } from "@/lib/utils";
 import { getOpenDifficultyButtonId } from "./TopicList";
 import { getTopicMapCopy } from "./topic-map-copy";
@@ -17,16 +22,15 @@ interface TopicGraphProps {
   onOpenPerson?: (personId: string) => void;
 }
 
-const RELATION_MAX_CHARS = 18;
+/** Linie bazowe w węźle tematu: kolejne wiersze etykiety, a pod nimi liczniki. */
+const LABEL_FIRST_BASELINE = 19;
+const COUNTS_BOTTOM_OFFSET = 11;
+/** Linie bazowe podpisu osoby liczone od górnej krawędzi jego prostokąta. */
+const NAME_BASELINE = 12;
+const RELATION_BASELINE = 26;
 
-function shortRelation(relation: string) {
-  const chars = Array.from(relation);
-  return chars.length > RELATION_MAX_CHARS
-    ? `${chars
-        .slice(0, RELATION_MAX_CHARS - 1)
-        .join("")
-        .trimEnd()}…`
-    : relation;
+function roundCoordinate(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 /**
@@ -106,7 +110,14 @@ export default function TopicGraph({
       isInteractive ? "cursor-pointer" : "cursor-default",
       dimmed && "opacity-40",
     );
-  const { difficultyWidth: w, difficultyHeight: h, personRadius: r, youRadius } = TOPIC_GRAPH;
+  const { difficultyWidth: w, difficultyLineHeight, personRadius: r, youRadius } = TOPIC_GRAPH;
+  const legendText = {
+    confirmed: copy.legendConfirmed,
+    suggested: copy.legendSuggested,
+    unlinked: copy.legendUnlinked,
+    archived: copy.legendArchived,
+  };
+  const legend = listTopicGraphLegend(layout);
   const linkClass =
     "text-brand hover:text-brand-deep focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2";
 
@@ -175,7 +186,7 @@ export default function TopicGraph({
                 tabIndex={isInteractive ? 0 : -1}
                 aria-disabled={isInteractive ? undefined : true}
                 aria-label={copy.openCardSr(node.label)}
-                transform={`translate(${node.x - w / 2} ${node.y - h / 2})`}
+                transform={`translate(${node.x - w / 2} ${node.y - node.height / 2})`}
                 onClick={() => {
                   if (isInteractive) onOpen(node.id);
                 }}
@@ -184,37 +195,48 @@ export default function TopicGraph({
                     if (isInteractive) onOpen(node.id);
                   });
                 }}
-                className={cn(nodeClass(dimmed), node.archived && !dimmed && "opacity-60")}
+                className={nodeClass(dimmed)}
               >
                 <title>{node.label}</title>
                 <rect
                   x={-4}
                   y={-4}
                   width={w + 8}
-                  height={h + 8}
+                  height={node.height + 8}
                   rx={18}
                   strokeWidth={2}
                   className="focus-ring stroke-brand-ring fill-none opacity-0"
                 />
-                <rect
-                  width={w}
-                  height={h}
-                  rx={14}
-                  strokeWidth={node.archived ? 1 : 1.5}
-                  strokeDasharray={node.archived ? "5 4" : undefined}
-                  className="fill-surface stroke-line-accent"
-                />
-                <text
-                  x={w / 2}
-                  y={19}
-                  textAnchor="middle"
-                  className={cn("text-[13px] font-semibold", node.archived ? "fill-ink-muted" : "fill-ink")}
-                >
-                  {node.shortLabel}
-                </text>
-                <text x={w / 2} y={35} textAnchor="middle" className="fill-ink-muted text-[11px]">
-                  {counts}
-                </text>
+                {/* Pełne tło pod wyblakłą treścią: linia „Ty”–temat kończy się pod węzłem i nie prześwituje przez etykietę. */}
+                <rect width={w} height={node.height} rx={14} className="fill-surface" />
+                <g className={node.archived && !dimmed ? "opacity-60" : undefined}>
+                  <rect
+                    width={w}
+                    height={node.height}
+                    rx={14}
+                    strokeWidth={node.archived ? 1 : 1.5}
+                    strokeDasharray={node.archived ? "5 4" : undefined}
+                    className="fill-surface stroke-line-accent"
+                  />
+                  <text
+                    textAnchor="middle"
+                    className={cn("text-[13px] font-semibold", node.archived ? "fill-ink-muted" : "fill-ink")}
+                  >
+                    {node.labelLines.map((line, lineIndex) => (
+                      <tspan key={lineIndex} x={w / 2} y={LABEL_FIRST_BASELINE + lineIndex * difficultyLineHeight}>
+                        {line}
+                      </tspan>
+                    ))}
+                  </text>
+                  <text
+                    x={w / 2}
+                    y={node.height - COUNTS_BOTTOM_OFFSET}
+                    textAnchor="middle"
+                    className="fill-ink-muted text-[11px]"
+                  >
+                    {counts}
+                  </text>
+                </g>
               </g>
             );
           })}
@@ -225,6 +247,9 @@ export default function TopicGraph({
             const toggle = () => {
               if (isInteractive) setFocusedPersonId((current) => (current === node.id ? null : node.id));
             };
+            // Grupa jest przesunięta do środka kółka, a `labelBox` leży we współrzędnych całego obrazu.
+            const labelCenterX = roundCoordinate(node.labelBox.x + node.labelBox.width / 2 - node.x);
+            const labelTop = roundCoordinate(node.labelBox.y - node.y);
             return (
               <g
                 key={node.id}
@@ -252,12 +277,23 @@ export default function TopicGraph({
                 <text textAnchor="middle" dominantBaseline="central" className="fill-ink text-[14px] font-semibold">
                   {node.initial}
                 </text>
-                <text y={r + 15} textAnchor="middle" className="fill-ink text-[12px] font-medium">
+                {/* Podpis po zewnętrznej stronie kółka (`labelBox`): żadna krawędź go nie przecina. */}
+                <text
+                  x={labelCenterX}
+                  y={labelTop + NAME_BASELINE}
+                  textAnchor="middle"
+                  className="fill-ink text-[12px] font-medium"
+                >
                   {node.shortName}
                 </text>
-                {node.relation ? (
-                  <text y={r + 28} textAnchor="middle" className="fill-ink-muted text-[10px]">
-                    {shortRelation(node.relation)}
+                {node.shortRelation ? (
+                  <text
+                    x={labelCenterX}
+                    y={labelTop + RELATION_BASELINE}
+                    textAnchor="middle"
+                    className="fill-ink-muted text-[10px]"
+                  >
+                    {node.shortRelation}
                   </text>
                 ) : null}
               </g>
@@ -299,10 +335,12 @@ export default function TopicGraph({
         </p>
       ) : null}
 
-      <p className="text-ink-muted mt-3 text-xs leading-5">
-        {copy.legendTitle}: {copy.legendConfirmed} · {copy.legendSuggested} · {copy.legendUnlinked} ·{" "}
-        {copy.legendArchived}
-      </p>
+      {/* Legenda tylko z tym, co widać na tej mapie; same ciągłe linie jej nie potrzebują. */}
+      {legend.length > 0 ? (
+        <p className="text-ink-muted mt-3 text-xs leading-5" data-topic-graph-legend>
+          {copy.legendTitle}: {legend.map((entry) => legendText[entry]).join(" · ")}
+        </p>
+      ) : null}
     </div>
   );
 }

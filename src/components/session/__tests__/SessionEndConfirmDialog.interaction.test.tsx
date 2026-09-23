@@ -20,15 +20,23 @@ describe("SessionEndConfirmDialog", () => {
     onCancel,
     onConfirm,
     isEnding = false,
+    note = null,
   }: {
     onCancel: () => void;
     onConfirm: () => void;
     isEnding?: boolean;
+    note?: string | null;
   }) {
     const dialogRef = useRef<HTMLDivElement | null>(null);
     return (
       <LocaleProvider locale="en">
-        <SessionEndConfirmDialog dialogRef={dialogRef} isEnding={isEnding} onCancel={onCancel} onConfirm={onConfirm} />
+        <SessionEndConfirmDialog
+          dialogRef={dialogRef}
+          isEnding={isEnding}
+          note={note}
+          onCancel={onCancel}
+          onConfirm={onConfirm}
+        />
       </LocaleProvider>
     );
   }
@@ -56,6 +64,20 @@ describe("SessionEndConfirmDialog", () => {
 
     expect(screen.getByRole("button", { name: copy.confirmEndNow }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: copy.confirmEndCancel }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("tells a free account before the decision that ending early still uses the conversation", () => {
+    render(<DialogOnly onCancel={vi.fn()} onConfirm={vi.fn()} note={copy.confirmEndFreeNote(3)} />);
+
+    expect(screen.getByRole("alertdialog").textContent).toContain(
+      "It still counts as one of your 3 free conversations, even if you end it early.",
+    );
+  });
+
+  it("adds nothing for accounts without a conversation cap", () => {
+    render(<DialogOnly onCancel={vi.fn()} onConfirm={vi.fn()} />);
+
+    expect(screen.getByRole("alertdialog").textContent).not.toContain("free conversations");
   });
 });
 

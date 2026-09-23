@@ -188,18 +188,26 @@ describe("POST /api/auth/signin", () => {
 });
 
 describe("POST /api/auth/signup", () => {
-  const validFields = { email: "user@example.com", password: "haslo123", confirmPassword: "haslo123" };
+  const validFields = { email: "user@example.com", password: "haslo123" };
 
   it("rejects a too-short password", async () => {
-    const response = await SIGNUP(createContext({ ...validFields, password: "abc", confirmPassword: "abc" }));
+    const response = await SIGNUP(createContext({ ...validFields, password: "abc" }));
 
     expect(location(response)).toBe("/auth/signup?error=password_too_short");
   });
 
-  it("rejects mismatched passwords", async () => {
-    const response = await SIGNUP(createContext({ ...validFields, confirmPassword: "inne-haslo" }));
+  it("needs no repeated password and ignores one posted by an old cached form", async () => {
+    signUp.mockResolvedValue({ data: { session: null, user: { id: "user-1" } }, error: null });
 
-    expect(location(response)).toBe("/auth/signup?error=passwords_do_not_match");
+    const single = await SIGNUP(createContext(validFields));
+    expect(location(single)).toBe("/auth/confirm-email");
+
+    // Stary formularz z pamięci przeglądarki: rozbieżne powtórzenie nie blokuje konta.
+    const cached = await SIGNUP(createContext({ ...validFields, confirmPassword: "inne-haslo" }));
+    expect(location(cached)).toBe("/auth/confirm-email");
+
+    expect(signUp).toHaveBeenCalledTimes(2);
+    expect(signUp).toHaveBeenLastCalledWith(expect.objectContaining({ password: "haslo123" }));
   });
 
   it("treats a JSON body like an empty form instead of crashing", async () => {
@@ -271,7 +279,7 @@ describe("POST /api/auth/signout", () => {
 });
 
 describe("POST /api/auth/password", () => {
-  const validFields = { password: "noweHaslo1", confirmPassword: "noweHaslo1" };
+  const validFields = { password: "noweHaslo1" };
   const signedIn = { path: "/api/auth/password", user: { id: "user-1" } };
 
   it("sends an unauthenticated user to signin without an error code", async () => {
@@ -315,13 +323,22 @@ describe("POST /api/auth/password", () => {
   });
 
   it("validates the new password before calling supabase", async () => {
-    const tooShort = await PASSWORD(createContext({ password: "abc", confirmPassword: "abc" }, signedIn));
+    const tooShort = await PASSWORD(createContext({ password: "abc" }, signedIn));
     expect(location(tooShort)).toBe("/account/security?error=password_too_short");
 
-    const mismatch = await PASSWORD(createContext({ password: "noweHaslo1", confirmPassword: "inne" }, signedIn));
-    expect(location(mismatch)).toBe("/account/security?error=passwords_do_not_match");
+    const missing = await PASSWORD(createContext({}, signedIn));
+    expect(location(missing)).toBe("/account/security?error=missing_password");
 
     expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it("saves a single new password and ignores a repeat posted by an old cached form", async () => {
+    updateUser.mockResolvedValue({ error: null });
+
+    const cached = await PASSWORD(createContext({ password: "noweHaslo1", confirmPassword: "inne" }, signedIn));
+
+    expect(location(cached)).toBe("/account/security?status=password_updated");
+    expect(updateUser).toHaveBeenCalledWith({ password: "noweHaslo1" });
   });
 
   it("treats a JSON body like an empty form instead of crashing", async () => {

@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getServerTopicMapView,
+  isTopicMapOffered,
   migrateLegacyTopicMapView,
   parseTopicMapView,
   readTopicMapView,
   resetTopicMapViewForTests,
   setTopicMapView,
   subscribeTopicMapView,
+  TOPIC_MAP_MIN_CARDS,
   TOPIC_MAP_VIEW_COOKIE,
 } from "../topic-map-view";
 
@@ -47,6 +49,12 @@ afterEach(() => {
 });
 
 describe("topic map view preference", () => {
+  it("offers the map only from four cards, people and topics together", () => {
+    expect(TOPIC_MAP_MIN_CARDS).toBe(4);
+    expect([0, 1, 2, 3].map(isTopicMapOffered)).toEqual([false, false, false, false]);
+    expect([4, 5, 70].map(isTopicMapOffered)).toEqual([true, true, true]);
+  });
+
   it("accepts only known views from the cookie", () => {
     expect(parseTopicMapView("graph")).toBe("graph");
     expect(parseTopicMapView("list")).toBe("list");

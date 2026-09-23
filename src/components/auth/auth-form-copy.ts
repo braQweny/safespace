@@ -14,15 +14,11 @@ const AUTH_FORM_COPY = defineCopy(
     passwordPlaceholder: "Your password",
     newPasswordLabel: "New password",
     newPasswordPlaceholder: "Enter a new password",
-    repeatPasswordLabel: "Repeat password",
-    repeatPasswordPlaceholder: "Enter the password again",
     errors: {
       emailRequired: "Enter your e-mail address",
       emailInvalid: "Enter a valid e-mail address",
       passwordRequired: "Enter a password",
       passwordTooShort: (minLength: number) => `The password must be at least ${minLength} characters long`,
-      confirmRequired: "Repeat the password",
-      passwordsMismatch: "The passwords must match",
     },
     hints: {
       missingChars: (count: number) => `${count} more characters needed`,
@@ -44,15 +40,11 @@ const AUTH_FORM_COPY = defineCopy(
     passwordPlaceholder: "Twoje hasło",
     newPasswordLabel: "Nowe hasło",
     newPasswordPlaceholder: "Wpisz nowe hasło",
-    repeatPasswordLabel: "Powtórz hasło",
-    repeatPasswordPlaceholder: "Wpisz hasło ponownie",
     errors: {
       emailRequired: "Podaj adres e-mail",
       emailInvalid: "Podaj poprawny adres e-mail",
       passwordRequired: "Podaj hasło",
       passwordTooShort: (minLength) => `Hasło musi mieć co najmniej ${minLength} znaków`,
-      confirmRequired: "Powtórz hasło",
-      passwordsMismatch: "Hasła muszą być takie same",
     },
     hints: {
       missingChars: (count) => `Brakuje znaków: ${count}`,

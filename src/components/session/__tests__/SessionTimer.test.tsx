@@ -45,4 +45,24 @@ describe("SessionTimer", () => {
     expect(html).toContain("01:30");
     expect(html).toContain("Zostało mniej niż 2 minuty rozmowy.");
   });
+
+  it("stands still while the conversation's clock has not started: full length and what it waits for", () => {
+    const html = renderToStaticMarkup(
+      <SessionTimer
+        expiresAt="2000-01-01T00:10:00.000Z"
+        initialRemainingSeconds={90}
+        totalSeconds={600}
+        onExpired={() => undefined}
+        waitingLabel="czeka na mikrofon"
+      />,
+    );
+
+    expect(html).toContain('data-session-timer="waiting"');
+    expect(html).toContain("10 min</span> · czeka na mikrofon");
+    // No countdown, no progress and no threshold announcements while time does not run.
+    expect(html).not.toContain('role="timer"');
+    expect(html).not.toContain("01:30");
+    expect(html).not.toContain("Zostało mniej niż");
+    expect(html).not.toContain("stroke-dasharray");
+  });
 });

@@ -12,6 +12,8 @@ interface SessionSummaryPanelCopy {
   intro: string;
   notSummarizable: string;
   generate: string;
+  /** Cichy przycisk na karcie zakończenia, zanim podsumowanie istnieje. */
+  summarize: string;
   rewrite: string;
 }
 
@@ -44,6 +46,7 @@ const SESSION_SUMMARY_PANEL_COPY = defineCopy<SessionSummaryPanelCopy>(
       "A short summary of just this conversation, to read in your history. The conversation memory fills in on its own.",
     notSummarizable: "Active or empty conversations can't be summarised.",
     generate: "Generate a summary",
+    summarize: "Summarize this conversation",
     rewrite: "Write it anew",
   },
   {
@@ -72,6 +75,7 @@ const SESSION_SUMMARY_PANEL_COPY = defineCopy<SessionSummaryPanelCopy>(
     intro: "Krótkie streszczenie tylko tej rozmowy, do przeczytania w historii. Pamięć rozmów uzupełnia się sama.",
     notSummarizable: "Aktywne albo puste rozmowy nie mogą zostać podsumowane.",
     generate: "Wygeneruj podsumowanie",
+    summarize: "Podsumuj tę rozmowę",
     rewrite: "Napisz od nowa",
   },
 );

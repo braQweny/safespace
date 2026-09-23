@@ -10,7 +10,7 @@ import { useAvatarMemoryPreparation } from "@/components/hooks/useAvatarMemoryPr
 import { usePeopleMemoryPreparation } from "@/components/hooks/usePeopleMemoryPreparation";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { PILL_BRAND, PILL_OUTLINE_SOFT } from "@/components/ui/button-styles";
-import SessionSummaryPanel from "@/components/modality/SessionSummaryPanel";
+import SessionSummaryPanel, { SessionSummaryButton } from "@/components/modality/SessionSummaryPanel";
 import type { Locale } from "@/lib/i18n/locale";
 import type { LatestSessionSummaryState } from "@/lib/session-data/types";
 import { getSessionCopy } from "@/lib/session-copy";
@@ -198,9 +198,14 @@ function TimedSessionView({
 
   // Link straight at the conversation that just ended: landing on a list of
   // same-day entries and hunting for the right one is the wrong last step.
-  const historyHref = session ? `/dashboard?session=${encodeURIComponent(session.id)}` : "/dashboard";
+  // Panel podsumowania dopiero wtedy, gdy ma co pokazać (tekst albo błąd).
+  const showsSummaryPanel = summaryState.kind !== "none" || summaryErrorCode !== null;
   const avatar = initialState.avatar.selected;
   const remainingSessionsCopy = formatRemainingFreeSessions(locale, initialState.sessionQuota);
+  // Konto bezpłatne: wcześniejszy koniec nie oddaje rozmowy do puli — mówimy to
+  // przed decyzją, nie po niej. Premium nie ma limitu, więc nic nie dopisujemy.
+  const freeSessionLimit = initialState.sessionQuota?.plan === "free" ? initialState.sessionQuota.sessionLimit : null;
+  const confirmEndNote = freeSessionLimit ? copy.confirmEndFreeNote(freeSessionLimit) : null;
   // Powiadomienia tury (odpowiedź nie dotarła, ponów, błąd wysyłki) stoją przy
   // polu pisania, gdzie jest wzrok i kciuk. Zatrzymanie bezpieczeństwa i stany
   // końcowe zostają u góry, bo zastępują rozmowę, a nie komentują jedną turę.
@@ -229,6 +234,7 @@ function TimedSessionView({
         canEndSession={canEndSession}
         isEnding={isEnding}
         isConfirmingEnd={chrome.isConfirmingEnd}
+        confirmEndNote={confirmEndNote}
         onExpired={handleExpired}
         onRequestEnd={chrome.requestEnd}
         onConfirmEnd={() => {
@@ -288,33 +294,41 @@ function TimedSessionView({
             <SessionClosingCard
               title={stateCopy[kind].title}
               body={stateCopy[kind].body}
-              historyHref={historyHref}
               remainingSessionsCopy={remainingSessionsCopy}
               takesFocus={shouldClosingCardTakeFocus(initialState.kind, notice?.variant)}
+              actions={
+                <>
+                  {/* Podsumowanie tej jednej rozmowy to cicha akcja, dopóki go nie
+                      ma: pamięć rozmów i tak nie czeka na ten krok. */}
+                  {canSummarizeSession && !showsSummaryPanel ? (
+                    <SessionSummaryButton summaryStatus={summaryStatus} onGenerate={handleGenerateSummary} />
+                  ) : null}
+                  <a
+                    href="/dashboard/avatar"
+                    className="text-brand hover:text-brand-deep focus-visible:ring-brand-ring inline-flex min-h-11 items-center rounded text-sm font-medium underline underline-offset-4 transition-colors focus:outline-none focus-visible:ring-2"
+                  >
+                    {copy.changePerspective}
+                  </a>
+                </>
+              }
             >
               {unsentText && kind !== "interrupted" ? <UnsentMessageNotice text={unsentText} /> : null}
             </SessionClosingCard>
 
-            {/* Podsumowanie tej jednej rozmowy: zdanie i przycisk, bo pamięć
-                rozmów nie czeka na ten krok. */}
-            <SessionSummaryPanel
-              summaryState={summaryState}
-              summaryStatus={summaryStatus}
-              summaryErrorCode={summaryErrorCode}
-              canSummarize={canSummarizeSession}
-              onGenerate={handleGenerateSummary}
-              onApprove={handleApproveSummary}
-            />
+            {showsSummaryPanel ? (
+              <SessionSummaryPanel
+                summaryState={summaryState}
+                summaryStatus={summaryStatus}
+                summaryErrorCode={summaryErrorCode}
+                canSummarize={canSummarizeSession}
+                onGenerate={handleGenerateSummary}
+                onApprove={handleApproveSummary}
+              />
+            ) : null}
 
             {/* Jedno zastrzeżenie na ekran, pod kartą, a nie w niej. */}
             <p className="text-ink-muted text-xs leading-5">
-              <span className="text-ink-soft font-medium">{copy.boundariesLabel}</span> {boundaries}{" "}
-              <a
-                href="/dashboard/avatar"
-                className="text-brand focus-visible:ring-brand-ring rounded font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2"
-              >
-                {copy.changePerspective}
-              </a>
+              <span className="text-ink-soft font-medium">{copy.boundariesLabel}</span> {boundaries}
             </p>
           </div>
         ) : null}
@@ -354,6 +368,7 @@ function TimedSessionView({
               // jawnym wyborze użytkownika, żeby dało się od razu dopisać zdanie.
               // eslint-disable-next-line jsx-a11y/no-autofocus -- custom prop, only after an explicit "talk about this person"
               autoFocus={Boolean(initialDraft)}
+              hasStarted={hasUserMessage || Boolean(pendingUserText)}
               onChange={setDraft}
               onSubmit={() => {
                 void sendMessage();

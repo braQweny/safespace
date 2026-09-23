@@ -20,6 +20,8 @@ interface SessionComposerProps {
   isPending: boolean;
   /** Pole z prefillem z karty osoby dostaje fokus z kursorem na końcu zdania. */
   autoFocus?: boolean;
+  /** Po pierwszej wiadomości użytkownika podpowiedź przestaje mówić o początku. */
+  hasStarted?: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -91,6 +93,7 @@ export default function SessionComposer({
   isDisabled,
   isPending,
   autoFocus = false,
+  hasStarted = false,
   onChange,
   onSubmit,
 }: SessionComposerProps) {
@@ -209,7 +212,7 @@ export default function SessionComposer({
             event.preventDefault();
             submitAndKeepFocus();
           }}
-          placeholder={copy.placeholder}
+          placeholder={hasStarted ? copy.replyPlaceholder : copy.placeholder}
           className="text-ink placeholder:text-ink-muted block max-h-60 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-base leading-relaxed outline-none disabled:cursor-not-allowed sm:min-h-[4.5rem]"
         />
         <div className="flex items-center justify-between gap-3 px-2.5 pb-2.5 pl-4">

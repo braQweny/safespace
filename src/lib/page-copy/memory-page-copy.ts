@@ -7,7 +7,7 @@ const MEMORY_PAGE_COPY = defineCopy(
     back: "Back to the dashboard",
     title: (firstName: string) => `What ${firstName} remembers`,
     intro: (firstName: string) =>
-      `From your own words in conversations: people, topics and the summary. Correct, merge or remove anything; what you correct, ${firstName} won't change.`,
+      `From your own words in conversations. You can correct or remove any card — ${firstName} won't overwrite your corrections.`,
     settings: "Memory settings",
   },
   {
@@ -15,7 +15,7 @@ const MEMORY_PAGE_COPY = defineCopy(
     back: "Wróć do panelu",
     title: (firstName) => `Co ${firstName} pamięta`,
     intro: (firstName) =>
-      `Z Twoich słów w rozmowach: osoby, tematy i podsumowanie. Popraw, scal albo usuń; tego, co poprawisz, ${firstName} już nie zmieni.`,
+      `Z Twoich słów w rozmowach. Każdą kartę możesz poprawić albo usunąć — ${firstName} nie nadpisze Twoich poprawek.`,
     settings: "Ustawienia pamięci",
   },
 );

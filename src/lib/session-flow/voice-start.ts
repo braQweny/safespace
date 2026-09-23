@@ -15,9 +15,13 @@ import { getVoiceMonthlyMinutes, isVoiceSessionEnabled } from "./voice-session-m
  * Bramka startu rozmowy głosowej (pre-flight w `start-next`): flaga i
  * dostawca (tylko bezpośrednie OpenAI ma GPT-Live), potem pula — jedna próba
  * konta free albo miesięczna pula minut premium. Trigger `P0016` w bazie jest
- * prawdziwą bramką próby; pula premium jest egzekwowana tutaj, przy każdym
+ * prawdziwą bramką startu próby (zużywa ją pierwsze połączenie audio, nie sam
+ * start); pula premium i łączne 600 s próby są egzekwowane tutaj, przy każdym
  * połączeniu audio (`resolveVoiceConnectAllowance`) i przez termin
- * obserwatora, bo bez Workera nikt nie utworzy płatnej sesji live.
+ * obserwatora, bo bez Workera nikt nie utworzy płatnej sesji live. Zegar
+ * rozmowy głosowej rusza przy pierwszym połączeniu (trigger metadanych
+ * przesuwa `started_at` i `expires_at`), więc termin ze startu jest tylko
+ * długością rozmowy, jeszcze nie godziną jej końca.
  */
 export type VoiceStartFailureCode =
   "voice_unavailable" | "voice_trial_used" | "voice_minutes_exhausted" | "session_quota_unavailable";
@@ -121,7 +125,13 @@ export async function resolveVoiceStart(
 }
 
 export type VoiceConnectResolution =
-  | { ok: true; deadlineAtMs: number }
+  | {
+      ok: true;
+      /** Termin obserwatora z terminu rozmowy podanego w wywołaniu. */
+      deadlineAtMs: number;
+      /** Reszta puli (albo próby) w sekundach — do przeliczenia terminu po przesunięciu zegara przy pierwszym połączeniu. */
+      remainingSeconds: number;
+    }
   | { ok: false; code: VoiceConnectRefusalCode; status: 403 }
   | { ok: false; code: "session_quota_unavailable"; status: 503 };
 
@@ -167,5 +177,5 @@ export async function resolveVoiceConnectAllowance(
     return { ok: false, code: allowance.data.code, status: 403 };
   }
 
-  return { ok: true, deadlineAtMs: allowance.data.deadlineAtMs };
+  return { ok: true, deadlineAtMs: allowance.data.deadlineAtMs, remainingSeconds: allowance.data.remainingSeconds };
 }

@@ -21,6 +21,7 @@ import TopicList, { getOpenDifficultyButtonId } from "@/components/topics/TopicL
 import { getTopicMapCopy } from "@/components/topics/topic-map-copy";
 import {
   getServerTopicMapView,
+  isTopicMapOffered,
   migrateLegacyTopicMapView,
   readTopicMapView,
   setTopicMapView,
@@ -79,10 +80,11 @@ interface MemoryViewProps {
 interface TopicViewSwitchProps {
   pressedView: TopicMapView;
   isHydrated: boolean;
+  onChoose: (view: TopicMapView) => void;
   className?: string;
 }
 
-function TopicViewSwitch({ pressedView, isHydrated, className }: TopicViewSwitchProps) {
+function TopicViewSwitch({ pressedView, isHydrated, onChoose, className }: TopicViewSwitchProps) {
   const topicCopy = getTopicMapCopy(useLocale());
 
   return (
@@ -94,7 +96,7 @@ function TopicViewSwitch({ pressedView, isHydrated, className }: TopicViewSwitch
           aria-pressed={pressedView === "graph"}
           disabled={!isHydrated}
           onClick={() => {
-            setTopicMapView("graph");
+            onChoose("graph");
           }}
           className={SEGMENT}
         >
@@ -105,7 +107,7 @@ function TopicViewSwitch({ pressedView, isHydrated, className }: TopicViewSwitch
           aria-pressed={pressedView === "list"}
           disabled={!isHydrated}
           onClick={() => {
-            setTopicMapView("list");
+            onChoose("list");
           }}
           className={SEGMENT}
         >
@@ -355,6 +357,36 @@ function MemoryViewBody({
   const hasAnyCards = people.length > 0 || topics.length > 0;
   const readFailed = (peopleMemoryMode && personCards === null) || (topicMapMode && difficultyCards === null);
   const firstName = avatar.avatarFirstName;
+  // Przy kilku kartach mapa to trzy kółka na pustym polu: poniżej progu stoi
+  // sama lista, bez przełącznika. Liczba kart przychodzi w propsach, więc
+  // serwer i hydratacja rysują to samo.
+  const mapOffered = isTopicMapOffered(people.length + topics.length);
+  // Mapa, która pojawia się w trakcie wizyty (odświeżenie po partii w tle),
+  // nie przełącza widoku sama: lista zostaje, a przełącznik pojawia się z
+  // wciśniętą „Listą”, dopóki ktoś sam nie wybierze. Spadek poniżej progu (np.
+  // po usunięciu albo scaleniu w dialogu) zostawia po prostu samą listę.
+  const [startedWithoutMap] = useState(!mapOffered);
+  const [choseView, setChoseView] = useState(false);
+  const shownView: TopicMapView | null = !mapOffered || (startedWithoutMap && !choseView) ? "list" : view;
+  const growingParts =
+    peopleMemoryMode && peopleMemoryEnabled
+      ? topicMapMode && topicMapEnabled
+        ? "both"
+        : "people"
+      : topicMapMode && topicMapEnabled
+        ? "topics"
+        : null;
+  const hasContentAbove =
+    notice !== null ||
+    (peopleMemoryMode && !peopleMemoryEnabled) ||
+    (topicMapMode && !topicMapEnabled) ||
+    readFailed ||
+    pendingLinks.length > 0;
+
+  function chooseView(next: TopicMapView) {
+    setChoseView(true);
+    setTopicMapView(next);
+  }
 
   return (
     <section
@@ -406,17 +438,22 @@ function MemoryViewBody({
       {hasAnyCards ? (
         <>
           {/* Dwa równoważne widoki: mapa domyślnie od `md:` (48rem), lista poniżej; wybór zapamiętany. */}
-          {view === null ? (
+          {!mapOffered ? null : shownView === null ? (
             <>
-              <TopicViewSwitch pressedView="list" isHydrated={isHydrated} className="md:hidden" />
-              <TopicViewSwitch pressedView="graph" isHydrated={isHydrated} className="hidden md:block" />
+              <TopicViewSwitch pressedView="list" isHydrated={isHydrated} onChoose={chooseView} className="md:hidden" />
+              <TopicViewSwitch
+                pressedView="graph"
+                isHydrated={isHydrated}
+                onChoose={chooseView}
+                className="hidden md:block"
+              />
             </>
           ) : (
-            <TopicViewSwitch pressedView={view} isHydrated={isHydrated} />
+            <TopicViewSwitch pressedView={shownView} isHydrated={isHydrated} onChoose={chooseView} />
           )}
-          <div className="mt-3">
-            {view !== "list" ? (
-              <div className={cn(view === null && "hidden md:block")} data-topic-view="graph">
+          <div className={mapOffered ? "mt-3" : hasContentAbove ? "mt-4" : undefined}>
+            {shownView !== "list" ? (
+              <div className={cn(shownView === null && "hidden md:block")} data-topic-view="graph">
                 <TopicGraph
                   cards={topics}
                   unlinkedPeople={listUnlinkedPeople(people, topics)}
@@ -426,8 +463,8 @@ function MemoryViewBody({
                 />
               </div>
             ) : null}
-            {view !== "graph" ? (
-              <div className={cn("flex flex-col gap-5", view === null && "md:hidden")} data-topic-view="list">
+            {shownView !== "graph" ? (
+              <div className={cn("flex flex-col gap-5", shownView === null && "md:hidden")} data-topic-view="list">
                 {people.length > 0 ? (
                   <div data-memory-group="people">
                     <div className="flex items-center gap-3">
@@ -453,6 +490,11 @@ function MemoryViewBody({
               </div>
             ) : null}
           </div>
+          {!mapOffered && growingParts ? (
+            <p className="text-ink-muted mt-4 text-sm leading-6" data-topic-map-hint>
+              {copy.mapNotYet(firstName, growingParts)}
+            </p>
+          ) : null}
         </>
       ) : !readFailed ? (
         <p

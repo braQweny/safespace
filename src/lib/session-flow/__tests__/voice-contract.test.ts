@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   VOICE_SDP_MAX_CHARS,
   getVoiceRouteFailureStatus,
+  isVoiceAwaitingFirstConnection,
   isVoiceSession,
   parseVoiceConnectRequest,
   parseVoiceHeartbeatRequest,
@@ -10,6 +11,7 @@ import {
   voiceRouteFailure,
   voiceRouteValidationFailure,
   type VoiceRouteFailureCode,
+  shiftVoiceWindowToConnection,
   withVoiceDeadline,
 } from "../voice-contract";
 
@@ -168,5 +170,40 @@ describe("withVoiceDeadline", () => {
     expect(withVoiceDeadline(session, Date.parse("2026-09-12T11:00:00.000Z"))).toBe(session);
     expect(withVoiceDeadline(session, null)).toBe(session);
     expect(withVoiceDeadline(session, Number.NaN)).toBe(session);
+  });
+});
+
+describe("shiftVoiceWindowToConnection", () => {
+  const window = { startedAt: "2026-09-23T18:35:50.000Z", expiresAt: "2026-09-23T18:45:50.000Z" };
+
+  it("starts the conversation at the connection and keeps its length, like the metadata trigger", () => {
+    expect(shiftVoiceWindowToConnection(window, Date.parse("2026-09-23T18:41:00.000Z"))).toEqual({
+      startedAt: "2026-09-23T18:41:00.000Z",
+      expiresAt: "2026-09-23T18:51:00.000Z",
+    });
+    // A premium window clipped to the pool stays clipped: only its position moves.
+    expect(
+      shiftVoiceWindowToConnection(
+        { startedAt: "2026-09-23T18:00:00.000Z", expiresAt: "2026-09-23T18:25:00.000Z" },
+        Date.parse("2026-09-23T18:02:00.000Z"),
+      ),
+    ).toEqual({ startedAt: "2026-09-23T18:02:00.000Z", expiresAt: "2026-09-23T18:27:00.000Z" });
+  });
+
+  it("never moves the start backwards and leaves a window without times alone", () => {
+    expect(shiftVoiceWindowToConnection(window, Date.parse("2026-09-23T18:35:47.000Z"))).toBe(window);
+    const open = { startedAt: null, expiresAt: "2026-09-23T18:45:50.000Z" };
+    expect(shiftVoiceWindowToConnection(open, Date.parse("2026-09-23T18:41:00.000Z"))).toBe(open);
+  });
+});
+
+describe("isVoiceAwaitingFirstConnection", () => {
+  it("is true only for a voice view that says it has not connected yet", () => {
+    expect(isVoiceAwaitingFirstConnection({ mode: "voice", voiceConnected: false })).toBe(true);
+    expect(isVoiceAwaitingFirstConnection({ mode: "voice", voiceConnected: true })).toBe(false);
+    // An older view without the flag never promises that nothing was used.
+    expect(isVoiceAwaitingFirstConnection({ mode: "voice" })).toBe(false);
+    expect(isVoiceAwaitingFirstConnection({})).toBe(false);
+    expect(isVoiceAwaitingFirstConnection(null)).toBe(false);
   });
 });

@@ -69,9 +69,12 @@ describe("TimedSession", () => {
     expect(html).toContain("Zakończ rozmowę");
     expect(html).not.toContain("Zakończ sesję");
     expect(html).toContain("Pozostały czas rozmowy");
-    // W pasku telefonu stoi samo imię; pełna nazwa i nurt wracają od `sm`.
-    expect(html).toContain(">Marek</span>");
-    expect(html).toContain("Marek, praktyczny przewodnik");
+    // Nagłówek: samo imię i to, na czym perspektywa się skupia (od `md`) — bez
+    // dopisku roli i bez nazwy nurtu, tak jak na panelu i przy wyborze.
+    expect(html).toMatch(/<h1 [^>]*>Marek<\/h1>/);
+    expect(html).toContain("Jedna sytuacja, krok po kroku");
+    expect(html).not.toContain("Podejście poznawczo-behawioralne");
+    expect(html).not.toContain("Marek, praktyczny przewodnik");
     // Pomoc kryzysowa zostaje na widoku także na wąskim ekranie.
     expect(html).toContain("Pomoc teraz");
     expect(html).toContain(">Pomoc<");
@@ -201,19 +204,18 @@ describe("TimedSession", () => {
     expect(html).toContain("Rozmowa zakończona");
     expect(html).not.toContain("Zakończ rozmowę");
     expect(html).not.toContain("Pozostały czas rozmowy");
-    // Jeden krok główny: powrót do panelu jako przycisk marki, zapis obok cicho.
+    // Jeden krok główny: powrót do panelu jako przycisk marki; obok tylko ciche akcje.
     expect(html).toMatch(/<a href="\/dashboard" class="bg-brand[^"]*"[^>]*>Wróć do panelu<\/a>/);
-    expect(html).toContain("Otwórz zapis");
-    expect(html).not.toContain("Otwórz w historii");
-    // Podsumowanie jednej rozmowy zapada tu, nie dopiero w historii — zdaniem i przyciskiem.
-    expect(html).toContain("Podsumowanie tej rozmowy");
-    expect(html).toContain("Wygeneruj podsumowanie");
-    expect(html).not.toContain("Do przeczytania w historii");
+    // Zapis stoi pod kartą na tym samym ekranie, więc nie ma już do niego osobnego
+    // linku (był trzecim wyjściem z karty).
+    expect(html).not.toContain("Otwórz zapis");
+    expect(html).not.toContain("/dashboard?session=");
+    expect(html).toContain("Zmień perspektywę");
+    // Pusta rozmowa nie ma czego podsumować: ani przycisku, ani całego panelu.
+    expect(html).not.toContain("Podsumuj tę rozmowę");
+    expect(html).not.toContain("Wygeneruj podsumowanie");
     // Jedno zastrzeżenie na ekran.
     expect(html.match(/Granice rozmowy:/g)?.length).toBe(1);
-    // The closing CTA must deep-link at the conversation that just ended, not at
-    // a dashboard list where the user has to find it again.
-    expect(html).toContain("/dashboard?session=5d05a814-22f1-4a1c-9d0a-7e2f9d8c1b2a");
     expect(html).not.toContain("Wyślij");
   });
 

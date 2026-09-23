@@ -7,6 +7,7 @@ import {
   formatRemainingTime,
 } from "@/lib/session-flow/message-state";
 import { parseTimestampMs } from "@/lib/session-flow/session-clock";
+import { formatSessionBudgetMinutes } from "@/lib/session-flow/session-budget";
 import { resolveSessionPhase, type SessionPhase } from "@/lib/session-flow/session-phase";
 import { cn } from "@/lib/utils";
 import { getSessionTimerCopy } from "./session-timer-copy";
@@ -16,6 +17,13 @@ interface SessionTimerProps {
   initialRemainingSeconds: number | null;
   totalSeconds?: number | null;
   onExpired: () => void;
+  /**
+   * Zegar rozmowy jeszcze nie ruszył (rozmowa głosowa przed pierwszym
+   * połączeniem audio): zamiast odliczania pełna długość i ten opis, np.
+   * „10 min · czeka na mikrofon”. Termin wiersza jest nadal śledzony w tle,
+   * więc `onExpired` przychodzi, gdy mija.
+   */
+  waitingLabel?: string | null;
 }
 
 const WARNING_THRESHOLD_SECONDS = 300;
@@ -90,6 +98,7 @@ export default function SessionTimer({
   initialRemainingSeconds,
   totalSeconds = null,
   onExpired,
+  waitingLabel = null,
 }: SessionTimerProps) {
   const locale = useLocale();
   const copy = getSessionTimerCopy(locale);
@@ -123,6 +132,37 @@ export default function SessionTimer({
       onExpired();
     }
   }, [onExpired, remainingSeconds]);
+
+  if (waitingLabel) {
+    // Bez odliczania, pierścienia postępu i ogłoszeń progów: czas nie biegnie.
+    return (
+      <p
+        className="text-ink-muted inline-flex min-w-0 items-center gap-2 text-xs md:gap-2.5"
+        data-session-timer="waiting"
+      >
+        <svg
+          width="36"
+          height="36"
+          viewBox="0 0 36 36"
+          aria-hidden="true"
+          className="hidden shrink-0 md:block md:h-9 md:w-9"
+        >
+          <circle cx="18" cy="18" r={RING_RADIUS} fill="none" strokeWidth="3" className="stroke-line-strong" />
+        </svg>
+        <span className="truncate">
+          {totalSeconds && totalSeconds > 0 ? (
+            <>
+              <span className="text-ink text-sm font-semibold tabular-nums">
+                {formatSessionBudgetMinutes(locale, totalSeconds)}
+              </span>
+              {" · "}
+            </>
+          ) : null}
+          {waitingLabel}
+        </span>
+      </p>
+    );
+  }
 
   const level = getTimerLevel(remainingSeconds);
   const elapsedRatio = getElapsedRatio(remainingSeconds, totalSeconds);

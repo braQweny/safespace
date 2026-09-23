@@ -80,8 +80,13 @@ describe("Voice sessions against all migrations in real PostgreSQL", () => {
     );
   });
 
-  it("gives a free account one voice trial of 600 seconds that even a deleted conversation consumes", async () => {
+  it("gives a free account one voice trial of 600 seconds, held while running and consumed by the first connection", async () => {
     const owner = await db.owner();
+    const insertVoice = () =>
+      owner.client.query(
+        "insert into public.therapy_sessions(user_id, mode, duration_bucket_seconds) values ($1, 'voice', $2) returning id",
+        [owner.userId, VOICE_TRIAL_BUCKET],
+      );
     await assert.rejects(
       owner.client.query(
         "insert into public.therapy_sessions(user_id, mode, duration_bucket_seconds) values ($1, 'voice', 900)",
@@ -89,10 +94,66 @@ describe("Voice sessions against all migrations in real PostgreSQL", () => {
       ),
       { code: "P0006" },
     );
+
+    // A conversation still being started or running holds the trial: no second one alongside it.
+    const first = (await insertVoice()).rows[0].id;
+    await assert.rejects(insertVoice(), { code: "P0016" });
+    await owner.client.query(
+      `update public.therapy_sessions set status = 'active', started_at = clock_timestamp(),
+      expires_at = clock_timestamp() + interval '10 minutes' where id = $1`,
+      [first],
+    );
+    await assert.rejects(insertVoice(), { code: "P0016" });
+
+    // Ended without the microphone ever connecting: nothing was used, the trial is still there.
+    await owner.client.query("update public.therapy_sessions set status = 'completed' where id = $1", [first]);
+    const second = (await insertVoice()).rows[0].id;
+
+    // Deleted before connecting: the tombstone does not hold the trial either.
+    await owner.client.query(
+      "update public.therapy_sessions set status = 'deleted', deletion_reason_code = 'user_request' where id = $1",
+      [second],
+    );
+    const third = (await insertVoice()).rows[0].id;
+    await owner.client.query(
+      `update public.therapy_sessions set status = 'active', started_at = clock_timestamp(),
+      expires_at = clock_timestamp() + interval '10 minutes' where id = $1`,
+      [third],
+    );
+
+    // The first audio connection consumes it — for good, whatever happens to the row afterwards.
+    await owner.client.query("update public.therapy_sessions set voice_connected_at = now() where id = $1", [third]);
+    await assert.rejects(insertVoice(), { code: "P0016" });
+    await owner.client.query("update public.therapy_sessions set status = 'completed' where id = $1", [third]);
+    await assert.rejects(insertVoice(), { code: "P0016" });
+    await owner.client.query(
+      "update public.therapy_sessions set status = 'deleted', deletion_reason_code = 'user_request' where id = $1",
+      [third],
+    );
+    const tombstone = await owner.client.query(
+      "select mode, status, voice_connected_at is not null as connected from public.therapy_sessions where id = $1",
+      [third],
+    );
+    assert.deepEqual(tombstone.rows[0], { mode: "voice", status: "deleted", connected: true });
+    await assert.rejects(insertVoice(), { code: "P0016" });
+  });
+
+  it("stops holding the trial for a running row whose deadline passed before any connection", async () => {
+    const owner = await db.owner();
+    // Abandoned before the microphone and never reconciled: still `active`, deadline gone.
+    await forge(
+      `insert into public.therapy_sessions
+        (user_id, mode, status, started_at, expires_at, duration_bucket_seconds)
+      values ($1, 'voice', 'active', now() - interval '20 minutes', now() - interval '10 minutes', $2)`,
+      [owner.userId, VOICE_TRIAL_BUCKET],
+    );
     const { rows } = await owner.client.query(
       "insert into public.therapy_sessions(user_id, mode, duration_bucket_seconds) values ($1, 'voice', $2) returning id",
       [owner.userId, VOICE_TRIAL_BUCKET],
     );
+    assert.ok(rows[0].id);
+
+    // A row being started (no deadline yet) is running and holds it.
     await assert.rejects(
       owner.client.query(
         "insert into public.therapy_sessions(user_id, mode, duration_bucket_seconds) values ($1, 'voice', $2)",
@@ -100,14 +161,30 @@ describe("Voice sessions against all migrations in real PostgreSQL", () => {
       ),
       { code: "P0016" },
     );
-    await owner.client.query(
-      "update public.therapy_sessions set status = 'deleted', deletion_reason_code = 'user_request' where id = $1",
-      [rows[0].id],
+  });
+
+  it("never grants more than the trial's 600 seconds across rows, even when an owner revives an abandoned one", async () => {
+    // The trigger lets a new start follow an abandoned unconnected row; the Worker's
+    // connect gate (`readVoiceConnectAllowance`, 600 s since the account's first day)
+    // is what stops two rows from each getting the full trial.
+    const owner = await db.owner();
+    const abandoned = randomUUID();
+    await forge(
+      `insert into public.therapy_sessions
+        (id, user_id, mode, status, started_at, expires_at, duration_bucket_seconds)
+      values ($1, $2, 'voice', 'active', now() - interval '20 minutes', now() - interval '10 minutes', $3)`,
+      [abandoned, owner.userId, VOICE_TRIAL_BUCKET],
     );
-    const tombstone = await owner.client.query("select mode, status from public.therapy_sessions where id = $1", [
-      rows[0].id,
+    const fresh = await activeSession(owner, { mode: "voice", bucket: VOICE_TRIAL_BUCKET });
+
+    // A direct PATCH connects the abandoned row: its clock restarts and it now holds the trial.
+    await owner.client.query("update public.therapy_sessions set voice_connected_at = now() where id = $1", [
+      abandoned,
     ]);
-    assert.deepEqual(tombstone.rows[0], { mode: "voice", status: "deleted" });
+    const since = new Date(0).toISOString();
+    const forFresh = await usage(owner.client, since, fresh);
+    assert.equal(forFresh.used_seconds + forFresh.reserved_seconds, VOICE_TRIAL_BUCKET);
+    // …so connecting the fresh row would leave it nothing (600 − 600): the Worker refuses it.
     await assert.rejects(
       owner.client.query(
         "insert into public.therapy_sessions(user_id, mode, duration_bucket_seconds) values ($1, 'voice', $2)",
@@ -115,6 +192,126 @@ describe("Voice sessions against all migrations in real PostgreSQL", () => {
       ),
       { code: "P0016" },
     );
+  });
+
+  it("starts the voice clock at the first connection, keeping the length, and never again on a reconnect", async () => {
+    const owner = await db.owner();
+    const id = await activeSession(owner, { mode: "voice", bucket: VOICE_TRIAL_BUCKET });
+    // The user sat five minutes on the page before allowing the microphone.
+    await forge(
+      `update public.therapy_sessions set started_at = now() - interval '5 minutes',
+      expires_at = now() + interval '5 minutes' where id = $1`,
+      [id],
+    );
+
+    const first = await owner.client.query(
+      `update public.therapy_sessions set voice_connected_at = '1970-01-01T00:00:00Z',
+      started_at = '2099-01-01T00:00:00Z', expires_at = '2099-01-01T00:10:00Z'
+      where id = $1 and voice_connected_at is null
+      returning started_at, expires_at, voice_connected_at, now() as db_now,
+        extract(epoch from expires_at - started_at)::int as length_seconds`,
+      [id],
+    );
+    const connected = first.rows[0];
+    // Database time only, whatever the request sent; the full ten minutes from now.
+    assert.equal(new Date(connected.started_at).getTime(), new Date(connected.db_now).getTime());
+    assert.equal(new Date(connected.voice_connected_at).getTime(), new Date(connected.db_now).getTime());
+    assert.equal(connected.length_seconds, VOICE_TRIAL_BUCKET);
+
+    // A reconnect writes nothing new: neither the connection time nor the window moves.
+    await delay(20);
+    const again = await owner.client.query(
+      "update public.therapy_sessions set voice_connected_at = now() where id = $1 returning started_at, expires_at, voice_connected_at",
+      [id],
+    );
+    assert.equal(new Date(again.rows[0].started_at).getTime(), new Date(connected.started_at).getTime());
+    assert.equal(new Date(again.rows[0].expires_at).getTime(), new Date(connected.expires_at).getTime());
+    assert.equal(
+      new Date(again.rows[0].voice_connected_at).getTime(),
+      new Date(connected.voice_connected_at).getTime(),
+    );
+
+    // The shifted window is the one every gate reads: utterances land, the drain window follows it.
+    const appended = await append(owner.client, id, [utterance("user", "Dzień dobry.")]);
+    assert.equal(appended.inserted, 1);
+  });
+
+  it("never moves the start backwards when the Worker's clock ran a few seconds ahead", async () => {
+    const owner = await db.owner();
+    const id = await activeSession(owner, { mode: "voice", bucket: VOICE_TRIAL_BUCKET });
+    await forge(
+      `update public.therapy_sessions set started_at = now() + interval '3 seconds',
+      expires_at = now() + interval '3 seconds' + interval '10 minutes' where id = $1`,
+      [id],
+    );
+    const before = await db.admin.query("select started_at, expires_at from public.therapy_sessions where id = $1", [
+      id,
+    ]);
+    const { rows } = await owner.client.query(
+      "update public.therapy_sessions set voice_connected_at = now() where id = $1 returning started_at, expires_at",
+      [id],
+    );
+    assert.equal(new Date(rows[0].started_at).getTime(), new Date(before.rows[0].started_at).getTime());
+    assert.equal(new Date(rows[0].expires_at).getTime(), new Date(before.rows[0].expires_at).getTime());
+  });
+
+  it("keeps a premium conversation's clipped length when its clock starts at the first connection", async () => {
+    const owner = await db.owner();
+    await premium(owner);
+    const { rows } = await owner.client.query(
+      "insert into public.therapy_sessions(user_id, mode, duration_bucket_seconds) values ($1, 'voice', 3600) returning id",
+      [owner.userId],
+    );
+    const id = rows[0].id;
+    // Started two minutes ago with the pool's last 25 minutes, not the full hour.
+    await owner.client.query(
+      `update public.therapy_sessions set status = 'active', started_at = clock_timestamp() - interval '2 minutes',
+      expires_at = clock_timestamp() - interval '2 minutes' + interval '25 minutes' where id = $1`,
+      [id],
+    );
+    const connected = await owner.client.query(
+      `update public.therapy_sessions set voice_connected_at = now() where id = $1
+      returning started_at, now() as db_now, extract(epoch from expires_at - started_at)::int as length_seconds,
+        duration_bucket_seconds`,
+      [id],
+    );
+    assert.equal(new Date(connected.rows[0].started_at).getTime(), new Date(connected.rows[0].db_now).getTime());
+    assert.equal(connected.rows[0].length_seconds, 25 * 60);
+    assert.equal(connected.rows[0].duration_bucket_seconds, 3600);
+  });
+
+  it("moves no clock for a written conversation, a row still being started or one that is ending", async () => {
+    const owner = await db.owner();
+    await premium(owner);
+    const window = (id) =>
+      db.admin.query("select started_at, expires_at from public.therapy_sessions where id = $1", [id]);
+
+    const text = await activeSession(owner);
+    await forge("update public.therapy_sessions set started_at = now() - interval '5 minutes' where id = $1", [text]);
+    const textBefore = (await window(text)).rows[0];
+    await owner.client.query("update public.therapy_sessions set voice_connected_at = now() where id = $1", [text]);
+    assert.deepEqual((await window(text)).rows[0], textBefore);
+
+    const pending = await owner.client.query(
+      `insert into public.therapy_sessions (user_id, mode, status, started_at, expires_at, duration_bucket_seconds)
+      values ($1, 'voice', 'created', clock_timestamp() - interval '1 minute', clock_timestamp() + interval '59 minutes', 3600)
+      returning id`,
+      [owner.userId],
+    );
+    const pendingBefore = (await window(pending.rows[0].id)).rows[0];
+    await owner.client.query("update public.therapy_sessions set voice_connected_at = now() where id = $1", [
+      pending.rows[0].id,
+    ]);
+    assert.deepEqual((await window(pending.rows[0].id)).rows[0], pendingBefore);
+
+    const ending = await activeSession(owner, { mode: "voice", bucket: 3600 });
+    await forge("update public.therapy_sessions set started_at = now() - interval '5 minutes' where id = $1", [ending]);
+    const endingBefore = (await window(ending)).rows[0];
+    await owner.client.query(
+      "update public.therapy_sessions set status = 'completed', voice_connected_at = now() where id = $1",
+      [ending],
+    );
+    assert.deepEqual((await window(ending)).rows[0], endingBefore);
   });
 
   it("keeps the voice trial outside the three-text-conversation allowance", async () => {

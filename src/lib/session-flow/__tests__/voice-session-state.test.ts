@@ -4,6 +4,8 @@ import { buildInfoNotice } from "../session-notice";
 import type { VoiceHeartbeatSuccessResponse } from "../voice-contract";
 import {
   getInitialVoiceSessionState,
+  hasVoiceEndedUnconnected,
+  isAwaitingFirstVoiceConnection,
   isVoiceConnected,
   selectLiveFragments,
   shouldHeartbeat,
@@ -481,5 +483,101 @@ describe("connection and lifecycle transitions", () => {
       notices.connectionLost,
     );
     expect(reduce(live, { type: "heartbeat_failed", notice: null })).toBe(live);
+  });
+});
+
+describe("before the first audio connection", () => {
+  const waitingSession: SessionView = { ...activeSession, voiceConnected: false };
+  const waitingState: SessionStartPageState = { ...activeState, session: waitingSession, messages: [] };
+  const expiredNotice = buildInfoNotice("Czas minął", "Koniec.");
+
+  it("waits with the clock standing until a connection brings the shifted window", () => {
+    const initial = getInitialVoiceSessionState(waitingState, { voiceAvailable: true });
+    expect(isAwaitingFirstVoiceConnection(initial)).toBe(true);
+    expect(hasVoiceEndedUnconnected(initial)).toBe(false);
+
+    const shifted: SessionView = {
+      ...activeSession,
+      startedAt: "2026-09-12T10:04:00.000Z",
+      expiresAt: "2026-09-12T10:14:00.000Z",
+      remainingSeconds: 600,
+      voiceConnected: true,
+    };
+    const live = reduce(
+      initial,
+      { type: "mic_requested" },
+      { type: "connecting" },
+      {
+        type: "connected",
+        epoch: 1,
+        session: shifted,
+      },
+    );
+    expect(isAwaitingFirstVoiceConnection(live)).toBe(false);
+    expect(live.session).toEqual(shifted);
+
+    // A denied microphone leaves the conversation waiting: nothing started, nothing used.
+    const denied = reduce(
+      initial,
+      { type: "mic_requested" },
+      {
+        type: "mic_failed",
+        notice: buildInfoNotice("Mikrofon", "Brak zgody."),
+      },
+    );
+    expect(denied.status).toBe("idle");
+    expect(isAwaitingFirstVoiceConnection(denied)).toBe(true);
+    // Only a voice view that says so is waiting: an older view without the flag is not.
+    expect(isAwaitingFirstVoiceConnection(getInitialVoiceSessionState(activeState, { voiceAvailable: true }))).toBe(
+      false,
+    );
+  });
+
+  it("ends at the original deadline without the time-is-up notice, so the closing card can say nothing was lost", () => {
+    const initial = getInitialVoiceSessionState(waitingState, { voiceAvailable: true });
+
+    const clientExpired = reduce(initial, { type: "client_expired" });
+    expect(clientExpired).toMatchObject({ kind: "expired", status: "ended", notice: null });
+    expect(hasVoiceEndedUnconnected(clientExpired)).toBe(true);
+
+    const expiredSession: SessionView = { ...waitingSession, status: "expired", remainingSeconds: 0 };
+    const refused = reduce(initial, { type: "session_expired", session: expiredSession, notice: expiredNotice });
+    expect(refused).toMatchObject({ kind: "expired", notice: null });
+    expect(hasVoiceEndedUnconnected(refused)).toBe(true);
+
+    const drained = reduce(clientExpired, {
+      type: "heartbeat",
+      notices,
+      response: heartbeat({ live: false, closeReason: "time_limit_reached", session: expiredSession }),
+    });
+    expect(drained).toMatchObject({ kind: "expired", notice: null });
+    expect(hasVoiceEndedUnconnected(drained)).toBe(true);
+
+    const ended = reduce(
+      initial,
+      { type: "end_requested" },
+      {
+        type: "end_succeeded",
+        session: { ...waitingSession, status: "completed", endedAt: "2026-09-12T10:02:00.000Z" },
+      },
+    );
+    expect(hasVoiceEndedUnconnected(ended)).toBe(true);
+  });
+
+  it("keeps the time-is-up notice for a conversation that did connect", () => {
+    const connectedSession: SessionView = { ...activeSession, voiceConnected: true };
+    const live = reduce(getInitialVoiceSessionState(activeState, { voiceAvailable: true }), {
+      type: "connected",
+      epoch: 1,
+      session: connectedSession,
+    });
+    const expired = reduce(live, {
+      type: "session_expired",
+      session: { ...connectedSession, status: "expired", remainingSeconds: 0 },
+      notice: expiredNotice,
+    });
+
+    expect(expired.notice).toEqual(expiredNotice);
+    expect(hasVoiceEndedUnconnected(expired)).toBe(false);
   });
 });

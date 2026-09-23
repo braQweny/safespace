@@ -11,8 +11,9 @@ export const POST: APIRoute = async (context) => {
   const route = await createAuthRoute(context, "auth.signup");
   const form = await readFormData(context.request);
   const email = getFormString(form, "email");
+  // Pole „Powtórz hasło” zniknęło z formularza; stary formularz z pamięci
+  // przeglądarki może je jeszcze wysłać — trasa je pomija, zamiast odrzucać.
   const password = getFormString(form, "password", false);
-  const confirmPassword = getFormString(form, "confirmPassword", false);
   const redirectTo = getSafeAuthRedirect(form.get("redirectTo") ?? context.url.searchParams.get("redirectTo"));
 
   if (!EMAIL_PATTERN.test(email)) {
@@ -25,10 +26,6 @@ export const POST: APIRoute = async (context) => {
 
   if (password.length < MIN_PASSWORD_LENGTH) {
     return route.failureRedirect("/auth/signup", "password_too_short");
-  }
-
-  if (password !== confirmPassword) {
-    return route.failureRedirect("/auth/signup", "passwords_do_not_match");
   }
 
   if (!route.supabase) {

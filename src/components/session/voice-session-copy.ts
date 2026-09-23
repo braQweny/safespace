@@ -9,12 +9,23 @@ import type { Locale } from "@/lib/i18n/locale";
  */
 const VOICE_SESSION_COPY = defineCopy(
   {
-    introTitle: (name: string) => `${name} is listening once the microphone is on`,
-    introBody: (name: string) =>
-      `A live conversation: ${name} listens and speaks at the same time, and you can interrupt at any moment.`,
-    introHint:
-      "The audio goes straight to the model provider; SafeSpace keeps only the transcript. The clock has been running since the start, so it's best to talk somewhere private.",
+    introTitle: (name: string) => `${name} will hear you once the microphone is on`,
+    introBody: "A live conversation — you can cut in at any moment, just like in an ordinary conversation.",
+    // Przed pierwszym połączeniem: zegar nie biegnie, a próba ani minuty nie są zużyte.
+    startMicrophone: "Turn on the microphone and start",
+    introNoteFirst:
+      "The clock starts only then. If the browser doesn't give access to the microphone, nothing is lost.",
+    // Po wcześniejszym połączeniu (przeładowana strona, ręczne wznowienie).
+    introNoteResumed: "The conversation clock has been running since the first connection.",
     enableMicrophone: "Turn on the microphone",
+    // Licznik w nagłówku przed pierwszym połączeniem: „10 min · …”.
+    timerWaiting: "waiting for the microphone",
+    // Rozmowa skończona (termin, „Zakończ”) bez ani jednego połączenia audio.
+    unconnectedEndTitle: "The voice conversation didn't start",
+    unconnectedEndTrialBody:
+      "The microphone wasn't turned on, so nothing was used. You can start the voice conversation again from the dashboard.",
+    unconnectedEndPoolBody:
+      "The microphone wasn't turned on, so no minutes were taken from the pool. You can start a voice conversation again from the dashboard.",
     requestingMicrophone: "Waiting for microphone permission…",
     connecting: "Connecting…",
     unsupportedTitle: "This browser can't run a voice conversation",
@@ -46,6 +57,8 @@ const VOICE_SESSION_COPY = defineCopy(
       micFailedTitle: "The microphone couldn't be turned on",
       connectFailedTitle: "The connection couldn't be made",
       connectFailedBody: "Try again in a moment. The conversation clock keeps running.",
+      // Pierwsze połączenie jeszcze nie doszło do skutku: zegar stoi.
+      connectFailedFirstBody: "Try again in a moment. The conversation clock hasn't started yet.",
       connectRateLimitedBody: "Too many attempts in a short time. Wait a moment and try again.",
       connectionLostTitle: "The connection was interrupted",
       connectionLostBody: "We're reconnecting. If that doesn't help, use the Reconnect button.",
@@ -60,11 +73,19 @@ const VOICE_SESSION_COPY = defineCopy(
     },
   },
   {
-    introTitle: (name) => `${name} słucha, gdy włączysz mikrofon`,
-    introBody: (name) => `Rozmowa na żywo: ${name} słucha i mówi jednocześnie, a Ty możesz przerwać w każdej chwili.`,
-    introHint:
-      "Dźwięk płynie bezpośrednio do dostawcy modelu; SafeSpace zachowuje tylko zapis. Czas biegnie od rozpoczęcia, więc najlepiej rozmawiać w ustronnym miejscu.",
+    introTitle: (name) => `${name} usłyszy Cię po włączeniu mikrofonu`,
+    // Bez imienia: „przerwać Lenę / Marka” wymaga odmiany, której katalog nie ma.
+    introBody: "Rozmowa na żywo — możesz wejść w słowo w każdej chwili, jak w zwykłej rozmowie.",
+    startMicrophone: "Włącz mikrofon i zacznij",
+    introNoteFirst: "Czas ruszy dopiero wtedy. Jeśli przeglądarka nie da dostępu do mikrofonu, nic nie przepada.",
+    introNoteResumed: "Czas rozmowy biegnie od pierwszego połączenia.",
     enableMicrophone: "Włącz mikrofon",
+    timerWaiting: "czeka na mikrofon",
+    unconnectedEndTitle: "Rozmowa głosowa się nie zaczęła",
+    unconnectedEndTrialBody:
+      "Mikrofon nie został włączony, więc nic nie przepadło. Rozmowę głosową możesz zacząć od nowa z panelu.",
+    unconnectedEndPoolBody:
+      "Mikrofon nie został włączony, więc z puli minut nic nie ubyło. Rozmowę głosową możesz zacząć od nowa z panelu.",
     requestingMicrophone: "Czekamy na zgodę na mikrofon…",
     connecting: "Łączenie…",
     unsupportedTitle: "Ta przeglądarka nie obsługuje rozmowy głosowej",
@@ -94,6 +115,7 @@ const VOICE_SESSION_COPY = defineCopy(
       micFailedTitle: "Nie udało się włączyć mikrofonu",
       connectFailedTitle: "Nie udało się połączyć",
       connectFailedBody: "Spróbuj ponownie za chwilę. Czas rozmowy biegnie dalej.",
+      connectFailedFirstBody: "Spróbuj ponownie za chwilę. Czas rozmowy jeszcze nie ruszył.",
       connectRateLimitedBody: "Za dużo prób w krótkim czasie. Odczekaj chwilę i spróbuj ponownie.",
       connectionLostTitle: "Połączenie zostało przerwane",
       connectionLostBody: "Łączymy ponownie. Jeśli to nie pomoże, użyj przycisku „Połącz ponownie”.",

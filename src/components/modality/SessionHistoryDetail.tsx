@@ -1,15 +1,16 @@
 import { useMemo, useRef } from "react";
-import { Loader2, Trash2, X } from "lucide-react";
+import { ChevronDown, Loader2, Trash2, X } from "lucide-react";
 import InlineConfirm from "@/components/InlineConfirm";
 import { useLocale } from "@/components/hooks/useLocale";
+import { useTimeZone } from "@/components/hooks/useTimeZone";
 import type { SelectedModalityAvatar } from "@/lib/modality-catalog";
-import { getModalityCopy } from "@/lib/modality-copy";
 import type { SessionHistoryDetail } from "@/lib/session-data/types";
 import type { SessionSummaryFailureCode } from "@/lib/session-flow/session-summary-contract";
 import type { UiSessionMessage } from "@/lib/session-flow/message-state";
 import type { SessionHistoryDetailStatus } from "@/components/hooks/useSessionHistoryDetail";
 import type { SessionSummaryStatus } from "@/components/hooks/useSessionSummary";
 import SessionMessages from "@/components/session/SessionMessages";
+import { formatDateTime } from "./SessionHistoryList";
 import SessionSummaryPanel from "./SessionSummaryPanel";
 import { getSessionHistoryCopy } from "./session-history-copy";
 
@@ -67,6 +68,7 @@ export default function SessionHistoryDetailPanel({
   onConfirmDelete,
 }: SessionHistoryDetailPanelProps) {
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const copy = getSessionHistoryCopy(locale).detail;
   const detailMessages = useMemo(() => (detail ? toUiMessages(detail) : []), [detail]);
   const deleteButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -104,8 +106,11 @@ export default function SessionHistoryDetailPanel({
           </button>
         </div>
       </div>
+      {/* Kiedy to było, a nie tylko z kim: wiersz listy mówi samą godzinę, a
+          podgląd otwiera się nad listą, która znika z oczu. */}
       <p className="text-ink-muted mt-4 text-sm leading-6">
-        {selectedAvatar ? `${getModalityCopy(locale, selectedAvatar.modalityId).avatarName} · ` : null}
+        {selectedAvatar ? `${selectedAvatar.avatarFirstName} · ` : null}
+        {detail ? `${formatDateTime(locale, timeZone, detail.session.startedAt ?? detail.session.createdAt)} · ` : null}
         {copy.readOnly}
       </p>
 
@@ -142,9 +147,10 @@ export default function SessionHistoryDetailPanel({
 
       {detail && selectedAvatar ? (
         <div className="mt-4 space-y-4">
-          <details className="border-line rounded-xl border px-4">
-            <summary className="text-brand focus-visible:ring-brand-ring min-h-11 cursor-pointer rounded py-2.5 text-sm font-medium focus:outline-none focus-visible:ring-2">
+          <details className="border-line group rounded-xl border px-4">
+            <summary className="text-brand focus-visible:ring-brand-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded py-2.5 text-sm font-medium focus:outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden">
               {copy.summaryDisclosure}
+              <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
             </summary>
             <SessionSummaryPanel
               summaryState={summaryState}
