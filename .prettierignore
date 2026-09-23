@@ -1,0 +1,3 @@
+# 10xDevs toolkit files are vendored by 10x-cli, which tracks their content hashes
+.agents/
+.10x-cli.json
