@@ -25,7 +25,7 @@ export function buildOpenAiChatRequest(request: OpenRouterNonStreamingChatReques
   const effort = request.reasoning?.effort;
   // Luna's native API has none/low/medium/high/xhigh/max, not OpenRouter's
   // normalized minimal. Use the lowest reasoning level for classifiers.
-  const reasoningEffort = effort === "minimal" && /^gpt-5\.6-luna(?:$|-)/i.test(model) ? "low" : effort;
+  const reasoningEffort = effort === "minimal" && /^gpt-(?:5\.6|6)-luna(?:$|-)/i.test(model) ? "low" : effort;
   return {
     model,
     messages,

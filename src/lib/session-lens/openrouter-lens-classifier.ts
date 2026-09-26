@@ -8,7 +8,7 @@ import {
   type OpenRouterPrivateProviderPreferences,
 } from "@/lib/openrouter/privacy";
 import { OpenRouterChatError, type OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
-import { isOpenRouterGpt56LunaModel, supportsOpenRouterTemperature } from "@/lib/session-ai/openrouter-request-params";
+import { isOpenRouterGptLunaModel, supportsOpenRouterTemperature } from "@/lib/session-ai/openrouter-request-params";
 import {
   buildSessionLensClassifierUserContent,
   SESSION_LENS_CLASSIFIER_SYSTEM_PROMPT,
@@ -115,7 +115,7 @@ export function buildOpenRouterSessionLensRequest(
   modelOverride?: string,
 ): OpenRouterSessionLensRequestBody {
   const model = resolveOpenRouterModel(modelOverride ?? getOpenRouterEnv().safetyModel, OPENROUTER_LENS_DEFAULT_MODEL);
-  const minimalReasoning = isOpenRouterGpt56LunaModel(model);
+  const minimalReasoning = isOpenRouterGptLunaModel(model);
 
   return {
     model,

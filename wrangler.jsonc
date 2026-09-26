@@ -27,10 +27,10 @@
     // ok. 0,20 zł, a abonament 49 zł brutto zostawia ~36 zł netto. Pełne 120 min
     // zostawiałoby ~12 zł marży; 60 min trzyma ją przy ~22 zł (wycena 2026-09-13).
     "VOICE_MONTHLY_MINUTES": "60",
-    "OPENROUTER_SAFETY_MODEL": "openai/gpt-5.6-luna",
-    "OPENROUTER_SESSION_MODEL": "openai/gpt-5.6-luna",
+    "OPENROUTER_SAFETY_MODEL": "openai/gpt-6-luna",
+    "OPENROUTER_SESSION_MODEL": "openai/gpt-6-luna",
     "OPENROUTER_SESSION_REASONING_EFFORT": "xhigh",
-    "OPENROUTER_SUMMARY_MODEL": "openai/gpt-5.6-luna",
+    "OPENROUTER_SUMMARY_MODEL": "openai/gpt-6-luna",
     "OPENROUTER_TRANSCRIPTION_MODEL": "openai/gpt-4o-mini-transcribe",
   },
   // Obserwator rozmowy głosowej: jeden obiekt na sesję (getByName(sessionId)),

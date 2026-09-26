@@ -235,8 +235,8 @@ Add these variables to local `.env` and `.dev.vars` files:
 
 ```
 OPENROUTER_API_KEY=replace-with-openrouter-api-key
-OPENROUTER_SAFETY_MODEL=openai/gpt-5.6-luna
-OPENROUTER_SESSION_MODEL=openai/gpt-5.6-luna
+OPENROUTER_SAFETY_MODEL=openai/gpt-6-luna
+OPENROUTER_SESSION_MODEL=openai/gpt-6-luna
 ```
 
 `OPENROUTER_API_KEY` is the only required OpenRouter secret. Model variables are optional public configuration: locally they come from `.env` / `.dev.vars` (`.env.example` carries the recommended values), in production from the `vars` block in `wrangler.jsonc` — keep the two in sync. Chat-completion requests that carry session data use OpenRouter's private provider routing (`src/lib/openrouter/privacy.ts`: no data collection, ZDR, required parameters), so a model without a matching endpoint fails instead of silently weakening privacy; the dedicated transcription endpoint cannot take request-level ZDR, so the production key itself must enforce it (see `.env.example`). OpenRouter secrets must stay server-only. Do not import them from client components, do not commit real values, and do not use an OpenRouter management key for this app runtime.

@@ -1,12 +1,12 @@
 import type { OpenRouterReasoningEffort } from "@/lib/openrouter/env";
 
-const OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|o\d(?:[.-]|$))/i;
+const OPENAI_MAX_COMPLETION_TOKENS_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|gpt-6-luna(?:$|[-:])|o\d(?:[.-]|$))/i;
 const OPENAI_GPT_5_5_MODEL_PATTERN = /^openai\/gpt-5\.5(?:$|[-:])/i;
-// Whole GPT-5.6 Luna family: base, `-pro` and the `:batch` variants. The
+// GPT-6 Luna and the GPT-5.6 Luna family (base, `-pro`, `:batch`). The
 // classifier already treats them as one reasoning family; the session and
 // summary paths must agree, otherwise a model that reasons by default eats its
 // visible budget and comes back as `finish_reason: "length"`.
-const OPENAI_GPT_5_6_LUNA_MODEL_PATTERN = /^openai\/gpt-5\.6-luna(?:$|[-:])/i;
+const OPENAI_GPT_LUNA_MODEL_PATTERN = /^openai\/gpt-(?:5\.6|6)-luna(?:$|[-:])/i;
 const GEMINI_3_1_FLASH_LITE_MODEL_PATTERN = /^google\/gemini-3\.1-flash-lite(?:$|[-:])/i;
 const GEMINI_3_5_FLASH_MODEL_PATTERN = /^google\/gemini-3\.5-flash(?:$|[-:])/i;
 const GEMINI_3_7_FLASH_MODEL_PATTERN = /^google\/gemini-3\.7-flash(?:$|[-:])/i;
@@ -78,8 +78,8 @@ export function isOpenRouterGemini37FlashModel(model: string) {
   return GEMINI_3_7_FLASH_MODEL_PATTERN.test(model.trim());
 }
 
-export function isOpenRouterGpt56LunaModel(model: string) {
-  return OPENAI_GPT_5_6_LUNA_MODEL_PATTERN.test(model.trim());
+export function isOpenRouterGptLunaModel(model: string) {
+  return OPENAI_GPT_LUNA_MODEL_PATTERN.test(model.trim());
 }
 
 /**
@@ -112,7 +112,7 @@ function resolveOpenRouterReasoningEffort(model: string): OpenRouterReasoningEff
 
   // The whole Luna family reasons; pinning the effort keeps the hidden-token
   // budget predictable instead of leaving it to the provider's default.
-  if (isOpenRouterGpt56LunaModel(trimmedModel)) {
+  if (isOpenRouterGptLunaModel(trimmedModel)) {
     return "medium";
   }
 

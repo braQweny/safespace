@@ -17,7 +17,7 @@ import {
   buildOpenRouterReasoningParameter,
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
-  isOpenRouterGpt56LunaModel,
+  isOpenRouterGptLunaModel,
   isOpenRouterOxAlphaModel,
   isOpenRouterGemini37FlashModel,
   resolveSessionReasoningTimeoutMs,
@@ -34,9 +34,9 @@ const OPENROUTER_GEMINI_FLASH_SESSION_MAX_COMPLETION_TOKENS = 1_600;
 // zużywa więcej niż Gemini Flash. Zapas jest darmowy (model bez opłat), a za mały
 // budżet wraca jako `finish_reason: "length"` i psuje całą odpowiedź.
 const OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
-// Cała rodzina GPT-5.6 Luna rozumuje przed odpowiedzią (domyślnie `medium`,
-// patrz `openrouter-request-params.ts`), więc dostaje ten sam zapas co Ox Alpha.
-const OPENROUTER_GPT_5_6_LUNA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
+// GPT-6 Luna i rodzina GPT-5.6 Luna rozumują przed odpowiedzią (domyślnie `medium`,
+// patrz `openrouter-request-params.ts`), więc dostają ten sam zapas co Ox Alpha.
+const OPENROUTER_GPT_LUNA_SESSION_MAX_COMPLETION_TOKENS = 2_400;
 // Wymuszony wysoki poziom rozumowania (`OPENROUTER_SESSION_REASONING_EFFORT`)
 // myśli dłużej niż jakikolwiek domyślny profil modelu: ukryte tokeny idą w
 // tysiące, a zbyt ciasny limit wraca jako `finish_reason: "length"` i psuje
@@ -172,8 +172,8 @@ function resolveSessionMaxCompletionTokens(model: string, reasoningEffort?: Open
     return OPENROUTER_OX_ALPHA_SESSION_MAX_COMPLETION_TOKENS;
   }
 
-  if (isOpenRouterGpt56LunaModel(model)) {
-    return OPENROUTER_GPT_5_6_LUNA_SESSION_MAX_COMPLETION_TOKENS;
+  if (isOpenRouterGptLunaModel(model)) {
+    return OPENROUTER_GPT_LUNA_SESSION_MAX_COMPLETION_TOKENS;
   }
 
   if (isOpenRouterGemini35FlashModel(model) || isOpenRouterGemini37FlashModel(model)) {

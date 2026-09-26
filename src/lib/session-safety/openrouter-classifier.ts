@@ -5,6 +5,7 @@ import type { Fetcher } from "@openrouter/sdk";
 import { OpenRouterChatError } from "@/lib/openrouter/sdk-chat";
 import type { OpenRouterNonStreamingChatRequest } from "@/lib/openrouter/sdk-chat";
 import { getOpenRouterEnv, resolveOpenRouterModel } from "@/lib/openrouter/env";
+import { isOpenRouterGptLunaModel, supportsOpenRouterTemperature } from "@/lib/session-ai/openrouter-request-params";
 import {
   getOpenRouterPrivateProviderPreferences,
   type OpenRouterPrivateProviderPreferences,
@@ -32,14 +33,6 @@ const OPENROUTER_SAFETY_MAX_COMPLETION_TOKENS = 64;
 // fail-closed hard_stop on every message, so they get extra headroom.
 const OPENROUTER_SAFETY_REASONING_MAX_COMPLETION_TOKENS = 256;
 const OPENROUTER_SAFETY_TEMPERATURE = 0;
-
-// Mirrors session-ai/openrouter-request-params.ts: OpenAI gpt-5/o-series
-// models reject a non-default temperature, and with requireParameters such a
-// request would not route at all.
-const OPENAI_NO_TEMPERATURE_MODEL_PATTERN = /^openai\/(?:gpt-5(?:[.-]|$)|o\d(?:[.-]|$))/i;
-// GPT-5.6 Luna family (base, -pro, :batch). Classification is a simple
-// structured-output task, so the classifier always asks for minimal effort.
-const OPENAI_GPT_5_6_LUNA_MODEL_PATTERN = /^openai\/gpt-5\.6-luna(?:$|[-:])/i;
 
 const OPENROUTER_SAFETY_RESPONSE_SCHEMA = {
   name: "safespace_session_safety_decision",
@@ -226,7 +219,7 @@ function resolveSafetyModel(modelOverride?: string) {
 }
 
 function buildSafetyTemperatureParameter(model: string): Pick<OpenRouterSafetyRequestBody, "temperature"> {
-  if (OPENAI_NO_TEMPERATURE_MODEL_PATTERN.test(model.trim())) {
+  if (!supportsOpenRouterTemperature(model)) {
     return {};
   }
 
@@ -254,7 +247,7 @@ function resolveSafetyMaxCompletionTokens(model: string) {
 }
 
 function usesSafetyMinimalReasoning(model: string) {
-  return OPENAI_GPT_5_6_LUNA_MODEL_PATTERN.test(model.trim());
+  return isOpenRouterGptLunaModel(model);
 }
 
 function resolveTimeoutMs(timeoutMs: number | undefined) {

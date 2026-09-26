@@ -10,7 +10,7 @@ import {
   buildOpenRouterTokenLimitParameter,
   isOpenRouterGemini35FlashModel,
   isOpenRouterGemini37FlashModel,
-  isOpenRouterGpt56LunaModel,
+  isOpenRouterGptLunaModel,
   isOpenRouterOxAlphaModel,
   supportsOpenRouterTemperature,
   usesOpenRouterReasoningBudget,
@@ -34,7 +34,7 @@ const OPENROUTER_SUMMARY_MAX_COMPLETION_TOKENS = 320;
 const OPENROUTER_GEMINI_3_5_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 800;
 const OPENROUTER_GEMINI_3_7_FLASH_SUMMARY_MAX_COMPLETION_TOKENS = 1_600;
 const OPENROUTER_OX_ALPHA_SUMMARY_MAX_COMPLETION_TOKENS = 2_400;
-const OPENROUTER_GPT_5_6_LUNA_SUMMARY_MAX_COMPLETION_TOKENS = 2_400;
+const OPENROUTER_GPT_LUNA_SUMMARY_MAX_COMPLETION_TOKENS = 2_400;
 const OPENROUTER_SUMMARY_TEMPERATURE = 0.2;
 
 interface OpenRouterSummaryOptions {
@@ -133,8 +133,8 @@ export function resolveSummaryMaxCompletionTokens(model: string) {
     return OPENROUTER_OX_ALPHA_SUMMARY_MAX_COMPLETION_TOKENS;
   }
 
-  if (isOpenRouterGpt56LunaModel(model)) {
-    return OPENROUTER_GPT_5_6_LUNA_SUMMARY_MAX_COMPLETION_TOKENS;
+  if (isOpenRouterGptLunaModel(model)) {
+    return OPENROUTER_GPT_LUNA_SUMMARY_MAX_COMPLETION_TOKENS;
   }
 
   if (isOpenRouterGemini37FlashModel(model)) {
@@ -154,7 +154,7 @@ export function resolveSummaryMaxCompletionTokens(model: string) {
  * the bill) small without dropping the parameter that pins the budget.
  */
 export function resolveSummaryReasoningEffort(model: string): OpenRouterReasoningEffort | undefined {
-  return isOpenRouterGpt56LunaModel(model) ? "low" : undefined;
+  return isOpenRouterGptLunaModel(model) ? "low" : undefined;
 }
 
 function buildOptionalSamplingParameters(model: string): Pick<OpenRouterSummaryRequestBody, "temperature"> {

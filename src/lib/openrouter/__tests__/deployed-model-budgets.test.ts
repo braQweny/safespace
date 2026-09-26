@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { parseOpenRouterReasoningEffort } from "../env";
+import { buildOpenAiChatRequest } from "@/lib/openai/chat";
 import { buildOpenRouterSessionRequest } from "@/lib/session-ai/openrouter-session-response";
 import { buildOpenRouterSummaryRequest } from "@/lib/session-summary/openrouter-summary";
 import { buildOpenRouterPeopleMemoryRequest } from "@/lib/session-summary/openrouter-people-memory";
@@ -93,6 +94,40 @@ describe("deployed OpenRouter models through every request builder", () => {
   const summaryModel = vars.OPENROUTER_SUMMARY_MODEL ?? sessionModel;
   const safetyModel = vars.OPENROUTER_SAFETY_MODEL ?? "";
   const sessionEffort = parseOpenRouterReasoningEffort(vars.OPENROUTER_SESSION_REASONING_EFFORT);
+
+  it("preserves Luna 5.6 reasoning and token budgets when migrating every text workload to Luna 6", () => {
+    function requestsFor(model: string) {
+      return [
+        buildOpenRouterSessionRequest(sessionInput, model, { reasoningEffort: sessionEffort }),
+        buildOpenRouterSessionRequest({ ...sessionInput, mode: "opening" }, model, { reasoningEffort: "low" }),
+        buildOpenRouterSessionRequest(sessionInput, model),
+        buildOpenRouterSummaryRequest(summaryInput, model),
+        buildOpenRouterSummaryRequest({ ...summaryInput, continuityMemory: "Earlier synthetic summary." }, model),
+        buildOpenRouterPeopleMemoryRequest(peopleInput, model),
+        buildOpenRouterSafetyRequest({ currentUserMessage: "Czesc." }, model),
+        buildOpenRouterSessionLensRequest({ currentUserMessage: "Czesc." }, model),
+      ].map(buildOpenAiChatRequest);
+    }
+
+    const previousRequests = requestsFor("openai/gpt-5.6-luna");
+    const migratedRequests = requestsFor("openai/gpt-6-luna");
+    const expectedSettings = [
+      { reasoning_effort: "xhigh", max_completion_tokens: 16_000 },
+      { reasoning_effort: "low", max_completion_tokens: 2_400 },
+      { reasoning_effort: "medium", max_completion_tokens: 2_400 },
+      { reasoning_effort: "low", max_completion_tokens: 2_400 },
+      { reasoning_effort: "low", max_completion_tokens: 4_000 },
+      { reasoning_effort: "low", max_completion_tokens: 8_000 },
+      { reasoning_effort: "low", max_completion_tokens: 1_024 },
+      { reasoning_effort: "low", max_completion_tokens: 1_024 },
+    ];
+
+    migratedRequests.forEach((request, index) => {
+      expect(request).toEqual({ ...previousRequests[index], model: "gpt-6-luna" });
+      expect(request).toMatchObject({ ...expectedSettings[index], store: false, stream: false });
+      expect(request).not.toHaveProperty("temperature");
+    });
+  });
 
   it("gives the session model a reasoning budget that fits the configured effort", () => {
     const request = buildOpenRouterSessionRequest(sessionInput, sessionModel, { reasoningEffort: sessionEffort });
