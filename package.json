@@ -58,7 +58,7 @@
     "@types/pg": "8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.2",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.8",
@@ -75,9 +75,9 @@
     "prettier-plugin-astro": "0.14.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "supabase": "^2.117.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.2",
     "wrangler": "4.135.0"
   },
   "lint-staged": {
